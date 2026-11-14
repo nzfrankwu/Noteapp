@@ -47,6 +47,15 @@ class ReminderScheduler(
         prefs.edit { putStringSet(KEY_SCHEDULED, wantedIds) }
     }
 
+    /**
+     * Debug builds only: a test reminder for [taskId] in [delayMillis] (default 1 minute). It has
+     * its own ID ("<task>/test"), so it never replaces the task's real reminders.
+     */
+    fun scheduleTest(taskId: String, delayMillis: Long = 60_000) {
+        val intent = pendingIntent("$taskId/$TEST_OFFSET", PendingIntent.FLAG_UPDATE_CURRENT) ?: return
+        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, clock.millis() + delayMillis, intent)
+    }
+
     /** True if an alarm is currently set for this reminder ID (used by tests and diagnostics). */
     fun isScheduled(reminderId: String): Boolean = pendingIntent(reminderId, PendingIntent.FLAG_NO_CREATE) != null
 
@@ -68,6 +77,9 @@ class ReminderScheduler(
     companion object {
         private const val KEY_SCHEDULED = "scheduled_ids"
         const val EXTRA_REMINDER_ID = "reminder_id"
+
+        /** The offset part of a test reminder's ID (see [scheduleTest]). */
+        const val TEST_OFFSET = "test"
 
         /**
          * One intent per reminder. Its data URI (noteapp://reminder/<task>/<offset>) makes each

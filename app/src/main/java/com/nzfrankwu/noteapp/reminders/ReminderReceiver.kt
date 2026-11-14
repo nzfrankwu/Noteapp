@@ -28,7 +28,10 @@ class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val reminderId = intent.getStringExtra(ReminderScheduler.EXTRA_REMINDER_ID) ?: return
         val taskId = reminderId.substringBeforeLast('/')
-        val offset = ReminderOffset.entries.firstOrNull { it.key == reminderId.substringAfterLast('/') } ?: return
+        val offsetKey = reminderId.substringAfterLast('/')
+        val isTest = offsetKey == ReminderScheduler.TEST_OFFSET
+        val offset = ReminderOffset.entries.firstOrNull { it.key == offsetKey }
+        if (offset == null && !isTest) return
         val app = context.applicationContext as NoteAppApplication
 
         val pending = goAsync()
@@ -36,6 +39,11 @@ class ReminderReceiver : BroadcastReceiver() {
             try {
                 // Re-check: the task may have been finished or deleted since the alarm was set.
                 val item = app.container.taskRepository.observeTask(taskId).first() ?: return@launch
+                if (offset == null) {
+                    // Debug test reminder: always shown, so the whole path (alarm → notification → tap) can be checked.
+                    Notifications.showReminder(context, reminderId, taskId, item.task.title, "Test reminder. Tap to open the task.")
+                    return@launch
+                }
                 if (item.task.status.isFinished || item.task.let { it.targetAt ?: it.dueAt } == null) return@launch
                 val text = ReminderPlanner.message(item.task, offset, item.courseCode, ZoneId.systemDefault())
                 Notifications.showReminder(context, reminderId, taskId, item.task.title, text)

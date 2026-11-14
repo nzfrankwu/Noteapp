@@ -60,13 +60,16 @@ import java.time.ZoneId
 fun TaskEditorScreen(
     viewModel: TaskEditorViewModel,
     onClose: () -> Unit,
-    onSaved: (taskId: String) -> Unit,
+    /** [hasDate]: the saved task has a due or target date (so it will get reminders). */
+    onSaved: (taskId: String, hasDate: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val courses by viewModel.courses.collectAsStateWithLifecycle()
     val form = state.form
-    LaunchedEffect(state.savedTaskId) { state.savedTaskId?.let(onSaved) }
+    LaunchedEffect(state.savedTaskId) {
+        state.savedTaskId?.let { onSaved(it, form.dueDate != null || form.targetDate != null) }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),

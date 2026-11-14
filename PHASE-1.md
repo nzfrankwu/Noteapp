@@ -84,12 +84,11 @@ _Android part done:_
 - `NoteAppApplication` re-plans alarms whenever tasks change.
 - 4 emulator tests with real alarms.
 
-**Still to do:**
-- asking for notification permission (needs a screen)
-- tapping a notification opening the task (the task screen doesn't exist yet; for now it opens the app)
-- the debug "test reminder in 1 minute" button
-- tablet checks: restart, ColorOS battery limits
-- [ ] **4.1** Notifications 1 day and 2 hours before the target date (or the due date), asking permission first. Tapping one opens the task. Debug builds get a test button.
+**Still to do:** tablet checks (restart, ColorOS battery limits).
+- [x] **4.1** Notifications 1 day and 2 hours before the target date (or the due date), asking permission first. Tapping one opens the task. Debug builds get a test button.
+  - Android's "Allow notifications?" is asked after you save a task with a date.
+  - Settings → Reminders: on/off status, "Notification settings", a battery-settings hint, and (debug builds) "Test reminder in 1 minute" for the task due soonest. Test reminders have their own ID, so they never replace real ones.
+  - Tapping a reminder opens its task (`MainActivity` is singleTop and passes the task to `NoteAppRoot`). 1 emulator test; the full path was also checked by hand on the emulator.
 - [x] 🔺 **4.2** Reminders stay correct after edits, restarts, and time-zone or daylight-saving changes. ★
   - Code is done and tested on the emulator.
   - Not yet checked on the tablet: a real restart, and whether ColorOS delays or blocks alarms.

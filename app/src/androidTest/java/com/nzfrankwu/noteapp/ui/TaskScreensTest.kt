@@ -87,7 +87,7 @@ class TaskScreensTest {
     fun newTask_fromAFolder_savesWithThatCourse() {
         var savedId: String? = null
         val viewModel = TaskEditorViewModel(null, courseId, null, null, tasks)
-        showOnTablet { TaskEditorScreen(viewModel, onClose = {}, onSaved = { savedId = it }) }
+        showOnTablet { TaskEditorScreen(viewModel, onClose = {}, onSaved = { id, _ -> savedId = id }) }
 
         compose.onNodeWithText("New task").assertExists()
         waitFor("ELECTENG 204") // the course is already picked
@@ -110,7 +110,7 @@ class TaskScreensTest {
     fun newTask_withADueDate_defaultsTo1159pm() {
         var savedId: String? = null
         val viewModel = TaskEditorViewModel(null, courseId, null, null, tasks)
-        showOnTablet { TaskEditorScreen(viewModel, onClose = {}, onSaved = { savedId = it }) }
+        showOnTablet { TaskEditorScreen(viewModel, onClose = {}, onSaved = { id, _ -> savedId = id }) }
 
         compose.onNodeWithTag("title-field").performTextInput("Lab report")
         compose.onNodeWithTag("due-date").performClick()
@@ -129,7 +129,7 @@ class TaskScreensTest {
         val id = addTask("Read chapter 3", notes = "pages 40-60")
         var saved = false
         val viewModel = TaskEditorViewModel(id, null, null, null, tasks)
-        showOnTablet { TaskEditorScreen(viewModel, onClose = {}, onSaved = { saved = true }) }
+        showOnTablet { TaskEditorScreen(viewModel, onClose = {}, onSaved = { _, _ -> saved = true }) }
 
         compose.onNodeWithText("Edit task").assertExists()
         waitFor("Read chapter 3")
@@ -218,7 +218,7 @@ class TaskScreensTest {
                 ),
             )
         }
-        showOnTablet { TaskEditorScreen(TaskEditorViewModel("canvas-2", null, null, null, tasks), onClose = {}, onSaved = {}) }
+        showOnTablet { TaskEditorScreen(TaskEditorViewModel("canvas-2", null, null, null, tasks), onClose = {}, onSaved = { _, _ -> }) }
         waitFor("Quiz 5")
         compose.onNodeWithTag("title-field").assertDoesNotExist()
         compose.onNodeWithTag("link-field").assertDoesNotExist()
