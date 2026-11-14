@@ -1,6 +1,7 @@
-# NoteApp
+# Noteapp
 
-NoteApp is an Android **tablet** app written in **Kotlin** with **Jetpack Compose**.
+Noteapp is an Android **tablet** app written in **Kotlin** with **Jetpack Compose**.
+**The app's name is spelled "Noteapp"** (lowercase a) everywhere the user sees it: the launcher, titles and messages. It comes from `R.string.app_name`. Internal code names like `NoteAppDatabase` and `NoteAppTheme` stay as they are, and older docs (IDEA.md) may say "NoteApp".
 It's a handwriting-first note-taking app with built-in Canvas assignment tracking.
 App ID / package: `com.nzfrankwu.noteapp` (single `app` module). minSdk 26. **Never change the app ID**: Android would treat it as a different app, and the user's notes wouldn't carry over.
 

@@ -22,6 +22,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.nzfrankwu.noteapp.R
@@ -47,7 +48,7 @@ fun HomeScreen(onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("NoteApp") },
+                title = { Text(stringResource(R.string.app_name)) },
                 actions = {
                     RoundIconButton(
                         icon = R.drawable.ic_settings,

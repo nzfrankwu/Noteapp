@@ -24,6 +24,12 @@ class NavigationTest {
     }
 
     @Test
+    fun appName_isNoteapp() {
+        // The user's chosen spelling: "Noteapp", lowercase a.
+        compose.onNodeWithText("Noteapp").assertIsDisplayed()
+    }
+
+    @Test
     fun settingsButton_opensSettings_andBackArrowReturnsHome() {
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.onNodeWithText("About").assertIsDisplayed()
