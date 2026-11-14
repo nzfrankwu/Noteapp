@@ -2,7 +2,9 @@
 
 NoteApp is an Android **tablet** app written in **Kotlin** with **Jetpack Compose**.
 It's a handwriting-first note-taking app with built-in Canvas assignment tracking.
-Package: `com.example.noteapp` (single `app` module). minSdk 26.
+App ID / package: `com.nzfrankwu.noteapp` (single `app` module). minSdk 26. **Never change the app ID**: Android would treat it as a different app, and the user's notes wouldn't carry over.
+
+The current phase plan and its checklist are in `PHASE-1.md`. Read it at the start of a session and tick steps as they pass.
 
 ## The plan: IDEA.md
 

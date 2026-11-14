@@ -2,20 +2,25 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+        Android's built-in backup is OFF. NoteApp has its own Google Drive backup (Phase 6),
+        and Android's would also copy the Canvas sign-in cookies (IDEA.md §3.5).
+        allowBackup="false" stops cloud backup; on Android 12+ device-to-device transfer
+        ignores it, so data_extraction_rules.xml excludes everything from that too.
+    -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Noteapp">
+        android:theme="@style/Theme.NoteApp">
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Noteapp"
+            android:theme="@style/Theme.NoteApp"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

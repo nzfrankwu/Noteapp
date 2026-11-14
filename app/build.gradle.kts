@@ -27,13 +27,13 @@ if (!hasReleaseKey) {
 }
 
 android {
-    namespace = "com.example.noteapp"
+    namespace = "com.nzfrankwu.noteapp"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.noteapp"
+        applicationId = "com.nzfrankwu.noteapp"
         minSdk = 26
         targetSdk = 37
         versionCode = 1
