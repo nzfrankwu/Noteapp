@@ -61,9 +61,18 @@ _Logic done ahead of the screens:_
 - [ ] 🔺 **5.1** Canvas address, then in-app browser login, then "Signed in as …", plus Sign out. You do the real login. If the uni login fails in the in-app browser, stop and discuss the calendar-feed fallback (§3.4). ★
 
 ### F6: Canvas import
-- [ ] 🔺 **6.1** Read-only Canvas client: GET only, reads every page, polite pacing, notices an expired sign-in. Tested against a fake server.
-  - _Done:_ `canvas/CanvasParser.kt` reads the user, courses and assignments, strips the `while(1);` guard and follows `Link` paging. It's tested with made-up sample JSON in `app/src/test/resources/canvas/`.
-  - **Still to do:** the OkHttp client (GET-only guard, cookies from WebView, pacing, expired-sign-in detection) with MockWebServer tests.
+- [x] 🔺 **6.1** Read-only Canvas client: GET only, reads every page, polite pacing, notices an expired sign-in. Tested against a fake server.
+  - `canvas/CanvasParser.kt` handles reading responses (15 tests with made-up sample JSON in `app/src/test/resources/canvas/`).
+  - `canvas/CanvasClient.kt` makes the requests (14 MockWebServer tests). It has:
+    - the GET-only `ReadOnlyGuard`
+    - the cookie sent only to the Canvas host and never logged
+    - links to other sites refused
+    - a 250 ms pause between pages
+    - 3 tries with growing waits when rate-limited
+    - 401 or a redirect to `/login` treated as an expired sign-in
+    - redirects not followed
+    - all-or-nothing lists
+  - The real cookie source (WebView `CookieManager`) gets connected in 5.1.
 - [ ] **6.2** Import active courses, then the "Link your courses" screen.
 - [ ] **6.3** Import assignments (dated, undated and quizzes) with formatted descriptions, "Open in Canvas" and submission status. Debug builds get a fake-Canvas mode. ★
 

@@ -105,9 +105,11 @@ dependencies {
     // and the 1.7.3 that came in indirectly made MigrationTest crash.
     implementation(libs.kotlinx.serialization.core)
     implementation(libs.kotlinx.serialization.json) // reading Canvas API responses
+    implementation(libs.okhttp) // Canvas API requests (GET only)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
     testImplementation(libs.junit)
+    testImplementation(libs.okhttp.mockwebserver) // a fake Canvas server for tests
     androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
