@@ -27,6 +27,8 @@ _None right now._
 
 ## Done
 
+- **Timeline (Phase 1b, step B.6), 15 Nov.** One row per dated task with a bar from "available from" (or when it was added) to the due date, course colours, status dot, ◆ target date, a red outline when overdue, ◀/▶ when a bar carries on off-screen, edge arrows for tasks outside the visible days (tap to jump there), weekends shaded, a blue line for now, "2 weeks | Month", ◀ ▶ / Today / swipe, the same filters as the calendar, and "N tasks without a due date". 21 unit tests and 4 screen tests.
+
 - **Calendar (Phase 1b, step B.5), 15 Nov.** Month grid Monday–Sunday with each task on its due date (or its target date, marked "Target"), course-colour bars, time and status dot, overdue in red, "+N more", a side sheet per day with "Add task on this day", ◀ ▶ / Today / swipe, "All courses ▾" and "Show finished". 18 unit tests and 4 screen tests.
 
 - **Home tabs (Phase 1b, step B.4), 15 Nov.** Overview · Calendar · Timeline in the top bar; the app reopens on the last tab used. Pull-to-refresh stays on Overview. 2 screen tests and 2 unit tests.

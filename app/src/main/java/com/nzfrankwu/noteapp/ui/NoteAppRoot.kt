@@ -1,5 +1,7 @@
 package com.nzfrankwu.noteapp.ui
 
+import com.nzfrankwu.noteapp.ui.timeline.TimelineScreen
+import com.nzfrankwu.noteapp.ui.timeline.TimelineViewModel
 import com.nzfrankwu.noteapp.ui.calendar.CalendarScreen
 import com.nzfrankwu.noteapp.ui.calendar.CalendarViewModel
 import java.time.LocalDate
@@ -156,6 +158,12 @@ fun NoteAppRoot(
                                 viewModel = viewModel { CalendarViewModel(container.taskRepository) },
                                 onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                                 onAddTaskOnDay = { day -> backStack.add(TaskEditRoute(dueDate = day.toString())) },
+                            )
+                        },
+                        timeline = {
+                            TimelineScreen(
+                                viewModel = viewModel { TimelineViewModel(container.taskRepository) },
+                                onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                             )
                         },
                         onShowMessage = { message ->

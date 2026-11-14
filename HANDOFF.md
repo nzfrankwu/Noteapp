@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 10:00 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, 10:15 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -11,18 +11,14 @@ _Last updated: 15 Nov 2026, 10:00 am. Keep this file current (see CLAUDE.md, "Se
   - B.2 Course colours ("next free colour")
   - 🔺 B.3 Database version 2 ("available from"), done at max effort
   - B.4 Home tabs
-  - B.5 Calendar (Timeline still shows a placeholder until B.6)
+  - B.5 Calendar
+  - B.6 Timeline
 - **Mode: hands-off** (user, 15 Nov ~9:30 am). They switch to a lower effort after B.3, and want me to finish B.4–B.6 on my own, then come back to them for tablet testing. Follow CLAUDE.md "Hands-off": commit and push after each passing step, note anything needing the user in `REPORT.md` + `ISSUES.md`, and write `REPORT.md` when stopping.
 
 ## Next steps (in order)
 
-1. **B.6 Timeline**, following the layout in `PHASE-1B.md` (the user approved it). The ★ check-in becomes notes in `REPORT.md` in hands-off mode.
-   - Reuse `CourseFilterButton` / `ShowFinishedCheckbox` and `TaskViewFilters` from the calendar; plug it in via `HomeScreen(timeline = …)` in `NoteAppRoot`.
-   - Use `LocalCourseColors.current.of(code)` for course colours: `accent` for chip bars, `container` for timeline bars.
-   - Use `DaysLeftText` / `DaysLeft` where the layout shows days left.
-   - The timeline bar starts at `task.availableAt ?: task.createdAt`.
-2. **Then stop for tablet testing** with the user. Before installing on the tablet, see "Installing B.3+ on the tablet" below.
-3. End of phase: `/code-review`, fix, retest, then ask to merge into `main`.
+1. **Tablet testing with the user (waiting on them).** Before installing on the tablet, see "Installing B.3+ on the tablet" below.
+2. End of phase: `/code-review`, fix, retest, then ask to merge into `main`.
 
 ## Installing B.3+ on the tablet (first install after B.3)
 

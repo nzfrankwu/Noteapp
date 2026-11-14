@@ -28,7 +28,7 @@ Decided with the user (15 Nov 2026):
   - Your own tasks leave it empty; the timeline then uses the date you added the task.
 - [x] **B.4 Home tabs.** _(done 15 Nov: `domain/HomeTab`, `data/ViewSettings` (DataStore "view_settings"), segmented button in `HomeScreen`; Calendar/Timeline are slots `HomeScreen(calendar = …, timeline = …)` filled from `NoteAppRoot`. Pull-to-refresh only on Overview.)_ Overview · Calendar · Timeline as a segmented button in the top bar. The app remembers the last tab.
 - [x] **B.5 Calendar** (layout below). ★ _(done 15 Nov, hands-off: `domain/CalendarRules`, `ui/calendar/` (`CalendarViewModel`, `CalendarScreen`), shared filters in `ui/components/TaskViewFilterControls.kt`. The ★ check-in is in REPORT.md.)_
-- [ ] **B.6 Timeline** (layout below). ★
+- [x] **B.6 Timeline** (layout below). ★ _(done 15 Nov, hands-off: `domain/TimelineRules`, `ui/timeline/` (`TimelineViewModel`, `TimelineScreen`). The ★ check-in is in REPORT.md.)_
 - [ ] **End of phase:** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 
 ## Calendar layout (B.5)
