@@ -17,6 +17,9 @@ enum class TaskStatus(val key: String, val label: String) {
     SUBMITTED("submitted", "Submitted"),
     DONE("done", "Done");
 
+    /** Submitted or Done: no longer counts as overdue, gets no reminders, and is hidden from Due soon. */
+    val isFinished: Boolean get() = this == SUBMITTED || this == DONE
+
     companion object {
         /** Unknown keys fall back to [NOT_STARTED] instead of crashing the app. */
         fun fromKey(key: String): TaskStatus = entries.firstOrNull { it.key == key } ?: NOT_STARTED
