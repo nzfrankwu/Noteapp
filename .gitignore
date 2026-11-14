@@ -46,3 +46,6 @@ Thumbs.db
 screenshots/
 REPORT.md
 REPORT-*.md
+
+# Safety copies of the tablet database (personal Canvas data): local only
+backups/

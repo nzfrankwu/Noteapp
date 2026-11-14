@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 10:15 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, 10:20 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -13,23 +13,27 @@ _Last updated: 15 Nov 2026, 10:15 am. Keep this file current (see CLAUDE.md, "Se
   - B.4 Home tabs
   - B.5 Calendar
   - B.6 Timeline
-- **Mode: hands-off** (user, 15 Nov ~9:30 am). They switch to a lower effort after B.3, and want me to finish B.4–B.6 on my own, then come back to them for tablet testing. Follow CLAUDE.md "Hands-off": commit and push after each passing step, note anything needing the user in `REPORT.md` + `ISSUES.md`, and write `REPORT.md` when stopping.
+- **The tablet now runs B.1–B.6 (database version 2)**, installed 15 Nov ~10:17 am with the user's OK. The upgrade was checked against the safety copy: all 124 tasks (statuses, target dates, notes), 10 courses and 3 folders were kept, integrity OK.
+- **Mode:** the user was hands-off for B.3–B.6 and is now back for tablet testing. Default back to "Working together" unless they say otherwise.
 
 ## Next steps (in order)
 
-1. **Tablet testing with the user (waiting on them).** Before installing on the tablet, see "Installing B.3+ on the tablet" below.
+1. **Tablet testing with the user (waiting on them).** Steps are in `REPORT.md` → "What to test on the tablet".
+   - Right after the install, no Canvas task had an "available from" date yet (0 of 124), and no task had changed since 8:40 am. Either no sync has run since the update, or Canvas sets no unlock dates for these courses. Ask the user to pull-to-refresh, then check the Timeline. Don't look at their Canvas sign-in to find out.
 2. End of phase: `/code-review`, fix, retest, then ask to merge into `main`.
 
-## Installing B.3+ on the tablet (first install after B.3)
+## Tablet database safety copy
 
-The tablet's database is still version 1. The first build with B.3 migrates it to version 2. That's tested, including a real upgrade of the previous app with data on the emulator, but it's the user's real data. So:
-- **Ask the user first** whether to make a safety copy of the tablet's database to the PC: `adb -s <tablet> exec-out run-as com.nzfrankwu.noteapp cat databases/noteapp.db` (and `-wal`, `-shm`) into a **git-ignored** folder. It holds Canvas course and assignment names (personal), but no cookies or passwords.
-- Install with `install -r` (keeps data). After opening, everything should still be there; "available from" fills in at the next Canvas sync (app open after 15 min, pull-to-refresh, or Settings → Sync now).
-- **Never install an older (pre-B.3) build afterwards:** Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
+- **`backups/tablet-db-2026-11-15-before-v2/`** (git-ignored, local only) holds the tablet's version-1 database from just before the B.3 upgrade. It contains personal Canvas names but no secrets. Keep it until Phase 1b is merged and the user is happy; never commit it.
+- How it was made, for next time (ask the user first):
+  - force-stop the app
+  - `adb -s <tablet> exec-out run-as com.nzfrankwu.noteapp cat databases/<f>` for `noteapp.db`, `-wal` and `-shm`
+  - check it by opening a copy with Python's `sqlite3`, printing counts only
+- **Never install an older (pre-B.3) build on the tablet:** Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
 
 ## Waiting on the user
 
-- **Tablet testing** of B.1–B.6 once B.4–B.6 are done (they asked for this).
+- **Tablet testing** of B.1–B.6 (installed; see `REPORT.md` for the steps).
 - **Tablet checks not yet reported:**
   - a test reminder arriving with the app swiped away (ColorOS)
   - "Last synced" moving on its own over several hours (background sync)
