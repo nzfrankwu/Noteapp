@@ -2,6 +2,7 @@ package com.nzfrankwu.noteapp
 
 import android.content.Context
 import com.nzfrankwu.noteapp.data.FolderRepository
+import com.nzfrankwu.noteapp.data.TaskRepository
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 
 /**
@@ -14,4 +15,6 @@ class AppContainer(context: Context) {
     val database: NoteAppDatabase by lazy { NoteAppDatabase.create(appContext) }
 
     val folderRepository: FolderRepository by lazy { FolderRepository(database) }
+
+    val taskRepository: TaskRepository by lazy { TaskRepository(database) }
 }

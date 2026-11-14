@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.nzfrankwu.noteapp.domain.TaskLike
 import com.nzfrankwu.noteapp.domain.TaskSource
 import com.nzfrankwu.noteapp.domain.TaskStatus
 import java.time.Instant
@@ -40,19 +41,19 @@ data class Task(
     @PrimaryKey val id: String,
 
     // ---- Canvas-owned (for Canvas tasks) ----
-    val title: String,
+    override val title: String,
     @ColumnInfo(name = "course_id") val courseId: String?,
     /** Real due date, or null for "No due date". */
-    @ColumnInfo(name = "due_at") val dueAt: Instant?,
+    @ColumnInfo(name = "due_at") override val dueAt: Instant?,
     /** Link: "Open in Canvas" for Canvas tasks, or any link you added to your own task. */
     val url: String?,
     /** Canvas's description, as HTML. Null for your own tasks. */
     @ColumnInfo(name = "description_html") val descriptionHtml: String?,
 
     // ---- Yours ----
-    val status: TaskStatus,
+    override val status: TaskStatus,
     /** "My target date": your own do-by date, used for sorting and reminders when set. */
-    @ColumnInfo(name = "target_at") val targetAt: Instant?,
+    @ColumnInfo(name = "target_at") override val targetAt: Instant?,
     /** Your own notes on the task. */
     val notes: String?,
 
@@ -72,4 +73,4 @@ data class Task(
 
     @ColumnInfo(name = "created_at") val createdAt: Instant,
     @ColumnInfo(name = "updated_at") val updatedAt: Instant,
-)
+) : TaskLike
