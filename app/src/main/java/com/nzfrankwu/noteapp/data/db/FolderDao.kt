@@ -32,4 +32,14 @@ interface FolderDao {
     /** All folders, A–Z by name. Updates automatically whenever folders change. */
     @Query("SELECT * FROM folders ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<Folder>>
+
+    /** All folders A–Z, each with its linked course's code (if any). Updates live. */
+    @Query(
+        """
+        SELECT folders.*, courses.code AS course_code
+        FROM folders LEFT JOIN courses ON courses.id = folders.course_id
+        ORDER BY folders.name COLLATE NOCASE
+        """,
+    )
+    fun observeAllWithCourse(): Flow<List<FolderListItem>>
 }

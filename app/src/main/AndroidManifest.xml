@@ -9,6 +9,7 @@
         ignores it, so data_extraction_rules.xml excludes everything from that too.
     -->
     <application
+        android:name=".NoteAppApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"

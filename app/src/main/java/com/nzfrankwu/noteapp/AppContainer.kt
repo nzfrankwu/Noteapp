@@ -1,0 +1,17 @@
+package com.nzfrankwu.noteapp
+
+import android.content.Context
+import com.nzfrankwu.noteapp.data.FolderRepository
+import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
+
+/**
+ * Creates the app's long-lived parts once and hands them to screens ("manual dependency
+ * injection"). Everything is created lazily: the database file only appears on first use.
+ */
+class AppContainer(context: Context) {
+    private val appContext = context.applicationContext
+
+    val database: NoteAppDatabase by lazy { NoteAppDatabase.create(appContext) }
+
+    val folderRepository: FolderRepository by lazy { FolderRepository(database) }
+}

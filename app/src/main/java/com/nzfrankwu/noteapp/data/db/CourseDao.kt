@@ -34,6 +34,9 @@ interface CourseDao {
     @Query("SELECT * FROM courses WHERE canvas_course_id = :canvasCourseId")
     suspend fun getByCanvasId(canvasCourseId: Long): Course?
 
+    @Query("SELECT * FROM courses")
+    suspend fun getAll(): List<Course>
+
     /** All courses, A–Z by code. Updates automatically whenever courses change. */
     @Query("SELECT * FROM courses ORDER BY code COLLATE NOCASE")
     fun observeAll(): Flow<List<Course>>
