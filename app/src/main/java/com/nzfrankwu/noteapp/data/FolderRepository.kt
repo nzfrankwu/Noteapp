@@ -94,6 +94,39 @@ class FolderRepository(
         FolderResult.Success(folderId)
     }
 
+    /** Canvas courses with no folder yet (for the "Link your courses" prompt). */
+    fun observeCanvasCoursesWithoutFolder(): Flow<List<Course>> = courseDao.observeCanvasCoursesWithoutFolder()
+
+    /** Makes a new folder for an existing course (e.g. one imported from Canvas). */
+    suspend fun createFolderForCourse(name: String, courseId: String): FolderResult = db.withTransaction {
+        val cleanName = name.trim()
+        if (cleanName.isEmpty()) return@withTransaction FolderResult.Failure(FolderError.BlankName)
+        val course = courseDao.getById(courseId) ?: return@withTransaction FolderResult.Failure(FolderError.NotFound)
+        folderDao.getByCourseId(course.id)?.let { linked ->
+            return@withTransaction FolderResult.Failure(FolderError.CourseAlreadyLinked(course.code, linked.name))
+        }
+        val now = clock.instant()
+        val folder = Folder(id = newId(), name = cleanName, courseId = course.id, createdAt = now, updatedAt = now)
+        folderDao.insert(folder)
+        FolderResult.Success(folder.id)
+    }
+
+    /**
+     * Links an existing folder to an existing course by its ID. Refused if another folder has
+     * that course. A course the folder had before stays (with its tasks), just without a folder.
+     */
+    suspend fun linkCourseById(folderId: String, courseId: String): FolderResult = db.withTransaction {
+        val folder = folderDao.getById(folderId) ?: return@withTransaction FolderResult.Failure(FolderError.NotFound)
+        val course = courseDao.getById(courseId) ?: return@withTransaction FolderResult.Failure(FolderError.NotFound)
+        folderDao.getByCourseId(course.id)?.let { linked ->
+            if (linked.id != folderId) {
+                return@withTransaction FolderResult.Failure(FolderError.CourseAlreadyLinked(course.code, linked.name))
+            }
+        }
+        if (folder.courseId != course.id) folderDao.update(folder.copy(courseId = course.id, updatedAt = clock.instant()))
+        FolderResult.Success(folderId)
+    }
+
     /** Unlinks the folder from its course. The course and its tasks are kept (still in Due soon). */
     suspend fun unlinkCourse(folderId: String): FolderResult = db.withTransaction {
         val folder = folderDao.getById(folderId) ?: return@withTransaction FolderResult.Failure(FolderError.NotFound)

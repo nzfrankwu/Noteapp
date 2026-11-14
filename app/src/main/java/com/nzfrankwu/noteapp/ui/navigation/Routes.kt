@@ -35,3 +35,7 @@ data class TaskEditRoute(
 /** Signing in to Canvas in the in-app browser. */
 @Serializable
 data object CanvasLoginRoute : NavKey
+
+/** Giving imported Canvas courses a folder. */
+@Serializable
+data object LinkCoursesRoute : NavKey

@@ -7,6 +7,10 @@ import com.nzfrankwu.noteapp.data.FolderRepository
 import com.nzfrankwu.noteapp.data.FolderResult
 import com.nzfrankwu.noteapp.data.db.FolderListItem
 import com.nzfrankwu.noteapp.data.TaskRepository
+import com.nzfrankwu.noteapp.data.CanvasSettings
+import com.nzfrankwu.noteapp.data.db.Course
+import com.nzfrankwu.noteapp.canvas.CanvasSyncRunner
+import com.nzfrankwu.noteapp.ui.settings.SyncMessages
 import com.nzfrankwu.noteapp.domain.TaskStatus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +24,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+/** What the strips at the top of home show. */
+data class HomeBanners(
+    val signInExpired: Boolean = false,
+    /** Canvas courses with no folder that you haven't said "Not now" to. */
+    val newCourses: List<Course> = emptyList(),
+)
 
 /** Which folder dialog is open on the home screen, with what's typed in it. */
 sealed interface FolderDialog {
@@ -35,9 +46,54 @@ sealed interface FolderDialog {
 class HomeViewModel(
     private val folderRepository: FolderRepository,
     private val taskRepository: TaskRepository,
+    /** Canvas pieces; null in screen tests that don't need Canvas. */
+    private val canvasSettings: CanvasSettings? = null,
+    private val syncRunner: CanvasSyncRunner? = null,
     private val clock: Clock = Clock.systemDefaultZone(),
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel() {
+
+    /** The strips across the top of home: expired Canvas sign-in, and new courses to link. */
+    val banners: StateFlow<HomeBanners> = if (canvasSettings == null) {
+        MutableStateFlow(HomeBanners())
+    } else {
+        combine(
+            canvasSettings.signedInAs,
+            canvasSettings.signInExpired,
+            folderRepository.observeCanvasCoursesWithoutFolder(),
+            canvasSettings.hiddenLinkPrompts,
+        ) { name, expired, unlinked, hidden ->
+            HomeBanners(signInExpired = name != null && expired, newCourses = unlinked.filter { it.id !in hidden })
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeBanners())
+    }
+
+    /** "Not now" on the new-courses strip: stop suggesting these courses. */
+    fun hideNewCourses() {
+        val ids = banners.value.newCourses.map { it.id }
+        viewModelScope.launch { canvasSettings?.hideLinkPrompts(ids) }
+    }
+
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
+
+    /** A message for the app's snackbar (e.g. the result of pull-to-refresh). */
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message.asStateFlow()
+    fun messageShown() { _message.value = null }
+
+    /** Pull-to-refresh: sync with Canvas now. */
+    fun refresh() {
+        val runner = syncRunner ?: return
+        if (_refreshing.value) return
+        _refreshing.value = true
+        viewModelScope.launch {
+            try {
+                _message.value = SyncMessages.describe(runner.run())
+            } finally {
+                _refreshing.value = false
+            }
+        }
+    }
 
     /** All folders A–Z, or null while they're still loading. */
     val folders: StateFlow<List<FolderListItem>?> = folderRepository.observeFolders()

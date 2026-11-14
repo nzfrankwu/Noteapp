@@ -40,6 +40,9 @@ import com.nzfrankwu.noteapp.ui.navigation.HomeRoute
 import com.nzfrankwu.noteapp.ui.navigation.SettingsRoute
 import com.nzfrankwu.noteapp.ui.navigation.TaskEditRoute
 import com.nzfrankwu.noteapp.ui.navigation.CanvasLoginRoute
+import com.nzfrankwu.noteapp.ui.navigation.LinkCoursesRoute
+import com.nzfrankwu.noteapp.ui.canvas.LinkCoursesScreen
+import com.nzfrankwu.noteapp.ui.canvas.LinkCoursesViewModel
 import com.nzfrankwu.noteapp.ui.canvas.CanvasLoginScreen
 import com.nzfrankwu.noteapp.ui.canvas.CanvasLoginViewModel
 import com.nzfrankwu.noteapp.ui.settings.CanvasSettingsViewModel
@@ -132,14 +135,33 @@ fun NoteAppRoot(
             entryProvider = entryProvider {
                 entry<HomeRoute> {
                     HomeScreen(
-                        viewModel = viewModel { HomeViewModel(container.folderRepository, container.taskRepository) },
+                        viewModel = viewModel {
+                            HomeViewModel(
+                                container.folderRepository, container.taskRepository,
+                                container.canvasSettings, container.canvasSyncRunner,
+                            )
+                        },
                         onOpenSettings = { backStack.add(SettingsRoute) },
                         onOpenFolder = { folderId -> backStack.add(FolderRoute(folderId)) },
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                         onAddTask = { backStack.add(TaskEditRoute()) },
+                        onSignInAgain = { backStack.add(CanvasLoginRoute) },
+                        onLinkCourses = { backStack.add(LinkCoursesRoute) },
+                        onShowMessage = { message ->
+                            scope.launch {
+                                snackbar.currentSnackbarData?.dismiss()
+                                snackbar.showSnackbar(message)
+                            }
+                        },
                     )
                 }
-                entry<CanvasLoginRoute> {
+                entry<LinkCoursesRoute> {
+                LinkCoursesScreen(
+                    viewModel = viewModel { LinkCoursesViewModel(container.folderRepository, container.canvasSettings) },
+                    onBack = ::back,
+                )
+            }
+            entry<CanvasLoginRoute> {
                 CanvasLoginScreen(
                     viewModel = viewModel { CanvasLoginViewModel(container.canvasSettings, container.canvasAccount) },
                     onClose = ::back,

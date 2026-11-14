@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -33,6 +34,12 @@ class CanvasSettings(context: Context) {
     /** True after Canvas said the sign-in expired: the app shows "Canvas sign-in expired — sign in again". */
     val signInExpired: Flow<Boolean> = store.data.map { it[SIGN_IN_EXPIRED] ?: false }
 
+    /** Canvas courses you chose "Not now" for, so the "link your courses" prompt stops asking. */
+    val hiddenLinkPrompts: Flow<Set<String>> = store.data.map { it[HIDDEN_LINK_PROMPTS].orEmpty() }
+
+    suspend fun hideLinkPrompts(courseIds: Collection<String>) =
+        store.edit { it[HIDDEN_LINK_PROMPTS] = it[HIDDEN_LINK_PROMPTS].orEmpty() + courseIds }
+
     suspend fun setSignInExpired(expired: Boolean) = store.edit { it[SIGN_IN_EXPIRED] = expired }
 
     suspend fun setAddress(address: String?) = store.edit { if (address == null) it.remove(ADDRESS) else it[ADDRESS] = address }
@@ -46,5 +53,6 @@ class CanvasSettings(context: Context) {
         val SIGNED_IN_AS = stringPreferencesKey("signed_in_as")
         val LAST_SYNCED = longPreferencesKey("last_synced_at")
         val SIGN_IN_EXPIRED = booleanPreferencesKey("sign_in_expired")
+        val HIDDEN_LINK_PROMPTS = stringSetPreferencesKey("hidden_link_prompts")
     }
 }

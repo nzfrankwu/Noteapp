@@ -24,6 +24,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.LaunchedEffect
+import com.nzfrankwu.noteapp.ui.components.Banner
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -65,13 +69,30 @@ fun HomeScreen(
     onOpenTask: (taskId: String) -> Unit,
     onAddTask: () -> Unit,
     modifier: Modifier = Modifier,
+    onSignInAgain: () -> Unit = {},
+    onLinkCourses: () -> Unit = {},
+    /** Shows a message in the app's snackbar. */
+    onShowMessage: (String) -> Unit = {},
 ) {
     val folders by viewModel.folders.collectAsStateWithLifecycle()
     val dueSoon by viewModel.dueSoon.collectAsStateWithLifecycle()
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
+    val banners by viewModel.banners.collectAsStateWithLifecycle()
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    LaunchedEffect(message) {
+        message?.let {
+            onShowMessage(it)
+            viewModel.messageShown()
+        }
+    }
 
     HomeContent(
         folders = folders,
+        banners = banners,
+        bannerActions = BannerActions(onSignInAgain, onLinkCourses, viewModel::hideNewCourses),
+        refreshing = refreshing,
+        onRefresh = viewModel::refresh,
         dueSoon = dueSoon,
         dueSoonActions = DueSoonActions(
             onAddTask = onAddTask,
@@ -134,6 +155,10 @@ fun HomeContent(
     modifier: Modifier = Modifier,
     dueSoon: DueSoonState = DueSoonState(),
     dueSoonActions: DueSoonActions = DueSoonActions(),
+    banners: HomeBanners = HomeBanners(),
+    bannerActions: BannerActions = BannerActions(),
+    refreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -154,11 +179,21 @@ fun HomeContent(
         },
     ) { innerPadding ->
         val folderActions = FolderActions(onNewFolder, onOpenFolder, onRenameFolder, onDeleteFolder)
-        BoxWithConstraints(Modifier.padding(innerPadding).fillMaxSize()) {
-            if (maxWidth >= WideLayoutMinWidth) {
-                WideHome(folders, folderActions, dueSoon, dueSoonActions)
-            } else {
-                NarrowHome(folders, folderActions, dueSoon, dueSoonActions)
+        // Pull down on Due soon or the folders to sync with Canvas now.
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.padding(innerPadding).fillMaxSize(),
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                HomeBannerStrips(banners, bannerActions)
+                BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+                    if (maxWidth >= WideLayoutMinWidth) {
+                        WideHome(folders, folderActions, dueSoon, dueSoonActions)
+                    } else {
+                        NarrowHome(folders, folderActions, dueSoon, dueSoonActions)
+                    }
+                }
             }
         }
     }
@@ -274,6 +309,43 @@ private fun NoFolders(modifier: Modifier = Modifier) {
         message = "Tap “New folder” to make one for each of your courses.",
         modifier = modifier,
     )
+}
+
+/** What the banner buttons do. */
+class BannerActions(
+    val onSignInAgain: () -> Unit = {},
+    val onLinkCourses: () -> Unit = {},
+    val onHideNewCourses: () -> Unit = {},
+)
+
+/** The Canvas strips at the top of home (nothing when all is well). */
+@Composable
+private fun HomeBannerStrips(banners: HomeBanners, actions: BannerActions) {
+    if (!banners.signInExpired && banners.newCourses.isEmpty()) return
+    Column(
+        Modifier.fillMaxWidth().padding(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, bottom = Dimens.ItemGap),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (banners.signInExpired) {
+            Banner(
+                "Your Canvas sign-in expired. Your tasks are kept, but new assignments won't arrive until you sign in again.",
+                warning = true,
+                modifier = Modifier.testTag("banner-expired"),
+            ) {
+                FilledTonalButton(onClick = actions.onSignInAgain) { Text("Sign in again") }
+            }
+        }
+        if (banners.newCourses.isNotEmpty()) {
+            val codes = banners.newCourses.joinToString { it.code }
+            Banner(
+                "New from Canvas: $codes. Give ${if (banners.newCourses.size == 1) "it" else "them"} a folder?",
+                modifier = Modifier.testTag("banner-new-courses"),
+            ) {
+                FilledTonalButton(onClick = actions.onLinkCourses) { Text("Link courses") }
+                TextButton(onClick = actions.onHideNewCourses) { Text("Not now") }
+            }
+        }
+    }
 }
 
 @Composable

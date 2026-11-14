@@ -39,7 +39,8 @@ class FakeCanvas(
             htmlUrl = "https://$HOST/courses/$courseId/assignments/$id",
             submission = CanvasSubmission(
                 workflowState = if (submittedDaysAgo != null) "submitted" else "unsubmitted",
-                submittedAt = submittedDaysAgo?.let { now.minus(Duration.ofDays(it)).truncatedTo(ChronoUnit.SECONDS) },
+                // Midday on that day, so the same sync twice reports the same submission.
+                submittedAt = submittedDaysAgo?.let { dueIn(-it).minus(Duration.ofHours(12)).truncatedTo(ChronoUnit.HOURS) },
             ),
         )
         return when (courseId) {

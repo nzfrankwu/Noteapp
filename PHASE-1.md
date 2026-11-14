@@ -94,12 +94,12 @@ _Android part done:_
   - Not yet checked on the tablet: a real restart, and whether ColorOS delays or blocks alarms.
 
 ### F5: Canvas sign-in (go/no-go) ⚠ needs you
-- _Groundwork done:_
+- _Built and tested on the emulator (second overnight session):_
   - `canvas/CanvasSignIn.kt` checks the Canvas address (https only) and spots the end of the login (9 tests).
-  - `WebViewCanvasCookies` reads the cookie and signs out completely.
-  - `data/CanvasSettings.kt` stores the address, "signed in as" name and last-synced time (DataStore).
-  - `AppContainer.canvasClient/canvasSync` connects the pieces.
-  - **Still to do:** the Settings Canvas section and the in-app browser screen, then your real login test.
+  - `canvas/CanvasAccount.kt`: save the address, confirm a sign-in ("who am I?"), sign out (7 tests).
+  - Settings → Canvas (`ui/settings/CanvasSettingsSection.kt`): address, Sign in, "Signed in as …", Last synced, Sync now, Sign out.
+  - The in-app browser (`ui/canvas/CanvasLoginScreen.kt`): https pages only, no file access, no JavaScript bridge, nothing logged (3 tests for when a page counts as signed in).
+  - **Still to do:** your real login on the tablet (go/no-go).
 - [ ] 🔺 **5.1** Canvas address, then in-app browser login, then "Signed in as …", plus Sign out. You do the real login. If the uni login fails in the in-app browser, stop and discuss the calendar-feed fallback (§3.4). ★
 
 ### F6: Canvas import
@@ -115,10 +115,13 @@ _Android part done:_
     - redirects not followed
     - all-or-nothing lists
   - The real cookie source (WebView `CookieManager`) gets connected in 5.1.
-- [ ] **6.2** Import active courses, then the "Link your courses" screen.
-  - _Logic done in `CanvasSync`:_ courses are imported and auto-linked to your own course with the same code.
-  - **Still to do:** the "Link your courses" screen for Canvas courses that have no folder yet.
-- [ ] **6.3** Import assignments (dated, undated and quizzes) with formatted descriptions, "Open in Canvas" and submission status. Debug builds get a fake-Canvas mode. ★
+- [x] **6.2** Import active courses, then the "Link your courses" screen.
+  - `CanvasSync` imports courses and auto-links them to your own course with the same code.
+  - Home shows "New from Canvas: … Give it a folder?" for Canvas courses with no folder; **Link courses** opens `ui/canvas/LinkCoursesScreen.kt` (Create folder / Add to a folder / Not now). 4 tests.
+- [x] **6.3** Import assignments (dated, undated and quizzes) with formatted descriptions, "Open in Canvas" and submission status. Debug builds get a fake-Canvas mode. ★
+  - The task page shows Canvas's description (formatted), "Open in Canvas" and "On Canvas: Submitted …/Not submitted yet".
+  - `canvas/FakeCanvas.kt`: Settings → Canvas → "Use fake Canvas (debug)" (debug builds only).
+  - **Still to check:** real Canvas data, once you've signed in.
 
 ### F7: Sync rules
 - [x] 🔺 **7.1** Canvas updates never touch your status, target date or links. Removed assignments are marked, never deleted, and only after a complete fetch.
@@ -130,7 +133,7 @@ _Android part done:_
     - skips a course that fails to load
     - stops on an expired sign-in
     - leaves inactive courses untouched
-- [ ] 🔺 **7.3** Sync on app open (if more than 15 min since the last), on pull-to-refresh, and in the background about every 6 h. Settings shows Last synced and has Sync now. An expired-sign-in banner appears when needed, and new courses prompt you to link them. ★
+- [x] 🔺 **7.3** Sync on app open (if more than 15 min since the last), on pull-to-refresh, and in the background about every 6 h. Settings shows Last synced and has Sync now. An expired-sign-in banner appears when needed, and new courses prompt you to link them. ★
   - _Logic done:_
     - `canvas/CanvasSyncRunner.kt`:
       - `SyncPolicy`: the 15-minute rule and the 6 h interval
@@ -138,13 +141,14 @@ _Android part done:_
       - `runIfDue()` for app open
     - `canvas/CanvasSyncWorker.kt`: WorkManager every 6 h when online, with `schedule()` and `cancel()`.
     - Tests: 3 unit tests and 6 emulator tests.
-  - **Still to do:**
-    - call `schedule()` after sign-in, `cancel()` on sign-out, and `schedule()` on app start when signed in
-    - call `runIfDue()` when the app opens
-    - pull-to-refresh calling `run()`
-    - the expired-sign-in banner (from `signInExpired`)
-    - "Last synced" and "Sync now" in Settings
-    - the new-courses prompt
+  - _Wired up (second overnight session):_
+    - background sync scheduled on sign-in and at app start while signed in, cancelled on sign-out
+    - `runIfDue()` each time the app comes to the front (`MainActivity`)
+    - pull-to-refresh on home, with the result in a snackbar
+    - the red "Canvas sign-in expired" strip on home, with **Sign in again**
+    - "Last synced" and **Sync now** in Settings
+    - the new-courses strip (6.2)
+  - **Still to check on the tablet:** that the 6-hourly background sync runs under ColorOS.
 
 ### F8: Quick-add from a link
 _Logic done ahead:_ `domain/SharedLink.kt`, with 9 tests. It reads the link and a suggested title from shared text or subject, tidies punctuation, and finds the Canvas course ID in Canvas links.
