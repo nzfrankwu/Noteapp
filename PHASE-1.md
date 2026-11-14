@@ -74,13 +74,20 @@ _Logic done ahead of the screens:_
     - all-or-nothing lists
   - The real cookie source (WebView `CookieManager`) gets connected in 5.1.
 - [ ] **6.2** Import active courses, then the "Link your courses" screen.
+  - _Logic done in `CanvasSync`:_ courses are imported and auto-linked to your own course with the same code.
+  - **Still to do:** the "Link your courses" screen for Canvas courses that have no folder yet.
 - [ ] **6.3** Import assignments (dated, undated and quizzes) with formatted descriptions, "Open in Canvas" and submission status. Debug builds get a fake-Canvas mode. ★
 
 ### F7: Sync rules
-- [ ] 🔺 **7.1** Canvas updates never touch your status, target date or links. Removed assignments are marked, never deleted, and only after a complete fetch.
-- [ ] 🔺 **7.2** Auto-status moves a task to Submitted: forward only, never over Done, and once per new submission.
-  - _Rules for 7.1 and 7.2 done:_ `canvas/CanvasMerge.kt`, with 17 tests.
-  - **Still to do:** the sync code that fetches each course, applies these rules in a database transaction, and calls `markRemoved` only after a complete fetch.
+- [x] 🔺 **7.1** Canvas updates never touch your status, target date or links. Removed assignments are marked, never deleted, and only after a complete fetch.
+- [x] 🔺 **7.2** Auto-status moves a task to Submitted: forward only, never over Done, and once per new submission.
+  - The rules are in `canvas/CanvasMerge.kt` (17 unit tests).
+  - The sync engine is `canvas/CanvasSync.kt` (9 emulator tests against a fake Canvas). It:
+    - matches courses by Canvas ID, then by code to link your own course, and otherwise creates a new one
+    - reads each course's assignments in full and applies the rules in one transaction per course
+    - skips a course that fails to load
+    - stops on an expired sign-in
+    - leaves inactive courses untouched
 - [ ] 🔺 **7.3** Sync on app open (if more than 15 min since the last), on pull-to-refresh, and in the background about every 6 h. Settings shows Last synced and has Sync now. An expired-sign-in banner appears when needed, and new courses prompt you to link them. ★
 
 ### F8: Quick-add from a link

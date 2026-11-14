@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
+import com.nzfrankwu.noteapp.domain.TaskSource
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -31,6 +32,10 @@ interface TaskDao {
 
     @Query("SELECT * FROM tasks WHERE canvas_assignment_id = :canvasAssignmentId")
     suspend fun getByCanvasAssignmentId(canvasAssignmentId: Long): Task?
+
+    /** One course's tasks from one source (e.g. its Canvas tasks, for marking removed ones). */
+    @Query("SELECT * FROM tasks WHERE course_id = :courseId AND source = :source")
+    suspend fun getForCourseAndSource(courseId: String, source: TaskSource): List<Task>
 
     /** Every task (for the home screen's Due soon list). */
     @Query("SELECT * FROM tasks")

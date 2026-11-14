@@ -29,6 +29,9 @@ interface FolderDao {
     @Query("SELECT * FROM folders WHERE course_id = :courseId")
     suspend fun getByCourseId(courseId: String): Folder?
 
+    @Query("SELECT * FROM folders")
+    suspend fun getAll(): List<Folder>
+
     /** All folders, A–Z by name. Updates automatically whenever folders change. */
     @Query("SELECT * FROM folders ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<Folder>>

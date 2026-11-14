@@ -46,18 +46,18 @@ class CanvasClient(
     private val http: OkHttpClient = defaultHttpClient(),
     private val pageDelayMillis: Long = 250,
     private val sleep: suspend (Long) -> Unit = { delay(it) },
-) {
+) : CanvasSource {
     private val base: HttpUrl = requireNotNull(baseUrl.trim().trimEnd('/').toHttpUrlOrNull()) { "Not a web address" }
 
     /** GET /api/v1/users/self — who is signed in. */
     suspend fun getSelf(): CanvasUser = parse { CanvasParser.parseUser(get(api("users/self")).body) }
 
     /** GET /api/v1/courses — the user's active courses (all pages). */
-    suspend fun getActiveCourses(): List<CanvasCourse> =
+    override suspend fun getActiveCourses(): List<CanvasCourse> =
         allPages(api("courses") { addQueryParameter("enrollment_state", "active") }) { CanvasParser.parseCourses(it) }
 
     /** GET /api/v1/courses/:id/assignments — every assignment incl. quizzes, with the user's submission. */
-    suspend fun getAssignments(courseId: Long): List<CanvasAssignment> =
+    override suspend fun getAssignments(courseId: Long): List<CanvasAssignment> =
         allPages(api("courses/$courseId/assignments") { addQueryParameter("include[]", "submission") }) {
             CanvasParser.parseAssignments(it)
         }
