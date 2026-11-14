@@ -63,8 +63,11 @@ _Logic done ahead of the screens:_
   - 9 screen tests in `TaskScreensTest`.
 
 ### F3: Home screen
-- [ ] **3.1** Due soon across all courses, sorted by target-or-due date, with overdue tasks flagged.
-- [ ] **3.2** The collapsible "No due date" section, finished tasks, and narrow/portrait polish. ★
+- [x] **3.1** Due soon across all courses, sorted by target-or-due date, with overdue tasks flagged.
+  - `ui/home/DueSoon.kt` builds the panel's state from `TaskGrouping` (5 unit tests); `DueSoonPanel.kt` draws it. A "＋" on the panel adds a task (pick the course in the form). The list refreshes every minute so tasks move into Overdue/Today on their own.
+- [x] **3.2** The collapsible "No due date" section, finished tasks, and narrow/portrait polish. ★
+  - "No due date (n)" starts collapsed; "Show finished (n)" lists Submitted/Done tasks, newest first.
+  - Narrow task cards (portrait) put the status tag under the text. 4 screen tests in `DueSoonTest`.
 
 ### F4: Reminders
 _Logic done ahead:_ `domain/Reminders.kt`, with 9 tests. It covers:

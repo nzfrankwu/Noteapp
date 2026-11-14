@@ -6,7 +6,14 @@ import com.nzfrankwu.noteapp.data.FolderError
 import com.nzfrankwu.noteapp.data.FolderRepository
 import com.nzfrankwu.noteapp.data.FolderResult
 import com.nzfrankwu.noteapp.data.db.FolderListItem
+import com.nzfrankwu.noteapp.data.TaskRepository
+import com.nzfrankwu.noteapp.domain.TaskStatus
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import java.time.Clock
+import java.time.ZoneId
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,14 +29,43 @@ sealed interface FolderDialog {
 }
 
 /**
- * The home screen's state: the folder list (live from the database) and the open dialog.
+ * The home screen's state: Due soon and the folder list (live from the database), and the open dialog.
  * Survives rotation, so a half-typed dialog isn't lost.
  */
-class HomeViewModel(private val folderRepository: FolderRepository) : ViewModel() {
+class HomeViewModel(
+    private val folderRepository: FolderRepository,
+    private val taskRepository: TaskRepository,
+    private val clock: Clock = Clock.systemDefaultZone(),
+    private val zone: ZoneId = ZoneId.systemDefault(),
+) : ViewModel() {
 
     /** All folders A–Z, or null while they're still loading. */
     val folders: StateFlow<List<FolderListItem>?> = folderRepository.observeFolders()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue = null)
+
+    private val noDueDateExpanded = MutableStateFlow(false)
+    private val showFinished = MutableStateFlow(false)
+
+    /** The current time, updated every minute so tasks move into Overdue/Today on their own. */
+    private val minuteTicker = flow {
+        while (true) {
+            emit(clock.instant())
+            delay(60_000)
+        }
+    }
+
+    /** Due soon across all courses (live from the database). */
+    val dueSoon: StateFlow<DueSoonState> =
+        combine(taskRepository.observeAllWithCourse(), minuteTicker, noDueDateExpanded, showFinished) { tasks, now, expanded, finished ->
+            DueSoonState.build(tasks, now, zone, expanded, finished)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DueSoonState())
+
+    fun toggleNoDueDate() = noDueDateExpanded.update { !it }
+    fun toggleShowFinished() = showFinished.update { !it }
+
+    fun setStatus(taskId: String, status: TaskStatus) {
+        viewModelScope.launch { taskRepository.setStatus(taskId, status) }
+    }
 
     private val _dialog = MutableStateFlow<FolderDialog?>(null)
     val dialog: StateFlow<FolderDialog?> = _dialog.asStateFlow()

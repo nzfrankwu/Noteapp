@@ -62,13 +62,24 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onOpenSettings: () -> Unit,
     onOpenFolder: (folderId: String) -> Unit,
+    onOpenTask: (taskId: String) -> Unit,
+    onAddTask: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val folders by viewModel.folders.collectAsStateWithLifecycle()
+    val dueSoon by viewModel.dueSoon.collectAsStateWithLifecycle()
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
 
     HomeContent(
         folders = folders,
+        dueSoon = dueSoon,
+        dueSoonActions = DueSoonActions(
+            onAddTask = onAddTask,
+            onOpenTask = onOpenTask,
+            onStatusChange = viewModel::setStatus,
+            onToggleNoDueDate = viewModel::toggleNoDueDate,
+            onToggleShowFinished = viewModel::toggleShowFinished,
+        ),
         onOpenSettings = onOpenSettings,
         onNewFolder = viewModel::startNewFolder,
         onOpenFolder = onOpenFolder,
@@ -121,6 +132,8 @@ fun HomeContent(
     onRenameFolder: (FolderListItem) -> Unit,
     onDeleteFolder: (FolderListItem) -> Unit,
     modifier: Modifier = Modifier,
+    dueSoon: DueSoonState = DueSoonState(),
+    dueSoonActions: DueSoonActions = DueSoonActions(),
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -143,9 +156,9 @@ fun HomeContent(
         val folderActions = FolderActions(onNewFolder, onOpenFolder, onRenameFolder, onDeleteFolder)
         BoxWithConstraints(Modifier.padding(innerPadding).fillMaxSize()) {
             if (maxWidth >= WideLayoutMinWidth) {
-                WideHome(folders, folderActions)
+                WideHome(folders, folderActions, dueSoon, dueSoonActions)
             } else {
-                NarrowHome(folders, folderActions)
+                NarrowHome(folders, folderActions, dueSoon, dueSoonActions)
             }
         }
     }
@@ -160,7 +173,7 @@ private class FolderActions(
 
 /** Side by side: Due soon panel on the left, folders on the right. */
 @Composable
-private fun WideHome(folders: List<FolderListItem>?, actions: FolderActions) {
+private fun WideHome(folders: List<FolderListItem>?, actions: FolderActions, dueSoon: DueSoonState, dueSoonActions: DueSoonActions) {
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -169,6 +182,8 @@ private fun WideHome(folders: List<FolderListItem>?, actions: FolderActions) {
         horizontalArrangement = Arrangement.spacedBy(Dimens.PaneGap),
     ) {
         DueSoonPanel(
+            state = dueSoon,
+            actions = dueSoonActions,
             fillHeight = true,
             modifier = Modifier.weight(DueSoonWidthFraction).fillMaxHeight(),
         )
@@ -192,7 +207,7 @@ private fun WideHome(folders: List<FolderListItem>?, actions: FolderActions) {
 
 /** Stacked: Due soon on top, then the folders, all scrolling together as one grid. */
 @Composable
-private fun NarrowHome(folders: List<FolderListItem>?, actions: FolderActions) {
+private fun NarrowHome(folders: List<FolderListItem>?, actions: FolderActions, dueSoon: DueSoonState, dueSoonActions: DueSoonActions) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(Dimens.FolderTileMinWidth),
         horizontalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
@@ -202,6 +217,8 @@ private fun NarrowHome(folders: List<FolderListItem>?, actions: FolderActions) {
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             DueSoonPanel(
+                state = dueSoon,
+                actions = dueSoonActions,
                 fillHeight = false,
                 modifier = Modifier.fillMaxWidth().heightIn(min = Dimens.NarrowPanelMinHeight),
             )
@@ -257,31 +274,6 @@ private fun NoFolders(modifier: Modifier = Modifier) {
         message = "Tap “New folder” to make one for each of your courses.",
         modifier = modifier,
     )
-}
-
-/**
- * The "Due soon" list (empty until tasks arrive in F2/F3).
- * [fillHeight]: true when the panel has a fixed height (side by side), so the empty message can
- * be centred in it; false in the scrolling stacked layout, where there's no height to fill.
- */
-@Composable
-private fun DueSoonPanel(fillHeight: Boolean, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Column(Modifier.padding(Dimens.PanelPadding)) {
-            SectionTitle("Due soon")
-            EmptyState(
-                title = "Nothing due yet",
-                message = "Tasks you add, and assignments from Canvas, will show up here.",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(if (fillHeight) Modifier.weight(1f) else Modifier),
-            )
-        }
-    }
 }
 
 @Composable

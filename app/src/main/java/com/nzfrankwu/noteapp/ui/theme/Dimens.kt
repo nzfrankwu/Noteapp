@@ -34,6 +34,9 @@ object Dimens {
     /** Top/bottom padding inside a task card. */
     val TaskCardVerticalPadding = 12.dp
 
+    /** Below this width a task card puts its status tag under the text instead of beside it. */
+    val TaskCardNarrowWidth = 380.dp
+
     /** Smallest height of a status tag or badge ("Started", "Overdue"). */
     val TagHeight = 26.dp
 

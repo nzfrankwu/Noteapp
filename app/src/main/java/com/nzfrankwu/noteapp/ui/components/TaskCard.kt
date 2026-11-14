@@ -1,6 +1,7 @@
 package com.nzfrankwu.noteapp.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -44,63 +45,84 @@ fun TaskCard(
     /** False inside a course folder, where the course is obvious. Due soon shows it ("No course" if none). */
     showCourse: Boolean = true,
 ) {
-    val overdue = TaskRules.isOverdue(task, now)
-    val pastTarget = TaskRules.isPastTarget(task, now)
-    val finished = task.status.isFinished
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth().testTag("task-card"),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = Dimens.TilePadding, vertical = Dimens.TaskCardVerticalPadding),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
-        ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = task.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textDecoration = if (task.status == TaskStatus.DONE) TextDecoration.LineThrough else null,
-                    color = if (finished) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    itemVerticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (showCourse) {
-                        Text(
-                            text = courseCode ?: "No course",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    if (overdue) OverdueBadge()
-                    if (pastTarget) InfoBadge("Past target")
-                    if (task.removedFromCanvas) InfoBadge("Removed from Canvas")
-                    Text(
-                        text = TaskCardText.whenText(task, now, zone),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+        // On a narrow card (e.g. Due soon in portrait) the status tag goes under the text, so the
+        // dates get the full width; otherwise it sits on the right.
+        BoxWithConstraints(Modifier.padding(horizontal = Dimens.TilePadding, vertical = Dimens.TaskCardVerticalPadding)) {
+            if (maxWidth < Dimens.TaskCardNarrowWidth) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    TaskCardDetails(task, courseCode, now, zone, showCourse)
+                    StatusChip(task.status, onStatusChange)
+                }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.ItemGap)) {
+                    Column(Modifier.weight(1f)) { TaskCardDetails(task, courseCode, now, zone, showCourse) }
+                    StatusChip(task.status, onStatusChange)
                 }
             }
-            StatusChip(task.status, onStatusChange)
+        }
+    }
+}
+
+/** Title, course, badges and dates of a task card. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TaskCardDetails(task: Task, courseCode: String?, now: Instant, zone: ZoneId, showCourse: Boolean) {
+    val overdue = TaskRules.isOverdue(task, now)
+    val pastTarget = TaskRules.isPastTarget(task, now)
+    val finished = task.status.isFinished
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = task.title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textDecoration = if (task.status == TaskStatus.DONE) TextDecoration.LineThrough else null,
+            color = if (finished) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (showCourse) {
+                Text(
+                    text = courseCode ?: "No course",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            if (overdue) OverdueBadge()
+            if (pastTarget) InfoBadge("Past target")
+            if (task.removedFromCanvas) InfoBadge("Removed from Canvas")
+            Text(
+                text = TaskCardText.whenText(task, now, zone),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
 
 /** The "when" line of a task card. */
 object TaskCardText {
-    /** "Due Fri 20 Nov, 11:59 pm · Target Wed 18 Nov, 9:00 am", or "No due date". */
+    /**
+     * "Due Fri 20 Nov, 11:59 pm · Target Wed 18 Nov, 9:00 am", or "No due date".
+     * Each part uses non-breaking spaces, so on a narrow card a line only breaks between the
+     * due and target parts, never inside a date ("11:59 / pm").
+     */
     fun whenText(task: Task, now: Instant, zone: ZoneId): String {
         val due = task.dueAt?.let { "Due ${DateText.dateTime(it, zone, now)}" }
         val target = task.targetAt?.let { "Target ${DateText.dateTime(it, zone, now)}" }
-        return listOfNotNull(due, target).joinToString(" · ").ifEmpty { "No due date" }
+        return listOfNotNull(due, target).joinToString(" · ") { it.replace(' ', NBSP) }.ifEmpty { "No due date" }
     }
+
+    private const val NBSP = '\u00A0'
+
 }

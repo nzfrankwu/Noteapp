@@ -68,9 +68,11 @@ fun NoteAppRoot() {
             entryProvider = entryProvider {
                 entry<HomeRoute> {
                     HomeScreen(
-                        viewModel = viewModel { HomeViewModel(container.folderRepository) },
+                        viewModel = viewModel { HomeViewModel(container.folderRepository, container.taskRepository) },
                         onOpenSettings = { backStack.add(SettingsRoute) },
                         onOpenFolder = { folderId -> backStack.add(FolderRoute(folderId)) },
+                        onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
+                        onAddTask = { backStack.add(TaskEditRoute()) },
                     )
                 }
                 entry<TaskRoute> { route ->

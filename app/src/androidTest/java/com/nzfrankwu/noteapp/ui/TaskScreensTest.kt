@@ -35,7 +35,6 @@ import com.nzfrankwu.noteapp.ui.task.TaskEditorScreen
 import com.nzfrankwu.noteapp.ui.task.TaskEditorViewModel
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
 import kotlinx.coroutines.runBlocking
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -71,8 +70,8 @@ class TaskScreensTest {
         }
     }
 
-    @After
-    fun tearDown() = db.close()
+    // The database is not closed after each test: screens may still be reading it when the
+    // test ends, and closing it then crashes the run. In-memory databases are freed anyway.
 
     private fun showOnTablet(content: @androidx.compose.runtime.Composable () -> Unit) {
         compose.setContent { NoteAppTheme { Box(Modifier.size(width = 1120.dp, height = 800.dp)) { content() } } }

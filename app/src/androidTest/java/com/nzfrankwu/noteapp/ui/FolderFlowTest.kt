@@ -19,6 +19,7 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.nzfrankwu.noteapp.data.FolderRepository
+import com.nzfrankwu.noteapp.data.TaskRepository
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 import com.nzfrankwu.noteapp.ui.home.HomeScreen
 import com.nzfrankwu.noteapp.ui.home.HomeViewModel
@@ -42,11 +43,11 @@ class FolderFlowTest {
     fun setUp() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         db = Room.inMemoryDatabaseBuilder(context, NoteAppDatabase::class.java).build()
-        val viewModel = HomeViewModel(FolderRepository(db))
+        val viewModel = HomeViewModel(FolderRepository(db), TaskRepository(db))
         compose.setContent {
             NoteAppTheme {
                 Box(Modifier.size(width = 1120.dp, height = 800.dp)) {
-                    HomeScreen(viewModel = viewModel, onOpenSettings = {}, onOpenFolder = {})
+                    HomeScreen(viewModel = viewModel, onOpenSettings = {}, onOpenFolder = {}, onOpenTask = {}, onAddTask = {})
                 }
             }
         }
