@@ -14,6 +14,9 @@ import com.nzfrankwu.noteapp.ui.settings.SyncMessages
 import com.nzfrankwu.noteapp.ui.message
 import com.nzfrankwu.noteapp.ui.minuteTicker
 import com.nzfrankwu.noteapp.domain.TaskStatus
+import com.nzfrankwu.noteapp.domain.HomeTab
+import com.nzfrankwu.noteapp.data.HomeTabStore
+import com.nzfrankwu.noteapp.data.InMemoryHomeTabStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import java.time.Clock
@@ -51,7 +54,17 @@ class HomeViewModel(
     private val syncRunner: CanvasSyncRunner? = null,
     private val clock: Clock = Clock.systemDefaultZone(),
     private val zone: ZoneId = ZoneId.systemDefault(),
+    /** Where the last home tab is remembered (in memory in screen tests). */
+    private val tabStore: HomeTabStore = InMemoryHomeTabStore(),
 ) : ViewModel() {
+
+    /** The open home tab: Overview, Calendar or Timeline. Null for the moment before it's loaded. */
+    val tab: StateFlow<HomeTab?> = tabStore.homeTab
+        .stateIn(viewModelScope, SharingStarted.Eagerly, initialValue = null)
+
+    fun selectTab(tab: HomeTab) {
+        viewModelScope.launch { tabStore.setHomeTab(tab) }
+    }
 
     /** The strips across the top of home: expired Canvas sign-in, and new courses to link. */
     val banners: StateFlow<HomeBanners> = if (canvasSettings == null) {

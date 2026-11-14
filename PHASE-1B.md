@@ -26,7 +26,7 @@ Decided with the user (15 Nov 2026):
   - A new `available_at` time on tasks, with a tested 1→2 migration (version-1 data must survive), recorded in `SchemaHistoryTest`.
   - The Canvas import reads `unlock_at`, which is Canvas-owned and updated on every sync.
   - Your own tasks leave it empty; the timeline then uses the date you added the task.
-- [ ] **B.4 Home tabs.** Overview · Calendar · Timeline as a segmented button in the top bar. The app remembers the last tab.
+- [x] **B.4 Home tabs.** _(done 15 Nov: `domain/HomeTab`, `data/ViewSettings` (DataStore "view_settings"), segmented button in `HomeScreen`; Calendar/Timeline are slots `HomeScreen(calendar = …, timeline = …)` filled from `NoteAppRoot`. Pull-to-refresh only on Overview.)_ Overview · Calendar · Timeline as a segmented button in the top bar. The app remembers the last tab.
 - [ ] **B.5 Calendar** (layout below). ★
 - [ ] **B.6 Timeline** (layout below). ★
 - [ ] **End of phase:** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.

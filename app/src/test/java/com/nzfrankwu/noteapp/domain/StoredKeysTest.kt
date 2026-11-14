@@ -23,6 +23,19 @@ class StoredKeysTest {
     }
 
     @Test
+    fun homeTabKeys_neverChange() {
+        // Saved as "the last tab you used"; changing one would just reset to Overview, but still.
+        assertEquals(setOf("overview", "calendar", "timeline"), HomeTab.entries.map { it.key }.toSet())
+    }
+
+    @Test
+    fun unknownOrMissingHomeTab_isOverview() {
+        assertEquals(HomeTab.OVERVIEW, HomeTab.fromKey(null))
+        assertEquals(HomeTab.OVERVIEW, HomeTab.fromKey("agenda"))
+        assertEquals(HomeTab.TIMELINE, HomeTab.fromKey("timeline"))
+    }
+
+    @Test
     fun keys_areUnique() {
         assertEquals(TaskStatus.entries.size, TaskStatus.entries.map { it.key }.toSet().size)
         assertEquals(TaskSource.entries.size, TaskSource.entries.map { it.key }.toSet().size)

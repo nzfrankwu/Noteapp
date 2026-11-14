@@ -1,6 +1,8 @@
 package com.nzfrankwu.noteapp.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,6 +24,9 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.R
 import com.nzfrankwu.noteapp.data.db.Folder
 import com.nzfrankwu.noteapp.data.db.FolderListItem
+import com.nzfrankwu.noteapp.domain.HomeTab
 import com.nzfrankwu.noteapp.ui.components.EmptyState
 import com.nzfrankwu.noteapp.ui.components.FolderTile
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
@@ -73,7 +79,12 @@ fun HomeScreen(
     onLinkCourses: () -> Unit = {},
     /** Shows a message in the app's snackbar. */
     onShowMessage: (String) -> Unit = {},
+    /** The Calendar tab's content (B.5). */
+    calendar: @Composable () -> Unit = { ComingSoon("Calendar") },
+    /** The Timeline tab's content (B.6). */
+    timeline: @Composable () -> Unit = { ComingSoon("Timeline") },
 ) {
+    val tab by viewModel.tab.collectAsStateWithLifecycle()
     val folders by viewModel.folders.collectAsStateWithLifecycle()
     val dueSoon by viewModel.dueSoon.collectAsStateWithLifecycle()
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
@@ -88,6 +99,10 @@ fun HomeScreen(
     }
 
     HomeContent(
+        tab = tab,
+        onSelectTab = viewModel::selectTab,
+        calendar = calendar,
+        timeline = timeline,
         folders = folders,
         banners = banners,
         bannerActions = BannerActions(onSignInAgain, onLinkCourses, viewModel::hideNewCourses),
@@ -159,13 +174,30 @@ fun HomeContent(
     bannerActions: BannerActions = BannerActions(),
     refreshing: Boolean = false,
     onRefresh: () -> Unit = {},
+    /** The open tab; null while the remembered tab is still loading (shows no content yet). */
+    tab: HomeTab? = HomeTab.OVERVIEW,
+    onSelectTab: (HomeTab) -> Unit = {},
+    calendar: @Composable () -> Unit = {},
+    timeline: @Composable () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
+                title = {
+                    BoxWithConstraints {
+                        // On a very narrow window the tabs need the room more than the name.
+                        val showName = maxWidth >= Dimens.HomeTitleMinWidth
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (showName) {
+                                Text(stringResource(R.string.app_name))
+                                Spacer(Modifier.width(Dimens.PaneGap))
+                            }
+                            HomeTabs(selected = tab, onSelect = onSelectTab)
+                        }
+                    }
+                },
                 actions = {
                     RoundIconButton(
                         icon = R.drawable.ic_settings,
@@ -179,24 +211,60 @@ fun HomeContent(
         },
     ) { innerPadding ->
         val folderActions = FolderActions(onNewFolder, onOpenFolder, onRenameFolder, onDeleteFolder)
-        // Pull down on Due soon or the folders to sync with Canvas now.
-        PullToRefreshBox(
-            isRefreshing = refreshing,
-            onRefresh = onRefresh,
-            modifier = Modifier.padding(innerPadding).fillMaxSize(),
-        ) {
-            Column(Modifier.fillMaxSize()) {
-                HomeBannerStrips(banners, bannerActions)
-                BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-                    if (maxWidth >= WideLayoutMinWidth) {
-                        WideHome(folders, folderActions, dueSoon, dueSoonActions)
-                    } else {
-                        NarrowHome(folders, folderActions, dueSoon, dueSoonActions)
+        Column(Modifier.padding(innerPadding).fillMaxSize()) {
+            HomeBannerStrips(banners, bannerActions)
+            Box(Modifier.fillMaxWidth().weight(1f)) {
+                when (tab) {
+                    // Pull down on Due soon or the folders to sync with Canvas now.
+                    HomeTab.OVERVIEW -> PullToRefreshBox(
+                        isRefreshing = refreshing,
+                        onRefresh = onRefresh,
+                        modifier = Modifier.fillMaxSize().testTag("home-overview"),
+                    ) {
+                        BoxWithConstraints(Modifier.fillMaxSize()) {
+                            if (maxWidth >= WideLayoutMinWidth) {
+                                WideHome(folders, folderActions, dueSoon, dueSoonActions)
+                            } else {
+                                NarrowHome(folders, folderActions, dueSoon, dueSoonActions)
+                            }
+                        }
                     }
+                    HomeTab.CALENDAR -> calendar()
+                    HomeTab.TIMELINE -> timeline()
+                    null -> Unit
                 }
             }
         }
     }
+}
+
+/** Overview · Calendar · Timeline, as one segmented button. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeTabs(selected: HomeTab?, onSelect: (HomeTab) -> Unit) {
+    SingleChoiceSegmentedButtonRow(Modifier.testTag("home-tabs")) {
+        HomeTab.entries.forEachIndexed { index, tab ->
+            SegmentedButton(
+                selected = tab == selected,
+                onClick = { onSelect(tab) },
+                shape = SegmentedButtonDefaults.itemShape(index, HomeTab.entries.size),
+                icon = {}, // no tick: the filled segment already shows which one is open
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+                modifier = Modifier.testTag("home-tab-${tab.key}"),
+            ) {
+                Text(tab.label, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** Placeholder for a tab that isn't built yet. */
+@Composable
+private fun ComingSoon(name: String) {
+    EmptyState(title = name, message = "$name is on its way in the next update.", modifier = Modifier.fillMaxSize())
 }
 
 private class FolderActions(

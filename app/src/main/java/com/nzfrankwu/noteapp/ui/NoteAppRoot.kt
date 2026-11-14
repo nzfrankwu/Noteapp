@@ -139,6 +139,7 @@ fun NoteAppRoot(
                             HomeViewModel(
                                 container.folderRepository, container.taskRepository,
                                 container.canvasSettings, container.canvasSyncRunner,
+                                tabStore = container.viewSettings,
                             )
                         },
                         onOpenSettings = { backStack.add(SettingsRoute) },

@@ -42,4 +42,7 @@ object Dimens {
 
     /** Gap between fields in a form (New task, Edit task). */
     val FieldGap = 14.dp
+
+    /** Below this top-bar width home shows only the Overview · Calendar · Timeline tabs, not the app name. */
+    val HomeTitleMinWidth = 480.dp
 }

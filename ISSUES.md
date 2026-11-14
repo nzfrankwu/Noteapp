@@ -27,6 +27,8 @@ _None right now._
 
 ## Done
 
+- **Home tabs (Phase 1b, step B.4), 15 Nov.** Overview · Calendar · Timeline in the top bar; the app reopens on the last tab used. Pull-to-refresh stays on Overview. 2 screen tests and 2 unit tests.
+
 - **Database version 2: "available from" (Phase 1b, step B.3 🔺), 15 Nov.** Tasks now store when Canvas makes an assignment available (Canvas's `unlock_at`), for the timeline. Updating the app adds an empty column; every existing value is kept, and the next Canvas sync fills in the dates. Your own tasks have none (the timeline will use the date you added them). Checked with unit tests, 5 migration tests on the emulator, a deliberately broken migration (caught), and a real upgrade of the previous app with data on the emulator. Nothing visible changes yet.
 
 - **Course colours (Phase 1b, step B.2), 15 Nov.** Each course gets the next free colour in the order Noteapp first saw it (your choice at the check-in, so up to 7 courses never clash; 7 colours, light and dark). Neighbouring colours are very different, so a semester's new courses look distinct. It's used for the course tag (a small colour bar plus the code) on task cards, the task page, folder tiles (the folder icon too), the folder header and Link courses. 18 new unit tests.

@@ -12,6 +12,7 @@ import com.nzfrankwu.noteapp.data.CanvasSettings
 import com.nzfrankwu.noteapp.data.FolderRepository
 import com.nzfrankwu.noteapp.data.QuickAdd
 import com.nzfrankwu.noteapp.data.TaskRepository
+import com.nzfrankwu.noteapp.data.ViewSettings
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 import com.nzfrankwu.noteapp.reminders.ReminderScheduler
 import kotlinx.coroutines.flow.first
@@ -35,6 +36,9 @@ class AppContainer(context: Context) {
     val reminderScheduler: ReminderScheduler by lazy { ReminderScheduler(appContext) }
 
     val canvasSettings: CanvasSettings by lazy { CanvasSettings(appContext) }
+
+    /** Remembered view choices, e.g. the last home tab. */
+    val viewSettings: ViewSettings by lazy { ViewSettings(appContext) }
 
     /** The in-app browser's Canvas cookies (read per request, never copied). */
     val canvasCookies: WebViewCanvasCookies by lazy { WebViewCanvasCookies() }
