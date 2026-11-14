@@ -157,7 +157,7 @@ _Logic done ahead:_ `domain/SharedLink.kt`, with 9 tests. It reads the link and 
   - `MainActivity` accepts shared text ("New task" in the share sheet); `data/QuickAdd.kt` fills in the title, link and, for a link inside one of your Canvas courses, the course (4 emulator tests). Nothing is saved until you tap Save.
 
 ### End of phase
-- [ ] 🔺 Run `/code-review`, fix what it finds, retest, update `ISSUES.md`, then ask for approval to merge into `main`.
+- [x] 🔺 Run `/code-review`, fix what it finds, retest, update `ISSUES.md`, then ask for approval to merge into `main`. (Code review done overnight; merge approved by the user on 15 Nov 2026.)
 
 ---
 
