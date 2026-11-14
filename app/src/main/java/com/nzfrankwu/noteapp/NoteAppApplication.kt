@@ -23,6 +23,8 @@ class NoteAppApplication : Application() {
         container = AppContainer(this)
         Notifications.createChannels(this)
         keepRemindersInStep()
+        // While signed in to Canvas, keep the 6-hourly background sync scheduled (IDEA.md §3.3).
+        appScope.launch { container.canvasAccount.ensureBackgroundSync() }
     }
 
     /**

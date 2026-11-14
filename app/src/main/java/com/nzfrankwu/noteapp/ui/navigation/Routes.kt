@@ -31,3 +31,7 @@ data class TaskEditRoute(
     val title: String? = null,
     val url: String? = null,
 ) : NavKey
+
+/** Signing in to Canvas in the in-app browser. */
+@Serializable
+data object CanvasLoginRoute : NavKey

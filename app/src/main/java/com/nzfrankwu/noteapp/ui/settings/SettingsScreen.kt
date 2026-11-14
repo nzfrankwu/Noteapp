@@ -46,7 +46,13 @@ import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier, onTestReminder: (() -> Unit)? = null) {
+fun SettingsScreen(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    onTestReminder: (() -> Unit)? = null,
+    canvas: CanvasSettingsViewModel? = null,
+    onOpenCanvasBrowser: () -> Unit = {},
+) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
@@ -83,12 +89,15 @@ fun SettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier, onTestRemi
                 verticalArrangement = Arrangement.spacedBy(Dimens.PaneGap),
             ) {
                 SettingsSection("Canvas") {
-                    Text(
-                        text = "Sign in to Canvas to import your courses and assignments. " +
-                            "This arrives in a later step.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (canvas != null) {
+                        CanvasSettingsSection(canvas, onOpenCanvasBrowser)
+                    } else {
+                        Text(
+                            text = "Sign in to Canvas to import your courses and assignments.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 SettingsSection("Reminders") { RemindersSettings(onTestReminder) }
                 SettingsSection("About") {

@@ -5,6 +5,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import com.nzfrankwu.noteapp.reminders.Notifications
 import com.nzfrankwu.noteapp.ui.NoteAppRoot
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
@@ -28,6 +32,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         // Only on a fresh start: after rotation the task page is already on the back stack.
         if (savedInstanceState == null) takeRequests(intent)
+        // Each time the app comes to the front: sync with Canvas if the last sync was over 15
+        // minutes ago (does nothing when Canvas isn't connected).
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                (application as NoteAppApplication).container.canvasSyncRunner.runIfDue()
+            }
+        }
         setContent {
             NoteAppTheme {
                 NoteAppRoot(openTaskRequest = openTaskRequest, shareRequest = shareRequest)

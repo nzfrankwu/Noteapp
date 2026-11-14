@@ -39,6 +39,11 @@ import com.nzfrankwu.noteapp.ui.home.HomeViewModel
 import com.nzfrankwu.noteapp.ui.navigation.HomeRoute
 import com.nzfrankwu.noteapp.ui.navigation.SettingsRoute
 import com.nzfrankwu.noteapp.ui.navigation.TaskEditRoute
+import com.nzfrankwu.noteapp.ui.navigation.CanvasLoginRoute
+import com.nzfrankwu.noteapp.ui.canvas.CanvasLoginScreen
+import com.nzfrankwu.noteapp.ui.canvas.CanvasLoginViewModel
+import com.nzfrankwu.noteapp.ui.settings.CanvasSettingsViewModel
+import com.nzfrankwu.noteapp.ui.settings.SyncMessages
 import com.nzfrankwu.noteapp.ui.navigation.TaskRoute
 import com.nzfrankwu.noteapp.ui.settings.SettingsScreen
 import com.nzfrankwu.noteapp.ui.task.TaskDetailScreen
@@ -134,7 +139,23 @@ fun NoteAppRoot(
                         onAddTask = { backStack.add(TaskEditRoute()) },
                     )
                 }
-                entry<TaskRoute> { route ->
+                entry<CanvasLoginRoute> {
+                CanvasLoginScreen(
+                    viewModel = viewModel { CanvasLoginViewModel(container.canvasSettings, container.canvasAccount) },
+                    onClose = ::back,
+                    onSignedIn = { name ->
+                        back()
+                        scope.launch {
+                            snackbar.currentSnackbarData?.dismiss()
+                            launch { snackbar.showSnackbar("Signed in as $name. Getting your courses from Canvas…") }
+                            val message = SyncMessages.describe(container.canvasSyncRunner.run())
+                            snackbar.currentSnackbarData?.dismiss()
+                            snackbar.showSnackbar(message)
+                        }
+                    },
+                )
+            }
+            entry<TaskRoute> { route ->
                     TaskDetailScreen(
                         viewModel = viewModel { TaskDetailViewModel(route.taskId, container.taskRepository) },
                         onBack = ::back,
@@ -181,6 +202,10 @@ fun NoteAppRoot(
                 entry<SettingsRoute> {
                     SettingsScreen(
                     onBack = ::back,
+                    canvas = viewModel {
+                        CanvasSettingsViewModel(container.canvasSettings, container.canvasAccount, container.canvasSyncRunner)
+                    },
+                    onOpenCanvasBrowser = { backStack.add(CanvasLoginRoute) },
                     onTestReminder = if (BuildConfig.DEBUG) {
                         {
                             scope.launch {
