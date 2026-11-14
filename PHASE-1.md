@@ -2,6 +2,7 @@
 
 The approved plan for IDEA.md Phase 1 (approved 2026-11-14), with the checklist ticked as steps pass.
 Work happens on branch `phase-1`. ★ marks a check-in with the user (Working-together mode); the branch is pushed after each OK.
+🔺 marks a difficult or high-stakes step. Before starting one, tell the user so they can switch to a stronger model (see CLAUDE.md).
 
 Decisions made:
 - **App ID:** `com.nzfrankwu.noteapp`. It must never change again.
@@ -18,7 +19,7 @@ Decisions made:
   - Libraries are updated.
   - Android's built-in backup and device-to-device transfer are off.
   - This file is added.
-- [ ] **0.3 Database.** Course, Folder and Task tables, schema export, and migration test setup. *Nothing visible.*
+- [ ] 🔺 **0.3 Database.** Course, Folder and Task tables, schema export, and migration test setup. *Nothing visible.*
 - [ ] **0.4 App shell.** Home with empty Due soon and Folders areas, Settings, navigation, and wide/narrow layouts (the layout is agreed first). ★
 
 ### F1: Folders
@@ -36,26 +37,26 @@ Decisions made:
 
 ### F4: Reminders
 - [ ] **4.1** Notifications 1 day and 2 hours before the target date (or the due date), asking permission first. Tapping one opens the task. Debug builds get a test button.
-- [ ] **4.2** Reminders stay correct after edits, restarts, and time-zone or daylight-saving changes. ★
+- [ ] 🔺 **4.2** Reminders stay correct after edits, restarts, and time-zone or daylight-saving changes. ★
 
 ### F5: Canvas sign-in (go/no-go) ⚠ needs you
-- [ ] **5.1** Canvas address, then in-app browser login, then "Signed in as …", plus Sign out. You do the real login. If the uni login fails in the in-app browser, stop and discuss the calendar-feed fallback (§3.4). ★
+- [ ] 🔺 **5.1** Canvas address, then in-app browser login, then "Signed in as …", plus Sign out. You do the real login. If the uni login fails in the in-app browser, stop and discuss the calendar-feed fallback (§3.4). ★
 
 ### F6: Canvas import
-- [ ] **6.1** Read-only Canvas client: GET only, reads every page, polite pacing, notices an expired sign-in. Tested against a fake server.
+- [ ] 🔺 **6.1** Read-only Canvas client: GET only, reads every page, polite pacing, notices an expired sign-in. Tested against a fake server.
 - [ ] **6.2** Import active courses, then the "Link your courses" screen.
 - [ ] **6.3** Import assignments (dated, undated and quizzes) with formatted descriptions, "Open in Canvas" and submission status. Debug builds get a fake-Canvas mode. ★
 
 ### F7: Sync rules
-- [ ] **7.1** Canvas updates never touch your status, target date or links. Removed assignments are marked, never deleted, and only after a complete fetch.
-- [ ] **7.2** Auto-status moves a task to Submitted: forward only, never over Done, and once per new submission.
-- [ ] **7.3** Sync on app open (if more than 15 min since the last), on pull-to-refresh, and in the background about every 6 h. Settings shows Last synced and has Sync now. An expired-sign-in banner appears when needed, and new courses prompt you to link them. ★
+- [ ] 🔺 **7.1** Canvas updates never touch your status, target date or links. Removed assignments are marked, never deleted, and only after a complete fetch.
+- [ ] 🔺 **7.2** Auto-status moves a task to Submitted: forward only, never over Done, and once per new submission.
+- [ ] 🔺 **7.3** Sync on app open (if more than 15 min since the last), on pull-to-refresh, and in the background about every 6 h. Settings shows Last synced and has Sync now. An expired-sign-in banner appears when needed, and new courses prompt you to link them. ★
 
 ### F8: Quick-add from a link
 - [ ] **8.1** Share a link to NoteApp to get a New task with the link (and title or course, if known) filled in. ★
 
 ### End of phase
-- [ ] Run `/code-review`, fix what it finds, retest, update `ISSUES.md`, then ask for approval to merge into `main`.
+- [ ] 🔺 Run `/code-review`, fix what it finds, retest, update `ISSUES.md`, then ask for approval to merge into `main`.
 
 ---
 

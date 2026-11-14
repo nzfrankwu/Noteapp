@@ -60,6 +60,20 @@ This applies when the user says "I'm hands off, work on your own".
 - **Never merge into `main` without the user's approval.**
 - **At the end of each phase:** run `/code-review`, fix the issues it finds, rebuild and retest, then ask the user to approve the merge into `main`.
 
+## Difficult steps: suggest a stronger model
+
+Before starting a step that is **difficult or high-stakes**, stop and tell the user so they can switch to a stronger model or higher effort (e.g. Opus 5.5 at max effort) first. Say in a sentence or two why the step is hard. Examples of hard steps:
+
+- tricky logic
+- data safety or migrations
+- security (Canvas cookies)
+- things that are hard to change later
+- complex UI like the ink canvas
+
+Steps known to be difficult are marked 🔺 in the phase plan (`PHASE-1.md`). Also flag any step that turns out harder than expected partway through.
+
+In hands-off mode, carry on, but list every 🔺 step you did in `REPORT.md` so the user can review it carefully.
+
 ## Reporting
 
 Keep reports high-level; the user doesn't need line-by-line explanations. Each report covers:
