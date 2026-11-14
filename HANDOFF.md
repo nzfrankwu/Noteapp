@@ -21,10 +21,8 @@ _Last updated: 15 Nov 2026, 11:50 am. Keep this file current (see CLAUDE.md, "Se
 ## Next steps (in order)
 
 1. **B.9 New folder: course drop-down** (current courses only, no archived; also in "Link a course").
-3. Earlier tablet testing notes:
-   - Right after the install, no Canvas task had an "available from" date yet (0 of 124), and no task had changed since 8:40 am. Either no sync has run since the update, or Canvas sets no unlock dates for these courses. Ask the user to pull-to-refresh, then check the Timeline. Don't look at their Canvas sign-in to find out.
-4. End of phase: `/code-review`, fix, retest, then ask to merge into `main`.
-5. **Later, in Phase 2: subfolders** (the user asked for them on 15 Nov). IDEA.md §2.1 and the §5 Phase 2 row now include them.
+2. End of phase: `/code-review`, fix, retest, then ask to merge into `main`.
+3. **Later, in Phase 2: subfolders** (the user asked for them on 15 Nov). IDEA.md §2.1 and the §5 Phase 2 row now include them.
    - Planned for the start of Phase 2, so the folder database change goes in with the notebook storage change.
    - Layout reference: `design-reference/notein-inside-course-folder.jpg` (a filter row All · PDF · Note · Folder, then a thumbnail grid).
    - Open questions for then:
