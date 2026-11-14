@@ -1,0 +1,25 @@
+while(1);[
+  {
+    "id": 555,
+    "name": "Engineering Electromagnetics",
+    "account_id": 1,
+    "uuid": "made-up-uuid-1",
+    "start_at": null,
+    "course_code": "ELECTENG 204",
+    "workflow_state": "available",
+    "enrollment_term_id": 77,
+    "enrollments": [{"type": "student", "role": "StudentEnrollment", "enrollment_state": "active"}],
+    "hide_final_grades": false
+  },
+  {
+    "id": 556,
+    "name": "Circuits and Systems",
+    "course_code": "  ELECTENG 292 ",
+    "workflow_state": "available",
+    "enrollments": []
+  },
+  {
+    "id": 99,
+    "access_restricted_by_date": true
+  }
+]

@@ -104,6 +104,7 @@ dependencies {
     // enough for Room's migration-test helper: Android test builds must reuse the app's versions,
     // and the 1.7.3 that came in indirectly made MigrationTest crash.
     implementation(libs.kotlinx.serialization.core)
+    implementation(libs.kotlinx.serialization.json) // reading Canvas API responses
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
     testImplementation(libs.junit)

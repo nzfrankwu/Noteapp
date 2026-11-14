@@ -41,6 +41,10 @@ Decisions made:
 - [ ] **1.2** The folder screen: course header, a Notebooks placeholder, a Tasks section, and link/unlink a course. ★
 
 ### F2: Tasks
+_Logic done ahead of the screens:_
+- `domain/TaskRules.kt`: overdue, past target, Due soon sections, default times.
+- `data/TaskRepository.kt`: create, edit, status, delete and undo.
+- **Still to do:** the task screens below.
 - [ ] **2.1** Add a task: name, course, optional due date and time, optional "My target date", link and notes. Undated tasks go at the bottom.
 - [ ] **2.2** Task detail, edit, delete with Undo, and opening the link.
 - [ ] **2.3** Status tags and the automatic Overdue badge. ★
@@ -58,12 +62,16 @@ Decisions made:
 
 ### F6: Canvas import
 - [ ] 🔺 **6.1** Read-only Canvas client: GET only, reads every page, polite pacing, notices an expired sign-in. Tested against a fake server.
+  - _Done:_ `canvas/CanvasParser.kt` reads the user, courses and assignments, strips the `while(1);` guard and follows `Link` paging. It's tested with made-up sample JSON in `app/src/test/resources/canvas/`.
+  - **Still to do:** the OkHttp client (GET-only guard, cookies from WebView, pacing, expired-sign-in detection) with MockWebServer tests.
 - [ ] **6.2** Import active courses, then the "Link your courses" screen.
 - [ ] **6.3** Import assignments (dated, undated and quizzes) with formatted descriptions, "Open in Canvas" and submission status. Debug builds get a fake-Canvas mode. ★
 
 ### F7: Sync rules
 - [ ] 🔺 **7.1** Canvas updates never touch your status, target date or links. Removed assignments are marked, never deleted, and only after a complete fetch.
 - [ ] 🔺 **7.2** Auto-status moves a task to Submitted: forward only, never over Done, and once per new submission.
+  - _Rules for 7.1 and 7.2 done:_ `canvas/CanvasMerge.kt`, with 17 tests.
+  - **Still to do:** the sync code that fetches each course, applies these rules in a database transaction, and calls `markRemoved` only after a complete fetch.
 - [ ] 🔺 **7.3** Sync on app open (if more than 15 min since the last), on pull-to-refresh, and in the background about every 6 h. Settings shows Last synced and has Sync now. An expired-sign-in banner appears when needed, and new courses prompt you to link them. ★
 
 ### F8: Quick-add from a link
