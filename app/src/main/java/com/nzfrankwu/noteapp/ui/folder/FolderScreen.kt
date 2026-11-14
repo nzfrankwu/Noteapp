@@ -42,6 +42,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.R
+import com.nzfrankwu.noteapp.ui.components.CourseTag
 import com.nzfrankwu.noteapp.ui.components.EmptyState
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
 import com.nzfrankwu.noteapp.ui.components.TaskCard
@@ -84,7 +85,7 @@ fun FolderScreen(
                     Column {
                         Text(item?.folder?.name.orEmpty())
                         if (courseCode != null) {
-                            Text(courseCode, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                            CourseTag(courseCode, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 },

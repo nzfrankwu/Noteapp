@@ -93,13 +93,7 @@ private fun TaskCardDetails(task: Task, courseCode: String?, now: Instant, zone:
             verticalArrangement = Arrangement.spacedBy(4.dp),
             itemVerticalAlignment = Alignment.CenterVertically,
         ) {
-            if (showCourse) {
-                Text(
-                    text = courseCode ?: "No course",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+            if (showCourse) CourseTag(courseCode)
             if (overdue) OverdueBadge()
             if (pastTarget) InfoBadge("Past target")
             if (task.removedFromCanvas) InfoBadge("Removed from Canvas")

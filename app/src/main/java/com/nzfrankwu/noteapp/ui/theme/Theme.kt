@@ -70,7 +70,10 @@ fun NoteAppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    CompositionLocalProvider(LocalStatusColors provides if (darkTheme) DarkStatusColors else LightStatusColors) {
+    CompositionLocalProvider(
+        LocalStatusColors provides if (darkTheme) DarkStatusColors else LightStatusColors,
+        LocalCourseColors provides if (darkTheme) DarkCourseColors else LightCourseColors,
+    ) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkColors else LightColors,
             typography = Typography,

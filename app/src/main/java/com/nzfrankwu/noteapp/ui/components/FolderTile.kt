@@ -27,6 +27,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.nzfrankwu.noteapp.R
 import com.nzfrankwu.noteapp.ui.theme.Dimens
+import com.nzfrankwu.noteapp.ui.theme.LocalCourseColors
 
 /**
  * A folder on the home screen: icon, name, and course code if linked.
@@ -56,7 +57,7 @@ fun FolderTile(
                 Icon(
                     painter = painterResource(R.drawable.ic_folder),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = if (courseCode != null) LocalCourseColors.current.of(courseCode).accent else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(Dimens.FolderTileIconSize),
                 )
                 Spacer(Modifier.weight(1f))
@@ -67,15 +68,7 @@ fun FolderTile(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (courseCode != null) {
-                    Text(
-                        text = courseCode,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                if (courseCode != null) CourseTag(courseCode, style = MaterialTheme.typography.labelLarge)
             }
             Box(Modifier.align(Alignment.TopEnd)) {
                 IconButton(onClick = { menuOpen = true }) {

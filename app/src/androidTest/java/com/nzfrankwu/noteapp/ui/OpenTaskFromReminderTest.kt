@@ -47,7 +47,7 @@ class OpenTaskFromReminderTest {
         }
         val intent = Intent(context, MainActivity::class.java).putExtra(Notifications.EXTRA_OPEN_TASK_ID, taskId)
         ActivityScenario.launch<MainActivity>(intent).use {
-            compose.waitUntilAtLeastOneExists(hasText("TEST 101 · Your task"), 10_000)
+            compose.waitUntilAtLeastOneExists(hasText(" · Your task"), 10_000)
         }
     }
 }

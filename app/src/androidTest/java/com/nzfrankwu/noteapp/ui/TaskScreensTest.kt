@@ -148,7 +148,8 @@ class TaskScreensTest {
         showOnTablet { TaskDetailScreen(TaskDetailViewModel(id, tasks), onBack = {}, onEdit = {}, onDeleted = {}) }
 
         waitFor("Assignment 2")
-        compose.onNodeWithText("ELECTENG 204 · Your task").assertExists()
+        compose.onNodeWithText("ELECTENG 204").assertExists()
+        compose.onNodeWithText(" · Your task").assertExists()
         compose.onNodeWithText("Q1 to Q4").assertExists()
         compose.onNodeWithText("Not set").assertExists() // no target date
 

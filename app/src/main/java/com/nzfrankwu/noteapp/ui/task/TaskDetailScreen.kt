@@ -53,6 +53,7 @@ import com.nzfrankwu.noteapp.domain.Links
 import com.nzfrankwu.noteapp.domain.TaskRules
 import com.nzfrankwu.noteapp.domain.TaskSource
 import com.nzfrankwu.noteapp.domain.TaskStatus
+import com.nzfrankwu.noteapp.ui.components.CourseTag
 import com.nzfrankwu.noteapp.ui.components.DaysLeftText
 import com.nzfrankwu.noteapp.ui.components.InfoBadge
 import com.nzfrankwu.noteapp.ui.components.OverdueBadge
@@ -139,11 +140,14 @@ private fun TaskDetails(item: TaskWithCourse, now: Instant, zone: ZoneId, onStat
         verticalArrangement = Arrangement.spacedBy(Dimens.FieldGap),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = listOf(item.courseCode ?: "No course", if (isCanvas) "Canvas assignment" else "Your task").joinToString(" · "),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CourseTag(item.courseCode, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    text = " · " + if (isCanvas) "Canvas assignment" else "Your task",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             SelectionContainer {
                 Text(task.title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag("task-title"))
             }
