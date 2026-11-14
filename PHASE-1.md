@@ -54,6 +54,14 @@ _Logic done ahead of the screens:_
 - [ ] **3.2** The collapsible "No due date" section, finished tasks, and narrow/portrait polish. ★
 
 ### F4: Reminders
+_Logic done ahead:_ `domain/Reminders.kt`, with 9 tests. It covers:
+- when reminders fire: 1 day before (same clock time) and 2 hours before the target date (or the due date)
+- none for finished, undated or past tasks
+- stable IDs per task and offset
+- the notification text
+- daylight-saving days
+
+**Still to do:** the Android part (AlarmManager, notification channel and permission, reschedule on boot and time change, tap to open the task, debug test button).
 - [ ] **4.1** Notifications 1 day and 2 hours before the target date (or the due date), asking permission first. Tapping one opens the task. Debug builds get a test button.
 - [ ] 🔺 **4.2** Reminders stay correct after edits, restarts, and time-zone or daylight-saving changes. ★
 
@@ -91,6 +99,9 @@ _Logic done ahead of the screens:_
 - [ ] 🔺 **7.3** Sync on app open (if more than 15 min since the last), on pull-to-refresh, and in the background about every 6 h. Settings shows Last synced and has Sync now. An expired-sign-in banner appears when needed, and new courses prompt you to link them. ★
 
 ### F8: Quick-add from a link
+_Logic done ahead:_ `domain/SharedLink.kt`, with 9 tests. It reads the link and a suggested title from shared text or subject, tidies punctuation, and finds the Canvas course ID in Canvas links.
+
+**Still to do:** the Android share target (intent filter) and the prefilled New task form.
 - [ ] **8.1** Share a link to NoteApp to get a New task with the link (and title or course, if known) filled in. ★
 
 ### End of phase
