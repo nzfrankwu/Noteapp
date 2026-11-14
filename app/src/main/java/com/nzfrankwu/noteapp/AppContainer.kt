@@ -1,9 +1,12 @@
 package com.nzfrankwu.noteapp
 
 import android.content.Context
+import com.nzfrankwu.noteapp.canvas.CanvasAccount
 import com.nzfrankwu.noteapp.canvas.CanvasClient
 import com.nzfrankwu.noteapp.canvas.CanvasSync
 import com.nzfrankwu.noteapp.canvas.CanvasSyncRunner
+import com.nzfrankwu.noteapp.canvas.CanvasSyncWorker
+import com.nzfrankwu.noteapp.canvas.FakeCanvas
 import com.nzfrankwu.noteapp.canvas.WebViewCanvasCookies
 import com.nzfrankwu.noteapp.data.CanvasSettings
 import com.nzfrankwu.noteapp.data.FolderRepository
@@ -39,8 +42,22 @@ class AppContainer(context: Context) {
     /** A read-only Canvas client for the school's [address] (from [canvasSettings]). */
     fun canvasClient(address: String): CanvasClient = CanvasClient(address, canvasCookies)
 
-    /** A Canvas sync for the school's [address]. */
-    fun canvasSync(address: String): CanvasSync = CanvasSync(database, canvasClient(address))
+    /** A Canvas sync for the school's [address]. (Debug builds: the fake Canvas's address uses [FakeCanvas].) */
+    fun canvasSync(address: String): CanvasSync =
+        CanvasSync(database, if (useFake(address)) FakeCanvas() else canvasClient(address))
+
+    private fun useFake(address: String) = BuildConfig.DEBUG && FakeCanvas.isFake(address)
+
+    /** Connecting to Canvas: address, confirming a sign-in, signing out. */
+    val canvasAccount: CanvasAccount by lazy {
+        CanvasAccount(
+            settings = canvasSettings,
+            whoAmI = { address -> if (useFake(address)) FakeCanvas().user else canvasClient(address).getSelf() },
+            clearBrowser = { canvasCookies.signOut() },
+            startBackgroundSync = { CanvasSyncWorker.schedule(appContext) },
+            stopBackgroundSync = { CanvasSyncWorker.cancel(appContext) },
+        )
+    }
 
     /** Runs syncs with the saved settings (used by app open, pull-to-refresh and the background job). */
     val canvasSyncRunner: CanvasSyncRunner by lazy { CanvasSyncRunner(canvasSettings, ::canvasSync) }
