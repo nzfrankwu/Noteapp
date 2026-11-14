@@ -1,6 +1,10 @@
 package com.nzfrankwu.noteapp
 
 import android.content.Context
+import com.nzfrankwu.noteapp.canvas.CanvasClient
+import com.nzfrankwu.noteapp.canvas.CanvasSync
+import com.nzfrankwu.noteapp.canvas.WebViewCanvasCookies
+import com.nzfrankwu.noteapp.data.CanvasSettings
 import com.nzfrankwu.noteapp.data.FolderRepository
 import com.nzfrankwu.noteapp.data.TaskRepository
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
@@ -20,4 +24,15 @@ class AppContainer(context: Context) {
     val taskRepository: TaskRepository by lazy { TaskRepository(database) }
 
     val reminderScheduler: ReminderScheduler by lazy { ReminderScheduler(appContext) }
+
+    val canvasSettings: CanvasSettings by lazy { CanvasSettings(appContext) }
+
+    /** The in-app browser's Canvas cookies (read per request, never copied). */
+    val canvasCookies: WebViewCanvasCookies by lazy { WebViewCanvasCookies() }
+
+    /** A read-only Canvas client for the school's [address] (from [canvasSettings]). */
+    fun canvasClient(address: String): CanvasClient = CanvasClient(address, canvasCookies)
+
+    /** A Canvas sync for the school's [address]. */
+    fun canvasSync(address: String): CanvasSync = CanvasSync(database, canvasClient(address))
 }

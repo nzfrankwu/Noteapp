@@ -1,0 +1,43 @@
+package com.nzfrankwu.noteapp.data
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import java.time.Instant
+
+private val Context.canvasSettingsStore: DataStore<Preferences> by preferencesDataStore(name = "canvas_settings")
+
+/**
+ * Small Canvas settings (in Noteapp's private storage): the school's Canvas address, who is
+ * signed in (for "Signed in as …"), and when the last sync finished. No secrets here: the
+ * sign-in cookies stay in the in-app browser's store (see WebViewCanvasCookies).
+ */
+class CanvasSettings(context: Context) {
+    private val store = context.applicationContext.canvasSettingsStore
+
+    /** e.g. "https://canvas.example.edu", or null if not set up. */
+    val address: Flow<String?> = store.data.map { it[ADDRESS] }
+
+    /** The signed-in user's name, or null if signed out. */
+    val signedInAs: Flow<String?> = store.data.map { it[SIGNED_IN_AS] }
+
+    val lastSyncedAt: Flow<Instant?> = store.data.map { prefs -> prefs[LAST_SYNCED]?.let(Instant::ofEpochMilli) }
+
+    suspend fun setAddress(address: String?) = store.edit { if (address == null) it.remove(ADDRESS) else it[ADDRESS] = address }
+
+    suspend fun setSignedInAs(name: String?) = store.edit { if (name == null) it.remove(SIGNED_IN_AS) else it[SIGNED_IN_AS] = name }
+
+    suspend fun setLastSyncedAt(at: Instant) = store.edit { it[LAST_SYNCED] = at.toEpochMilli() }
+
+    private companion object {
+        val ADDRESS = stringPreferencesKey("address")
+        val SIGNED_IN_AS = stringPreferencesKey("signed_in_as")
+        val LAST_SYNCED = longPreferencesKey("last_synced_at")
+    }
+}

@@ -79,6 +79,12 @@ _Android part done:_
   - Not yet checked on the tablet: a real restart, and whether ColorOS delays or blocks alarms.
 
 ### F5: Canvas sign-in (go/no-go) ⚠ needs you
+- _Groundwork done:_
+  - `canvas/CanvasSignIn.kt` checks the Canvas address (https only) and spots the end of the login (9 tests).
+  - `WebViewCanvasCookies` reads the cookie and signs out completely.
+  - `data/CanvasSettings.kt` stores the address, "signed in as" name and last-synced time (DataStore).
+  - `AppContainer.canvasClient/canvasSync` connects the pieces.
+  - **Still to do:** the Settings Canvas section and the in-app browser screen, then your real login test.
 - [ ] 🔺 **5.1** Canvas address, then in-app browser login, then "Signed in as …", plus Sign out. You do the real login. If the uni login fails in the in-app browser, stop and discuss the calendar-feed fallback (§3.4). ★
 
 ### F6: Canvas import
