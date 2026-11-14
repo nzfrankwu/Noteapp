@@ -102,10 +102,12 @@ class TimelineViewModel(
     private val tasks: TaskRepository,
     private val clock: Clock = Clock.systemDefaultZone(),
     private val zone: ZoneId = ZoneId.systemDefault(),
+    /** Inside a course folder: only this course's tasks. */
+    courseId: String? = null,
 ) : ViewModel() {
     private val zoom = MutableStateFlow(TimelineZoom.TWO_WEEKS)
     private val start = MutableStateFlow(TimelineRules.defaultStart(today(), TimelineZoom.TWO_WEEKS))
-    private val filters = MutableStateFlow(TaskViewFilters())
+    private val filters = MutableStateFlow(TaskViewFilters(courseId = courseId, courseFixed = courseId != null))
 
     private fun today(): LocalDate = clock.instant().atZone(zone).toLocalDate()
 
@@ -132,6 +134,6 @@ class TimelineViewModel(
     /** An off-screen arrow was tapped: move so that day is in view. */
     fun jumpTo(day: LocalDate) { start.value = TimelineRules.startShowing(day, zoom.value) }
 
-    fun setCourse(courseId: String?) = filters.update { it.copy(courseId = courseId) }
+    fun setCourse(courseId: String?) = filters.update { if (it.courseFixed) it else it.copy(courseId = courseId) }
     fun toggleShowFinished() = filters.update { it.copy(showFinished = !it.showFinished) }
 }

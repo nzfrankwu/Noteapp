@@ -24,9 +24,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,6 +49,7 @@ import com.nzfrankwu.noteapp.domain.HomeTab
 import com.nzfrankwu.noteapp.ui.components.EmptyState
 import com.nzfrankwu.noteapp.ui.components.FolderTile
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
+import com.nzfrankwu.noteapp.ui.components.SegmentedTabs
 import com.nzfrankwu.noteapp.ui.theme.Dimens
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
 import java.time.Instant
@@ -239,26 +237,16 @@ fun HomeContent(
 }
 
 /** Overview · Calendar · Timeline, as one segmented button. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeTabs(selected: HomeTab?, onSelect: (HomeTab) -> Unit) {
-    SingleChoiceSegmentedButtonRow(Modifier.testTag("home-tabs")) {
-        HomeTab.entries.forEachIndexed { index, tab ->
-            SegmentedButton(
-                selected = tab == selected,
-                onClick = { onSelect(tab) },
-                shape = SegmentedButtonDefaults.itemShape(index, HomeTab.entries.size),
-                icon = {}, // no tick: the filled segment already shows which one is open
-                colors = SegmentedButtonDefaults.colors(
-                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
-                modifier = Modifier.testTag("home-tab-${tab.key}"),
-            ) {
-                Text(tab.label, maxLines = 1)
-            }
-        }
-    }
+    SegmentedTabs(
+        options = HomeTab.entries,
+        selected = selected,
+        label = { it.label },
+        testTag = { "home-tab-${it.key}" },
+        onSelect = onSelect,
+        modifier = Modifier.testTag("home-tabs"),
+    )
 }
 
 /** Placeholder for a tab that isn't built yet. */

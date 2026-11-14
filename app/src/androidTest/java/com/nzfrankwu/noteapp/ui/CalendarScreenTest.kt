@@ -45,23 +45,28 @@ class CalendarScreenTest {
     private val clock = Clock.fixed(LocalDateTime.parse("2026-11-15T10:00").atZone(zone).toInstant(), zone)
     private var opened: String? = null
     private var addedOn: LocalDate? = null
+    private lateinit var tasks: TaskRepository
+    private lateinit var courses: Map<String, String>
 
     @Before
     fun setUp() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val db = Room.inMemoryDatabaseBuilder(context, NoteAppDatabase::class.java).build()
         val folders = FolderRepository(db)
-        val tasks = TaskRepository(db)
+        tasks = TaskRepository(db)
         runBlocking {
             folders.createFolder("Electromagnetics", "ELECTENG 204")
             folders.createFolder("Computers", "COMPSYS 201")
-            val courses = db.courseDao().getAll().associate { it.code to it.id }
+            courses = db.courseDao().getAll().associate { it.code to it.id }
             fun due(day: Int, hour: Int) = LocalDateTime.of(2026, 11, day, hour, 0).atZone(zone).toInstant()
             // Five tasks on Fri 20 Nov: more than fit, so "+N more" shows.
             for (i in 1..5) tasks.createTask(TaskDraft("Task $i", courses.getValue("ELECTENG 204"), dueAt = due(20, 8 + i)))
             tasks.createTask(TaskDraft("Quiz 4", courses.getValue("COMPSYS 201"), dueAt = due(16, 23)))
         }
-        val viewModel = CalendarViewModel(tasks, clock, zone)
+    }
+
+    private fun show(courseId: String? = null) {
+        val viewModel = CalendarViewModel(tasks, clock, zone, courseId = courseId)
         compose.setContent {
             NoteAppTheme {
                 Box(Modifier.size(width = 1120.dp, height = 740.dp)) {
@@ -69,11 +74,25 @@ class CalendarScreenTest {
                 }
             }
         }
+    }
+
+    private fun showAll() {
+        show()
         compose.waitUntilAtLeastOneExists(hasText("Quiz 4"), 5_000)
     }
 
     @Test
+    fun insideACourseFolder_onlyThatCourse_andNoCourseFilter() {
+        show(courseId = courses.getValue("COMPSYS 201"))
+        compose.waitUntilAtLeastOneExists(hasText("Quiz 4"), 5_000)
+        compose.onNodeWithTag("calendar-more-2026-11-20").assertDoesNotExist()
+        compose.onNodeWithText("Task 1").assertDoesNotExist()
+        compose.onNodeWithTag("course-filter").assertDoesNotExist()
+    }
+
+    @Test
     fun showsTheMonth_andTappingAChipOpensTheTask() {
+        showAll()
         compose.onNodeWithTag("calendar-month").assertTextEquals("November 2026")
         compose.onNodeWithText("Quiz 4").performClick()
         compose.waitUntil(5_000) { opened != null }
@@ -81,6 +100,7 @@ class CalendarScreenTest {
 
     @Test
     fun aFullDay_showsMore_andTheDaySheetListsEverything() {
+        showAll()
         compose.onNodeWithTag("calendar-more-2026-11-20").performClick()
         compose.waitUntilAtLeastOneExists(hasTestTag("day-sheet"), 5_000)
         compose.onNodeWithText("Fri 20 Nov").assertExists()
@@ -92,6 +112,7 @@ class CalendarScreenTest {
 
     @Test
     fun arrowsAndToday_changeTheMonth() {
+        showAll()
         compose.onNodeWithTag("calendar-next").performClick()
         compose.onNodeWithTag("calendar-month").assertTextEquals("December 2026")
         compose.onNodeWithText("Quiz 4").assertDoesNotExist()
@@ -101,6 +122,7 @@ class CalendarScreenTest {
 
     @Test
     fun courseFilter_narrowsToOneCourse() {
+        showAll()
         compose.onNodeWithTag("course-filter").performClick()
         compose.onNodeWithTag("course-filter-COMPSYS 201").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("calendar-more-2026-11-20").fetchSemanticsNodes().isEmpty() }

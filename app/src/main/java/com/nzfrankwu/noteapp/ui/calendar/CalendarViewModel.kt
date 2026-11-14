@@ -38,6 +38,8 @@ data class TaskViewFilters(
     /** A course's ID, or null for all courses. */
     val courseId: String? = null,
     val showFinished: Boolean = false,
+    /** True inside a course folder: always that course, so there's no course filter to change. */
+    val courseFixed: Boolean = false,
 )
 
 /** What the Calendar tab shows (PHASE-1B.md, B.5). */
@@ -91,9 +93,11 @@ class CalendarViewModel(
     private val tasks: TaskRepository,
     private val clock: Clock = Clock.systemDefaultZone(),
     private val zone: ZoneId = ZoneId.systemDefault(),
+    /** Inside a course folder: only this course's tasks. */
+    courseId: String? = null,
 ) : ViewModel() {
     private val month = MutableStateFlow(YearMonth.from(clock.instant().atZone(zone)))
-    private val filters = MutableStateFlow(TaskViewFilters())
+    private val filters = MutableStateFlow(TaskViewFilters(courseId = courseId, courseFixed = courseId != null))
 
     private val _openDay = MutableStateFlow<LocalDate?>(null)
 
@@ -119,7 +123,7 @@ class CalendarViewModel(
         _openDay.value = null
     }
 
-    fun setCourse(courseId: String?) = filters.update { it.copy(courseId = courseId) }
+    fun setCourse(courseId: String?) = filters.update { if (it.courseFixed) it else it.copy(courseId = courseId) }
     fun toggleShowFinished() = filters.update { it.copy(showFinished = !it.showFinished) }
 
     fun openDay(date: LocalDate) { _openDay.value = date }

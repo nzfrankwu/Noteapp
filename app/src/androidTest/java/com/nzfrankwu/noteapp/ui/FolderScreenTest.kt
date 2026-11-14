@@ -2,7 +2,10 @@ package com.nzfrankwu.noteapp.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -57,7 +60,13 @@ class FolderScreenTest {
         val viewModel = FolderViewModel(folderId, folders, tasks)
         compose.setContent {
             NoteAppTheme {
-                Box(Modifier.size(width = 1120.dp, height = 800.dp)) { FolderScreen(viewModel, onBack = {}, onOpenTask = {}, onAddTask = {}) }
+                Box(Modifier.size(width = 1120.dp, height = 800.dp)) {
+                    FolderScreen(
+                        viewModel, onBack = {}, onOpenTask = {}, onAddTask = {},
+                        calendar = { courseId -> Text("calendar for $courseId", Modifier.testTag("test-calendar")) },
+                        timeline = { courseId -> Text("timeline for $courseId", Modifier.testTag("test-timeline")) },
+                    )
+                }
             }
         }
     }
@@ -76,6 +85,35 @@ class FolderScreenTest {
 
         waitFor("ELECTENG 204")
         waitFor("No tasks yet")
+    }
+
+    @Test
+    fun linkedFolder_hasTasksCalendarAndTimelineTabs_forItsCourse() {
+        val (folderId, courseId) = runBlocking {
+            val folderId = (folders.createFolder("EE 204", "ELECTENG 204") as FolderResult.Success).folderId
+            folderId to db.courseDao().getAll().single().id
+        }
+        show(folderId)
+        waitFor("No tasks yet")
+        compose.onNodeWithTag("folder-tab-tasks").assertIsSelected()
+
+        compose.onNodeWithTag("folder-tab-calendar").performClick()
+        waitFor("calendar for $courseId")
+        compose.onNodeWithText("No tasks yet").assertDoesNotExist()
+
+        compose.onNodeWithTag("folder-tab-timeline").performClick()
+        waitFor("timeline for $courseId")
+
+        compose.onNodeWithTag("folder-tab-tasks").performClick()
+        waitFor("No tasks yet")
+    }
+
+    @Test
+    fun folderWithoutACourse_hasNoTabs() {
+        val id = runBlocking { (folders.createFolder("Personal", null) as FolderResult.Success).folderId }
+        show(id)
+        waitFor("Link a course to add tasks here")
+        compose.onNodeWithTag("folder-tab-calendar").assertDoesNotExist()
     }
 
     @Test

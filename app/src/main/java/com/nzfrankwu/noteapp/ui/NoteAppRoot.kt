@@ -241,6 +241,25 @@ fun NoteAppRoot(
                         onBack = ::back,
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                         onAddTask = { courseId -> backStack.add(TaskEditRoute(courseId = courseId)) },
+                        calendar = { courseId ->
+                            CalendarScreen(
+                                viewModel = viewModel(key = "folder-calendar-$courseId") {
+                                    CalendarViewModel(container.taskRepository, courseId = courseId)
+                                },
+                                onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
+                                onAddTaskOnDay = { day ->
+                                    backStack.add(TaskEditRoute(courseId = courseId, dueDate = day.toString()))
+                                },
+                            )
+                        },
+                        timeline = { courseId ->
+                            TimelineScreen(
+                                viewModel = viewModel(key = "folder-timeline-$courseId") {
+                                    TimelineViewModel(container.taskRepository, courseId = courseId)
+                                },
+                                onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
+                            )
+                        },
                     )
                 }
                 entry<SettingsRoute> {

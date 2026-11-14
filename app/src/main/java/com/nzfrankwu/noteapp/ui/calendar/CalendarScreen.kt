@@ -173,7 +173,7 @@ private fun CalendarToolbar(state: CalendarState, actions: CalendarActions) {
             }
         }
         Spacer(Modifier.weight(1f))
-        CourseFilterButton(state.courses, state.filters.courseId, actions.onSelectCourse)
+        if (!state.filters.courseFixed) CourseFilterButton(state.courses, state.filters.courseId, actions.onSelectCourse)
         ShowFinishedCheckbox(state.filters.showFinished, actions.onToggleShowFinished)
     }
 }

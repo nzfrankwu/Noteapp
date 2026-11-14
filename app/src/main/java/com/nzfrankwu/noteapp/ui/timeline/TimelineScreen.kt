@@ -35,9 +35,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,6 +67,7 @@ import com.nzfrankwu.noteapp.domain.TimelineZoom
 import com.nzfrankwu.noteapp.ui.components.CourseFilterButton
 import com.nzfrankwu.noteapp.ui.components.CourseTag
 import com.nzfrankwu.noteapp.ui.components.EmptyState
+import com.nzfrankwu.noteapp.ui.components.SegmentedTabs
 import com.nzfrankwu.noteapp.ui.components.ShowFinishedCheckbox
 import com.nzfrankwu.noteapp.ui.theme.Dimens
 import com.nzfrankwu.noteapp.ui.theme.LocalCourseColors
@@ -181,24 +179,16 @@ private fun TimelineToolbar(state: TimelineState, actions: TimelineActions) {
             OutlinedButton(onClick = actions.onToday, modifier = Modifier.padding(start = 4.dp, end = 12.dp).testTag("timeline-today")) {
                 Text("Today")
             }
-            SingleChoiceSegmentedButtonRow {
-                TimelineZoom.entries.forEachIndexed { index, zoom ->
-                    SegmentedButton(
-                        selected = zoom == state.zoom,
-                        onClick = { actions.onZoom(zoom) },
-                        shape = SegmentedButtonDefaults.itemShape(index, TimelineZoom.entries.size),
-                        icon = {},
-                        colors = SegmentedButtonDefaults.colors(
-                            activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                        modifier = Modifier.testTag("timeline-zoom-${zoom.name}"),
-                    ) { Text(zoom.label, maxLines = 1) }
-                }
-            }
+            SegmentedTabs(
+                options = TimelineZoom.entries,
+                selected = state.zoom,
+                label = { it.label },
+                testTag = { "timeline-zoom-${it.name}" },
+                onSelect = actions.onZoom,
+            )
         }
         Spacer(Modifier.weight(1f))
-        CourseFilterButton(state.courses, state.filters.courseId, actions.onSelectCourse)
+        if (!state.filters.courseFixed) CourseFilterButton(state.courses, state.filters.courseId, actions.onSelectCourse)
         ShowFinishedCheckbox(state.filters.showFinished, actions.onToggleShowFinished)
     }
 }

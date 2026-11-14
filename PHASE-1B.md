@@ -29,6 +29,16 @@ Decided with the user (15 Nov 2026):
 - [x] **B.4 Home tabs.** _(done 15 Nov: `domain/HomeTab`, `data/ViewSettings` (DataStore "view_settings"), segmented button in `HomeScreen`; Calendar/Timeline are slots `HomeScreen(calendar = …, timeline = …)` filled from `NoteAppRoot`. Pull-to-refresh only on Overview.)_ Overview · Calendar · Timeline as a segmented button in the top bar. The app remembers the last tab.
 - [x] **B.5 Calendar** (layout below). ★ _(done 15 Nov, hands-off: `domain/CalendarRules`, `ui/calendar/` (`CalendarViewModel`, `CalendarScreen`), shared filters in `ui/components/TaskViewFilterControls.kt`. The ★ check-in is in REPORT.md.)_
 - [x] **B.6 Timeline** (layout below). ★ _(done 15 Nov, hands-off: `domain/TimelineRules`, `ui/timeline/` (`TimelineViewModel`, `TimelineScreen`). The ★ check-in is in REPORT.md.)_
+- [x] **B.7 Course folder views.** _(done 15 Nov: `FolderTab` + `FolderScreen(calendar = …, timeline = …)` slots; `CalendarViewModel`/`TimelineViewModel` take `courseId` (sets `TaskViewFilters.courseFixed`, hiding the course filter); shared `components/SegmentedTabs`.)_ (Added 15 Nov at the user's request, after tablet testing.) A course folder gets **Tasks · Calendar · Timeline** tabs in its top bar, like Home. Tasks is today's list; Calendar and Timeline are the Home views already narrowed to that course (no "All courses" filter). The folder always opens on Tasks. A folder with no course linked shows only Tasks.
+- [ ] 🔺 **B.8 Archive courses (database version 3).** (Added 15 Nov at the user's request: about 4 new courses each semester, so Home shouldn't fill up.)
+  - Courses get an `archived_at` time, with a tested 2→3 migration.
+  - Archive or unarchive from:
+    - a folder's ⋮ menu ("Archive course")
+    - an **Archive** button on "Link your Canvas courses"
+    - a new **Settings → Courses** list, which covers courses without a folder too
+  - An archived course's tasks are hidden from Due soon, Calendar, Timeline and the course filters. Its reminders stop. They're still shown inside its folder, and nothing is deleted.
+  - Archived folders move to a collapsed **"Archived (N) ▾"** row at the bottom of Folders, shown faded when opened.
+  - Archived courses are never suggested by "New from Canvas".
 - [ ] **End of phase:** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 
 ## Calendar layout (B.5)

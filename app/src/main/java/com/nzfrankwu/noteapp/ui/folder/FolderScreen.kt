@@ -33,18 +33,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.R
 import com.nzfrankwu.noteapp.ui.components.CourseTag
 import com.nzfrankwu.noteapp.ui.components.EmptyState
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
+import com.nzfrankwu.noteapp.ui.components.SegmentedTabs
 import com.nzfrankwu.noteapp.ui.components.TaskCard
 import com.nzfrankwu.noteapp.domain.DueGroup
 import com.nzfrankwu.noteapp.ui.home.FolderEditDialog
@@ -52,6 +55,13 @@ import com.nzfrankwu.noteapp.ui.theme.Dimens
 
 /** Max width of the folder page's content on wide screens. */
 private val FolderContentMaxWidth = 900.dp
+
+/** The views of a course folder (PHASE-1B.md, B.7). It always opens on Tasks. */
+enum class FolderTab(val label: String, val key: String) {
+    TASKS("Tasks", "tasks"),
+    CALENDAR("Calendar", "calendar"),
+    TIMELINE("Timeline", "timeline"),
+}
 
 /**
  * A folder: its course, a Notebooks area (Phase 2), and the course's tasks in sections.
@@ -65,6 +75,10 @@ fun FolderScreen(
     onOpenTask: (taskId: String) -> Unit,
     onAddTask: (courseId: String) -> Unit,
     modifier: Modifier = Modifier,
+    /** The Calendar tab for this folder's course. */
+    calendar: @Composable (courseId: String) -> Unit = {},
+    /** The Timeline tab for this folder's course. */
+    timeline: @Composable (courseId: String) -> Unit = {},
 ) {
     val item by viewModel.folder.collectAsStateWithLifecycle()
     val tasksNow by viewModel.tasksNow.collectAsStateWithLifecycle()
@@ -74,7 +88,11 @@ fun FolderScreen(
     LaunchedEffect(deleted) { if (deleted) onBack() }
 
     val courseCode = item?.courseCode
+    val linkedCourseId = item?.folder?.courseId
     var menuOpen by remember { mutableStateOf(false) }
+    var chosenTab by rememberSaveable { mutableStateOf(FolderTab.TASKS) }
+    // Without a linked course there's nothing to put on a calendar: Tasks only.
+    val tab = if (linkedCourseId == null) FolderTab.TASKS else chosenTab
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -83,7 +101,7 @@ fun FolderScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text(item?.folder?.name.orEmpty())
+                        Text(item?.folder?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (courseCode != null) {
                             CourseTag(courseCode, style = MaterialTheme.typography.labelLarge)
                         }
@@ -93,6 +111,16 @@ fun FolderScreen(
                     RoundIconButton(R.drawable.ic_arrow_back, "Back", onBack, Modifier.padding(start = 8.dp))
                 },
                 actions = {
+                    if (linkedCourseId != null) {
+                        SegmentedTabs(
+                            options = FolderTab.entries,
+                            selected = tab,
+                            label = { it.label },
+                            testTag = { "folder-tab-${it.key}" },
+                            onSelect = { chosenTab = it },
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                        )
+                    }
                     Box {
                         RoundIconButton(R.drawable.ic_more_vert, "Folder options", { menuOpen = true }, Modifier.padding(end = 8.dp))
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -113,6 +141,12 @@ fun FolderScreen(
             )
         },
     ) { innerPadding ->
+        if (tab != FolderTab.TASKS && linkedCourseId != null) {
+            Box(Modifier.padding(innerPadding).fillMaxSize()) {
+                if (tab == FolderTab.CALENDAR) calendar(linkedCourseId) else timeline(linkedCourseId)
+            }
+            return@Scaffold
+        }
         Box(Modifier.padding(innerPadding).fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(
                 modifier = Modifier.widthIn(max = FolderContentMaxWidth).fillMaxWidth(),

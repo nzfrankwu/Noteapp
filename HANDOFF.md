@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 10:20 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, 10:45 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -13,14 +13,22 @@ _Last updated: 15 Nov 2026, 10:20 am. Keep this file current (see CLAUDE.md, "Se
   - B.4 Home tabs
   - B.5 Calendar
   - B.6 Timeline
+  - B.7 Course folder views (added by the user after tablet testing; committed, **not pushed: waiting for their OK**)
 - **The tablet now runs B.1–B.6 (database version 2)**, installed 15 Nov ~10:17 am with the user's OK. The upgrade was checked against the safety copy: all 124 tasks (statuses, target dates, notes), 10 courses and 3 folders were kept, integrity OK.
-- **Mode:** the user was hands-off for B.3–B.6 and is now back for tablet testing. Default back to "Working together" unless they say otherwise.
+- **Mode: "Working together"** (the user is back). They liked B.1–B.6 on the tablet ("looks good, feels good and works well") and asked for two more steps, now B.7 and B.8 in `PHASE-1B.md`.
 
 ## Next steps (in order)
 
-1. **Tablet testing with the user (waiting on them).** Steps are in `REPORT.md` → "What to test on the tablet".
+1. **B.7 check-in:** show the folder tabs and push once the user OKs it. Also ask permission to add B.7/B.8 to IDEA.md §2.1/§2.2 (never change IDEA.md without asking).
+2. 🔺 **B.8 Archive courses (database v3).** Before starting, tell the user it's a 🔺 step so they can switch to a stronger model. The design was agreed on 15 Nov (see `PHASE-1B.md` B.8):
+   - `courses.archived_at` with a 2→3 migration (copy B.3's test approach, incl. the real-upgrade check)
+   - archived tasks hidden on Home and their reminders stopped
+   - an "Archived (N) ▾" row under Folders
+   - Archive buttons in the folder ⋮ menu, Link courses, and a new Settings → Courses list
+   - Before installing on the tablet, make another safety copy (ask first).
+3. Earlier tablet testing notes:
    - Right after the install, no Canvas task had an "available from" date yet (0 of 124), and no task had changed since 8:40 am. Either no sync has run since the update, or Canvas sets no unlock dates for these courses. Ask the user to pull-to-refresh, then check the Timeline. Don't look at their Canvas sign-in to find out.
-2. End of phase: `/code-review`, fix, retest, then ask to merge into `main`.
+4. End of phase: `/code-review`, fix, retest, then ask to merge into `main`.
 
 ## Tablet database safety copy
 
