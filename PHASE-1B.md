@@ -39,6 +39,7 @@ Decided with the user (15 Nov 2026):
   - An archived course's tasks are hidden from Due soon, Calendar, Timeline and the course filters. Its reminders stop. They're still shown inside its folder, and nothing is deleted.
   - Archived folders move to a collapsed **"Archived (N) ▾"** row at the bottom of Folders, shown faded when opened.
   - Archived courses are never suggested by "New from Canvas".
+- [ ] **B.9 New folder: choose the course from a list.** (Added 15 Nov at the user's request.) The New folder dialog swaps the typed course code for a drop-down of current courses (archived ones are left out), plus "No course". The folder's "Link a course" dialog uses the same list. Do this **after B.8**, since it needs the archived flag.
 - [ ] **End of phase:** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 
 ## Calendar layout (B.5)

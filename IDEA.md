@@ -20,6 +20,12 @@
 - Folders for organising notebooks; a folder can be **linked to a course** (e.g. `ELECTENG 204`).
 - Opening a course folder shows **two sections**: my **notebooks/files**, and **upcoming tasks** for that course.
 - When tasks are imported, the app detects the course code and offers to link it to an existing folder or create one.
+- **Tabs in a course folder:** Tasks · Calendar · Timeline (added Nov 2026). Calendar and Timeline are the Home views showing only that course.
+- **New folder picks the course from a list:** a drop-down of my current (not archived) courses, instead of typing the course code (added Nov 2026).
+- **Archiving courses** (added Nov 2026; about 4 new courses each semester):
+  - Archive a course from its folder's ⋮ menu, from "Link your Canvas courses", or from Settings → Courses (which also covers courses without a folder).
+  - An archived course's tasks disappear from Due soon, Calendar and Timeline, and its reminders stop. Nothing is deleted, and its folder still shows everything.
+  - Archived folders sit in a collapsed "Archived (N)" row under Folders, and archived courses are never suggested again.
 
 ### 2.2 Home screen
 - Split layout: **"Due soon"** list (all courses, sorted by due date) on one side, **course folders** on the other.
