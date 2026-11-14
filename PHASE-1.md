@@ -19,7 +19,13 @@ Decisions made:
   - Libraries are updated.
   - Android's built-in backup and device-to-device transfer are off.
   - This file is added.
-- [ ] 🔺 **0.3 Database.** Course, Folder and Task tables, schema export, and migration test setup. *Nothing visible.*
+- [x] 🔺 **0.3 Database.** Course, Folder and Task tables, schema export, and migration test setup. *Nothing visible.*
+  - Database version 1 (`data/db/`). The schema is in `app/schemas/`.
+  - Guard tests:
+    - `SchemaHistoryTest` fails if a released version's tables change.
+    - `DataSafetyRulesTest` fails on any destructive database fallback.
+    - `StoredKeysTest` fails if a saved status key changes.
+    - `MigrationTest` checks that version-1 data survives updates.
 - [ ] **0.4 App shell.** Home with empty Due soon and Folders areas, Settings, navigation, and wide/narrow layouts (the layout is agreed first). ★
 
 ### F1: Folders

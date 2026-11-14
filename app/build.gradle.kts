@@ -3,6 +3,15 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.androidx.room)
+}
+
+// Room writes a JSON description of every database version into app/schemas/ (committed to git).
+// Migration tests compare against these files, and SchemaHistoryTest makes sure a released
+// version's schema never changes (IDEA.md §5a).
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 // Release signing key (IDEA.md §5a).
@@ -83,7 +92,15 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+    // Also used directly from step 0.4 (navigation). Declared here so the app ships a version new
+    // enough for Room's migration-test helper: Android test builds must reuse the app's versions,
+    // and the 1.7.3 that came in indirectly made MigrationTest crash.
+    implementation(libs.kotlinx.serialization.core)
     testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
