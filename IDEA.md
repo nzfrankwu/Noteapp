@@ -1,0 +1,225 @@
+# NoteApp — Idea & Build Plan
+
+> Working name: **NoteApp** (may change if I share it later).
+> A handwriting-first note-taking app for Android tablets — similar in feel to **Notein** — with built-in **Canvas assignment tracking**, so each course folder shows my notes *and* what's due.
+
+---
+
+## 1. Who it's for & where it runs
+
+- **Just me for now**, but it should work well on **most Android tablets**, not only mine.
+- My device: **OPPO Pad 3** with **OPPO Pencil 2** (test everything here first).
+- Tablet-first layouts; support both **landscape and portrait**, and different screen sizes.
+- Stack: **Kotlin + Jetpack Compose**, minSdk 26 (adjust if a key library needs higher).
+
+---
+
+## 2. Core features
+
+### 2.1 Course folders
+- Folders for organising notebooks; a folder can be **linked to a course** (e.g. `ELECTENG 204`).
+- Opening a course folder shows **two sections**: my **notebooks/files**, and **upcoming tasks** for that course.
+- When tasks are imported, the app detects the course code and offers to link it to an existing folder or create one.
+
+### 2.2 Home screen
+- Split layout: **"Due soon"** list (all courses, sorted by due date) on one side, **course folders** on the other.
+- Overdue items clearly flagged.
+
+### 2.3 Tasks (Canvas items + my own)
+- **Canvas items** are imported automatically by **signing in to Canvas inside the app** (see §3) — this includes undated assignments and descriptions.
+- **My own tasks** (e.g. "Study for Test 2") can be added manually — they behave the same as Canvas items.
+- Each task shows:
+  - Name
+  - Course
+  - Due date/time
+  - Description (if Canvas provides one)
+  - **Link to open it in Canvas** (Canvas items)
+  - **Status tag**
+  - **Linked notebooks/files**
+- **Status tags (fixed list for now):**
+  `Not started` → `Started` → `Stuck / need help` → `Double-checking` → `Submitted` → `Done`
+  - **Overdue** is shown automatically (a badge, not a tag) when the due date has passed and the status isn't Submitted/Done.
+  - Custom tags = later upgrade.
+- **Reminders:** notification before a task is due (e.g. 1 day and 2 hours before — configurable later).
+- **Tasks without a due date:**
+  - Due date is optional for every task.
+  - Undated tasks go in a **"No due date"** section — at the bottom of each course folder's task list, and as a collapsible section on the home screen (below "Due soon").
+  - Any task can have an optional **"My target date"** (my own do-by date), separate from the Canvas due date. If set, it's used for sorting and reminders, and shown alongside the real due date.
+  - No reminders for undated tasks unless a target date is set.
+  - **Quick-add from a link:** share any link (e.g. a Canvas page, a course website) to NoteApp → creates a task with the link pre-filled; I fill in the name/course.
+
+### 2.4 Linking notes ↔ tasks
+- Link any notebook or file to one or more tasks.
+- From a task: see and open its linked notes.
+- From a notebook: see which task(s) it belongs to.
+
+### 2.5 Notebooks (handwriting)
+- **Handwriting first**; **text boxes** added in a later phase.
+- **Page templates:** **Lined (default)**, Blank, Grid, Dot grid. Choose per notebook (and per page later).
+- **Tools (keep it simple, like Notein's essentials):**
+  - Pen (colour + thickness, pressure-sensitive)
+  - Highlighter
+  - Eraser (whole-stroke first; partial eraser later)
+  - Lasso select → move / resize / delete
+  - Undo / redo
+  - Insert image
+- **Pen toolbar:** **small, floating and movable** (drag it anywhere; remembers its position).
+- **Stylus vs finger:** stylus draws, finger scrolls/zooms (palm rejection).
+- Pinch to zoom, scroll between pages, add/delete pages.
+- **Autosave** — never lose strokes.
+
+### 2.6 Files: PDFs, images, Word/PowerPoint
+- **PDF:** import and write/highlight on top; export the annotated PDF.
+- **Images:** JPG, PNG, WebP, HEIC — insert into a page or import as their own page.
+- **Word (.docx) & PowerPoint (.pptx):** converted to PDF first, then annotated like a PDF (see §4 — conversion is done through Google Drive).
+- **"Share to NoteApp":** from any other app (Canvas, browser, Files), share a PDF/image straight into a chosen folder.
+
+### 2.7 Screen capture ("snip") into a note
+- **Capture the whole screen, including other apps** — e.g. NoteApp on one side of Android split screen and a PDF/browser/Canvas on the other: capture → **drag a box to crop the part I want** → it's inserted into my open notebook as an image (move/resize it like any image).
+- **Two notebooks open in NoteApp's own split view:** snip from one notebook and drop it into the other. Ask which notebook to insert into (default: the one I was last writing in).
+- Android's screen-capture permission prompt is fine with me — accept that it may appear each time.
+- Note: some apps block screenshots (e.g. banking apps, some protected PDFs/streaming) — those areas come out black. Nothing can be done about that; just show a helpful message if the capture is all black.
+- Extra: "Insert latest screenshot" (one tap to insert the most recent Android screenshot) as a quick alternative.
+
+### 2.8 Split view
+- Open **two notebooks side by side** inside the app (e.g. lecture notes + tutorial sheet).
+- Also behave well in Android's own split-screen with other apps.
+
+### 2.9 Backup to Google Drive
+Modelled on GoodNotes' auto-backup (one-way backup to Drive whenever something changes, saved in both the app's own format and PDF). Main goal: **if the tablet dies or I get a new one, I can restore everything.** Priority is **reliability** over fancy features.
+
+**What's backed up — two copies, both automatic:**
+1. **Full backup (for restoring):** everything needed to rebuild the app exactly — notebooks with editable strokes, imported PDFs/images, folders, course links, tasks (status tags, target dates, links to notes), and settings.
+2. **Readable PDF copies (for viewing anywhere):** each notebook exported as a PDF, in Drive folders that mirror my course folders. View-only — the full backup is what restores.
+
+**Never backed up:** Canvas session cookies / feed link (I just sign in to Canvas again after restoring).
+
+**Drive layout (a normal, visible folder):**
+```
+My Drive/NoteApp/
+  Backup/      ← full backup (app format) — don't touch
+  Notes (PDF)/
+    ELECTENG 204/  Lecture notes.pdf, Tutorial 5.pdf …
+    ELECTENG 292/  …
+```
+
+**When it backs up:**
+- Automatically, **a few minutes after I stop editing** a notebook (not on every stroke), plus a daily check that everything is up to date.
+- Only uploads what **changed** (an unchanged 20 MB lecture PDF isn't re-uploaded every time).
+- If offline, waits and retries automatically when back online. Wi-Fi only by default.
+
+**Reliability features:**
+- **Backup status** in Settings and a small indicator: "Last backed up 3 min ago" / "Backing up…" / "Backup failed — tap to fix".
+- **Warning** if nothing has backed up successfully for 3+ days.
+- **"Back up now"** button.
+- Backups never contain half-written files — upload complete files only, so a backup interrupted halfway can't corrupt the previous good one.
+
+**Restore (new or reset tablet):**
+- Install → sign in to Google → **"Restore from Google Drive"** → shows backup date and size → restores everything → I sign in to Canvas again.
+
+**Deleted items & older versions:**
+- **Recently deleted** (in-app, 30 days): deleted notebooks/files can be recovered; their backup isn't removed from Drive until the 30 days are up.
+- **Older versions of a notebook:** Google Drive already keeps old versions of uploaded files (about 30 days) automatically. Later phase: a **"Version history"** option on a notebook that lists those Drive versions and restores one. No extra storage system needed.
+
+**Storage (rough estimate):** handwriting is small — a typical 50-page notebook is likely a few MB. Imported PDFs (lecture slides) are usually the biggest items. A full semester should fit comfortably in Google's free 15 GB, even with old versions included. Show total backup size in Settings.
+
+### 2.10 Look & feel (UI)
+- **Simple and clean.** Layout and general feel **inspired by Notein** (the app I currently use), then improved where it makes sense.
+- Reference screenshots of Notein are in `design-reference/` (home/library, notebook editor, toolbar, pen settings). Use them for **layout and feel only** — don't copy Notein's logo, icons, name or artwork; use standard Material icons and our own styling.
+- Lots of space for writing — the page is the focus; toolbars small and out of the way.
+- Light and dark mode.
+- Consistent look across all screens (same colours, spacing, corner rounding, icon style).
+- When building a new screen, describe the layout to me first (or ask which reference screenshot to follow) before coding it.
+
+---
+
+## 3. Canvas import — how it works
+
+I can't get a Canvas API token, but I've tested that the Canvas API **works with a normal logged-in browser session** (`<canvas address>/api/v1/courses` returns JSON when I'm logged in). So the app signs in to Canvas like a browser and reads my data **as me**.
+
+### 3.1 Sign-in
+- **Settings → "Sign in to Canvas"**: I enter my Canvas address (e.g. `https://canvas.auckland.ac.nz`) — keep this configurable so it works with any Canvas school.
+- The app opens an **in-app browser (WebView)** showing the normal Canvas/university login. I log in as usual.
+- Once logged in, the app uses that browser session's cookies to call the Canvas API.
+- **First thing to test in this phase:** that the university login page works inside the in-app browser (some login pages block in-app browsers). If it doesn't, fall back to the calendar feed (§3.4).
+
+### 3.2 What gets imported
+- My **active courses** → offer to link each to a course folder (or create one).
+- For each course, **all assignments** (dated and undated, quizzes included): name, due date, description, Canvas link.
+- **Submission status** from Canvas, where available.
+- Handle Canvas paging (results come in pages) so nothing is missed.
+- Descriptions come as HTML → display them nicely (formatted or cleaned up), not as raw tags.
+
+### 3.3 Syncing rules
+- Sync when the app opens, on pull-to-refresh, and in the background a few times a day.
+- Changes on Canvas (e.g. new due date, edited description) update the task **without** resetting my status tag, target date, or linked notes.
+- **Auto-status:** if Canvas shows an assignment as submitted, move it to `Submitted` — but only move it **forward**, never backwards (never override `Done`, never undo my own choice).
+- Assignments removed from Canvas are **not** deleted — mark them "removed from Canvas".
+- **When the session expires:** keep all existing data, show a small "Canvas sign-in expired — sign in again" banner, and keep working offline.
+
+### 3.4 Fallback: calendar feed (optional)
+- If in-app sign-in stops working, I can paste my Canvas **calendar feed** link (Canvas → Calendar → "Calendar Feed") in Settings instead.
+- Limitation: the feed only includes items **with a date**, and no submission status.
+
+### 3.5 Security & safety rules (important)
+- The app is **read-only** with Canvas: only `GET` requests. **Never** submit, edit, delete or post anything on Canvas.
+- The Canvas session cookies (and feed link, if used) work like **passwords**: never hard-code, log, print, back up to Drive, or commit them to git. Keep them only in the app's private storage.
+- "Sign out of Canvas" in Settings clears the session completely.
+- Don't hammer the server: sensible sync frequency, no rapid repeated requests.
+
+---
+
+## 4. Google Drive integration (notes for later phases)
+
+- Uses Google sign-in + the Google Drive API (free). Needs a (free) Google Cloud project — guide me through setting it up step by step when we get there.
+- Use the narrowest permission (only files the app itself creates) so no special Google verification is needed for personal use.
+- Check whether the Google Cloud project needs to be set to **"In production"** rather than "Testing" — in testing mode, sign-ins can expire after about 7 days, which would silently break automatic backup.
+- Background backup uses Android's background job system so it survives the app being closed and the tablet restarting.
+- Drive can also **convert Word/PowerPoint → PDF** (upload with conversion, then export as PDF). This is how .docx/.pptx support works, so it needs internet.
+- Offline fallback for Word/PowerPoint: open the file in another app and "Print → Save as PDF", then share to NoteApp.
+
+---
+
+## 5. Build phases
+
+Build one phase at a time; each phase should leave a working app. Commit after every working step.
+
+| Phase | What gets built |
+|---|---|
+| **1. Courses & tasks** | Folders, manual tasks, status tags, home screen (Due soon + No due date + folders), task detail, reminders → then **Canvas sign-in + sync** (test the in-app login first), course linking, auto-status, quick-add from a link |
+| **2. Handwriting notebooks** | Notebook/page model, ink canvas with pen/highlighter/eraser, undo/redo, page templates (lined default), floating movable toolbar, zoom/scroll, palm rejection, autosave |
+| **3. Images & PDFs** | Insert images, import PDFs and annotate, export annotated PDF, "Share to NoteApp" |
+| **4. Linking** | Link notebooks/files ↔ tasks; course folder view showing notes + tasks together |
+| **5. Productivity extras** | Lasso select, text boxes, in-app split view of two notebooks, screen capture/snip (whole screen incl. other apps → crop → insert; snip between split notebooks) |
+| **6. Google Drive & backup** | ⚠️ Must be done and tested before I use the app for real. Google sign-in, automatic full backup + restore, manual "Export everything" / "Import from export", PDF copies mirroring course folders, backup status/warnings, Recently deleted, Word/PowerPoint conversion → later: Version history |
+| **7. Polish** | Search, partial eraser, custom tags, per-page templates, settings, performance tuning |
+
+---
+
+## 5a. Important rules for protecting my data
+
+I won't use the app for real notes until uni starts next year, but **backup and data safety are key features**. Google Drive backup (Phase 6) **must be finished and tested before I start using the app for real**. These rules apply from Phase 1:
+
+- **Never lose data on updates.** Whenever the database/storage structure changes, write a proper **migration** that keeps existing data. Never use "delete and recreate the database" shortcuts. Store a format/version number with saved data.
+- **Design storage with backup in mind from the start**: notebook strokes, imported files and database should be easy to copy, back up, restore and export to PDF later (Phase 6), and support "only upload what changed".
+- **Manual export too:** alongside automatic backup, have **"Export everything"** (one .zip I can save anywhere) and **"Import from export"** — a second safety net that doesn't depend on Google.
+- **App signing key:** set up a proper **release signing key** early (before I rely on the app). If the signing key changes (e.g. new computer, reinstalled Android Studio), Android refuses to update the app and I'd have to uninstall it, which **deletes all my notes**. The key must be **backed up somewhere safe outside the project and never committed to git**. (The same key is also needed later for Google sign-in.) Walk me through this.
+- Never tell me to uninstall the app or "clear app data" to fix a problem without warning me that it deletes my notes.
+
+---
+
+## 6. How I want to work with Claude Code
+
+- I don't need to understand the code in detail. After each step, give a **short, high-level summary**: what was built, and anything that changes **what I see or how I use the app** (screens, buttons, gestures, behaviour). Skip code-level explanations unless I ask.
+- Tell me exactly **how to test** each step on the tablet.
+- Small steps; build with Gradle after every change and fix errors before finishing.
+- Test on my OPPO Pad 3 regularly, but don't use OPPO-only features — standard Android stylus APIs so it works on other tablets.
+- Ask me before adding big new libraries or changing the plan.
+
+---
+
+## 7. Still to decide
+
+- App name (if I share it).
+- Whether to add other backup providers (e.g. OneDrive) later — Google Drive only for now.
+- More feature ideas to come.

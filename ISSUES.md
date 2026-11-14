@@ -8,7 +8,7 @@ _None yet._
 
 ## Open questions
 
-- `IDEA.md` (the product plan) hasn't been written yet. Feature work waits on it.
+- When to set up the release signing key (IDEA.md §5a). It must happen before the app is used for real. Doing it early in Phase 1 is safest.
 
 ## Follow-ups / tech debt
 
@@ -19,3 +19,4 @@ _None yet._
 
 - Git repo set up with an Android `.gitignore` and pushed to GitHub (`main`).
 - `CLAUDE.md` added with project guidelines.
+- `IDEA.md` (the full plan) added. `CLAUDE.md` now points to it and defines the "Working together" and "Hands-off" modes.

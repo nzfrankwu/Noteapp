@@ -40,3 +40,7 @@ design-reference/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Emulator screenshots and hands-off reports (may contain personal Canvas data)
+screenshots/
+REPORT.md
