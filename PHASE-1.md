@@ -38,9 +38,15 @@ Decisions made:
 - [x] **1.1** Create a folder (name plus optional course code), rename it, or delete it with a confirmation.
   - The logic is in `FolderRepository` and the course-code rules in `CourseCodes`.
   - The UI is the home folder grid, `FolderTile`, and the New/Rename/Delete dialogs.
-- [ ] **1.2** The folder screen: course header, a Notebooks placeholder, a Tasks section, and link/unlink a course. ★
-  - _Logic done:_ `FolderRepository.observeFolder`, `linkCourse` and `unlinkCourse` (same rules as creating a folder; 6 tests).
-  - **Still to do:** the folder screen itself.
+- [x] **1.2** The folder screen: course header, a Notebooks placeholder, a Tasks section, and link/unlink a course. ★
+  - The logic is `FolderRepository.observeFolder`, `linkCourse` and `unlinkCourse` (6 tests).
+  - The screen (`ui/folder/`) opens from a tile and shows:
+    - a header with the name and course code
+    - a ⋮ menu: Rename, Link/Unlink course, Delete
+    - a Notebooks placeholder
+    - the course's tasks in sections (simple `TaskRow`)
+    - "Link a course" when unlinked
+  - 2 screen tests.
 
 ### F2: Tasks
 _Logic done ahead of the screens:_

@@ -10,7 +10,10 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.nzfrankwu.noteapp.AppContainer
 import com.nzfrankwu.noteapp.NoteAppApplication
+import com.nzfrankwu.noteapp.ui.folder.FolderScreen
+import com.nzfrankwu.noteapp.ui.folder.FolderViewModel
 import com.nzfrankwu.noteapp.ui.home.HomeScreen
+import com.nzfrankwu.noteapp.ui.navigation.FolderRoute
 import com.nzfrankwu.noteapp.ui.home.HomeViewModel
 import com.nzfrankwu.noteapp.ui.navigation.HomeRoute
 import com.nzfrankwu.noteapp.ui.navigation.SettingsRoute
@@ -41,7 +44,15 @@ fun NoteAppRoot() {
                 HomeScreen(
                     viewModel = viewModel { HomeViewModel(container.folderRepository) },
                     onOpenSettings = { backStack.add(SettingsRoute) },
-                    onOpenFolder = { /* The folder screen arrives in step 1.2. */ },
+                    onOpenFolder = { folderId -> backStack.add(FolderRoute(folderId)) },
+                )
+            }
+            entry<FolderRoute> { route ->
+                FolderScreen(
+                    viewModel = viewModel {
+                        FolderViewModel(route.folderId, container.folderRepository, container.taskRepository)
+                    },
+                    onBack = { backStack.removeLastOrNull() },
                 )
             }
             entry<SettingsRoute> {

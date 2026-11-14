@@ -12,3 +12,6 @@ data object HomeRoute : NavKey
 
 @Serializable
 data object SettingsRoute : NavKey
+
+@Serializable
+data class FolderRoute(val folderId: String) : NavKey
