@@ -33,6 +33,12 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Quick-add: share a link (or any text) to Noteapp to start a new task with it. -->
+            <intent-filter android:label="New task">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <!-- A reminder alarm went off (only Noteapp's own alarms can reach it). -->

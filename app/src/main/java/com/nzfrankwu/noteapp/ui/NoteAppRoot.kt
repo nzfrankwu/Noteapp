@@ -49,6 +49,7 @@ import com.nzfrankwu.noteapp.ui.theme.Dimens
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.nzfrankwu.noteapp.BuildConfig
+import com.nzfrankwu.noteapp.SharedText
 import com.nzfrankwu.noteapp.domain.TaskRules
 
 /**
@@ -72,7 +73,10 @@ fun appContainer(): AppContainer =
 
 /** The whole app UI: shows the screen on top of the back stack. */
 @Composable
-fun NoteAppRoot(openTaskRequest: MutableStateFlow<String?> = MutableStateFlow(null)) {
+fun NoteAppRoot(
+    openTaskRequest: MutableStateFlow<String?> = MutableStateFlow(null),
+    shareRequest: MutableStateFlow<SharedText?> = MutableStateFlow(null),
+) {
     val container = appContainer()
     val context = LocalContext.current
     val backStack = rememberNavBackStack(HomeRoute)
@@ -83,6 +87,15 @@ fun NoteAppRoot(openTaskRequest: MutableStateFlow<String?> = MutableStateFlow(nu
         val taskId = taskToOpen ?: return@LaunchedEffect
         if (backStack.lastOrNull() != TaskRoute(taskId)) backStack.add(TaskRoute(taskId))
         openTaskRequest.value = null
+    }
+
+    // A link shared from another app opens a prefilled New task (nothing is saved until Save).
+    val shared by shareRequest.collectAsStateWithLifecycle()
+    LaunchedEffect(shared) {
+        val request = shared ?: return@LaunchedEffect
+        shareRequest.value = null
+        val prefill = container.quickAdd.prefill(request.text, request.subject)
+        backStack.add(TaskEditRoute(courseId = prefill.courseId, title = prefill.title, url = prefill.url))
     }
 
     // Android 13+ asks before an app may show notifications. Noteapp asks the first time you save

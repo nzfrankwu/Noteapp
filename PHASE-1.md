@@ -149,8 +149,8 @@ _Android part done:_
 ### F8: Quick-add from a link
 _Logic done ahead:_ `domain/SharedLink.kt`, with 9 tests. It reads the link and a suggested title from shared text or subject, tidies punctuation, and finds the Canvas course ID in Canvas links.
 
-**Still to do:** the Android share target (intent filter) and the prefilled New task form.
-- [ ] **8.1** Share a link to NoteApp to get a New task with the link (and title or course, if known) filled in. ★
+- [x] **8.1** Share a link to NoteApp to get a New task with the link (and title or course, if known) filled in. ★
+  - `MainActivity` accepts shared text ("New task" in the share sheet); `data/QuickAdd.kt` fills in the title, link and, for a link inside one of your Canvas courses, the course (4 emulator tests). Nothing is saved until you tap Save.
 
 ### End of phase
 - [ ] 🔺 Run `/code-review`, fix what it finds, retest, update `ISSUES.md`, then ask for approval to merge into `main`.

@@ -26,6 +26,8 @@ _None right now._
 
 ## Done
 
+- **Quick-add from a link (Phase 1, step 8.1), 15 Nov.** Share a link to Noteapp from the browser or any app: New task opens with the title and link filled in (and the course, for Canvas links once Canvas is connected).
+
 - **Reminders finished on the app side (Phase 1, step 4.1), 15 Nov.** The app asks to allow notifications after you save a dated task; tapping a reminder opens its task; Settings has a Reminders section with a debug "Test reminder in 1 minute". (Resolves "no permission prompt" and "tapping opens home".) Still needs the ColorOS check on the tablet.
 
 - **Due soon on the home screen (Phase 1, steps 3.1–3.2), 15 Nov.** Every course's tasks by date with Overdue flagged, a collapsible "No due date" section, "Show finished", and a narrow-card layout for portrait. 5 unit and 4 screen tests.

@@ -7,9 +7,11 @@ import com.nzfrankwu.noteapp.canvas.CanvasSyncRunner
 import com.nzfrankwu.noteapp.canvas.WebViewCanvasCookies
 import com.nzfrankwu.noteapp.data.CanvasSettings
 import com.nzfrankwu.noteapp.data.FolderRepository
+import com.nzfrankwu.noteapp.data.QuickAdd
 import com.nzfrankwu.noteapp.data.TaskRepository
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 import com.nzfrankwu.noteapp.reminders.ReminderScheduler
+import kotlinx.coroutines.flow.first
 
 /**
  * Creates the app's long-lived parts once and hands them to screens ("manual dependency
@@ -23,6 +25,9 @@ class AppContainer(context: Context) {
     val folderRepository: FolderRepository by lazy { FolderRepository(database) }
 
     val taskRepository: TaskRepository by lazy { TaskRepository(database) }
+
+    /** Turns links shared from other apps into prefilled New task forms. */
+    val quickAdd: QuickAdd by lazy { QuickAdd(database) { canvasSettings.address.first() } }
 
     val reminderScheduler: ReminderScheduler by lazy { ReminderScheduler(appContext) }
 
