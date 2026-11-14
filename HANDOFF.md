@@ -10,12 +10,14 @@ _Last updated: 15 Nov 2026, 10:00 am. Keep this file current (see CLAUDE.md, "Se
   - B.1 Days left
   - B.2 Course colours ("next free colour")
   - 🔺 B.3 Database version 2 ("available from"), done at max effort
-  - B.4 Home tabs (Calendar and Timeline still show a placeholder until B.5/B.6)
+  - B.4 Home tabs
+  - B.5 Calendar (Timeline still shows a placeholder until B.6)
 - **Mode: hands-off** (user, 15 Nov ~9:30 am). They switch to a lower effort after B.3, and want me to finish B.4–B.6 on my own, then come back to them for tablet testing. Follow CLAUDE.md "Hands-off": commit and push after each passing step, note anything needing the user in `REPORT.md` + `ISSUES.md`, and write `REPORT.md` when stopping.
 
 ## Next steps (in order)
 
-1. **B.5 Calendar** and **B.6 Timeline**, following the layouts in `PHASE-1B.md` (the user approved them). The ★ check-ins become notes in `REPORT.md` in hands-off mode.
+1. **B.6 Timeline**, following the layout in `PHASE-1B.md` (the user approved it). The ★ check-in becomes notes in `REPORT.md` in hands-off mode.
+   - Reuse `CourseFilterButton` / `ShowFinishedCheckbox` and `TaskViewFilters` from the calendar; plug it in via `HomeScreen(timeline = …)` in `NoteAppRoot`.
    - Use `LocalCourseColors.current.of(code)` for course colours: `accent` for chip bars, `container` for timeline bars.
    - Use `DaysLeftText` / `DaysLeft` where the layout shows days left.
    - The timeline bar starts at `task.availableAt ?: task.createdAt`.
@@ -93,6 +95,7 @@ The tablet's database is still version 1. The first build with B.3 migrates it t
   - Type text with `input text "Word%sword"` (`%s` = space).
 - **Reading the emulator app's database:** `adb exec-out run-as com.nzfrankwu.noteapp cat databases/noteapp.db > file` (plus `-wal` and `-shm`), then open a copy with Python's `sqlite3`. This works because debug builds are debuggable. Emulator only, unless the user agrees.
 - **Emulator sample data:** `bash <scratchpad>/setup.sh`-style script: install, Settings → fake Canvas, Link courses → Create folder ×3 (scratchpad scripts may be gone in a new session; rewrite with the tap-by-text pattern).
+- **Home remembers the last tab** (DataStore survives emulator test reinstalls): tests that open the real app must tap `home-tab-overview` first (see `NavigationTest`).
 - **Testing an app upgrade for real:**
   - keep the old build's APK
   - install it on the emulator and add data

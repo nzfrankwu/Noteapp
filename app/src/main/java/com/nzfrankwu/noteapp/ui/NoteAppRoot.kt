@@ -1,5 +1,8 @@
 package com.nzfrankwu.noteapp.ui
 
+import com.nzfrankwu.noteapp.ui.calendar.CalendarScreen
+import com.nzfrankwu.noteapp.ui.calendar.CalendarViewModel
+import java.time.LocalDate
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -148,6 +151,13 @@ fun NoteAppRoot(
                         onAddTask = { backStack.add(TaskEditRoute()) },
                         onSignInAgain = { backStack.add(CanvasLoginRoute) },
                         onLinkCourses = { backStack.add(LinkCoursesRoute) },
+                        calendar = {
+                            CalendarScreen(
+                                viewModel = viewModel { CalendarViewModel(container.taskRepository) },
+                                onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
+                                onAddTaskOnDay = { day -> backStack.add(TaskEditRoute(dueDate = day.toString())) },
+                            )
+                        },
                         onShowMessage = { message ->
                             scope.launch {
                                 snackbar.currentSnackbarData?.dismiss()
@@ -201,7 +211,10 @@ fun NoteAppRoot(
                 entry<TaskEditRoute> { route ->
                     TaskEditorScreen(
                         viewModel = viewModel {
-                            TaskEditorViewModel(route.taskId, route.courseId, route.title, route.url, container.taskRepository)
+                            TaskEditorViewModel(
+                                route.taskId, route.courseId, route.title, route.url, container.taskRepository,
+                                prefillDueDate = route.dueDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+                            )
                         },
                         onClose = ::back,
                         onSaved = { taskId, hasDate ->

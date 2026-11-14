@@ -37,12 +37,14 @@ class TaskEditorViewModel(
     prefillUrl: String?,
     private val tasks: TaskRepository,
     private val zone: ZoneId = ZoneId.systemDefault(),
+    /** New task only: a due date to start with (from "Add task on this day"). */
+    prefillDueDate: LocalDate? = null,
 ) : ViewModel() {
 
     val isNew: Boolean = taskId == null
 
     private val _state = MutableStateFlow(
-        TaskEditorState(form = TaskForm.new(prefillCourseId, prefillTitle, prefillUrl), loaded = taskId == null),
+        TaskEditorState(form = TaskForm.new(prefillCourseId, prefillTitle, prefillUrl, prefillDueDate), loaded = taskId == null),
     )
     val state: StateFlow<TaskEditorState> = _state.asStateFlow()
 

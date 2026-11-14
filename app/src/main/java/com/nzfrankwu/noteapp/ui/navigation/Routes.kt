@@ -22,7 +22,8 @@ data class TaskRoute(val taskId: String) : NavKey
 
 /**
  * The task form. With [taskId] it edits that task; without, it's "New task", optionally
- * prefilled with a course (from a folder) or a title and link (shared from another app).
+ * prefilled with a course (from a folder), a title and link (shared from another app), or a due
+ * date ([dueDate], e.g. "2026-11-20", from "Add task on this day" in the calendar).
  */
 @Serializable
 data class TaskEditRoute(
@@ -30,6 +31,7 @@ data class TaskEditRoute(
     val courseId: String? = null,
     val title: String? = null,
     val url: String? = null,
+    val dueDate: String? = null,
 ) : NavKey
 
 /** Signing in to Canvas in the in-app browser. */

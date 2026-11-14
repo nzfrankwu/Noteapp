@@ -59,9 +59,9 @@ data class TaskForm(
     )
 
     companion object {
-        /** A blank form for a new task, optionally prefilled (from a folder or a shared link). */
-        fun new(courseId: String? = null, title: String? = null, url: String? = null) =
-            TaskForm(title = title.orEmpty(), courseId = courseId, url = url.orEmpty())
+        /** A blank form for a new task, optionally prefilled (from a folder, a shared link or a calendar day). */
+        fun new(courseId: String? = null, title: String? = null, url: String? = null, dueDate: LocalDate? = null) =
+            TaskForm(title = title.orEmpty(), courseId = courseId, url = url.orEmpty()).withDueDate(dueDate)
 
         /** The form for editing [task], showing its dates in [zone]. */
         fun from(task: Task, zone: ZoneId): TaskForm {
