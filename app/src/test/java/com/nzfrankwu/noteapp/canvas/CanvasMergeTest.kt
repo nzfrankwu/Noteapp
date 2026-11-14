@@ -15,15 +15,18 @@ class CanvasMergeTest {
     private val now = Instant.parse("2026-11-14T10:00:00Z")
     private val due = Instant.parse("2026-11-20T10:59:00Z")
     private val submittedAt = Instant.parse("2026-11-19T08:00:00Z")
+    private val opens = Instant.parse("2026-11-09T19:00:00Z")
 
     private fun assignment(
         name: String = "Assignment 3",
         dueAt: Instant? = due,
         submission: CanvasSubmission? = CanvasSubmission("unsubmitted", null),
         description: String? = "<p>Do it</p>",
+        unlockAt: Instant? = opens,
     ) = CanvasAssignment(
         id = 3, courseId = 555, name = name, dueAt = dueAt, descriptionHtml = description,
         htmlUrl = "https://canvas.example.edu/courses/555/assignments/3", submission = submission,
+        unlockAt = unlockAt,
     )
 
     private fun existing(
@@ -53,6 +56,43 @@ class CanvasMergeTest {
         assertEquals(3L, task.canvasAssignmentId)
         assertEquals("<p>Do it</p>", task.descriptionHtml)
         assertEquals("https://canvas.example.edu/courses/555/assignments/3", task.url)
+        assertEquals(opens, task.availableAt)
+    }
+
+    @Test
+    fun newAssignment_withoutAvailableFrom_hasNone() {
+        assertEquals(null, CanvasMerge.newTask(assignment(unlockAt = null), "c1", "t", now).availableAt)
+    }
+
+    // ---- "Available from" (database version 2) ----
+
+    @Test
+    fun availableFrom_followsCanvas_whenItChanges() {
+        val later = Instant.parse("2026-11-12T19:00:00Z")
+        val merged = CanvasMerge.update(existing(status = TaskStatus.STARTED), assignment(unlockAt = later), "c1", now)
+        assertEquals(later, merged.availableAt)
+        assertEquals(now, merged.updatedAt)
+        assertEquals(TaskStatus.STARTED, merged.status)
+        assertEquals("my notes", merged.notes)
+    }
+
+    @Test
+    fun availableFrom_removedOnCanvas_isCleared() {
+        val merged = CanvasMerge.update(existing(), assignment(unlockAt = null), "c1", now)
+        assertEquals(null, merged.availableAt)
+    }
+
+    @Test
+    fun taskFromBeforeTheUpdate_getsItsAvailableFrom_onTheNextSync_andKeepsYourFields() {
+        // Right after the 1 → 2 migration, Canvas tasks have no "available from" yet.
+        val migrated = existing(status = TaskStatus.STUCK).copy(availableAt = null)
+        val merged = CanvasMerge.update(migrated, assignment(), "c1", now)
+        assertEquals(opens, merged.availableAt)
+        assertEquals(TaskStatus.STUCK, merged.status)
+        assertEquals(Instant.parse("2026-11-18T20:00:00Z"), merged.targetAt)
+        assertEquals("my notes", merged.notes)
+        assertEquals(t0, merged.createdAt)
+        assertEquals(now, merged.updatedAt)
     }
 
     @Test

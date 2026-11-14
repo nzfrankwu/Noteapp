@@ -1,18 +1,34 @@
 package com.nzfrankwu.noteapp.data.db
 
 import android.content.Context
+import android.database.Cursor
 import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
+import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.nzfrankwu.noteapp.canvas.CanvasAssignment
+import com.nzfrankwu.noteapp.canvas.CanvasCourse
+import com.nzfrankwu.noteapp.canvas.CanvasSource
+import com.nzfrankwu.noteapp.canvas.CanvasSubmission
+import com.nzfrankwu.noteapp.canvas.CanvasSync
+import com.nzfrankwu.noteapp.canvas.SyncSummary
+import com.nzfrankwu.noteapp.domain.TaskSource
 import com.nzfrankwu.noteapp.domain.TaskStatus
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 
 /**
  * Proves app updates keep the user's data (IDEA.md §5a). Uses the exported schemas in
@@ -22,6 +38,7 @@ import org.junit.runner.RunWith
 class MigrationTest {
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private val testDbName = "migration-test.db"
+    private val freshDbName = "migration-test-fresh.db"
 
     @get:Rule
     val helper = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), NoteAppDatabase::class.java)
@@ -29,7 +46,10 @@ class MigrationTest {
     @After
     fun tearDown() {
         context.deleteDatabase(testDbName)
+        context.deleteDatabase(freshDbName)
     }
+
+    // ---- Every version ----
 
     /**
      * From EVERY past version, our migrations must reach exactly the schema the current code
@@ -48,27 +68,54 @@ class MigrationTest {
     }
 
     /**
-     * Data saved by version 1 must still be there, unchanged, in the current version.
-     * The SQL below is frozen to version 1's tables on purpose: never update it for new versions.
+     * A fresh install and an upgraded install must have the same columns in the same order
+     * (Migrations.kt: new columns go last). Otherwise a later "copy the rows" migration could put
+     * values into the wrong columns on one of them.
+     */
+    @Test
+    fun freshAndUpgradedDatabases_haveTheSameColumns_inTheSameOrder() {
+        helper.createDatabase(testDbName, 1).close()
+        val upgraded = helper.runMigrationsAndValidate(testDbName, NoteAppDatabase.VERSION, true, *ALL_MIGRATIONS)
+        val fresh = helper.createDatabase(freshDbName, NoteAppDatabase.VERSION)
+        for (table in listOf("courses", "folders", "tasks")) {
+            assertEquals("Columns of $table", columnsOf(fresh, table), columnsOf(upgraded, table))
+        }
+        upgraded.close()
+        fresh.close()
+    }
+
+    // ---- Version 1 → 2: tasks.available_at ----
+
+    /** Every row and every value saved by version 1 is still there after 1 → 2, untouched. */
+    @Test
+    fun migration1To2_keepsEveryValue_andAddsAnEmptyAvailableAt() {
+        val before = helper.createDatabase(testDbName, 1).let { old ->
+            insertVersion1Data(old)
+            version1Columns.mapValues { (table, columns) -> rowsOf(old, table, columns) }.also { old.close() }
+        }
+
+        val db = helper.runMigrationsAndValidate(testDbName, 2, true, MIGRATION_1_2)
+
+        for ((table, columns) in version1Columns) {
+            assertEquals("Rows of $table after migrating", before.getValue(table), rowsOf(db, table, columns))
+        }
+        assertEquals(
+            "Every task's 'available from' starts empty",
+            listOf(listOf(null), listOf(null)),
+            rowsOf(db, "tasks", listOf("available_at")),
+        )
+        db.query("PRAGMA foreign_key_check").use { assertFalse("Broken links between tables", it.moveToFirst()) }
+        db.close()
+    }
+
+    /**
+     * Data saved by version 1 must still be there, unchanged, when the current app opens it.
+     * The rows come from [insertVersion1Data], which is frozen to version 1's tables.
      */
     @Test
     fun dataSavedByVersion1_survivesUpdatingToTheCurrentVersion() {
         helper.createDatabase(testDbName, 1).apply {
-            execSQL(
-                "INSERT INTO courses (id, code, name, canvas_course_id, created_at, updated_at) " +
-                    "VALUES ('c1', 'ELECTENG 204', 'Engineering Electromagnetics', 555, 1000, 2000)",
-            )
-            execSQL(
-                "INSERT INTO folders (id, name, course_id, created_at, updated_at) " +
-                    "VALUES ('f1', 'ELECTENG 204', 'c1', 1000, 2000)",
-            )
-            execSQL(
-                "INSERT INTO tasks (id, title, course_id, due_at, url, description_html, status, target_at, " +
-                    "notes, source, canvas_assignment_id, canvas_submission_state, canvas_submitted_at, " +
-                    "removed_from_canvas, created_at, updated_at) VALUES ('t1', 'Assignment 3', 'c1', " +
-                    "1763600000000, 'https://canvas.example.edu/courses/1/assignments/9', '<p>Hi</p>', " +
-                    "'stuck', 1763500000000, 'Ask about Q4', 'canvas', 9, 'unsubmitted', NULL, 0, 1000, 2000)",
-            )
+            insertVersion1Data(this)
             close()
         }
 
@@ -83,12 +130,160 @@ class MigrationTest {
 
             val task = requireRow(db.taskDao().getById("t1"))
             assertEquals("Assignment 3", task.title)
+            assertEquals("c1", task.courseId)
+            assertEquals(1763600000000, task.dueAt?.toEpochMilli())
+            assertEquals("https://canvas.example.edu/courses/1/assignments/9", task.url)
+            assertEquals("<p>Hi</p>", task.descriptionHtml)
             assertEquals(TaskStatus.STUCK, task.status)
-            assertEquals("Ask about Q4", task.notes)
             assertEquals(1763500000000, task.targetAt?.toEpochMilli())
+            assertEquals("Ask about Q4", task.notes)
+            assertEquals(TaskSource.CANVAS, task.source)
+            assertEquals(9L, task.canvasAssignmentId)
+            assertEquals("unsubmitted", task.canvasSubmissionState)
+            assertNull(task.canvasSubmittedAt)
+            assertFalse(task.removedFromCanvas)
+            assertEquals(1000L, task.createdAt.toEpochMilli())
+            assertEquals(2000L, task.updatedAt.toEpochMilli())
+            assertNull(task.availableAt)
+
+            val own = requireRow(db.taskDao().getById("t2"))
+            assertEquals("Study for Test 2", own.title)
+            assertEquals(TaskSource.MANUAL, own.source)
+            assertNull(own.availableAt)
         }
         db.close()
     }
+
+    /**
+     * What happens on the tablet: the update migrates the database, then the next Canvas sync
+     * fills in "available from" for Canvas tasks. Your status, target date and notes stay, no task
+     * is duplicated, and your own tasks are untouched.
+     */
+    @Test
+    fun afterUpdating_theNextCanvasSync_fillsInAvailableFrom_andKeepsYourFields() {
+        helper.createDatabase(testDbName, 1).apply {
+            insertVersion1Data(this)
+            close()
+        }
+        val opens = Instant.parse("2025-11-09T19:00:00Z")
+        val canvas = object : CanvasSource {
+            override suspend fun getActiveCourses() = listOf(CanvasCourse(555, "Engineering Electromagnetics", "ELECTENG 204"))
+            override suspend fun getAssignments(courseId: Long) = listOf(
+                // The same assignment as task t1, now with Canvas's "available from".
+                CanvasAssignment(
+                    id = 9, courseId = 555, name = "Assignment 3", dueAt = Instant.ofEpochMilli(1763600000000),
+                    descriptionHtml = "<p>Hi</p>", htmlUrl = "https://canvas.example.edu/courses/1/assignments/9",
+                    submission = CanvasSubmission("unsubmitted", null), unlockAt = opens,
+                ),
+            )
+        }
+        val now = Instant.parse("2025-11-15T09:00:00Z")
+        val clock = object : Clock() {
+            override fun instant() = now
+            override fun getZone(): ZoneId = ZoneOffset.UTC
+            override fun withZone(zone: ZoneId?) = this
+        }
+
+        val db = openWithAllMigrations()
+        runBlocking {
+            val summary = CanvasSync(db, canvas, clock) { error("no new IDs expected") }.sync()
+            assertEquals(SyncSummary(courses = 1, tasksAdded = 0, tasksUpdated = 1, tasksMarkedRemoved = 0, failedCourses = emptyList()), summary)
+
+            val task = requireRow(db.taskDao().getById("t1"))
+            assertEquals(opens, task.availableAt)
+            assertEquals(TaskStatus.STUCK, task.status)
+            assertEquals(1763500000000, task.targetAt?.toEpochMilli())
+            assertEquals("Ask about Q4", task.notes)
+            assertEquals(1000L, task.createdAt.toEpochMilli())
+            assertEquals(now, task.updatedAt)
+
+            val own = requireRow(db.taskDao().getById("t2"))
+            assertNull(own.availableAt)
+            assertEquals(2000L, own.updatedAt.toEpochMilli())
+            assertEquals("No task was duplicated", 2, db.taskDao().observeAll().first().size)
+            assertEquals("c1", requireRow(db.folderDao().getById("f1")).courseId)
+        }
+        db.close()
+    }
+
+    // ---- Helpers ----
+
+    /**
+     * Rows as version 1 saved them: a Canvas course with a folder, a Canvas task with your own
+     * status, target date and notes, and one of your own tasks.
+     * FROZEN to version 1's tables on purpose: never update this SQL for new versions.
+     */
+    private fun insertVersion1Data(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "INSERT INTO courses (id, code, name, canvas_course_id, created_at, updated_at) " +
+                "VALUES ('c1', 'ELECTENG 204', 'Engineering Electromagnetics', 555, 1000, 2000)",
+        )
+        db.execSQL(
+            "INSERT INTO courses (id, code, name, canvas_course_id, created_at, updated_at) " +
+                "VALUES ('c2', 'ENGGEN 115', NULL, NULL, 1500, 1500)",
+        )
+        db.execSQL(
+            "INSERT INTO folders (id, name, course_id, created_at, updated_at) " +
+                "VALUES ('f1', 'ELECTENG 204', 'c1', 1000, 2000)",
+        )
+        db.execSQL(
+            "INSERT INTO tasks (id, title, course_id, due_at, url, description_html, status, target_at, " +
+                "notes, source, canvas_assignment_id, canvas_submission_state, canvas_submitted_at, " +
+                "removed_from_canvas, created_at, updated_at) VALUES ('t1', 'Assignment 3', 'c1', " +
+                "1763600000000, 'https://canvas.example.edu/courses/1/assignments/9', '<p>Hi</p>', " +
+                "'stuck', 1763500000000, 'Ask about Q4', 'canvas', 9, 'unsubmitted', NULL, 0, 1000, 2000)",
+        )
+        db.execSQL(
+            "INSERT INTO tasks (id, title, course_id, due_at, url, description_html, status, target_at, " +
+                "notes, source, canvas_assignment_id, canvas_submission_state, canvas_submitted_at, " +
+                "removed_from_canvas, created_at, updated_at) VALUES ('t2', 'Study for Test 2', 'c2', " +
+                "NULL, NULL, NULL, 'not_started', NULL, NULL, 'manual', NULL, NULL, NULL, 0, 1500, 2000)",
+        )
+    }
+
+    /** Version 1's columns, table by table. FROZEN like [insertVersion1Data]. */
+    private val version1Columns = mapOf(
+        "courses" to listOf("id", "code", "name", "canvas_course_id", "created_at", "updated_at"),
+        "folders" to listOf("id", "name", "course_id", "created_at", "updated_at"),
+        "tasks" to listOf(
+            "id", "title", "course_id", "due_at", "url", "description_html", "status", "target_at", "notes",
+            "source", "canvas_assignment_id", "canvas_submission_state", "canvas_submitted_at",
+            "removed_from_canvas", "created_at", "updated_at",
+        ),
+    )
+
+    /** Every row of [table] (by ID), with the raw stored value of each of [columns]. */
+    private fun rowsOf(db: SupportSQLiteDatabase, table: String, columns: List<String>): List<List<Any?>> =
+        db.query("SELECT ${columns.joinToString { "`$it`" }} FROM `$table` ORDER BY `id`").use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(columns.indices.map { cursor.rawValue(it) })
+            }
+        }
+
+    private fun Cursor.rawValue(index: Int): Any? = when (getType(index)) {
+        Cursor.FIELD_TYPE_NULL -> null
+        Cursor.FIELD_TYPE_INTEGER -> getLong(index)
+        Cursor.FIELD_TYPE_FLOAT -> getDouble(index)
+        Cursor.FIELD_TYPE_BLOB -> getBlob(index).toList()
+        else -> getString(index)
+    }
+
+    /** Column name, type, not-null and default of every column of [table], in table order. */
+    private fun columnsOf(db: SupportSQLiteDatabase, table: String): List<List<Any?>> =
+        db.query("PRAGMA table_info(`$table`)").use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        listOf(
+                            cursor.getString(cursor.getColumnIndexOrThrow("name")),
+                            cursor.getString(cursor.getColumnIndexOrThrow("type")),
+                            cursor.getInt(cursor.getColumnIndexOrThrow("notnull")),
+                            cursor.rawValue(cursor.getColumnIndexOrThrow("dflt_value")),
+                        ),
+                    )
+                }
+            }
+        }
 
     private fun openWithAllMigrations(): NoteAppDatabase =
         Room.databaseBuilder(context, NoteAppDatabase::class.java, testDbName)

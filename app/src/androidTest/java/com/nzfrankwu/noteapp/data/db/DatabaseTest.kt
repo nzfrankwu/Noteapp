@@ -58,7 +58,7 @@ class DatabaseTest {
             targetAt = Instant.parse("2026-11-18T08:00:00Z"), notes = "Ask about Q4",
             source = TaskSource.CANVAS, canvasAssignmentId = 9, canvasSubmissionState = "submitted",
             canvasSubmittedAt = Instant.parse("2026-11-19T09:30:00Z"), removedFromCanvas = true,
-            createdAt = t0, updatedAt = t0.plusSeconds(60),
+            createdAt = t0, updatedAt = t0.plusSeconds(60), availableAt = Instant.parse("2026-11-09T19:00:00Z"),
         )
         db.taskDao().insert(full)
         assertEquals(full, db.taskDao().getById("task-1"))

@@ -23,6 +23,8 @@ data class CanvasAssignment(
     val htmlUrl: String?,
     /** The user's own submission, if Canvas included it. */
     val submission: CanvasSubmission?,
+    /** "Available from" (Canvas's `unlock_at`), or null when Canvas sets no such date. */
+    val unlockAt: Instant? = null,
 )
 
 /** The user's submission for an assignment. */

@@ -89,6 +89,7 @@ class TaskRepository(
             removedFromCanvas = false,
             createdAt = now,
             updatedAt = now,
+            availableAt = null, // only Canvas sets "available from"; the timeline uses createdAt
         )
         taskDao.insert(task)
         TaskResult.Success(task.id)

@@ -67,6 +67,8 @@ class CanvasParserTest {
         assertEquals(555L, a.courseId)
         assertEquals("Assignment 3", a.name)
         assertEquals(Instant.parse("2026-11-20T10:59:00Z"), a.dueAt)
+        // "Available from" is unlock_at (lock_at, "available until", is not used).
+        assertEquals(Instant.parse("2026-11-09T19:00:00Z"), a.unlockAt)
         assertEquals("<p>Answer <strong>all</strong> questions.</p>", a.descriptionHtml)
         assertEquals("https://canvas.example.edu/courses/555/assignments/3", a.htmlUrl)
         assertEquals(CanvasSubmission("unsubmitted", null), a.submission)
@@ -77,6 +79,7 @@ class CanvasParserTest {
     fun undatedAssignment_hasNoDueDate_andNoSubmission() {
         val a = assignments.getValue(4)
         assertNull(a.dueAt)
+        assertNull(a.unlockAt)
         assertNull(a.descriptionHtml)
         assertNull(a.submission)
     }
@@ -85,6 +88,7 @@ class CanvasParserTest {
     fun quiz_withTimeZoneOffset_andSubmission() {
         val quiz = assignments.getValue(5)
         assertEquals(Instant.parse("2026-11-27T10:59:00Z"), quiz.dueAt) // 11:59 pm NZDT
+        assertEquals(Instant.parse("2026-11-19T20:00:00Z"), quiz.unlockAt) // 9:00 am NZDT
         assertNull("Empty description counts as none", quiz.descriptionHtml)
         assertTrue(quiz.submission!!.isSubmitted)
         assertEquals(Instant.parse("2026-11-26T03:15:00Z"), quiz.submission!!.submittedAt)
@@ -95,6 +99,7 @@ class CanvasParserTest {
         val odd = assignments.getValue(6)
         assertEquals("Untitled assignment", odd.name)
         assertNull("An unreadable date becomes no date", odd.dueAt)
+        assertNull("An unreadable 'available from' becomes none", odd.unlockAt)
         assertFalse("Graded without a submission time isn't 'submitted'", odd.submission!!.isSubmitted)
     }
 

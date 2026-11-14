@@ -22,9 +22,12 @@ _None right now._
 - **Canvas course codes with extra text** (e.g. "ELECTENG 204 S2 2026") won't auto-link to your own "ELECTENG 204". They appear as separate courses; home then suggests linking them ("New from Canvas: …"), and **Add to a folder** puts one in your existing folder.
 - **The emulator's stylus handwriting is turned off** (emulator only; `settings put secure stylus_handwriting_enabled 0`), because its "Try out your stylus" tutorial swallowed scripted typing. The tablet is unaffected.
 - **Screen tests leave their in-memory databases open** (`TaskScreensTest`, `DueSoonTest`). Closing them while a screen was still reading crashed a run once. Harmless for tests; revisit if test memory ever becomes a problem.
+- **Never install a build from before B.3 on a device that has had B.3 or later.** The database is now version 2, and Room can't go back to version 1: the older app would refuse to open (crash at start). Your data stays safe, and installing a current build fixes it, but don't downgrade.
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Database version 2: "available from" (Phase 1b, step B.3 🔺), 15 Nov.** Tasks now store when Canvas makes an assignment available (Canvas's `unlock_at`), for the timeline. Updating the app adds an empty column; every existing value is kept, and the next Canvas sync fills in the dates. Your own tasks have none (the timeline will use the date you added them). Checked with unit tests, 5 migration tests on the emulator, a deliberately broken migration (caught), and a real upgrade of the previous app with data on the emulator. Nothing visible changes yet.
 
 - **Course colours (Phase 1b, step B.2), 15 Nov.** Each course gets the next free colour in the order Noteapp first saw it (your choice at the check-in, so up to 7 courses never clash; 7 colours, light and dark). Neighbouring colours are very different, so a semester's new courses look distinct. It's used for the course tag (a small colour bar plus the code) on task cards, the task page, folder tiles (the folder icon too), the folder header and Link courses. 18 new unit tests.
 

@@ -20,6 +20,7 @@ class SchemaHistoryTest {
      */
     private val recordedVersions = mapOf(
         1 to "b27669dff183eb5efc7d815cae29680e",
+        2 to "cc7190b5bf8617347de1f80aff0e1987", // Phase 1b: tasks.available_at
     )
 
     // Unit tests run with the app module folder as the working directory.

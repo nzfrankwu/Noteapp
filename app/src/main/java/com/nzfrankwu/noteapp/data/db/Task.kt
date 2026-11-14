@@ -18,6 +18,8 @@ import java.time.Instant
  *  - Yours: sync never touches these (except auto-status moving forward to Submitted).
  *  - Canvas bookkeeping: used by sync itself.
  * For your own tasks (source = MANUAL), everything is yours.
+ *
+ * Fields added in later database versions go at the END (see Migrations.kt).
  */
 @Entity(
     tableName = "tasks",
@@ -73,4 +75,12 @@ data class Task(
 
     @ColumnInfo(name = "created_at") val createdAt: Instant,
     @ColumnInfo(name = "updated_at") val updatedAt: Instant,
+
+    // ---- Added in database version 2 ----
+    /**
+     * Canvas-owned: when Canvas makes the assignment available ("available from", Canvas's
+     * `unlock_at`), or null when Canvas sets no such date. Always null for your own tasks.
+     * The timeline starts a task's bar here, or at [createdAt] when this is null.
+     */
+    @ColumnInfo(name = "available_at") val availableAt: Instant? = null,
 ) : TaskLike
