@@ -107,6 +107,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json) // reading Canvas API responses
     implementation(libs.okhttp) // Canvas API requests (GET only)
     implementation(libs.androidx.datastore.preferences) // small settings (Canvas address, last sync)
+    implementation(libs.androidx.work.runtime.ktx) // background Canvas sync (and Phase 6 backup)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
     testImplementation(libs.junit)

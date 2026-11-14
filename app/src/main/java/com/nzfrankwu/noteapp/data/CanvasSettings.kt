@@ -3,6 +3,7 @@ package com.nzfrankwu.noteapp.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -29,6 +30,11 @@ class CanvasSettings(context: Context) {
 
     val lastSyncedAt: Flow<Instant?> = store.data.map { prefs -> prefs[LAST_SYNCED]?.let(Instant::ofEpochMilli) }
 
+    /** True after Canvas said the sign-in expired: the app shows "Canvas sign-in expired — sign in again". */
+    val signInExpired: Flow<Boolean> = store.data.map { it[SIGN_IN_EXPIRED] ?: false }
+
+    suspend fun setSignInExpired(expired: Boolean) = store.edit { it[SIGN_IN_EXPIRED] = expired }
+
     suspend fun setAddress(address: String?) = store.edit { if (address == null) it.remove(ADDRESS) else it[ADDRESS] = address }
 
     suspend fun setSignedInAs(name: String?) = store.edit { if (name == null) it.remove(SIGNED_IN_AS) else it[SIGNED_IN_AS] = name }
@@ -39,5 +45,6 @@ class CanvasSettings(context: Context) {
         val ADDRESS = stringPreferencesKey("address")
         val SIGNED_IN_AS = stringPreferencesKey("signed_in_as")
         val LAST_SYNCED = longPreferencesKey("last_synced_at")
+        val SIGN_IN_EXPIRED = booleanPreferencesKey("sign_in_expired")
     }
 }

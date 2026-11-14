@@ -116,6 +116,20 @@ _Android part done:_
     - stops on an expired sign-in
     - leaves inactive courses untouched
 - [ ] 🔺 **7.3** Sync on app open (if more than 15 min since the last), on pull-to-refresh, and in the background about every 6 h. Settings shows Last synced and has Sync now. An expired-sign-in banner appears when needed, and new courses prompt you to link them. ★
+  - _Logic done:_
+    - `canvas/CanvasSyncRunner.kt`:
+      - `SyncPolicy`: the 15-minute rule and the 6 h interval
+      - `CanvasSyncRunner`: one sync at a time; records "last synced"; sets `CanvasSettings.signInExpired`
+      - `runIfDue()` for app open
+    - `canvas/CanvasSyncWorker.kt`: WorkManager every 6 h when online, with `schedule()` and `cancel()`.
+    - Tests: 3 unit tests and 6 emulator tests.
+  - **Still to do:**
+    - call `schedule()` after sign-in, `cancel()` on sign-out, and `schedule()` on app start when signed in
+    - call `runIfDue()` when the app opens
+    - pull-to-refresh calling `run()`
+    - the expired-sign-in banner (from `signInExpired`)
+    - "Last synced" and "Sync now" in Settings
+    - the new-courses prompt
 
 ### F8: Quick-add from a link
 _Logic done ahead:_ `domain/SharedLink.kt`, with 9 tests. It reads the link and a suggested title from shared text or subject, tidies punctuation, and finds the Canvas course ID in Canvas links.

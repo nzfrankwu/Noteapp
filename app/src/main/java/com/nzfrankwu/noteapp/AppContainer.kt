@@ -3,6 +3,7 @@ package com.nzfrankwu.noteapp
 import android.content.Context
 import com.nzfrankwu.noteapp.canvas.CanvasClient
 import com.nzfrankwu.noteapp.canvas.CanvasSync
+import com.nzfrankwu.noteapp.canvas.CanvasSyncRunner
 import com.nzfrankwu.noteapp.canvas.WebViewCanvasCookies
 import com.nzfrankwu.noteapp.data.CanvasSettings
 import com.nzfrankwu.noteapp.data.FolderRepository
@@ -35,4 +36,7 @@ class AppContainer(context: Context) {
 
     /** A Canvas sync for the school's [address]. */
     fun canvasSync(address: String): CanvasSync = CanvasSync(database, canvasClient(address))
+
+    /** Runs syncs with the saved settings (used by app open, pull-to-refresh and the background job). */
+    val canvasSyncRunner: CanvasSyncRunner by lazy { CanvasSyncRunner(canvasSettings, ::canvasSync) }
 }
