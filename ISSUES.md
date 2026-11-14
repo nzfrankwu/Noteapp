@@ -8,8 +8,7 @@ _None yet._
 
 ## Open questions
 
-- **5.1 go/no-go: does your university login work in Noteapp's in-app browser?** Settings → Canvas → type your Canvas address → Sign in. If it fails, we discuss the calendar-feed fallback (IDEA §3.4).
-- **The in-app sign-in browser only opens https pages.** If your university's login passes through a plain http:// page, it will say "a page was skipped" and the login may stall. Tell me if you see that.
+_None right now._
 
 ## Follow-ups / tech debt
 
@@ -26,6 +25,8 @@ _None yet._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Canvas sign-in go/no-go passed (15 Nov, step 5.1).** Your university login works in Noteapp's in-app browser on the tablet, so the calendar-feed fallback isn't needed. This also answers the https-only question: the login didn't stall.
 
 - **Code review of phase-1 (15 Nov, 2:35 am): 7 findings fixed.** App-open sync no longer re-asks Canvas while the sign-in is expired; folder task sections refresh every minute; one sign-in message instead of two; a test-only workaround removed; faster task lists; one shared wording for folder errors.
 

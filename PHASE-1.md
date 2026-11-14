@@ -99,8 +99,8 @@ _Android part done:_
   - `canvas/CanvasAccount.kt`: save the address, confirm a sign-in ("who am I?"), sign out (7 tests).
   - Settings → Canvas (`ui/settings/CanvasSettingsSection.kt`): address, Sign in, "Signed in as …", Last synced, Sync now, Sign out.
   - The in-app browser (`ui/canvas/CanvasLoginScreen.kt`): https pages only, no file access, no JavaScript bridge, nothing logged (3 tests for when a page counts as signed in).
-  - **Still to do:** your real login on the tablet (go/no-go).
-- [ ] 🔺 **5.1** Canvas address, then in-app browser login, then "Signed in as …", plus Sign out. You do the real login. If the uni login fails in the in-app browser, stop and discuss the calendar-feed fallback (§3.4). ★
+  - **Go/no-go passed (15 Nov):** your real university login worked in the in-app browser on the OPPO Pad 3, and Settings showed "Signed in as …". The calendar-feed fallback isn't needed.
+- [x] 🔺 **5.1** Canvas address, then in-app browser login, then "Signed in as …", plus Sign out. You do the real login. If the uni login fails in the in-app browser, stop and discuss the calendar-feed fallback (§3.4). ★
 
 ### F6: Canvas import
 - [x] 🔺 **6.1** Read-only Canvas client: GET only, reads every page, polite pacing, notices an expired sign-in. Tested against a fake server.
