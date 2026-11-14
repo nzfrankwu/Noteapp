@@ -27,9 +27,10 @@ captures/
 *.class
 output-metadata.json
 
-# Signing keys
+# Signing keys and their passwords
 *.jks
 *.keystore
+keystore.properties
 
 # Logs
 *.log

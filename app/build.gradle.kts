@@ -1,6 +1,29 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+}
+
+// Release signing key (IDEA.md §5a).
+// The key and its passwords live outside the project entirely, in <user home>/keys/:
+//   noteapp-release.jks              — the key itself
+//   noteapp-keystore.properties      — storeFile, storePassword, keyAlias, keyPassword
+// Every build — debug and release — is signed with this one key, so the app on the tablet can
+// always be updated without uninstalling. If the file is missing (e.g. another computer),
+// builds fall back to the default debug key and a warning is printed.
+val keystorePropertiesFile = File(System.getProperty("user.home"), "keys/noteapp-keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) keystorePropertiesFile.inputStream().use { load(it) }
+}
+val signingKeys = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+val hasReleaseKey = signingKeys.all { !keystoreProperties.getProperty(it).isNullOrBlank() } &&
+    file(keystoreProperties.getProperty("storeFile")).exists()
+if (!hasReleaseKey) {
+    logger.warn(
+        "NoteApp: release signing key not found ($keystorePropertiesFile missing or incomplete). " +
+            "Using the default debug key; don't install this build over one signed with the release key."
+    )
 }
 
 android {
@@ -19,8 +42,23 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("noteappRelease") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            if (hasReleaseKey) signingConfig = signingConfigs.getByName("noteappRelease")
+        }
         release {
+            if (hasReleaseKey) signingConfig = signingConfigs.getByName("noteappRelease")
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
