@@ -5,7 +5,25 @@ Noteapp is an Android **tablet** app written in **Kotlin** with **Jetpack Compos
 It's a handwriting-first note-taking app with built-in Canvas assignment tracking.
 App ID / package: `com.nzfrankwu.noteapp` (single `app` module). minSdk 26. **Never change the app ID**: Android would treat it as a different app, and the user's notes wouldn't carry over.
 
-The current phase plan and its checklist are in `PHASE-1.md`. Read it at the start of a session and tick steps as they pass.
+**Start every session by reading `HANDOFF.md`.** It says where the last session stopped, which phase plan is current (e.g. `PHASE-1B.md`) and what to do next. Then read that phase plan and tick its steps as they pass. Finished phase plans (`PHASE-1.md`, …) stay as history.
+
+## Session handoff notes (HANDOFF.md)
+
+The user starts a **new Claude session every day** (for a fresh, large context window), so nothing may live only in a session's memory. `HANDOFF.md` (committed to git) is how sessions pass work to each other. Keep it current:
+
+- **Update it often, not just at the end:** after every passing step, after any decision the user makes, when you learn a gotcha, and whenever the conversation is getting long. Assume the session could end at any moment.
+- **What it holds:**
+  - the current branch and phase
+  - what was done most recently (with commit hashes)
+  - the exact next step(s)
+  - decisions made and why
+  - open questions and anything waiting on the user
+  - gotchas: tools, commands and workarounds that cost time to discover
+- **Keep it short and current.** Replace stale content instead of piling on. Detailed history belongs in git, `ISSUES.md` and the phase plan.
+- **Commit it** with the step it describes, so it's never behind the code.
+- **Before a session ends** (or when the user says they're switching sessions): bring `HANDOFF.md` fully up to date, commit and push, and leave the working tree clean.
+- No secrets or personal data in it (it's committed): no passwords, cookies, Canvas links, course content or device serial numbers.
+- `REPORT.md` (git-ignored, with screenshots) is still used for hands-off reports to the user. `HANDOFF.md` is the note for the next session.
 
 ## The plan: IDEA.md
 
@@ -71,7 +89,7 @@ Before starting a step that is **difficult or high-stakes**, stop and tell the u
 - things that are hard to change later
 - complex UI like the ink canvas
 
-Steps known to be difficult are marked 🔺 in the phase plan (`PHASE-1.md`). Also flag any step that turns out harder than expected partway through.
+Steps known to be difficult are marked 🔺 in the current phase plan (named in `HANDOFF.md`). Also flag any step that turns out harder than expected partway through.
 
 In hands-off mode, carry on, but list every 🔺 step you did in `REPORT.md` so the user can review it carefully.
 
