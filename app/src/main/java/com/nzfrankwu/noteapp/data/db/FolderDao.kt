@@ -45,4 +45,14 @@ interface FolderDao {
         """,
     )
     fun observeAllWithCourse(): Flow<List<FolderListItem>>
+
+    /** One folder with its course code, updating live (null once deleted). */
+    @Query(
+        """
+        SELECT folders.*, courses.code AS course_code
+        FROM folders LEFT JOIN courses ON courses.id = folders.course_id
+        WHERE folders.id = :id
+        """,
+    )
+    fun observeWithCourse(id: String): Flow<FolderListItem?>
 }

@@ -133,6 +133,53 @@ class FolderRepositoryTest {
     }
 
     @Test
+    fun linkCourse_toAnUnlinkedFolder() = runBlocking {
+        val folder = repo.createFolder("Personal", null) as FolderResult.Success
+        now = now.plusSeconds(60)
+        assertEquals(FolderResult.Success(folder.folderId), repo.linkCourse(folder.folderId, " electeng 204 "))
+        val item = checkNotNull(repo.observeFolder(folder.folderId).first())
+        assertEquals("ELECTENG 204", item.courseCode)
+        assertEquals(now, item.folder.updatedAt)
+    }
+
+    @Test
+    fun linkCourse_alreadyLinkedElsewhere_isRefused() = runBlocking {
+        repo.createFolder("EE 204", "ELECTENG 204")
+        val other = repo.createFolder("Other", null) as FolderResult.Success
+        assertEquals(
+            FolderResult.Failure(FolderError.CourseAlreadyLinked("ELECTENG 204", "EE 204")),
+            repo.linkCourse(other.folderId, "electeng204"),
+        )
+    }
+
+    @Test
+    fun linkCourse_sameCourseAgain_isFine() = runBlocking {
+        val folder = repo.createFolder("EE 204", "ELECTENG 204") as FolderResult.Success
+        assertEquals(FolderResult.Success(folder.folderId), repo.linkCourse(folder.folderId, "ELECTENG204"))
+    }
+
+    @Test
+    fun linkCourse_blankCode_isRefused() = runBlocking {
+        val folder = repo.createFolder("Personal", null) as FolderResult.Success
+        assertEquals(FolderResult.Failure(FolderError.BlankCourseCode), repo.linkCourse(folder.folderId, "  "))
+    }
+
+    @Test
+    fun unlinkCourse_keepsTheCourse() = runBlocking {
+        val folder = repo.createFolder("EE 204", "ELECTENG 204") as FolderResult.Success
+        repo.unlinkCourse(folder.folderId)
+        assertNull(repo.observeFolder(folder.folderId).first()?.courseCode)
+        assertEquals(1, db.courseDao().getAll().size)
+    }
+
+    @Test
+    fun observeFolder_isNullOnceDeleted() = runBlocking {
+        val folder = repo.createFolder("Temp", null) as FolderResult.Success
+        repo.deleteFolder(folder.folderId)
+        assertNull(repo.observeFolder(folder.folderId).first())
+    }
+
+    @Test
     fun folders_areListedAlphabetically() = runBlocking {
         repo.createFolder("b", null)
         repo.createFolder("C", null)

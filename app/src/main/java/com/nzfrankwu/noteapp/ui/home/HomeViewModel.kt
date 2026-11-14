@@ -100,6 +100,7 @@ class HomeViewModel(private val folderRepository: FolderRepository) : ViewModel(
 
     private fun messageFor(error: FolderError): String = when (error) {
         FolderError.BlankName -> "Give the folder a name."
+        FolderError.BlankCourseCode -> "Type a course code, e.g. ELECTENG 204."
         FolderError.NotFound -> "This folder no longer exists."
         is FolderError.CourseAlreadyLinked ->
             "${error.courseCode} is already linked to the folder “${error.folderName}”."

@@ -41,7 +41,8 @@ _None right now._
   - Reading links shared into the app.
   - Canvas sign-in groundwork: the address check, cookies and sign-out, and settings.
   - Sync timing: the 15-minute rule, the sync runner, and the 6-hourly background job.
-  - Totals: 123 unit tests and 69 emulator tests, all passing.
+  - Linking a course to an existing folder, and unlinking it.
+  - Totals: 123 unit tests and 75 emulator tests, all passing.
 - Folders (Phase 1, step 1.1).
   - Create a folder with an optional course code, rename it, or delete it (with a confirmation).
   - Course codes are tidied and matched ignoring spaces and case, and a course can have only one folder.
