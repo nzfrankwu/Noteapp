@@ -15,3 +15,19 @@ data object SettingsRoute : NavKey
 
 @Serializable
 data class FolderRoute(val folderId: String) : NavKey
+
+/** One task's details. */
+@Serializable
+data class TaskRoute(val taskId: String) : NavKey
+
+/**
+ * The task form. With [taskId] it edits that task; without, it's "New task", optionally
+ * prefilled with a course (from a folder) or a title and link (shared from another app).
+ */
+@Serializable
+data class TaskEditRoute(
+    val taskId: String? = null,
+    val courseId: String? = null,
+    val title: String? = null,
+    val url: String? = null,
+) : NavKey

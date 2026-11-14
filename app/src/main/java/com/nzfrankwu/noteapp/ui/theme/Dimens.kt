@@ -30,4 +30,13 @@ object Dimens {
 
     /** Max width of reading-style pages (Settings, forms) so they don't stretch on wide screens. */
     val ReadingMaxWidth = 720.dp
+
+    /** Top/bottom padding inside a task card. */
+    val TaskCardVerticalPadding = 12.dp
+
+    /** Smallest height of a status tag or badge ("Started", "Overdue"). */
+    val TagHeight = 26.dp
+
+    /** Gap between fields in a form (New task, Edit task). */
+    val FieldGap = 14.dp
 }

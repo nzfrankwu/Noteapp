@@ -19,13 +19,15 @@ _None right now._
 - The launcher icon is still the template's green Android robot. A proper NoteApp icon is a polish item.
 - **kotlinx.serialization is pinned at 1.9.0**, the newest built for this project's Kotlin 2.2 (it comes with AGP 9.5.1). It must stay at or above Room's needs (1.8.1), or `MigrationTest` crashes with `AbstractMethodError`. A later Kotlin upgrade (2.3+) would allow newer versions.
 - **Reminders can't show yet: no notification-permission prompt.** Android 13+ needs the user to allow notifications; the prompt comes with the task screens (4.1). Until then reminders are planned but silently not shown.
-- **Tapping a reminder opens the home screen, not the task**, until the task detail screen exists (2.2).
+- **Tapping a reminder opens the home screen, not the task.** The task page now exists (2.2); connecting it is part of 4.1.
 - **Reminder alarms are inexact.** They may arrive a few minutes late in battery saving, and ColorOS may delay them more; this needs a tablet check (4.2). No "exact alarm" permission is used.
 - **Canvas course codes with extra text** (e.g. "ELECTENG 204 S2 2026") won't auto-link to your own "ELECTENG 204". They appear as separate courses, to be linked by hand on the "Link your courses" screen (6.2, not built yet).
 - **The emulator's stylus handwriting is turned off** (emulator only; `settings put secure stylus_handwriting_enabled 0`), because its "Try out your stylus" tutorial swallowed scripted typing. The tablet is unaffected.
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Task screens (Phase 1, steps 2.1–2.3), 15 Nov.** Add, view, edit and delete tasks (with Undo), status tags you tap to change, and the Overdue badge. 13 new unit tests and 9 new screen tests.
 
 - **Overnight 15 Nov, logic and data with no new screens** (full details in REPORT.md, which stays on this PC):
   - Task rules (overdue, past target, Due soon sections, default times).

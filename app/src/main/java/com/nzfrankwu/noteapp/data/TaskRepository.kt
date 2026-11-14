@@ -1,6 +1,7 @@
 package com.nzfrankwu.noteapp.data
 
 import androidx.room.withTransaction
+import com.nzfrankwu.noteapp.data.db.Course
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 import com.nzfrankwu.noteapp.data.db.Task
 import com.nzfrankwu.noteapp.data.db.TaskWithCourse
@@ -61,6 +62,11 @@ class TaskRepository(
     fun observeForCourse(courseId: String): Flow<List<Task>> = taskDao.observeForCourse(courseId)
 
     fun observeTask(taskId: String): Flow<TaskWithCourse?> = taskDao.observeWithCourse(taskId)
+
+    suspend fun getTask(taskId: String): Task? = taskDao.getById(taskId)
+
+    /** All courses A–Z by code, for the course picker in the task form. */
+    fun observeCourses(): Flow<List<Course>> = courseDao.observeAll()
 
     /** Adds one of your own tasks. Status starts as Not started. */
     suspend fun createTask(draft: TaskDraft): TaskResult = db.withTransaction {

@@ -31,6 +31,33 @@ val DarkOnSurface = Color(0xFFE6E6E9)
 val DarkOnSurfaceVariant = Color(0xFFA3A5AB)
 val DarkOutline = Color(0xFF45474D)
 
-// Status colours (used for "Overdue" later)
+// Error / Overdue
 val Red40 = Color(0xFFC62828)
 val Red80 = Color(0xFFFFB4AB)
+
+// Status tag colours: a soft background ("Container") with darker text ("On") in light mode,
+// and the reverse in dark mode. Used by StatusChip and the Overdue badge (see StatusColors.kt).
+val AmberContainerLight = Color(0xFFFFE6C2)
+val AmberOnLight = Color(0xFF6B3F00)
+val AmberContainerDark = Color(0xFF55380A)
+val AmberOnDark = Color(0xFFFFDDB0)
+
+val PurpleContainerLight = Color(0xFFEBDFFF)
+val PurpleOnLight = Color(0xFF3F2178)
+val PurpleContainerDark = Color(0xFF45307A)
+val PurpleOnDark = Color(0xFFEBDFFF)
+
+val TealContainerLight = Color(0xFFD0F0E3)
+val TealOnLight = Color(0xFF0B5136)
+val TealContainerDark = Color(0xFF124A35)
+val TealOnDark = Color(0xFFB6EBD3)
+
+val GreenContainerLight = Color(0xFFDCEFD3)
+val GreenOnLight = Color(0xFF2C5A1D)
+val GreenContainerDark = Color(0xFF2A4720)
+val GreenOnDark = Color(0xFFCDEBC0)
+
+val RedContainerLight = Color(0xFFFFDAD6)
+val RedOnLight = Color(0xFF8C0009)
+val RedContainerDark = Color(0xFF7A1A14)
+val RedOnDark = Color(0xFFFFDAD6)

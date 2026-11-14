@@ -52,10 +52,15 @@ Decisions made:
 _Logic done ahead of the screens:_
 - `domain/TaskRules.kt`: overdue, past target, Due soon sections, default times.
 - `data/TaskRepository.kt`: create, edit, status, delete and undo.
-- **Still to do:** the task screens below.
-- [ ] **2.1** Add a task: name, course, optional due date and time, optional "My target date", link and notes. Undated tasks go at the bottom.
-- [ ] **2.2** Task detail, edit, delete with Undo, and opening the link.
-- [ ] **2.3** Status tags and the automatic Overdue badge. ★
+- [x] **2.1** Add a task: name, course, optional due date and time, optional "My target date", link and notes. Undated tasks go at the bottom.
+  - "＋ Add task" on a linked folder opens the form (`ui/task/TaskEditorScreen`) with the course filled in.
+  - Form logic in `ui/task/TaskForm.kt` (10 unit tests): default times, clearing, unchanged dates keep their exact saved time.
+- [x] **2.2** Task detail, edit, delete with Undo, and opening the link.
+  - `ui/task/TaskDetailScreen`: status, Overdue/Past target, dates, link button, Canvas description (HTML), notes, Linked notebooks placeholder.
+  - Delete is instant with an "Undo" snackbar; Canvas tasks have no Delete button. Only http/https links open.
+- [x] **2.3** Status tags and the automatic Overdue badge. ★
+  - Reusable `StatusChip` (tap to change), `OverdueBadge`, `InfoBadge`, `TaskCard`; colours in `ui/theme/StatusColors.kt`.
+  - 9 screen tests in `TaskScreensTest`.
 
 ### F3: Home screen
 - [ ] **3.1** Due soon across all courses, sorted by target-or-due date, with overdue tasks flagged.

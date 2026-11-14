@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,6 +20,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -33,13 +37,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.R
 import com.nzfrankwu.noteapp.ui.components.EmptyState
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
-import com.nzfrankwu.noteapp.ui.components.TaskRow
+import com.nzfrankwu.noteapp.ui.components.TaskCard
+import com.nzfrankwu.noteapp.domain.DueGroup
 import com.nzfrankwu.noteapp.ui.home.FolderEditDialog
 import com.nzfrankwu.noteapp.ui.theme.Dimens
 
@@ -48,11 +54,17 @@ private val FolderContentMaxWidth = 900.dp
 
 /**
  * A folder: its course, a Notebooks area (Phase 2), and the course's tasks in sections.
- * Functional first version; task cards, adding tasks and tapping a task come with F2.
+ * "Add task" (when a course is linked) opens the task form with the course filled in.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FolderScreen(viewModel: FolderViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun FolderScreen(
+    viewModel: FolderViewModel,
+    onBack: () -> Unit,
+    onOpenTask: (taskId: String) -> Unit,
+    onAddTask: (courseId: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val item by viewModel.folder.collectAsStateWithLifecycle()
     val sections by viewModel.sections.collectAsStateWithLifecycle()
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
@@ -113,7 +125,24 @@ fun FolderScreen(viewModel: FolderViewModel, onBack: () -> Unit, modifier: Modif
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                item { SectionTitle("Tasks", Modifier.padding(top = Dimens.PaneGap)) }
+                item {
+                    Row(Modifier.fillMaxWidth().padding(top = Dimens.PaneGap), verticalAlignment = Alignment.CenterVertically) {
+                        SectionTitle("Tasks")
+                        Spacer(Modifier.weight(1f))
+                        val courseId = item?.folder?.courseId
+                        if (courseId != null) {
+                            FilledTonalButton(
+                                onClick = { onAddTask(courseId) },
+                                contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+                                modifier = Modifier.testTag("add-task"),
+                            ) {
+                                Icon(painterResource(R.drawable.ic_add), contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                                Text("Add task")
+                            }
+                        }
+                    }
+                }
                 when {
                     item == null -> Unit
                     courseCode == null -> item {
@@ -128,7 +157,7 @@ fun FolderScreen(viewModel: FolderViewModel, onBack: () -> Unit, modifier: Modif
                     sections.isEmpty() -> item {
                         EmptyState(
                             title = "No tasks yet",
-                            message = "Your own tasks and Canvas assignments for $courseCode will show up here.",
+                            message = "Tap “Add task” to add your own. Canvas assignments for $courseCode will show up here too.",
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -137,12 +166,20 @@ fun FolderScreen(viewModel: FolderViewModel, onBack: () -> Unit, modifier: Modif
                             Text(
                                 text = section.group.title,
                                 style = MaterialTheme.typography.labelLarge,
-                                color = if (section.group.name == "OVERDUE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                color = if (section.group == DueGroup.OVERDUE) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(top = 8.dp),
                             )
                         }
                         items(section.tasks, key = { it.id }) { task ->
-                            TaskRow(task, viewModel.now(), viewModel.zone())
+                            TaskCard(
+                                task = task,
+                                courseCode = courseCode,
+                                now = viewModel.now(),
+                                zone = viewModel.zone(),
+                                onClick = { onOpenTask(task.id) },
+                                onStatusChange = { viewModel.setStatus(task.id, it) },
+                                showCourse = false,
+                            )
                         }
                     }
                 }

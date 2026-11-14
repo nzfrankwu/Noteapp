@@ -57,7 +57,7 @@ class FolderScreenTest {
         val viewModel = FolderViewModel(folderId, folders, tasks)
         compose.setContent {
             NoteAppTheme {
-                Box(Modifier.size(width = 1120.dp, height = 800.dp)) { FolderScreen(viewModel, onBack = {}) }
+                Box(Modifier.size(width = 1120.dp, height = 800.dp)) { FolderScreen(viewModel, onBack = {}, onOpenTask = {}, onAddTask = {}) }
             }
         }
     }

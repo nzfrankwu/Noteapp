@@ -10,6 +10,7 @@ import com.nzfrankwu.noteapp.data.db.FolderListItem
 import com.nzfrankwu.noteapp.data.db.Task
 import com.nzfrankwu.noteapp.domain.TaskGrouping
 import com.nzfrankwu.noteapp.domain.TaskSection
+import com.nzfrankwu.noteapp.domain.TaskStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,7 +38,7 @@ sealed interface FolderScreenDialog {
 class FolderViewModel(
     private val folderId: String,
     private val folders: FolderRepository,
-    tasks: TaskRepository,
+    private val tasks: TaskRepository,
     private val clock: Clock = Clock.systemDefaultZone(),
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel() {
@@ -63,6 +64,10 @@ class FolderViewModel(
 
     fun now() = clock.instant()
     fun zone() = zone
+
+    fun setStatus(taskId: String, status: TaskStatus) {
+        viewModelScope.launch { tasks.setStatus(taskId, status) }
+    }
 
     fun startRename() { _dialog.value = FolderScreenDialog.Rename(folder.value?.folder?.name.orEmpty()) }
     fun startLinkCourse() { _dialog.value = FolderScreenDialog.LinkCourse() }
