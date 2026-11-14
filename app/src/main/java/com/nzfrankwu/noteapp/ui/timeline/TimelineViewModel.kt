@@ -61,6 +61,8 @@ data class TimelineState(
             zone: ZoneId,
         ): TimelineState {
             val days = TimelineRules.days(start, zoom)
+            val current = TaskViewFilters.currentCourses(courses)
+            val filters = filters.forCurrentCourses(current)
             val shown = tasks
                 .filter { filters.courseId == null || it.task.courseId == filters.courseId }
                 .filter { filters.showFinished || !it.task.status.isFinished }
@@ -87,7 +89,7 @@ data class TimelineState(
                 days = days,
                 rows = rows,
                 undatedCount = shown.count { it.task.dueAt == null },
-                courses = courses,
+                courses = current,
                 filters = filters,
                 nowPosition = nowPos,
                 now = now,
@@ -112,7 +114,8 @@ class TimelineViewModel(
     private fun today(): LocalDate = clock.instant().atZone(zone).toLocalDate()
 
     val state: StateFlow<TimelineState> = combine(
-        tasks.observeAllWithCourse(),
+        // Home leaves archived courses out; a course folder shows all of its own tasks.
+        if (courseId == null) tasks.observeActiveWithCourse() else tasks.observeAllWithCourse(),
         tasks.observeCourses(),
         minuteTicker(clock),
         combine(start, zoom, ::Pair),

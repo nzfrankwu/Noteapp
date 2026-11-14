@@ -112,12 +112,31 @@ class HomeViewModel(
     val folders: StateFlow<List<FolderListItem>?> = folderRepository.observeFolders()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue = null)
 
+    /** Whether the "Archived (N)" row under Folders is open. */
+    private val _archivedExpanded = MutableStateFlow(false)
+    val archivedExpanded: StateFlow<Boolean> = _archivedExpanded.asStateFlow()
+    fun toggleArchived() = _archivedExpanded.update { !it }
+
+    /** Archive (or bring back) a folder's course. Its tasks leave (or rejoin) Due soon, Calendar and Timeline. */
+    fun setArchived(item: FolderListItem, archived: Boolean) {
+        val courseId = item.folder.courseId ?: return
+        viewModelScope.launch {
+            folderRepository.setCourseArchived(courseId, archived)
+            val code = item.courseCode ?: item.folder.name
+            _message.value = if (archived) {
+                "$code archived. Its tasks are hidden from Home; the folder is under Archived."
+            } else {
+                "$code is back with your current courses."
+            }
+        }
+    }
+
     private val noDueDateExpanded = MutableStateFlow(false)
     private val showFinished = MutableStateFlow(false)
 
-    /** Due soon across all courses (live from the database). */
+    /** Due soon across all current courses (archived courses' tasks are left out). */
     val dueSoon: StateFlow<DueSoonState> =
-        combine(taskRepository.observeAllWithCourse(), minuteTicker(clock), noDueDateExpanded, showFinished) { tasks, now, expanded, finished ->
+        combine(taskRepository.observeActiveWithCourse(), minuteTicker(clock), noDueDateExpanded, showFinished) { tasks, now, expanded, finished ->
             DueSoonState.build(tasks, now, zone, expanded, finished)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DueSoonState())
 

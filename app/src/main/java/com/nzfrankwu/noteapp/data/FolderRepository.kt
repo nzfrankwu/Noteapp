@@ -2,6 +2,7 @@ package com.nzfrankwu.noteapp.data
 
 import androidx.room.withTransaction
 import com.nzfrankwu.noteapp.data.db.Course
+import com.nzfrankwu.noteapp.data.db.CourseListItem
 import com.nzfrankwu.noteapp.data.db.Folder
 import com.nzfrankwu.noteapp.data.db.FolderListItem
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
@@ -94,8 +95,24 @@ class FolderRepository(
         FolderResult.Success(folderId)
     }
 
-    /** Canvas courses with no folder yet (for the "Link your courses" prompt). */
+    /** Current Canvas courses with no folder yet (for the "Link your courses" prompt). */
     fun observeCanvasCoursesWithoutFolder(): Flow<List<Course>> = courseDao.observeCanvasCoursesWithoutFolder()
+
+    /** Every course with its folder (if any), A–Z, for Settings → Courses. */
+    fun observeCoursesWithFolders(): Flow<List<CourseListItem>> = courseDao.observeAllWithFolder()
+
+    /**
+     * Archives a course ([archived] = true) or brings it back. Archived courses' tasks are hidden
+     * from Home and get no reminders; nothing is deleted. Returns false if the course is gone.
+     */
+    suspend fun setCourseArchived(courseId: String, archived: Boolean): Boolean = db.withTransaction {
+        val course = courseDao.getById(courseId) ?: return@withTransaction false
+        if (course.archivedAt != null != archived) {
+            val now = clock.instant()
+            courseDao.update(course.copy(archivedAt = if (archived) now else null, updatedAt = now))
+        }
+        true
+    }
 
     /** Makes a new folder for an existing course (e.g. one imported from Canvas). */
     suspend fun createFolderForCourse(name: String, courseId: String): FolderResult = db.withTransaction {

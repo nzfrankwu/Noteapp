@@ -145,6 +145,7 @@ class MigrationTest {
             assertEquals(1000L, task.createdAt.toEpochMilli())
             assertEquals(2000L, task.updatedAt.toEpochMilli())
             assertNull(task.availableAt)
+            assertNull("Courses start out current", course.archivedAt)
 
             val own = requireRow(db.taskDao().getById("t2"))
             assertEquals("Study for Test 2", own.title)
@@ -206,6 +207,57 @@ class MigrationTest {
         db.close()
     }
 
+    // ---- Version 2 → 3: courses.archived_at ----
+
+    /** Every row and every value saved by version 2 is still there after 2 → 3, untouched. */
+    @Test
+    fun migration2To3_keepsEveryValue_andEveryCourseStartsCurrent() {
+        val before = helper.createDatabase(testDbName, 2).let { old ->
+            insertVersion2Data(old)
+            version2Columns.mapValues { (table, columns) -> rowsOf(old, table, columns) }.also { old.close() }
+        }
+
+        val db = helper.runMigrationsAndValidate(testDbName, 3, true, MIGRATION_2_3)
+
+        for ((table, columns) in version2Columns) {
+            assertEquals("Rows of $table after migrating", before.getValue(table), rowsOf(db, table, columns))
+        }
+        assertEquals(
+            "No course is archived after the update",
+            listOf(listOf(null), listOf(null), listOf(null)),
+            rowsOf(db, "courses", listOf("archived_at")),
+        )
+        db.query("PRAGMA foreign_key_check").use { assertFalse("Broken links between tables", it.moveToFirst()) }
+        db.close()
+    }
+
+    /** Data saved by version 2 (incl. "available from") is still there when the current app opens it. */
+    @Test
+    fun dataSavedByVersion2_survivesUpdatingToTheCurrentVersion() {
+        helper.createDatabase(testDbName, 2).apply {
+            insertVersion2Data(this)
+            close()
+        }
+
+        val db = openWithAllMigrations()
+        runBlocking {
+            val course = requireRow(db.courseDao().getById("c3"))
+            assertEquals("COMPSYS 201", course.code)
+            assertNull(course.archivedAt)
+
+            val task = requireRow(db.taskDao().getById("t3"))
+            assertEquals("Assignment 1", task.title)
+            assertEquals(1762900000000, task.availableAt?.toEpochMilli())
+            assertEquals(TaskStatus.STARTED, task.status)
+            assertEquals("Q2 is hard", task.notes)
+
+            // Every task still shows on Home after the update: nothing is archived yet.
+            assertEquals(3, db.taskDao().observeActiveWithCourse().first().size)
+            assertEquals("f2", requireRow(db.folderDao().getById("f2")).id)
+        }
+        db.close()
+    }
+
     // ---- Helpers ----
 
     /**
@@ -239,6 +291,35 @@ class MigrationTest {
                 "removed_from_canvas, created_at, updated_at) VALUES ('t2', 'Study for Test 2', 'c2', " +
                 "NULL, NULL, NULL, 'not_started', NULL, NULL, 'manual', NULL, NULL, NULL, 0, 1500, 2000)",
         )
+    }
+
+    /**
+     * Rows as version 2 saved them: version 1's rows plus a course and folder for COMPSYS 201 and a
+     * Canvas task with "available from" (tasks.available_at, new in version 2).
+     * FROZEN to version 2's tables on purpose: never update this SQL for new versions.
+     */
+    private fun insertVersion2Data(db: SupportSQLiteDatabase) {
+        insertVersion1Data(db) // version 1's tables are part of version 2 (only a column was added)
+        db.execSQL(
+            "INSERT INTO courses (id, code, name, canvas_course_id, created_at, updated_at) " +
+                "VALUES ('c3', 'COMPSYS 201', 'Computer Systems', 557, 3000, 3000)",
+        )
+        db.execSQL(
+            "INSERT INTO folders (id, name, course_id, created_at, updated_at) " +
+                "VALUES ('f2', 'Computer Systems', 'c3', 3000, 3000)",
+        )
+        db.execSQL(
+            "INSERT INTO tasks (id, title, course_id, due_at, url, description_html, status, target_at, " +
+                "notes, source, canvas_assignment_id, canvas_submission_state, canvas_submitted_at, " +
+                "removed_from_canvas, created_at, updated_at, available_at) VALUES ('t3', 'Assignment 1', 'c3', " +
+                "1763700000000, 'https://canvas.example.edu/courses/557/assignments/21', NULL, 'started', NULL, " +
+                "'Q2 is hard', 'canvas', 21, 'unsubmitted', NULL, 0, 3000, 3500, 1762900000000)",
+        )
+    }
+
+    /** Version 2's columns: version 1's plus tasks.available_at. FROZEN like [insertVersion2Data]. */
+    private val version2Columns: Map<String, List<String>> by lazy {
+        version1Columns.mapValues { (table, columns) -> if (table == "tasks") columns + "available_at" else columns }
     }
 
     /** Version 1's columns, table by table. FROZEN like [insertVersion1Data]. */

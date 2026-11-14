@@ -6,6 +6,9 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -29,6 +32,7 @@ import com.nzfrankwu.noteapp.ui.folder.FolderViewModel
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -106,6 +110,27 @@ class FolderScreenTest {
 
         compose.onNodeWithTag("folder-tab-tasks").performClick()
         waitFor("No tasks yet")
+    }
+
+    @Test
+    fun archivingFromTheFolderMenu_marksItArchived_andKeepsItsTasks() {
+        val id = runBlocking {
+            val folderId = (folders.createFolder("EE 204", "ELECTENG 204") as FolderResult.Success).folderId
+            tasks.createTask(TaskDraft("Read chapter 3", db.courseDao().getAll().single().id))
+            folderId
+        }
+        show(id)
+        waitFor("Read chapter 3")
+        compose.onNodeWithContentDescription("Folder options").performClick()
+        compose.onNodeWithText("Archive course").performClick()
+
+        compose.waitUntilAtLeastOneExists(hasTestTag("archived-badge"), 5_000)
+        compose.onNodeWithText("Read chapter 3").assertExists()
+        assertNotNull(runBlocking { db.courseDao().getAll().single().archivedAt })
+
+        compose.onNodeWithContentDescription("Folder options").performClick()
+        compose.onNodeWithText("Unarchive course").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("archived-badge").fetchSemanticsNodes().isEmpty() }
     }
 
     @Test

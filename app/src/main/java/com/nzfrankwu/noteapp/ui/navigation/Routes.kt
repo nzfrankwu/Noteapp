@@ -13,6 +13,10 @@ data object HomeRoute : NavKey
 @Serializable
 data object SettingsRoute : NavKey
 
+/** Settings → Courses: archive or bring back courses. */
+@Serializable
+data object CoursesRoute : NavKey
+
 @Serializable
 data class FolderRoute(val folderId: String) : NavKey
 

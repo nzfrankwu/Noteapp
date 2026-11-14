@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -48,9 +51,16 @@ class TaskEditorViewModel(
     )
     val state: StateFlow<TaskEditorState> = _state.asStateFlow()
 
-    /** Courses to pick from, A–Z (null while loading). */
-    val courses: StateFlow<List<Course>?> = tasks.observeCourses()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    /**
+     * Courses to pick from, A–Z (null while loading): the current ones, plus the task's own
+     * course if that one is archived (so editing an old task still shows its course).
+     */
+    val courses: StateFlow<List<Course>?> = combine(
+        tasks.observeCourses(),
+        _state.map { it.form.courseId }.distinctUntilChanged(), // not on every keystroke
+    ) { all, chosenId ->
+        all.filter { it.archivedAt == null || it.id == chosenId }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private var saving = false
 

@@ -41,10 +41,20 @@ interface CourseDao {
     @Query("SELECT * FROM courses ORDER BY code COLLATE NOCASE")
     fun observeAll(): Flow<List<Course>>
 
-    /** Canvas courses that no folder is linked to yet (for "Link your courses"), A–Z by code. */
+    /**
+     * Current (not archived) Canvas courses that no folder is linked to yet (for "Link your
+     * courses" and the "New from Canvas" prompt), A–Z by code.
+     */
     @Query(
-        "SELECT * FROM courses WHERE canvas_course_id IS NOT NULL " +
+        "SELECT * FROM courses WHERE canvas_course_id IS NOT NULL AND archived_at IS NULL " +
             "AND id NOT IN (SELECT course_id FROM folders WHERE course_id IS NOT NULL) ORDER BY code COLLATE NOCASE",
     )
     fun observeCanvasCoursesWithoutFolder(): Flow<List<Course>>
+
+    /** Every course with its folder (if any), A–Z by code, for Settings → Courses. Updates live. */
+    @Query(
+        "SELECT courses.*, folders.id AS folder_id, folders.name AS folder_name " +
+            "FROM courses LEFT JOIN folders ON folders.course_id = courses.id ORDER BY courses.code COLLATE NOCASE",
+    )
+    fun observeAllWithFolder(): Flow<List<CourseListItem>>
 }

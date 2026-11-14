@@ -83,6 +83,12 @@ class FolderViewModel(
     fun startLinkCourse() { _dialog.value = FolderScreenDialog.LinkCourse() }
     fun startUnlink() { _dialog.value = FolderScreenDialog.ConfirmUnlink }
     fun startDelete() { _dialog.value = FolderScreenDialog.ConfirmDelete }
+
+    /** Archive (or bring back) this folder's course. Its tasks stay here either way. */
+    fun setArchived(archived: Boolean) {
+        val courseId = folder.value?.folder?.courseId ?: return
+        viewModelScope.launch { folders.setCourseArchived(courseId, archived) }
+    }
     fun dismissDialog() { _dialog.value = null }
 
     fun onTextChange(text: String) = _dialog.update {

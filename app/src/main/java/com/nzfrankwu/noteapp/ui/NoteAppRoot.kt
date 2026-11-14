@@ -1,5 +1,8 @@
 package com.nzfrankwu.noteapp.ui
 
+import com.nzfrankwu.noteapp.ui.navigation.CoursesRoute
+import com.nzfrankwu.noteapp.ui.settings.CoursesScreen
+import com.nzfrankwu.noteapp.ui.settings.CoursesViewModel
 import com.nzfrankwu.noteapp.ui.timeline.TimelineScreen
 import com.nzfrankwu.noteapp.ui.timeline.TimelineViewModel
 import com.nzfrankwu.noteapp.ui.calendar.CalendarScreen
@@ -262,6 +265,9 @@ fun NoteAppRoot(
                         },
                     )
                 }
+                entry<CoursesRoute> {
+                    CoursesScreen(viewModel = viewModel { CoursesViewModel(container.folderRepository) }, onBack = ::back)
+                }
                 entry<SettingsRoute> {
                     SettingsScreen(
                     onBack = ::back,
@@ -269,6 +275,7 @@ fun NoteAppRoot(
                         CanvasSettingsViewModel(container.canvasSettings, container.canvasAccount, container.canvasSyncRunner)
                     },
                     onOpenCanvasBrowser = { backStack.add(CanvasLoginRoute) },
+                    onOpenCourses = { backStack.add(CoursesRoute) },
                     onTestReminder = if (BuildConfig.DEBUG) {
                         {
                             scope.launch {

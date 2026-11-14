@@ -52,6 +52,7 @@ fun SettingsScreen(
     onTestReminder: (() -> Unit)? = null,
     canvas: CanvasSettingsViewModel? = null,
     onOpenCanvasBrowser: () -> Unit = {},
+    onOpenCourses: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -97,6 +98,17 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+                SettingsSection("Courses") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Archive last semester's courses to keep Home tidy, or bring one back.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        FilledTonalButton(onClick = onOpenCourses, modifier = Modifier.testTag("open-courses")) {
+                            Text("Manage courses")
+                        }
                     }
                 }
                 SettingsSection("Reminders") { RemindersSettings(onTestReminder) }

@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,7 +32,8 @@ import com.nzfrankwu.noteapp.ui.theme.LocalCourseColors
 
 /**
  * A folder on the home screen: icon, name, and course code if linked.
- * Tap opens it; the ⋮ button (or a long press) shows Rename and Delete.
+ * Tap opens it; the ⋮ button (or a long press) shows Rename, Archive course and Delete.
+ * An archived course's folder is shown faded.
  */
 @Composable
 fun FolderTile(
@@ -41,12 +43,16 @@ fun FolderTile(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    archived: Boolean = false,
+    /** Archive or unarchive the folder's course; null when the folder has no course. */
+    onToggleArchive: (() -> Unit)? = null,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier
             .height(Dimens.FolderTileHeight)
+            .alpha(if (archived) 0.6f else 1f)
             .clip(MaterialTheme.shapes.medium)
             .combinedClickable(onClick = onOpen, onLongClick = { menuOpen = true }),
         shape = MaterialTheme.shapes.medium,
@@ -86,6 +92,15 @@ fun FolderTile(
                             onRename()
                         },
                     )
+                    if (onToggleArchive != null) {
+                        DropdownMenuItem(
+                            text = { Text(if (archived) "Unarchive course" else "Archive course") },
+                            onClick = {
+                                menuOpen = false
+                                onToggleArchive()
+                            },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                         onClick = {

@@ -37,7 +37,21 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
     }
 }
 
+/**
+ * Version 2 → 3 (Phase 1b, step B.8): courses get `archived_at`, for archiving last semester's
+ * courses.
+ *
+ * It only adds an empty (null) column, so every existing row and value stays exactly as it was,
+ * and every course starts out current (not archived).
+ */
+val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `courses` ADD COLUMN `archived_at` INTEGER")
+    }
+}
+
 /** Every migration, oldest first. Keep this list at the bottom of the file (see above). */
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
+    MIGRATION_2_3,
 )

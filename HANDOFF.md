@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 11:00 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, 11:40 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -14,17 +14,16 @@ _Last updated: 15 Nov 2026, 11:00 am. Keep this file current (see CLAUDE.md, "Se
   - B.5 Calendar
   - B.6 Timeline
   - B.7 Course folder views (added by the user after tablet testing; OK'd, pushed and installed on the tablet)
-- **The tablet now runs B.1–B.6 (database version 2)**, installed 15 Nov ~10:17 am with the user's OK. The upgrade was checked against the safety copy: all 124 tasks (statuses, target dates, notes), 10 courses and 3 folders were kept, integrity OK.
+  - 🔺 B.8 Archive courses (database v3), done at max effort; committed, **not pushed or installed: waiting for the user's check-in OK**
+- **The tablet runs B.1–B.7 (database version 2).** The first version-2 install was on 15 Nov ~10:17 am, with the user's OK. The upgrade was checked against the safety copy: all 124 tasks (statuses, target dates, notes), 10 courses and 3 folders were kept, integrity OK.
 - **Mode: "Working together"** (the user is back). They liked B.1–B.6 on the tablet ("looks good, feels good and works well") and asked for two more steps, now B.7 and B.8 in `PHASE-1B.md`.
 
 ## Next steps (in order)
 
-1. 🔺 **B.8 Archive courses (database v3).** Before starting, tell the user it's a 🔺 step so they can switch to a stronger model. The design was agreed on 15 Nov (see `PHASE-1B.md` B.8):
-   - `courses.archived_at` with a 2→3 migration (copy B.3's test approach, incl. the real-upgrade check)
-   - archived tasks hidden on Home and their reminders stopped
-   - an "Archived (N) ▾" row under Folders
-   - Archive buttons in the folder ⋮ menu, Link courses, and a new Settings → Courses list
-   - Before installing on the tablet, make another safety copy (ask first).
+1. **B.8 check-in.** On the user's OK:
+   - push
+   - make a new safety copy of the tablet database (ask first; same steps as before, into `backups/tablet-db-<date>-before-v3/`)
+   - then `install -r` on the tablet and compare the upgraded database with the copy (counts and values only, never print task names)
 2. **B.9 New folder: course drop-down** (current courses only, no archived; also in "Link a course"). Comes after B.8.
 3. Earlier tablet testing notes:
    - Right after the install, no Canvas task had an "available from" date yet (0 of 124), and no task had changed since 8:40 am. Either no sync has run since the update, or Canvas sets no unlock dates for these courses. Ask the user to pull-to-refresh, then check the Timeline. Don't look at their Canvas sign-in to find out.
@@ -44,7 +43,7 @@ _Last updated: 15 Nov 2026, 11:00 am. Keep this file current (see CLAUDE.md, "Se
   - force-stop the app
   - `adb -s <tablet> exec-out run-as com.nzfrankwu.noteapp cat databases/<f>` for `noteapp.db`, `-wal` and `-shm`
   - check it by opening a copy with Python's `sqlite3`, printing counts only
-- **Never install an older (pre-B.3) build on the tablet:** Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
+- **Never install an older build than the tablet has** (it's now heading to database v3): Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
 
 ## Waiting on the user
 
@@ -77,12 +76,19 @@ _Last updated: 15 Nov 2026, 11:00 am. Keep this file current (see CLAUDE.md, "Se
     - `Task.availableAt` is Canvas's `unlock_at` (not `lock_at`), Canvas-owned and refreshed on every sync.
     - It's null for your own tasks and for Canvas assignments without an unlock date. The timeline then uses `createdAt` (for Canvas tasks, when Noteapp first imported them).
   - The calendar weeks run Monday to Sunday.
+  - **Archiving (B.8):**
+    - `courses.archived_at`
+    - Home uses `observeActiveWithCourse()`; a course folder uses `observeAllWithCourse()`
+    - Course filters list current courses only, and a filter left on a since-archived course resets to all
+    - The task form's course picker shows current courses plus the task's own course
+    - Reminders skip archived courses' tasks (`ReminderScheduler.apply`, plus a re-check in `ReminderReceiver`)
+    - Course colours still count archived courses, so colours never shift
 
 ## Code map (app/src/main/java/com/nzfrankwu/noteapp/)
 
 | Folder | What's in it |
 |---|---|
-| `data/db/` | Room database **v2**: `Course`, `Folder`, `Task`, DAOs, `Migrations.kt` (`MIGRATION_1_2`) |
+| `data/db/` | Room database **v3**: `Course` (+`archivedAt`), `Folder`, `Task` (+`availableAt`), DAOs, `Migrations.kt` (`MIGRATION_1_2`, `MIGRATION_2_3`), `CourseListItem` |
 | `data/` | Repositories (`FolderRepository`, `TaskRepository`), `CanvasSettings` (DataStore), `QuickAdd` |
 | `domain/` | Plain-Kotlin rules: `DaysLeft`, `CourseColorKey`, `TaskRules` (overdue, Due soon sections, default times), `Reminders`, `CourseCodes`, `Links`, `SharedLink`, `DateText` |
 | `canvas/` | `CanvasClient` (GET only), `CanvasParser`, `CanvasMerge`, `CanvasSync`, `CanvasSyncRunner`, `CanvasSyncWorker`, `CanvasAccount` (sign-in and out), `FakeCanvas` (debug; most assignments have "available from" dates) |

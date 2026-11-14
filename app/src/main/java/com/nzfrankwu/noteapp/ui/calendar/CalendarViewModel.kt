@@ -40,7 +40,19 @@ data class TaskViewFilters(
     val showFinished: Boolean = false,
     /** True inside a course folder: always that course, so there's no course filter to change. */
     val courseFixed: Boolean = false,
-)
+) {
+    /**
+     * These filters for the given current courses: a filter left on a course that has since been
+     * archived (or removed) goes back to all courses, instead of showing an empty view.
+     */
+    fun forCurrentCourses(current: List<Course>): TaskViewFilters =
+        if (!courseFixed && courseId != null && current.none { it.id == courseId }) copy(courseId = null) else this
+
+    companion object {
+        /** The courses a course filter offers: current ones only, A–Z as given. */
+        fun currentCourses(courses: List<Course>): List<Course> = courses.filter { it.archivedAt == null }
+    }
+}
 
 /** What the Calendar tab shows (PHASE-1B.md, B.5). */
 data class CalendarState(
@@ -69,6 +81,8 @@ data class CalendarState(
         ): CalendarState {
             val weeks = CalendarRules.weeks(month)
             val today = now.atZone(zone).toLocalDate()
+            val current = TaskViewFilters.currentCourses(courses)
+            val filters = filters.forCurrentCourses(current)
             val shown = tasks.filter { filters.courseId == null || it.task.courseId == filters.courseId }.map(::DueItem)
             val byDay = CalendarRules.byDay(shown, zone, weeks.first().first(), weeks.last().last(), filters.showFinished)
             return CalendarState(
@@ -79,7 +93,7 @@ data class CalendarState(
                         CalendarDay(date, YearMonth.from(date) == month, date == today, byDay[date].orEmpty())
                     }
                 },
-                courses = courses,
+                courses = current,
                 filters = filters,
                 now = now,
                 zone = zone,
@@ -105,7 +119,8 @@ class CalendarViewModel(
     val openDay: StateFlow<LocalDate?> = _openDay.asStateFlow()
 
     val state: StateFlow<CalendarState> = combine(
-        tasks.observeAllWithCourse(),
+        // Home leaves archived courses out; a course folder shows all of its own tasks.
+        if (courseId == null) tasks.observeActiveWithCourse() else tasks.observeAllWithCourse(),
         tasks.observeCourses(),
         minuteTicker(clock),
         month,

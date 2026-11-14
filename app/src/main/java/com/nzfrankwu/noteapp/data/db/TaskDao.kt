@@ -45,14 +45,27 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE course_id = :courseId")
     fun observeForCourse(courseId: String): Flow<List<Task>>
 
-    /** Every task with its course code (for Due soon). Updates live. */
-    @Query("SELECT tasks.*, courses.code AS course_code FROM tasks LEFT JOIN courses ON courses.id = tasks.course_id")
+    /** Every task with its course code, archived courses included. Updates live. */
+    @Query(
+        "SELECT tasks.*, courses.code AS course_code, courses.archived_at AS course_archived_at " +
+            "FROM tasks LEFT JOIN courses ON courses.id = tasks.course_id",
+    )
     fun observeAllWithCourse(): Flow<List<TaskWithCourse>>
+
+    /**
+     * The tasks Home shows (Due soon, Calendar, Timeline): every task except those of archived
+     * courses. Tasks without a course are included. Updates live.
+     */
+    @Query(
+        "SELECT tasks.*, courses.code AS course_code, courses.archived_at AS course_archived_at " +
+            "FROM tasks LEFT JOIN courses ON courses.id = tasks.course_id WHERE courses.archived_at IS NULL",
+    )
+    fun observeActiveWithCourse(): Flow<List<TaskWithCourse>>
 
     /** One task with its course code, updating live (null once it's deleted). */
     @Query(
-        "SELECT tasks.*, courses.code AS course_code FROM tasks LEFT JOIN courses ON courses.id = tasks.course_id " +
-            "WHERE tasks.id = :id",
+        "SELECT tasks.*, courses.code AS course_code, courses.archived_at AS course_archived_at " +
+            "FROM tasks LEFT JOIN courses ON courses.id = tasks.course_id WHERE tasks.id = :id",
     )
     fun observeWithCourse(id: String): Flow<TaskWithCourse?>
 }

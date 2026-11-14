@@ -80,6 +80,14 @@ class LinkCoursesViewModel(
         viewModelScope.launch { report(folders.linkCourseById(folderId, course.id)) }
     }
 
+    /** Archive a course you don't need (e.g. an old or non-teaching one): it leaves this list and Home. */
+    fun archive(course: Course) {
+        viewModelScope.launch {
+            folders.setCourseArchived(course.id, true)
+            _message.value = "${course.code} archived. Its tasks are hidden from Home; bring it back in Settings → Courses."
+        }
+    }
+
     /** "Not now": the home screen stops suggesting this course. It stays listed here. */
     fun notNow(course: Course) {
         viewModelScope.launch {
@@ -174,6 +182,9 @@ private fun CourseRow(course: Course, freeFolders: List<FolderListItem>, viewMod
                     }
                 }
                 TextButton(onClick = { viewModel.notNow(course) }) { Text("Not now") }
+                TextButton(onClick = { viewModel.archive(course) }, modifier = Modifier.testTag("archive-${course.code}")) {
+                    Text("Archive")
+                }
             }
         }
     }

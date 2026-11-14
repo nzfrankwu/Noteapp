@@ -1,5 +1,6 @@
 package com.nzfrankwu.noteapp.ui.calendar
 
+import com.nzfrankwu.noteapp.data.db.Course
 import com.nzfrankwu.noteapp.data.db.Task
 import com.nzfrankwu.noteapp.data.db.TaskWithCourse
 import com.nzfrankwu.noteapp.domain.TaskSource
@@ -36,8 +37,11 @@ class CalendarStateTest {
         task("early", "c1", "2026-10-27T12:00"), // in the grid, but in October
     )
 
-    private fun build(filters: TaskViewFilters = TaskViewFilters()) =
-        CalendarState.build(tasks, emptyList(), YearMonth.of(2026, 11), filters, now, nz)
+    private val c1 = Course("c1", "ELECTENG 204", null, null, Instant.EPOCH, Instant.EPOCH)
+    private val c2 = Course("c2", "COMPSYS 201", null, null, Instant.EPOCH, Instant.EPOCH)
+
+    private fun build(filters: TaskViewFilters = TaskViewFilters(), courses: List<Course> = listOf(c1, c2)) =
+        CalendarState.build(tasks, courses, YearMonth.of(2026, 11), filters, now, nz)
 
     private val friday = LocalDate.of(2026, 11, 20)
 
@@ -61,6 +65,27 @@ class CalendarStateTest {
     fun showFinished_addsThem() {
         val state = build(TaskViewFilters(showFinished = true))
         assertEquals(listOf("done", "quiz", "lab"), state.day(friday)!!.entries.map { it.task.id })
+    }
+
+    @Test
+    fun archivedCourses_areNotOfferedAsFilters() {
+        val state = build(courses = listOf(c1, c2.copy(archivedAt = now)))
+        assertEquals(listOf("c1"), state.courses.map { it.id })
+    }
+
+    @Test
+    fun aFilterOnACourseThatWasArchived_goesBackToAllCourses() {
+        val state = build(TaskViewFilters(courseId = "c2"), courses = listOf(c1, c2.copy(archivedAt = now)))
+        assertEquals(null, state.filters.courseId)
+        assertEquals(listOf("quiz", "lab"), state.day(friday)!!.entries.map { it.task.id })
+    }
+
+    @Test
+    fun insideAnArchivedCoursesFolder_theFixedFilterStays() {
+        val fixed = TaskViewFilters(courseId = "c2", courseFixed = true)
+        val state = build(fixed, courses = listOf(c1, c2.copy(archivedAt = now)))
+        assertEquals("c2", state.filters.courseId)
+        assertEquals(listOf("quiz"), state.day(friday)!!.entries.map { it.task.id })
     }
 
     @Test

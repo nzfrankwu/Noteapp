@@ -1,5 +1,6 @@
 package com.nzfrankwu.noteapp.ui.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.ButtonDefaults
@@ -36,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -84,6 +87,7 @@ fun HomeScreen(
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val folders by viewModel.folders.collectAsStateWithLifecycle()
+    val archivedExpanded by viewModel.archivedExpanded.collectAsStateWithLifecycle()
     val dueSoon by viewModel.dueSoon.collectAsStateWithLifecycle()
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
     val banners by viewModel.banners.collectAsStateWithLifecycle()
@@ -120,6 +124,9 @@ fun HomeScreen(
         onRenameFolder = viewModel::startRename,
         onDeleteFolder = viewModel::startDelete,
         modifier = modifier,
+        archivedExpanded = archivedExpanded,
+        onToggleArchived = viewModel::toggleArchived,
+        onSetArchived = viewModel::setArchived,
     )
 
     when (val d = dialog) {
@@ -177,6 +184,11 @@ fun HomeContent(
     onSelectTab: (HomeTab) -> Unit = {},
     calendar: @Composable () -> Unit = {},
     timeline: @Composable () -> Unit = {},
+    /** Whether archived courses' folders are shown (the "Archived (N)" row is open). */
+    archivedExpanded: Boolean = false,
+    onToggleArchived: () -> Unit = {},
+    /** Archive or unarchive a folder's course. */
+    onSetArchived: (FolderListItem, Boolean) -> Unit = { _, _ -> },
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -208,7 +220,12 @@ fun HomeContent(
             )
         },
     ) { innerPadding ->
-        val folderActions = FolderActions(onNewFolder, onOpenFolder, onRenameFolder, onDeleteFolder)
+        val folderActions = FolderActions(
+            onNewFolder, onOpenFolder, onRenameFolder, onDeleteFolder,
+            onSetArchived = onSetArchived,
+            archivedExpanded = archivedExpanded,
+            onToggleArchived = onToggleArchived,
+        )
         Column(Modifier.padding(innerPadding).fillMaxSize()) {
             HomeBannerStrips(banners, bannerActions)
             Box(Modifier.fillMaxWidth().weight(1f)) {
@@ -260,7 +277,49 @@ private class FolderActions(
     val onOpen: (String) -> Unit,
     val onRename: (FolderListItem) -> Unit,
     val onDelete: (FolderListItem) -> Unit,
+    val onSetArchived: (FolderListItem, Boolean) -> Unit,
+    val archivedExpanded: Boolean,
+    val onToggleArchived: () -> Unit,
 )
+
+/**
+ * The folder tiles: current courses' folders first, then (if any) the "Archived (N)" row, and,
+ * when it's open, the archived courses' folders (faded).
+ */
+private fun LazyGridScope.folderTiles(folders: List<FolderListItem>, actions: FolderActions) {
+    val (archived, current) = folders.partition { it.isArchived }
+    items(current, key = { it.folder.id }) { item -> FolderTileFor(item, actions) }
+    if (archived.isNotEmpty()) {
+        item(key = "archived-row", span = { GridItemSpan(maxLineSpan) }) {
+            ArchivedRow(archived.size, actions.archivedExpanded, actions.onToggleArchived)
+        }
+        if (actions.archivedExpanded) {
+            items(archived, key = { it.folder.id }) { item -> FolderTileFor(item, actions) }
+        }
+    }
+}
+
+/** "Archived (4) ▾": opens or closes the archived courses' folders. */
+@Composable
+private fun ArchivedRow(count: Int, expanded: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 4.dp, vertical = 10.dp)
+            .testTag("archived-toggle"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Archived ($count)", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(4.dp))
+        Icon(
+            painterResource(if (expanded) R.drawable.ic_expand_less else R.drawable.ic_expand_more),
+            contentDescription = if (expanded) "Hide archived folders" else "Show archived folders",
+            tint = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
 
 /** Side by side: Due soon panel on the left, folders on the right. */
 @Composable
@@ -289,7 +348,7 @@ private fun WideHome(folders: List<FolderListItem>?, actions: FolderActions, due
                     verticalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(folders, key = { it.folder.id }) { item -> FolderTileFor(item, actions) }
+                    folderTiles(folders, actions)
                 }
             }
         }
@@ -320,7 +379,7 @@ private fun NarrowHome(folders: List<FolderListItem>?, actions: FolderActions, d
         if (folders != null && folders.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) { NoFolders(Modifier.fillMaxWidth()) }
         }
-        items(folders.orEmpty(), key = { it.folder.id }) { item -> FolderTileFor(item, actions) }
+        folderTiles(folders.orEmpty(), actions)
     }
 }
 
@@ -332,6 +391,12 @@ private fun FolderTileFor(item: FolderListItem, actions: FolderActions) {
         onOpen = { actions.onOpen(item.folder.id) },
         onRename = { actions.onRename(item) },
         onDelete = { actions.onDelete(item) },
+        archived = item.isArchived,
+        onToggleArchive = if (item.folder.courseId != null) {
+            { actions.onSetArchived(item, !item.isArchived) }
+        } else {
+            null
+        },
     )
 }
 

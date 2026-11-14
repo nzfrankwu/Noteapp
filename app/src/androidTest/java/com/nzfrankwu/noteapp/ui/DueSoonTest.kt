@@ -42,6 +42,7 @@ class DueSoonTest {
 
     private lateinit var db: NoteAppDatabase
     private lateinit var tasks: TaskRepository
+    private lateinit var folders: FolderRepository
     private var opened: String? = null
     private var addPressed = false
 
@@ -49,7 +50,7 @@ class DueSoonTest {
     fun setUp() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         db = Room.inMemoryDatabaseBuilder(context, NoteAppDatabase::class.java).build()
-        val folders = FolderRepository(db)
+        folders = FolderRepository(db)
         tasks = TaskRepository(db)
         runBlocking {
             folders.createFolder("Electromagnetics", "ELECTENG 204")
@@ -94,6 +95,25 @@ class DueSoonTest {
         waitFor("Late lab")
         compose.onNodeWithText("1 day overdue").assertExists()
         compose.onNodeWithText("10 days left").assertExists()
+    }
+
+    @Test
+    fun archivingACourse_hidesItsTasks_andMovesItsFolderUnderArchived() {
+        waitFor("Late lab")
+        val circuits = runBlocking { db.courseDao().getAll().first { it.code == "ELECTENG 292" }.id }
+        runBlocking { folders.setCourseArchived(circuits, true) }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Late lab").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithText("Assignment 3").assertExists() // other courses are untouched
+        compose.onNodeWithText("Archived (1)").assertExists()
+        compose.onNodeWithText("Circuits").assertDoesNotExist() // folder tucked away until opened
+
+        compose.onNodeWithTag("archived-toggle").performClick()
+        waitFor("Circuits")
+
+        runBlocking { folders.setCourseArchived(circuits, false) }
+        waitFor("Late lab")
+        compose.onNodeWithTag("archived-toggle").assertDoesNotExist()
     }
 
     @Test

@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.R
 import com.nzfrankwu.noteapp.ui.components.CourseTag
 import com.nzfrankwu.noteapp.ui.components.EmptyState
+import com.nzfrankwu.noteapp.ui.components.InfoBadge
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
 import com.nzfrankwu.noteapp.ui.components.SegmentedTabs
 import com.nzfrankwu.noteapp.ui.components.TaskCard
@@ -103,7 +104,10 @@ fun FolderScreen(
                     Column {
                         Text(item?.folder?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (courseCode != null) {
-                            CourseTag(courseCode, style = MaterialTheme.typography.labelLarge)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                CourseTag(courseCode, style = MaterialTheme.typography.labelLarge)
+                                if (item?.isArchived == true) InfoBadge("Archived", Modifier.testTag("archived-badge"))
+                            }
                         }
                     }
                 },
@@ -129,6 +133,12 @@ fun FolderScreen(
                                 DropdownMenuItem(text = { Text("Link a course") }, onClick = { menuOpen = false; viewModel.startLinkCourse() })
                             } else {
                                 DropdownMenuItem(text = { Text("Unlink course") }, onClick = { menuOpen = false; viewModel.startUnlink() })
+                                val archived = item?.isArchived == true
+                                DropdownMenuItem(
+                                    text = { Text(if (archived) "Unarchive course" else "Archive course") },
+                                    onClick = { menuOpen = false; viewModel.setArchived(!archived) },
+                                    modifier = Modifier.testTag("folder-archive"),
+                                )
                             }
                             DropdownMenuItem(
                                 text = { Text("Delete folder", color = MaterialTheme.colorScheme.error) },

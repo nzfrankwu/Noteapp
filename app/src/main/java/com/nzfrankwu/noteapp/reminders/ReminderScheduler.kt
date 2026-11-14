@@ -33,11 +33,16 @@ class ReminderScheduler(
     private val alarms = appContext.getSystemService(AlarmManager::class.java)
     private val prefs = appContext.getSharedPreferences(storeName, Context.MODE_PRIVATE)
 
-    /** Makes the alarms match [tasks]. Safe to call as often as needed. */
+    /**
+     * Makes the alarms match [tasks]. Safe to call as often as needed. Tasks of archived courses
+     * get no reminders (their alarms are cancelled), so archiving a course silences it.
+     */
     @Synchronized
     fun apply(tasks: List<TaskWithCourse>) {
         val now = clock.instant()
-        val wanted = tasks.flatMap { ReminderPlanner.plan(it.task.id, it.task, now, zone()) }
+        val wanted = tasks
+            .filterNot { it.isCourseArchived }
+            .flatMap { ReminderPlanner.plan(it.task.id, it.task, now, zone()) }
         val wantedIds = wanted.map { it.id }.toSet()
 
         val previous = prefs.getStringSet(KEY_SCHEDULED, emptySet()).orEmpty()

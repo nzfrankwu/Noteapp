@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -185,5 +186,37 @@ class FolderRepositoryTest {
         repo.createFolder("C", null)
         repo.createFolder("a", null)
         assertEquals(listOf("a", "b", "C"), folders().map { it.folder.name })
+    }
+
+    // ---- Archiving courses ----
+
+    @Test
+    fun archivingACourse_marksItAndKeepsEverything() = runBlocking {
+        val folderId = (repo.createFolder("EE 204", "ELECTENG 204") as FolderResult.Success).folderId
+        val courseId = db.folderDao().getById(folderId)!!.courseId!!
+
+        assertTrue(repo.setCourseArchived(courseId, true))
+        val archived = db.courseDao().getById(courseId)!!
+        assertNotNull(archived.archivedAt)
+        assertEquals(courseId, db.folderDao().getById(folderId)!!.courseId) // the folder stays linked
+        assertTrue(repo.observeFolders().first().single().isArchived)
+
+        assertTrue(repo.setCourseArchived(courseId, false))
+        assertNull(db.courseDao().getById(courseId)!!.archivedAt)
+    }
+
+    @Test
+    fun archivingTwice_keepsTheFirstTime() = runBlocking {
+        repo.createFolder("EE 204", "ELECTENG 204")
+        val courseId = db.courseDao().getAll().single().id
+        repo.setCourseArchived(courseId, true)
+        val first = db.courseDao().getById(courseId)!!
+        repo.setCourseArchived(courseId, true)
+        assertEquals(first, db.courseDao().getById(courseId))
+    }
+
+    @Test
+    fun archivingAMissingCourse_saysSo() = runBlocking {
+        assertTrue(!repo.setCourseArchived("no-such-course", true))
     }
 }

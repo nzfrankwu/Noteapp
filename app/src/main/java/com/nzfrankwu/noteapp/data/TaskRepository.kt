@@ -57,7 +57,11 @@ class TaskRepository(
     private val taskDao = db.taskDao()
     private val courseDao = db.courseDao()
 
+    /** Every task with its course code, archived courses included (e.g. inside a course folder). */
     fun observeAllWithCourse(): Flow<List<TaskWithCourse>> = taskDao.observeAllWithCourse()
+
+    /** The tasks Home shows: everything except archived courses' tasks. */
+    fun observeActiveWithCourse(): Flow<List<TaskWithCourse>> = taskDao.observeActiveWithCourse()
 
     fun observeForCourse(courseId: String): Flow<List<Task>> = taskDao.observeForCourse(courseId)
 

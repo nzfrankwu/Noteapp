@@ -1,5 +1,6 @@
 package com.nzfrankwu.noteapp.ui.timeline
 
+import com.nzfrankwu.noteapp.data.db.Course
 import com.nzfrankwu.noteapp.data.db.Task
 import com.nzfrankwu.noteapp.data.db.TaskWithCourse
 import com.nzfrankwu.noteapp.domain.TaskSource
@@ -40,8 +41,13 @@ class TimelineStateTest {
         courseCode = "ELECTENG 204",
     )
 
+    private val courses = listOf(
+        Course("c1", "ELECTENG 204", null, null, Instant.EPOCH, Instant.EPOCH),
+        Course("c2", "COMPSYS 201", null, null, Instant.EPOCH, Instant.EPOCH),
+    )
+
     private fun build(tasks: List<TaskWithCourse>, filters: TaskViewFilters = TaskViewFilters()) =
-        TimelineState.build(tasks, emptyList(), start, TimelineZoom.TWO_WEEKS, filters, now, nz)
+        TimelineState.build(tasks, courses, start, TimelineZoom.TWO_WEEKS, filters, now, nz)
 
     @Test
     fun barRunsFromAvailableFrom_toDue() {
@@ -111,6 +117,15 @@ class TimelineStateTest {
         val c1 = build(tasks, TaskViewFilters(courseId = "c1"))
         assertEquals(listOf("open"), c1.rows.map { it.task.id })
         assertEquals(0, c1.undatedCount)
+    }
+
+    @Test
+    fun archivedCourses_areNotOfferedAsFilters_andAStaleFilterResets() {
+        val archivedC2 = listOf(courses[0], courses[1].copy(archivedAt = now))
+        val tasks = listOf(task("open", "2026-11-14T12:00"), task("other", "2026-11-14T12:00", courseId = "c2"))
+        val state = TimelineState.build(tasks, archivedC2, start, TimelineZoom.TWO_WEEKS, TaskViewFilters(courseId = "c2"), now, nz)
+        assertEquals(listOf("c1"), state.courses.map { it.id })
+        assertNull(state.filters.courseId)
     }
 
     @Test
