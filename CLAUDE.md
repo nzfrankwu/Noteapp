@@ -88,4 +88,6 @@ Never commit, log, print or hard-code secrets, and never include them in Drive b
 - Canvas links/URLs tied to the user's account
 - Signing keys (`*.jks` / `*.keystore`) and their passwords
 
-Keep them only in the app's private storage at runtime; for build config, use `local.properties`, which is git-ignored. Before every commit, check the diff for anything secret-looking.
+Keep them only in the app's private storage at runtime. Before every commit, check the diff for anything secret-looking.
+
+The signing key and its passwords live outside the project in `<user home>/keys/` (`noteapp-release.jks`, `noteapp-keystore.properties`), and `app/build.gradle.kts` reads them from there. **Never create, read, edit or print files that hold passwords or secrets.** Give the user a template in chat and let them create the file themselves. To check signing, use only `gradlew.bat signingReport` or `apksigner verify`, which show fingerprints, never passwords.
