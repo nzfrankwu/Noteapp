@@ -31,6 +31,19 @@ class CourseColorsTest {
     }
 
     @Test
+    fun savedCourses_useTheirFirstSeenSlot() {
+        val colors = LightCourseColors.copy(slots = mapOf("ELECTENG204" to 0, "COMPSYS201" to 1))
+        assertEquals(LightCourseColors.palette[0], colors.of("electeng 204"))
+        assertEquals(LightCourseColors.palette[1], colors.of("COMPSYS 201"))
+    }
+
+    @Test
+    fun unsavedCode_fallsBackToTheFixedHashColour() {
+        val colors = LightCourseColors.copy(slots = mapOf("ELECTENG204" to 0))
+        assertEquals(LightCourseColors.of("ENGGEN 115"), colors.of("ENGGEN 115"))
+    }
+
+    @Test
     fun differentCourses_canDiffer() {
         assertNotEquals(LightCourseColors.of("ELECTENG 204"), LightCourseColors.of("COMPSYS 201"))
     }

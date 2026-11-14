@@ -19,7 +19,7 @@ Decided with the user (15 Nov 2026):
   - It's shown on task cards (Due soon, folders, calendar list) and on the task page.
   - Undated or finished tasks show nothing.
   - Logic plus unit tests, including daylight-saving days.
-- [x] **B.2 Course colours.** _(done 15 Nov: 7 colours, not 8, because red, orange and amber are left out so a course never looks "overdue" or "due soon". `domain/CourseColorKey.kt`, `ui/theme/CourseColors.kt`, `ui/components/CourseTag.kt`. Used on task cards, the task page, folder tiles and icons, the folder header and Link courses. The calendar and timeline will use `LocalCourseColors` and `CourseColor.container` for bars.)_ Each course gets a steady colour from a palette of about 8, chosen from its course code, so the same course always gets the same colour.
+- [x] **B.2 Course colours.** _(done 15 Nov: each course takes the next free colour in the order Noteapp first saw it (user's choice, so no clashes for up to 7 courses). 7 colours, not 8, because red, orange and amber are left out so a course never looks "overdue" or "due soon". `domain/CourseColorKey.kt`, `ui/theme/CourseColors.kt`, `ui/components/CourseTag.kt`. Used on task cards, the task page, folder tiles and icons, the folder header and Link courses. The calendar and timeline will use `LocalCourseColors` and `CourseColor.container` for bars.)_ Each course gets a steady colour from a palette of about 8, chosen from its course code, so the same course always gets the same colour.
   - Light and dark versions live in the theme.
   - Course tags on cards, the calendar and the timeline use it.
 - [ ] 🔺 **B.3 Database version 2: "available from".**

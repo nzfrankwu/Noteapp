@@ -1,18 +1,17 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 9:25 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, 9:30 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1 (Courses & tasks): done and merged into `main`** (`543b387`). Its history is in `PHASE-1.md` and `ISSUES.md`.
 - **Current phase: Phase 1b, Task views.** The plan is in **`PHASE-1B.md`**; the user approved both the plan and the calendar/timeline layouts.
-- **Branch:** `phase-1b`. B.1 Days left was OK'd and pushed. **B.2 Course colours is built and committed; waiting for the user's check-in OK** (then push).
+- **Branch:** `phase-1b`, pushed. B.1 Days left and B.2 Course colours are done (B.2 with the user's choice of "next free colour").
 - **Mode:** "Working together" unless the user says otherwise.
 
 ## Next steps (in order)
 
-1. **Check-in for B.2** (screenshots `screenshots/b2-*.png`), including the open question on colour clashes (ISSUES.md). Push `phase-1b` once the user OKs it.
-2. (B.2 follow-up only if the user picks "next free colour": it needs the course list, e.g. from `courseDao`, rather than the code alone.)
+1. **Brief B.2 check-in** on the final colours (screenshots `screenshots/b2-*.png`), then B.3.
 3. 🔺 **B.3 Database v2.** Add `available_at` (Canvas `unlock_at`), with a migration and tests (see `data/db/Migrations.kt` for the steps). Before starting, tell the user it's a 🔺 step so they can switch to a stronger model.
 4. **B.4 Home tabs**, **B.5 Calendar** and **B.6 Timeline**, following the layouts in `PHASE-1B.md`.
 5. End of phase: `/code-review`, then ask to merge into `main`.
@@ -35,7 +34,7 @@ _Last updated: 15 Nov 2026, 9:25 am. Keep this file current (see CLAUDE.md, "Ses
   - A due date without a time means 11:59 pm; a target date without a time means 9:00 am.
 - **Canvas is read-only (GET only).** Canvas tasks can't be deleted unless removed from Canvas. Auto-status only moves forward, once per new submission.
 - **Phase 1b:**
-  - course colours: 7 colours from the course code (FNV-1a hash in `CourseColorKey`, pinned by tests; reordering the palette recolours every course). Red, orange and amber are kept out of the palette.
+  - course colours: "next free colour" (user's choice). Courses are sorted by `created_at` (ties by code), and the nth course gets colour n mod 7 (`CourseColorKey.slotsInOrder`). `MainActivity` feeds the course list into `NoteAppTheme(courses = …)`. Codes not yet saved fall back to a fixed hash. The palette order alternates hues, and reordering it recolours courses. Red, orange and amber are kept out.
   - days left: amber for "Due today" up to "2 days left"; a task due earlier today says "Was due today" (red); the Overdue badge stays alongside "N days overdue"
   - the calendar weeks run Monday to Sunday
   - timeline bars start at Canvas "available from" (your own tasks: when they were added)

@@ -8,7 +8,7 @@ _None yet._
 
 ## Open questions
 
-- **Course colours can clash.** Colours come from the course code alone (7 colours), so two of your courses may share one. With 4 courses there's about a 65% chance of at least one clash. Options: keep it (choosing your own colours comes later), or give each course the next free colour in the order Noteapp first saw it (no clashes for up to 7 courses; it needs the course list rather than the code alone). Asked at the B.2 check-in.
+_None right now._
 
 ## Follow-ups / tech debt
 
@@ -26,7 +26,7 @@ _None yet._
 
 ## Done
 
-- **Course colours (Phase 1b, step B.2), 15 Nov.** Each course gets a steady colour from its code (7 colours, light and dark versions). It's used for the course tag (a small colour bar plus the code) on task cards, the task page, folder tiles (the folder icon too), the folder header and Link courses. 10 new unit tests.
+- **Course colours (Phase 1b, step B.2), 15 Nov.** Each course gets the next free colour in the order Noteapp first saw it (your choice at the check-in, so up to 7 courses never clash; 7 colours, light and dark). Neighbouring colours are very different, so a semester's new courses look distinct. It's used for the course tag (a small colour bar plus the code) on task cards, the task page, folder tiles (the folder icon too), the folder header and Link courses. 18 new unit tests.
 
 - **Days left (Phase 1b, step B.1), 15 Nov.** Task cards and the task page show "Due today", "Due tomorrow", "3 days left" or "2 days overdue", counted in local calendar days to the real due date (daylight saving tested). Amber for today to 2 days, red when overdue. 16 unit tests and 1 screen test.
 
