@@ -27,6 +27,8 @@ _None yet._
 
 ## Done
 
+- **Code review of phase-1 (15 Nov, 2:35 am): 7 findings fixed.** App-open sync no longer re-asks Canvas while the sign-in is expired; folder task sections refresh every minute; one sign-in message instead of two; a test-only workaround removed; faster task lists; one shared wording for folder errors.
+
 - **Canvas screens (Phase 1, steps 5.1 built, 6.2, 6.3, 7.3), 15 Nov.** Settings → Canvas (address, Sign in, Signed in as, Last synced, Sync now, Sign out), the in-app sign-in browser, sync when the app opens and every 6 h, pull-to-refresh, the expired-sign-in strip, and "Link your Canvas courses". Debug builds have a fake Canvas. Waiting on your real login (5.1).
 
 - **Quick-add from a link (Phase 1, step 8.1), 15 Nov.** Share a link to Noteapp from the browser or any app: New task opens with the title and link filled in (and the course, for Canvas links once Canvas is connected).
