@@ -72,6 +72,7 @@ fun NoteAppTheme(
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
         typography = Typography,
+        shapes = NoteappShapes,
         content = content,
     )
 }

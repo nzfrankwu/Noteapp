@@ -9,7 +9,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.nzfrankwu.noteapp.ui.home.HomeScreen
+import com.nzfrankwu.noteapp.ui.home.HomeContent
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
 import org.junit.Rule
 import org.junit.Test
@@ -25,7 +25,11 @@ class HomeScreenTest {
         compose.setContent {
             NoteAppTheme {
                 Box(Modifier.size(width = widthDp.dp, height = 700.dp)) {
-                    HomeScreen(onOpenSettings = {})
+                    HomeContent(
+                        folders = emptyList(),
+                        onOpenSettings = {}, onNewFolder = {}, onOpenFolder = {},
+                        onRenameFolder = {}, onDeleteFolder = {},
+                    )
                 }
             }
         }

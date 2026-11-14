@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.nzfrankwu.noteapp.BuildConfig
 import com.nzfrankwu.noteapp.R
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
+import com.nzfrankwu.noteapp.ui.theme.Dimens
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
 
 /** Settings. Canvas sign-in arrives in step 5.1; backup settings in Phase 6. */
@@ -61,11 +61,11 @@ fun SettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         ) {
             Column(
                 modifier = Modifier
-                    .widthIn(max = 720.dp)
+                    .widthIn(max = Dimens.ReadingMaxWidth)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(Dimens.ScreenPadding),
+                verticalArrangement = Arrangement.spacedBy(Dimens.PaneGap),
             ) {
                 SettingsSection("Canvas") {
                     Text(
@@ -100,11 +100,11 @@ private fun SettingsSection(title: String, content: @Composable () -> Unit) {
             modifier = Modifier.padding(horizontal = 4.dp),
         )
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.surfaceContainer,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Box(Modifier.padding(16.dp)) { content() }
+            Box(Modifier.padding(Dimens.PanelPadding)) { content() }
         }
     }
 }

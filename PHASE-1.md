@@ -35,7 +35,9 @@ Decisions made:
   - Navigation 3 (`ui/navigation/Routes.kt`, `ui/NoteAppRoot.kt`).
 
 ### F1: Folders
-- [ ] **1.1** Create a folder (name plus optional course code), rename it, or delete it with a confirmation.
+- [x] **1.1** Create a folder (name plus optional course code), rename it, or delete it with a confirmation.
+  - The logic is in `FolderRepository` and the course-code rules in `CourseCodes`.
+  - The UI is the home folder grid, `FolderTile`, and the New/Rename/Delete dialogs.
 - [ ] **1.2** The folder screen: course header, a Notebooks placeholder, a Tasks section, and link/unlink a course. ★
 
 ### F2: Tasks

@@ -23,6 +23,17 @@ _None right now._
 
 ## Done
 
+- Folders (Phase 1, step 1.1).
+  - Create a folder with an optional course code, rename it, or delete it (with a confirmation).
+  - Course codes are tidied and matched ignoring spaces and case, and a course can have only one folder.
+  - Deleting a folder keeps its course and tasks.
+  - Tests:
+    - 5 course-code unit tests
+    - 10 repository tests on the emulator
+    - 5 screen tests on the emulator
+  - Spacing and shapes now live in central theme files (`Dimens.kt`, `Shape.kt`).
+- App renamed to "Noteapp" (lowercase a) everywhere the user sees it.
+
 - App shell (Phase 1, step 0.4).
   - The home screen has Due soon and Folders: side by side at 720 dp or wider, stacked when narrower.
   - There's a Settings screen with Canvas (placeholder) and About (version).

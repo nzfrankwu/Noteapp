@@ -15,8 +15,8 @@ import java.util.UUID
 sealed interface FolderError {
     data object BlankName : FolderError
     data object NotFound : FolderError
-    /** The course is already linked to another folder, called [folderName]. */
-    data class CourseAlreadyLinked(val folderName: String) : FolderError
+    /** The course (saved as [courseCode]) is already linked to another folder, called [folderName]. */
+    data class CourseAlreadyLinked(val courseCode: String, val folderName: String) : FolderError
 }
 
 sealed interface FolderResult {
@@ -53,7 +53,7 @@ class FolderRepository(
         val course = CourseCodes.tidy(courseCode)?.let { findOrCreateCourse(it, now) }
         if (course != null) {
             folderDao.getByCourseId(course.id)?.let { linked ->
-                return@withTransaction FolderResult.Failure(FolderError.CourseAlreadyLinked(linked.name))
+                return@withTransaction FolderResult.Failure(FolderError.CourseAlreadyLinked(course.code, linked.name))
             }
         }
 

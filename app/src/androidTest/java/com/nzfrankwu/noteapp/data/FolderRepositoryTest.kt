@@ -74,7 +74,7 @@ class FolderRepositoryTest {
     fun aCourse_canOnlyHaveOneFolder_evenIfTypedDifferently() = runBlocking {
         repo.createFolder("EE 204", courseCode = "ELECTENG 204")
         val second = repo.createFolder("Another", courseCode = "electeng204")
-        assertEquals(FolderResult.Failure(FolderError.CourseAlreadyLinked("EE 204")), second)
+        assertEquals(FolderResult.Failure(FolderError.CourseAlreadyLinked("ELECTENG 204", "EE 204")), second)
         assertEquals(1, folders().size)
         assertEquals(1, db.courseDao().getAll().size)
     }
