@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 11:40 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, 11:50 am. Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -14,17 +14,13 @@ _Last updated: 15 Nov 2026, 11:40 am. Keep this file current (see CLAUDE.md, "Se
   - B.5 Calendar
   - B.6 Timeline
   - B.7 Course folder views (added by the user after tablet testing; OK'd, pushed and installed on the tablet)
-  - 🔺 B.8 Archive courses (database v3), done at max effort; committed, **not pushed or installed: waiting for the user's check-in OK**
-- **The tablet runs B.1–B.7 (database version 2).** The first version-2 install was on 15 Nov ~10:17 am, with the user's OK. The upgrade was checked against the safety copy: all 124 tasks (statuses, target dates, notes), 10 courses and 3 folders were kept, integrity OK.
+  - 🔺 B.8 Archive courses (database v3), done at max effort; OK'd, pushed and installed on the tablet
+- **The tablet runs B.1–B.8 (database version 3)**, installed 15 Nov ~11:50 am with the user's OK. The upgrade was compared with a fresh safety copy: every value of all 124 tasks, 10 courses and 4 folders was identical, no course started archived, integrity OK.
 - **Mode: "Working together"** (the user is back). They liked B.1–B.6 on the tablet ("looks good, feels good and works well") and asked for two more steps, now B.7 and B.8 in `PHASE-1B.md`.
 
 ## Next steps (in order)
 
-1. **B.8 check-in.** On the user's OK:
-   - push
-   - make a new safety copy of the tablet database (ask first; same steps as before, into `backups/tablet-db-<date>-before-v3/`)
-   - then `install -r` on the tablet and compare the upgraded database with the copy (counts and values only, never print task names)
-2. **B.9 New folder: course drop-down** (current courses only, no archived; also in "Link a course"). Comes after B.8.
+1. **B.9 New folder: course drop-down** (current courses only, no archived; also in "Link a course").
 3. Earlier tablet testing notes:
    - Right after the install, no Canvas task had an "available from" date yet (0 of 124), and no task had changed since 8:40 am. Either no sync has run since the update, or Canvas sets no unlock dates for these courses. Ask the user to pull-to-refresh, then check the Timeline. Don't look at their Canvas sign-in to find out.
 4. End of phase: `/code-review`, fix, retest, then ask to merge into `main`.
@@ -38,7 +34,7 @@ _Last updated: 15 Nov 2026, 11:40 am. Keep this file current (see CLAUDE.md, "Se
 
 ## Tablet database safety copy
 
-- **`backups/tablet-db-2026-11-15-before-v2/`** (git-ignored, local only) holds the tablet's version-1 database from just before the B.3 upgrade. It contains personal Canvas names but no secrets. Keep it until Phase 1b is merged and the user is happy; never commit it.
+- **`backups/tablet-db-2026-11-15-before-v2/`** and **`…-before-v3/`** (git-ignored, local only) hold the tablet's database from just before the B.3 and B.8 upgrades. It contains personal Canvas names but no secrets. Keep it until Phase 1b is merged and the user is happy; never commit it.
 - How it was made, for next time (ask the user first):
   - force-stop the app
   - `adb -s <tablet> exec-out run-as com.nzfrankwu.noteapp cat databases/<f>` for `noteapp.db`, `-wal` and `-shm`
