@@ -26,6 +26,8 @@ _None right now._
 
 ## Done
 
+- **Days left (Phase 1b, step B.1), 15 Nov.** Task cards and the task page show "Due today", "Due tomorrow", "3 days left" or "2 days overdue", counted in local calendar days to the real due date (daylight saving tested). Amber for today to 2 days, red when overdue. 16 unit tests and 1 screen test.
+
 - **Canvas sign-in go/no-go passed (15 Nov, step 5.1).** Your university login works in Noteapp's in-app browser on the tablet, so the calendar-feed fallback isn't needed. This also answers the https-only question: the login didn't stall.
 
 - **Code review of phase-1 (15 Nov, 2:35 am): 7 findings fixed.** App-open sync no longer re-asks Canvas while the sign-in is expired; folder task sections refresh every minute; one sign-in message instead of two; a test-only workaround removed; faster task lists; one shared wording for folder errors.

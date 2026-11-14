@@ -90,6 +90,13 @@ class DueSoonTest {
     }
 
     @Test
+    fun datedCards_showDaysLeft() {
+        waitFor("Late lab")
+        compose.onNodeWithText("1 day overdue").assertExists()
+        compose.onNodeWithText("10 days left").assertExists()
+    }
+
+    @Test
     fun noDueDate_isCollapsedUntilTapped() {
         waitFor("No due date (1)")
         compose.onNodeWithText("Read chapter 4").assertDoesNotExist()

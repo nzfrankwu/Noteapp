@@ -103,6 +103,7 @@ private fun TaskCardDetails(task: Task, courseCode: String?, now: Instant, zone:
             if (overdue) OverdueBadge()
             if (pastTarget) InfoBadge("Past target")
             if (task.removedFromCanvas) InfoBadge("Removed from Canvas")
+            DaysLeftText(task, now, zone)
             Text(
                 text = TaskCardText.whenText(task, now, zone),
                 style = MaterialTheme.typography.bodySmall,

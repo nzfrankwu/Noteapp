@@ -13,7 +13,7 @@ Decided with the user (15 Nov 2026):
 
 ## Checklist
 
-- [ ] **B.1 Days left.** Every dated, unfinished task shows how long is left until its *real* due date, counted in local calendar days:
+- [x] **B.1 Days left.** _(done 15 Nov: `domain/DaysLeft.kt`, `ui/components/DaysLeftText.kt`, 16 unit tests + 1 screen test. "Due today" and "Due tomorrow" are amber too, and a task due earlier today says "Was due today". The calendar list will reuse `DaysLeftText` in B.5.)_ Every dated, unfinished task shows how long is left until its *real* due date, counted in local calendar days:
   - "Due today", "Due tomorrow", "3 days left", "1 day overdue", "5 days overdue"
   - Overdue text is red; 1–2 days left is amber.
   - It's shown on task cards (Due soon, folders, calendar list) and on the task page.
