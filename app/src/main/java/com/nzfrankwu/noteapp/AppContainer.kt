@@ -4,6 +4,7 @@ import android.content.Context
 import com.nzfrankwu.noteapp.data.FolderRepository
 import com.nzfrankwu.noteapp.data.TaskRepository
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
+import com.nzfrankwu.noteapp.reminders.ReminderScheduler
 
 /**
  * Creates the app's long-lived parts once and hands them to screens ("manual dependency
@@ -17,4 +18,6 @@ class AppContainer(context: Context) {
     val folderRepository: FolderRepository by lazy { FolderRepository(database) }
 
     val taskRepository: TaskRepository by lazy { TaskRepository(database) }
+
+    val reminderScheduler: ReminderScheduler by lazy { ReminderScheduler(appContext) }
 }

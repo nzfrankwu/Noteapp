@@ -61,9 +61,22 @@ _Logic done ahead:_ `domain/Reminders.kt`, with 9 tests. It covers:
 - the notification text
 - daylight-saving days
 
-**Still to do:** the Android part (AlarmManager, notification channel and permission, reschedule on boot and time change, tap to open the task, debug test button).
+_Android part done:_
+- `reminders/ReminderScheduler.kt` sets and cancels alarms (inexact-while-idle) and remembers them by ID.
+- `ReminderReceiver` shows the notification after re-checking the task.
+- `RescheduleReceiver` handles restart, app update, time and time-zone changes.
+- `NoteAppApplication` re-plans alarms whenever tasks change.
+- 4 emulator tests with real alarms.
+
+**Still to do:**
+- asking for notification permission (needs a screen)
+- tapping a notification opening the task (the task screen doesn't exist yet; for now it opens the app)
+- the debug "test reminder in 1 minute" button
+- tablet checks: restart, ColorOS battery limits
 - [ ] **4.1** Notifications 1 day and 2 hours before the target date (or the due date), asking permission first. Tapping one opens the task. Debug builds get a test button.
-- [ ] 🔺 **4.2** Reminders stay correct after edits, restarts, and time-zone or daylight-saving changes. ★
+- [x] 🔺 **4.2** Reminders stay correct after edits, restarts, and time-zone or daylight-saving changes. ★
+  - Code is done and tested on the emulator.
+  - Not yet checked on the tablet: a real restart, and whether ColorOS delays or blocks alarms.
 
 ### F5: Canvas sign-in (go/no-go) ⚠ needs you
 - [ ] 🔺 **5.1** Canvas address, then in-app browser login, then "Signed in as …", plus Sign out. You do the real login. If the uni login fails in the in-app browser, stop and discuss the calendar-feed fallback (§3.4). ★
