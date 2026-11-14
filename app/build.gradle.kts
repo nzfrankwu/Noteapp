@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
 }
@@ -80,6 +81,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true // gives the app its own version name (shown in Settings → About)
     }
 }
 
@@ -99,6 +101,8 @@ dependencies {
     // enough for Room's migration-test helper: Android test builds must reuse the app's versions,
     // and the 1.7.3 that came in indirectly made MigrationTest crash.
     implementation(libs.kotlinx.serialization.core)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))

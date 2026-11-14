@@ -23,6 +23,12 @@ _None right now._
 
 ## Done
 
+- App shell (Phase 1, step 0.4).
+  - The home screen has Due soon and Folders: side by side at 720 dp or wider, stacked when narrower.
+  - There's a Settings screen with Canvas (placeholder) and About (version).
+  - Navigation 3 handles moving between screens, including the system back gesture.
+  - 5 new screen tests run on the emulator. Material 3 Adaptive turned out not to be needed: a simple width check does the job.
+
 - Database foundation (Phase 1, step 0.3). Room database version 1 with courses, folders and tasks.
   - Tasks belong to courses. Deleting a folder or course never deletes tasks.
   - Every row has a permanent random ID and created/updated times.

@@ -26,7 +26,13 @@ Decisions made:
     - `DataSafetyRulesTest` fails on any destructive database fallback.
     - `StoredKeysTest` fails if a saved status key changes.
     - `MigrationTest` checks that version-1 data survives updates.
-- [ ] **0.4 App shell.** Home with empty Due soon and Folders areas, Settings, navigation, and wide/narrow layouts (the layout is agreed first). ★
+- [x] **0.4 App shell.** Home with empty Due soon and Folders areas, Settings, navigation, and wide/narrow layouts (the layout is agreed first). ★
+  - Agreed layout:
+    - At 720 dp or wider (the tablet in both orientations), Due soon (left, 40%, shaded panel) and Folders sit side by side.
+    - Narrower than that, Due soon is stacked above Folders.
+    - Small round icon buttons sit in the top bar.
+    - Settings opens with Canvas (placeholder) and About.
+  - Navigation 3 (`ui/navigation/Routes.kt`, `ui/NoteAppRoot.kt`).
 
 ### F1: Folders
 - [ ] **1.1** Create a folder (name plus optional course code), rename it, or delete it with a confirmation.
