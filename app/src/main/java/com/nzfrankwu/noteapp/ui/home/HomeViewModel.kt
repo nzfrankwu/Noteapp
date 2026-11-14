@@ -11,11 +11,11 @@ import com.nzfrankwu.noteapp.data.CanvasSettings
 import com.nzfrankwu.noteapp.data.db.Course
 import com.nzfrankwu.noteapp.canvas.CanvasSyncRunner
 import com.nzfrankwu.noteapp.ui.settings.SyncMessages
+import com.nzfrankwu.noteapp.ui.message
+import com.nzfrankwu.noteapp.ui.minuteTicker
 import com.nzfrankwu.noteapp.domain.TaskStatus
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
 import java.time.Clock
 import java.time.ZoneId
 import kotlinx.coroutines.flow.SharingStarted
@@ -102,17 +102,9 @@ class HomeViewModel(
     private val noDueDateExpanded = MutableStateFlow(false)
     private val showFinished = MutableStateFlow(false)
 
-    /** The current time, updated every minute so tasks move into Overdue/Today on their own. */
-    private val minuteTicker = flow {
-        while (true) {
-            emit(clock.instant())
-            delay(60_000)
-        }
-    }
-
     /** Due soon across all courses (live from the database). */
     val dueSoon: StateFlow<DueSoonState> =
-        combine(taskRepository.observeAllWithCourse(), minuteTicker, noDueDateExpanded, showFinished) { tasks, now, expanded, finished ->
+        combine(taskRepository.observeAllWithCourse(), minuteTicker(clock), noDueDateExpanded, showFinished) { tasks, now, expanded, finished ->
             DueSoonState.build(tasks, now, zone, expanded, finished)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DueSoonState())
 
@@ -166,11 +158,11 @@ class HomeViewModel(
                 when (dialog) {
                     is FolderDialog.New -> {
                         val result = folderRepository.createFolder(dialog.name, dialog.courseCode)
-                        finish(result) { error -> dialog.copy(error = messageFor(error)) }
+                        finish(result) { error -> dialog.copy(error = error.message()) }
                     }
                     is FolderDialog.Rename -> {
                         val result = folderRepository.renameFolder(dialog.folderId, dialog.name)
-                        finish(result) { error -> dialog.copy(error = messageFor(error)) }
+                        finish(result) { error -> dialog.copy(error = error.message()) }
                     }
                     is FolderDialog.ConfirmDelete -> {
                         folderRepository.deleteFolder(dialog.folderId)
@@ -188,13 +180,5 @@ class HomeViewModel(
             is FolderResult.Success -> null
             is FolderResult.Failure -> showError(result.error)
         }
-    }
-
-    private fun messageFor(error: FolderError): String = when (error) {
-        FolderError.BlankName -> "Give the folder a name."
-        FolderError.BlankCourseCode -> "Type a course code, e.g. ELECTENG 204."
-        FolderError.NotFound -> "This folder no longer exists."
-        is FolderError.CourseAlreadyLinked ->
-            "${error.courseCode} is already linked to the folder “${error.folderName}”."
     }
 }

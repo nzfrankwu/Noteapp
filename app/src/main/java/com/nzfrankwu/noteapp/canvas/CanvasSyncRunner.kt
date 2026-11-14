@@ -63,7 +63,13 @@ class CanvasSyncRunner(
         }
     }
 
-    /** For app open: sync only if the last one was over 15 minutes ago. */
-    suspend fun runIfDue(): SyncOutcome? =
-        if (SyncPolicy.shouldSyncOnAppOpen(settings.lastSyncedAt.first(), clock.instant())) run() else null
+    /**
+     * For app open: sync only if the last one was over 15 minutes ago, and not while the sign-in
+     * is known to have expired (nothing can succeed until you sign in again, so don't keep asking
+     * Canvas every time the app comes to the front).
+     */
+    suspend fun runIfDue(): SyncOutcome? {
+        if (settings.signInExpired.first()) return null
+        return if (SyncPolicy.shouldSyncOnAppOpen(settings.lastSyncedAt.first(), clock.instant())) run() else null
+    }
 }

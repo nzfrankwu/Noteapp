@@ -66,7 +66,8 @@ fun FolderScreen(
     modifier: Modifier = Modifier,
 ) {
     val item by viewModel.folder.collectAsStateWithLifecycle()
-    val sections by viewModel.sections.collectAsStateWithLifecycle()
+    val tasksNow by viewModel.tasksNow.collectAsStateWithLifecycle()
+    val sections = tasksNow.sections
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
     val deleted by viewModel.deleted.collectAsStateWithLifecycle()
     LaunchedEffect(deleted) { if (deleted) onBack() }
@@ -174,7 +175,7 @@ fun FolderScreen(
                             TaskCard(
                                 task = task,
                                 courseCode = courseCode,
-                                now = viewModel.now(),
+                                now = tasksNow.now,
                                 zone = viewModel.zone(),
                                 onClick = { onOpenTask(task.id) },
                                 onStatusChange = { viewModel.setStatus(task.id, it) },

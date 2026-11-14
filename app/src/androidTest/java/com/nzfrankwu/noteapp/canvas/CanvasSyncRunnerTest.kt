@@ -62,7 +62,7 @@ class CanvasSyncRunnerTest {
         settings.setAddress(null)
         settings.setSignedInAs(null)
         settings.setSignInExpired(false)
-        settings.setLastSyncedAt(Instant.EPOCH)
+        settings.clearLastSynced()
     }
 
     private suspend fun signIn() {
@@ -101,7 +101,7 @@ class CanvasSyncRunnerTest {
         signIn()
         failure = CanvasException.HttpError(503)
         assertTrue(runner.run() is SyncOutcome.Failed)
-        assertEquals(Instant.EPOCH, settings.lastSyncedAt.first())
+        assertNull(settings.lastSyncedAt.first())
         assertFalse(settings.signInExpired.first())
     }
 
@@ -112,6 +112,15 @@ class CanvasSyncRunnerTest {
         now = now.plusSeconds(5 * 60)
         assertNull("5 minutes later: not due yet", runner.runIfDue())
         now = now.plusSeconds(15 * 60)
+        assertTrue(runner.runIfDue() is SyncOutcome.Synced)
+    }
+
+    @Test
+    fun appOpen_doesNotKeepAskingCanvas_whileTheSignInIsExpired() = runBlocking {
+        signIn()
+        settings.setSignInExpired(true)
+        assertNull(runner.runIfDue())
+        settings.setSignInExpired(false)
         assertTrue(runner.runIfDue() is SyncOutcome.Synced)
     }
 

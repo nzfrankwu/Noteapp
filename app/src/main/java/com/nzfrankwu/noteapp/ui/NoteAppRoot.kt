@@ -167,12 +167,12 @@ fun NoteAppRoot(
                     onClose = ::back,
                     onSignedIn = { name ->
                         back()
+                        // Settings already shows "Signed in as …" and a spinner-free status; one
+                        // message with the first sync's result, in order, once it's done.
                         scope.launch {
-                            snackbar.currentSnackbarData?.dismiss()
-                            launch { snackbar.showSnackbar("Signed in as $name. Getting your courses from Canvas…") }
                             val message = SyncMessages.describe(container.canvasSyncRunner.run())
                             snackbar.currentSnackbarData?.dismiss()
-                            snackbar.showSnackbar(message)
+                            snackbar.showSnackbar("Signed in as $name. $message")
                         }
                     },
                 )

@@ -18,12 +18,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.nzfrankwu.noteapp.ui.message
+import com.nzfrankwu.noteapp.ui.minuteTicker
 import java.time.Clock
+import java.time.Instant
 import java.time.ZoneId
+
+/** A folder's tasks in sections, and the time they were sorted at (for Overdue badges). */
+data class FolderTasks(val sections: List<TaskSection<Task>> = emptyList(), val now: Instant = Instant.EPOCH)
 
 /** Which dialog is open on the folder screen. */
 sealed interface FolderScreenDialog {
@@ -47,13 +53,18 @@ class FolderViewModel(
     val folder: StateFlow<FolderListItem?> = folders.observeFolder(folderId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** The linked course's tasks in sections (Overdue → … → No due date → Finished). Empty if no course. */
-    val sections: StateFlow<List<TaskSection<Task>>> = folder
+    /**
+     * The linked course's tasks in sections (Overdue → … → No due date → Finished), with the time
+     * they were grouped at (refreshed every minute). Empty if no course.
+     */
+    val tasksNow: StateFlow<FolderTasks> = folder
         .flatMapLatest { item ->
-            val courseId = item?.folder?.courseId ?: return@flatMapLatest flowOf(emptyList())
-            tasks.observeForCourse(courseId).map { TaskGrouping.sections(it, clock.instant(), zone, includeFinished = true) }
+            val courseId = item?.folder?.courseId ?: return@flatMapLatest flowOf(FolderTasks())
+            combine(tasks.observeForCourse(courseId), minuteTicker(clock)) { list, now ->
+                FolderTasks(TaskGrouping.sections(list, now, zone, includeFinished = true), now)
+            }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FolderTasks())
 
     private val _dialog = MutableStateFlow<FolderScreenDialog?>(null)
     val dialog: StateFlow<FolderScreenDialog?> = _dialog.asStateFlow()
@@ -62,7 +73,6 @@ class FolderViewModel(
     private val _deleted = MutableStateFlow(false)
     val deleted: StateFlow<Boolean> = _deleted.asStateFlow()
 
-    fun now() = clock.instant()
     fun zone() = zone
 
     fun setStatus(taskId: String, status: TaskStatus) {
@@ -88,9 +98,9 @@ class FolderViewModel(
         viewModelScope.launch {
             when (dialog) {
                 is FolderScreenDialog.Rename ->
-                    finish(folders.renameFolder(folderId, dialog.name)) { dialog.copy(error = messageFor(it)) }
+                    finish(folders.renameFolder(folderId, dialog.name)) { dialog.copy(error = it.message()) }
                 is FolderScreenDialog.LinkCourse ->
-                    finish(folders.linkCourse(folderId, dialog.code)) { dialog.copy(error = messageFor(it)) }
+                    finish(folders.linkCourse(folderId, dialog.code)) { dialog.copy(error = it.message()) }
                 FolderScreenDialog.ConfirmUnlink -> {
                     folders.unlinkCourse(folderId)
                     _dialog.value = null
@@ -109,12 +119,5 @@ class FolderViewModel(
             is FolderResult.Success -> null
             is FolderResult.Failure -> showError(result.error)
         }
-    }
-
-    private fun messageFor(error: FolderError): String = when (error) {
-        FolderError.BlankName -> "Give the folder a name."
-        FolderError.BlankCourseCode -> "Type a course code, e.g. ELECTENG 204."
-        FolderError.NotFound -> "This folder no longer exists."
-        is FolderError.CourseAlreadyLinked -> "${error.courseCode} is already linked to the folder “${error.folderName}”."
     }
 }

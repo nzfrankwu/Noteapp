@@ -48,6 +48,9 @@ class CanvasSettings(context: Context) {
 
     suspend fun setLastSyncedAt(at: Instant) = store.edit { it[LAST_SYNCED] = at.toEpochMilli() }
 
+    /** Back to "never synced" (used by tests). */
+    suspend fun clearLastSynced() = store.edit { it.remove(LAST_SYNCED) }
+
     private companion object {
         val ADDRESS = stringPreferencesKey("address")
         val SIGNED_IN_AS = stringPreferencesKey("signed_in_as")

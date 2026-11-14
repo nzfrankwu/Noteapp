@@ -39,8 +39,7 @@ class CanvasSettingsViewModel(
     val status: StateFlow<CanvasStatus> = combine(
         settings.address, settings.signedInAs, settings.lastSyncedAt, settings.signInExpired,
     ) { address, name, lastSynced, expired ->
-        // "Last synced" starts as the epoch in tests and fresh installs; treat that as never.
-        CanvasStatus(true, address, name, lastSynced?.takeIf { it.toEpochMilli() > 0 }, expired)
+        CanvasStatus(true, address, name, lastSynced, expired)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CanvasStatus())
 
     /** The address field, prefilled with the saved address (without https://). */

@@ -38,12 +38,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.nzfrankwu.noteapp.R
 import com.nzfrankwu.noteapp.data.CanvasSettings
-import com.nzfrankwu.noteapp.data.FolderError
 import com.nzfrankwu.noteapp.data.FolderRepository
 import com.nzfrankwu.noteapp.data.FolderResult
 import com.nzfrankwu.noteapp.data.db.Course
 import com.nzfrankwu.noteapp.data.db.FolderListItem
 import com.nzfrankwu.noteapp.ui.components.EmptyState
+import com.nzfrankwu.noteapp.ui.message
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
 import com.nzfrankwu.noteapp.ui.theme.Dimens
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -90,10 +90,7 @@ class LinkCoursesViewModel(
     private fun report(result: FolderResult) {
         _message.value = when (result) {
             is FolderResult.Success -> null
-            is FolderResult.Failure -> when (val e = result.error) {
-                is FolderError.CourseAlreadyLinked -> "${e.courseCode} already has the folder “${e.folderName}”."
-                else -> "That didn't work. Try again."
-            }
+            is FolderResult.Failure -> result.error.message()
         }
     }
 

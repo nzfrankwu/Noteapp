@@ -1,7 +1,6 @@
 package com.nzfrankwu.noteapp.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -44,6 +43,12 @@ fun TaskCard(
     modifier: Modifier = Modifier,
     /** False inside a course folder, where the course is obvious. Due soon shows it ("No course" if none). */
     showCourse: Boolean = true,
+    /**
+     * True on a narrow list (e.g. Due soon in portrait): the status tag goes under the text so the
+     * dates get the full width. The list decides this once for all its cards
+     * (see [Dimens.TaskCardNarrowWidth]).
+     */
+    compact: Boolean = false,
 ) {
     Surface(
         onClick = onClick,
@@ -51,19 +56,16 @@ fun TaskCard(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
     ) {
-        // On a narrow card (e.g. Due soon in portrait) the status tag goes under the text, so the
-        // dates get the full width; otherwise it sits on the right.
-        BoxWithConstraints(Modifier.padding(horizontal = Dimens.TilePadding, vertical = Dimens.TaskCardVerticalPadding)) {
-            if (maxWidth < Dimens.TaskCardNarrowWidth) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    TaskCardDetails(task, courseCode, now, zone, showCourse)
-                    StatusChip(task.status, onStatusChange)
-                }
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.ItemGap)) {
-                    Column(Modifier.weight(1f)) { TaskCardDetails(task, courseCode, now, zone, showCourse) }
-                    StatusChip(task.status, onStatusChange)
-                }
+        val padding = Modifier.padding(horizontal = Dimens.TilePadding, vertical = Dimens.TaskCardVerticalPadding)
+        if (compact) {
+            Column(padding, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                TaskCardDetails(task, courseCode, now, zone, showCourse)
+                StatusChip(task.status, onStatusChange)
+            }
+        } else {
+            Row(padding, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.ItemGap)) {
+                Column(Modifier.weight(1f)) { TaskCardDetails(task, courseCode, now, zone, showCourse) }
+                StatusChip(task.status, onStatusChange)
             }
         }
     }
