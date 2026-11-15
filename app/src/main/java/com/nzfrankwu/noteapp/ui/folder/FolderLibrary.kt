@@ -36,7 +36,9 @@ import com.nzfrankwu.noteapp.data.db.Notebook
 import com.nzfrankwu.noteapp.data.db.NotebookListItem
 import com.nzfrankwu.noteapp.data.db.SubfolderListItem
 import com.nzfrankwu.noteapp.domain.PageTemplate
+import com.nzfrankwu.noteapp.ui.components.LocalThumbnails
 import com.nzfrankwu.noteapp.ui.components.NotebookTile
+import com.nzfrankwu.noteapp.ui.components.rememberThumbnail
 import com.nzfrankwu.noteapp.ui.components.SubfolderTile
 import com.nzfrankwu.noteapp.ui.components.TileAction
 import com.nzfrankwu.noteapp.ui.components.drawPaperPattern
@@ -114,6 +116,9 @@ fun LibraryRow(
                     modifier = tileModifier,
                 )
                 is LibraryItem.Book -> NotebookTile(
+                    thumbnail = rememberThumbnail(
+                        LocalThumbnails.current, entry.item.notebook.id, entry.item.notebook.updatedAt.toEpochMilli(),
+                    ).value,
                     title = entry.item.notebook.title,
                     subtitle = notebookSubtitle(entry.item, now, zone),
                     template = entry.item.notebook.template,

@@ -18,29 +18,50 @@ fun DrawScope.drawPaperPattern(
     pageWidth: Float,
     pageHeight: Float,
     lineColor: Color,
+) = drawPaperPattern(template, pageWidth, pageHeight, lineColor, left = 0f, top = 0f, scale = size.width / pageWidth)
+
+/**
+ * Draws the pattern of a page whose top-left corner is at ([left], [top]) pixels, shown at
+ * [scale] pixels per page unit (the notebook editor, at any zoom). Only the part on screen is drawn.
+ */
+fun DrawScope.drawPaperPattern(
+    template: PageTemplate,
+    pageWidth: Float,
+    pageHeight: Float,
+    lineColor: Color,
+    left: Float,
+    top: Float,
+    scale: Float,
 ) {
-    val scale = size.width / pageWidth
     val stroke = (0.6f * scale).coerceAtLeast(1f)
+    val right = left + pageWidth * scale
+    val bottom = top + pageHeight * scale
+    fun onScreenY(y: Float) = y >= 0f && y <= size.height
+    fun onScreenX(x: Float) = x >= 0f && x <= size.width
     when (template) {
         PageTemplate.BLANK -> Unit
         PageTemplate.LINED -> {
-            val left = PagePattern.LINED_SIDE_MARGIN * scale
-            val right = size.width - left
+            val l = left + PagePattern.LINED_SIDE_MARGIN * scale
+            val r = right - PagePattern.LINED_SIDE_MARGIN * scale
             for (y in PagePattern.linedRows(pageHeight)) {
-                drawLine(lineColor, Offset(left, y * scale), Offset(right, y * scale), stroke)
+                val sy = top + y * scale
+                if (onScreenY(sy)) drawLine(lineColor, Offset(l, sy), Offset(r, sy), stroke)
             }
         }
         PageTemplate.GRID -> {
             for (x in PagePattern.gridStops(pageWidth)) {
-                drawLine(lineColor, Offset(x * scale, 0f), Offset(x * scale, size.height), stroke)
+                val sx = left + x * scale
+                if (onScreenX(sx)) drawLine(lineColor, Offset(sx, maxOf(top, 0f)), Offset(sx, minOf(bottom, size.height)), stroke)
             }
             for (y in PagePattern.gridStops(pageHeight)) {
-                drawLine(lineColor, Offset(0f, y * scale), Offset(size.width, y * scale), stroke)
+                val sy = top + y * scale
+                if (onScreenY(sy)) drawLine(lineColor, Offset(maxOf(left, 0f), sy), Offset(minOf(right, size.width), sy), stroke)
             }
         }
         PageTemplate.DOTS -> {
-            val xs = PagePattern.gridStops(pageWidth)
-            val points = PagePattern.gridStops(pageHeight).flatMap { y -> xs.map { x -> Offset(x * scale, y * scale) } }
+            val xs = PagePattern.gridStops(pageWidth).map { left + it * scale }.filter(::onScreenX)
+            val points = PagePattern.gridStops(pageHeight).map { top + it * scale }.filter(::onScreenY)
+                .flatMap { y -> xs.map { x -> Offset(x, y) } }
             drawPoints(points, PointMode.Points, lineColor, strokeWidth = (1.6f * scale).coerceAtLeast(1.5f), cap = StrokeCap.Round)
         }
     }

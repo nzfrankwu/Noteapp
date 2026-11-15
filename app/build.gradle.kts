@@ -110,6 +110,14 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx) // background Canvas sync (and Phase 6 backup)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
+    // Handwriting (Phase 2): low-latency stylus strokes, brushes and stroke rendering.
+    // Strokes are SAVED in our own page format (PageInkCodec), not Ink's, so notes outlive the library.
+    implementation(libs.androidx.ink.authoring)
+    implementation(libs.androidx.ink.authoring.compose)
+    implementation(libs.androidx.ink.brush)
+    implementation(libs.androidx.ink.geometry)
+    implementation(libs.androidx.ink.rendering)
+    implementation(libs.androidx.ink.strokes)
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver) // a fake Canvas server for tests
     androidTestImplementation(libs.androidx.room.testing)

@@ -134,6 +134,7 @@ fun NoteAppRoot(
     fun back() { backStack.removeLastOrNull() }
 
     Box(Modifier.fillMaxSize()) {
+        androidx.compose.runtime.CompositionLocalProvider(com.nzfrankwu.noteapp.ui.components.LocalThumbnails provides container.thumbnails) {
         NavDisplay(
             backStack = backStack,
             onBack = ::back,
@@ -272,7 +273,12 @@ fun NoteAppRoot(
                 }
                 entry<NotebookRoute> { route ->
                     NotebookScreen(
-                        viewModel = viewModel { NotebookViewModel(route.notebookId, container.notebookRepository) },
+                        viewModel = viewModel {
+                            NotebookViewModel(
+                                route.notebookId, container.notebookRepository, container.notebookFiles,
+                                container.inkSettings, container.appScope, container.thumbnails,
+                            )
+                        },
                         onBack = ::back,
                     )
                 }
@@ -287,6 +293,7 @@ fun NoteAppRoot(
                     },
                     onOpenCanvasBrowser = { backStack.add(CanvasLoginRoute) },
                     onOpenCourses = { backStack.add(CoursesRoute) },
+                    inkSettings = container.inkSettings,
                     onTestReminder = if (BuildConfig.DEBUG) {
                         {
                             scope.launch {
@@ -302,6 +309,7 @@ fun NoteAppRoot(
                 }
             },
         )
+        }
     SnackbarHost(
         hostState = snackbar,
         modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(Dimens.ScreenPadding),

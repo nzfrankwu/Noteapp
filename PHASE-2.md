@@ -56,30 +56,30 @@ Work happens on branch `phase-2`; it's merged into `main` at the end, with the u
   - The New notebook dialog (title and template).
   - Tiles show the title, date and page count, with the template's pattern as a placeholder picture.
   - Rename, and delete with Undo.
-- [ ] 🔺 **2.4 Jetpack Ink go/no-go.** ★
+- [x] 🔺 **2.4 Jetpack Ink go/no-go.** ★ _(build side done 15 Nov, hands-off: `androidx.ink` 1.0.0 builds with Kotlin 2.2 / AGP 9.5.1 / minSdk 26, and draws low-latency strokes on the emulator (stylus events via `adb shell input stylus`). Waiting on the user: try the OPPO Pencil 2 for pressure and lag.)_
   - Add the library and confirm it builds with our Kotlin 2.2, AGP 9.5.1 and minSdk 26.
   - Draw low-latency strokes on one page on the emulator.
   - The user then tries the OPPO Pencil 2 on the tablet: pressure and lag. If Jetpack Ink doesn't fit, stop and discuss a fallback.
-- [ ] 🔺 **2.5 Page files and autosave.**
+- [x] 🔺 **2.5 Page files and autosave.** _(done 15 Nov: `domain/ink/PageInkCodec` (our own format "NAPG" v1, gzip with checksum; Jetpack Ink's own encoder uses native code, so it couldn't be unit-tested), `data/NotebookFiles` (temp file + fsync + atomic rename), saving 0.4 s after each change, on leaving and on ON_STOP, in an app-wide scope so closing the notebook can't cut a save off. A damaged page shows tinted and can't be written on. 10 + 7 unit tests.)_
   - The per-page file format, with its version number, written atomically.
   - Save shortly after each stroke, when leaving the notebook, and when the app goes to the background. Load on open.
   - A damaged file is never overwritten with an empty page.
   - Unit tests: save and load give the same strokes, a newer format version is refused safely, and an interrupted write keeps the old file.
-- [ ] 🔺 **2.6 Notebook editor** (layout below). ★ Describe the layout to the user before coding it.
+- [x] 🔺 **2.6 Notebook editor** (layout below). ★ _(done 15 Nov, hands-off, following the layout draft below; the ★ check-in is in REPORT.md. `ui/notebook/NotebookCanvas`, `NotebookScreen`, `domain/ink/PageStrip` (fit, zoom, scroll limits; 11 unit tests). Settings → Notebooks has the double-tap fit choice and a debug "Draw with finger".)_
   - Templates drawn: lined, blank, grid, dot grid.
   - Pinch to zoom, pan with a finger, double-tap to fit (following the Settings choice).
   - The stylus draws and a finger never does (palm rejection).
   - Add and delete pages; a page-number badge.
   - Landscape and portrait, light and dark.
-- [ ] **2.7 Tools and the floating toolbar.** ★
+- [x] **2.7 Tools and the floating toolbar.** ★ _(done 15 Nov: `ui/notebook/InkToolbar` (48 dp, drag by the handle, tap it to tuck away), `ToolSettingsPanel` (tap the chosen tool again or ＋). Highlighter is see-through (alpha 0x66) and drawn under the pen. Stability = smoothing of the finished stroke (default 0). Logic in `domain/ink/EditorTools`, 14 unit tests.)_
   - The thin, draggable toolbar remembers where it was left and can collapse.
   - 3 pen slots: pressure-sensitive, colour swatches plus "More colours", 3 thickness presets, and a pop-up with a thickness slider and Stability.
   - Highlighter (see-through), whole-stroke eraser, and hold-to-straighten.
-- [ ] **2.8 Undo and redo** for drawing, erasing and adding or deleting pages, with unit tests.
-- [ ] 🔺 **2.9 Lasso select.** ★
+- [x] **2.8 Undo and redo** for drawing, erasing and adding or deleting pages, with unit tests. _(done 15 Nov: `domain/ink/NotebookInk`, 9 unit tests; 6 editor tests on the emulator.)_
+- [x] 🔺 **2.9 Lasso select.** ★ _(done 15 Nov: loop → strokes with more than half their points inside; drag inside the box to move, the corner handle to resize, Delete / Done under it; undoable. `domain/ink/InkGeometry`, 12 unit tests. Checked on the emulator.)_
   - Draw a loop to select strokes, then move them, resize them (corner handles) or delete them. All undoable.
   - Unit tests for which strokes a loop selects.
-- [ ] 🔺 **2.10 Pen button and press hard to erase.** ★
+- [x] 🔺 **2.10 Pen button and press hard to erase.** ★ _(built 15 Nov: the side button is read as `PointerButtons.isSecondaryPressed` (= `BUTTON_STYLUS_PRIMARY`) while touching or hovering; press-hard starts erasing once a pen-down shows real pressure at or above the level (default 90%). Unit-tested; waiting on the user to try both on the OPPO Pencil 2.)_
   - A side-button click toggles lasso ↔ the previous tool.
   - Pressing harder than the threshold erases whole strokes it touches, with a sensitivity slider and an off switch.
   - Unit tests for the toggle and the threshold. The user tests both on the OPPO Pencil 2: the emulator can't check pressure levels or the pen button.

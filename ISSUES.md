@@ -8,9 +8,16 @@ _None yet._
 
 ## Open questions
 
-_None right now._
+- **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
 ## Follow-ups / tech debt
+
+- **Notebook editor, small things to revisit (Phase 2):**
+  - Ink still being written shows on top of the toolbar if you write under it; it drops behind once you lift the pen.
+  - Stability smooths a stroke when you lift the pen, so a wobbly line shifts slightly at that moment. It's off (0%) by default.
+  - Hold-to-straighten snaps the line after you lift the pen, not while you're still holding.
+  - Panning stops when your finger lifts (no "fling").
+  - Jetpack Ink adds about 7 MB to the app (its drawing code for every kind of processor). A release build for one device type would be smaller; not worth doing now.
 
 - Build warning: `libandroidx.graphics.path.so` can't be stripped of debug symbols, so it's packaged as is. This is harmless and comes from AndroidX. No action needed unless APK size matters.
 - The signing key exists only on this PC (in `C:\Users\hiimf\keys\`) plus your own backups. On a new computer, copy both `noteapp-release.jks` and `noteapp-keystore.properties` into `<user home>\keys\` before building. Otherwise builds fall back to the debug key (a warning is printed) and can't update the app on the tablet.
@@ -26,6 +33,8 @@ _None right now._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Handwriting in notebooks (Phase 2, steps 2.4–2.10), 15 Nov.** Notebooks open on a desk with pages side by side; a double-tap fits the page (fit height, or fit width / whole page in Settings → Notebooks). The pen writes with low lag (Google's Jetpack Ink library); a finger never writes but scrolls, pinches to zoom and double-taps. The thin floating toolbar has 3 pens, a see-through highlighter (drawn under the writing), an eraser (whole strokes), the lasso (circle, move, resize, delete), 8 colours plus more, 3 sizes plus a slider, Stability, hold-to-straighten and press-hard-to-erase; drag it by its handle or tuck it away. Undo and redo cover drawing, erasing, the lasso and adding or deleting pages. Pages save themselves within half a second, when you leave and when the app goes to the background; each page is its own file, written so a crash can't leave half a page. 63 new unit tests and 6 editor tests on the emulator.
 
 - **Subfolders and notebooks in folders (Phase 2, steps 2.2–2.3), 15 Nov.** Inside a folder, a grid of its folders and notebooks sits above the tasks, with an All · Notebooks · Folders filter. The ＋ button makes a new notebook (name and paper: Lined, Blank, Grid or Dot grid) or a folder. Folders can go inside folders as deep as you like; they show the course colour and tag, and "in ELECTENG 292 › tutorials" at the top. Each tile's ⋮ has Rename and Delete; deleting a notebook offers Undo, and a folder can only be deleted when it's empty. A new notebook opens straight away, showing its blank pages (writing comes next). 7 new screen tests.
 

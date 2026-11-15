@@ -9,11 +9,12 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
 - **Branch:** `phase-2` (pushed).
 - **Mode: "Hands-off"** since 15 Nov (the user said to use the remaining budget on Phase 2, push when it matters, and update docs often). Write `REPORT.md` when stopping, listing every 🔺 step done.
 - **The tablet runs the merged `main` build** (database version 3). **Don't install Phase 2 builds on the tablet without asking:** they upgrade its database to version 4.
-- **Done so far:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles in the folder screen).
+- **Done so far:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor: Jetpack Ink, page files and autosave, toolbar, undo/redo, lasso, pen button, press-hard-to-erase).
 
 ## Next steps (in order)
 
-1. **2.4 🔺 Jetpack Ink go/no-go**: add `androidx.ink` 1.0.0 (stable; 1.1.0 is alpha) and draw on one page. Then 2.5 onwards in order.
+1. **2.11 Thumbnails** (in progress: `data/Thumbnails`, `components/ThumbnailImage`), then **2.12 performance**, then the end-of-phase `/code-review`.
+2. Waiting on the user: tablet checks (see ISSUES.md, Open questions).
 
 ## Tablet database safety copy
 
@@ -76,7 +77,9 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
 | Folder | What's in it |
 |---|---|
 | `data/db/` | Room database **v4**: `Course` (+`archivedAt`), `Folder` (+`parentId`), `Task` (+`availableAt`), `Notebook`, `Page`, DAOs, `FolderPlace`, `Migrations.kt` (`MIGRATION_1_2` … `MIGRATION_3_4`) |
-| `data/` | Repositories (`FolderRepository`, `TaskRepository`, `NotebookRepository`), `CanvasSettings` (DataStore), `QuickAdd` |
+| `data/` | Repositories (`FolderRepository`, `TaskRepository`, `NotebookRepository`), `NotebookFiles` (page files), `Thumbnails`, `InkSettings` / `CanvasSettings` / `ViewSettings` (DataStore), `QuickAdd` |
+| `domain/ink/` | Plain-Kotlin handwriting logic: `InkStroke`, `PageInkCodec` (file format), `NotebookInk` (undo/redo), `InkGeometry` (eraser, lasso), `PageStrip` (fit/zoom), `EditorTools` (tools, palette, pen button, press-hard, straighten, smoothing) |
+| `ui/notebook/` | The editor: `NotebookScreen`, `NotebookCanvas` (drawing, gestures, lasso), `InkToolbar`, `InkBrushes` (our strokes ↔ Jetpack Ink), `NotebookViewModel` (loading, saving) |
 | `domain/` | Plain-Kotlin rules: `DaysLeft`, `CourseColorKey`, `TaskRules` (overdue, Due soon sections, default times), `Reminders`, `CourseCodes`, `Links`, `SharedLink`, `DateText` |
 | `canvas/` | `CanvasClient` (GET only), `CanvasParser`, `CanvasMerge`, `CanvasSync`, `CanvasSyncRunner`, `CanvasSyncWorker`, `CanvasAccount` (sign-in and out), `FakeCanvas` (debug; most assignments have "available from" dates) |
 | `reminders/` | Alarm scheduling and receivers |
@@ -115,6 +118,13 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
 - **Real upgrade test, old APK:** build `main` in a worktree (`git worktree add ../Noteapp-v3 main`, copy `local.properties`, `gradlew assembleDebug` there). Removing that worktree fails with "Filename too long"; delete it with `cmd /c rmdir /s /q` and `git worktree prune`.
 - **After a deliberately broken migration test, rebuild** (`assembleDebug`) before installing: the broken-migration test leaves a broken APK in `app/build/outputs`.
+- **Jetpack Ink gotchas:**
+  - `CanvasStrokeRenderer.draw(canvas, stroke, matrix)` does NOT move the canvas: the matrix only tunes quality. `canvas.concat(matrix)` first.
+  - The Compose `InProgressStrokes` takes a Compose `Matrix` (screen → desk), and draws every pointer nobody consumed. Our gesture layer consumes fingers in `PointerEventPass.Initial` (palm rejection) and stylus events for eraser/lasso.
+  - Keep `InProgressStrokes`' inputs the same objects (`InkLayerInputs`), or it restarts and cancels the stroke being written.
+  - Ink's own `encode`/`decode` use native code, which JVM unit tests can't load; we save with our own `PageInkCodec`.
+  - Emulator stylus input: `adb shell input stylus swipe x1 y1 x2 y2 ms`, or `input stylus motionevent DOWN/MOVE/UP x y` (pressure is always 1.0 there).
+  - Screen tests draw with "Draw with finger" on (`InkToolSettings(drawWithFinger = true)`), since test touches are fingers.
 - **Every `connectedDebugAndroidTest` run wipes the emulator app's data.** Take screenshots before running the suite, or recreate data with the scratchpad `setup2.sh` (fake Canvas, 3 course folders, and in "Electronics Design 2": 2 subfolders and 2 notebooks).
 - **Emulator UI scripting:** a `ui.py` helper (tap by exact text / content description via `uiautomator dump`) lived in the scratchpad; rewrite it if gone. Set `PYTHONIOENCODING=utf-8` (screen text has "＋" etc.).
 - **Database changes:** follow the steps at the top of `Migrations.kt`.

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.nzfrankwu.noteapp.MainActivity
@@ -44,7 +45,7 @@ class NavigationTest {
     fun settingsButton_opensSettings_andBackArrowReturnsHome() {
         showOverview()
         compose.onNodeWithContentDescription("Settings").performClick()
-        compose.onNodeWithText("About").assertIsDisplayed()
+        compose.onNodeWithText("About").performScrollTo().assertIsDisplayed()
 
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithText("Due soon").assertIsDisplayed()
@@ -54,7 +55,7 @@ class NavigationTest {
     fun systemBack_fromSettings_returnsHome() {
         showOverview()
         compose.onNodeWithContentDescription("Settings").performClick()
-        compose.onNodeWithText("About").assertIsDisplayed()
+        compose.onNodeWithText("About").performScrollTo().assertIsDisplayed()
 
         Espresso.pressBack()
         compose.onNodeWithText("Due soon").assertIsDisplayed()

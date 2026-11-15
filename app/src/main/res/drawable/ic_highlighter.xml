@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Noteapp's own highlighter icon: a slanted marker over a bar. Colour comes from Icon's tint. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M15.5,2.5l6,6l-8.2,8.2l-6,-6z M6.3,11.7l6,6l-1.8,1.8h-4.2l-2.8,-2.8v-2.2z M2,21h20v2H2z" />
+</vector>
