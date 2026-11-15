@@ -1,11 +1,11 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.7 done and pushed; next 3.8). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.7 done and pushed; 3.8's groundwork done, its sheet waits on the user; next 3.9). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
-- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu), 3.6 (lasso with pictures) and 3.7 (Export as PDF) are done**; next is 3.8 (Share to Noteapp).
+- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu), 3.6 (lasso with pictures) and 3.7 (Export as PDF) are done**. 3.8 (Share to Noteapp): the data side is done; the destination sheet waits for the user's OK on its layout. Next: 3.9 (screenshot tool).
 - **Branch:** `phase-3` (from `main`), pushed after each step.
 - **Mode: hands-off** (the user said so on 16 Nov, 3.2 onwards): commit and push after each passing step; write `REPORT.md` when stopping; list every 🔺 step there.
 - **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
@@ -15,7 +15,9 @@ _Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.7 done and pushed; nex
 
 ## Next steps (in order)
 
-1. **Step 3.8 (Share to Noteapp)** ★: manifest `SEND`/`SEND_MULTIPLE` for `application/pdf` and `image/*`, `VIEW` for PDFs; `MainActivity.takeRequests` copies shared files into a private import folder at once (permission can lapse), then `NoteAppRoot` shows a destination sheet (image: "Add to a notebook" / "New notebook in a folder"; PDF: folder picker). Reuse `PdfImport` and `NotebookViewModel`-free image insertion (`ImageImport` + `NotebookInk` needs the editor; simplest: add a page with the picture via repository + `NotebookFiles.write`). Then 3.9 (screenshot tool), 3.10 (tablet).
+1. **Step 3.9 (screenshot tool)** 🔺 ★ (`design-reference/screenshot selection.jpg`): update IDEA.md §2.7 and §5 (snip moved to Phase 3; the user chose this on 16 Nov). Noteapp alone: capture the editor with Compose `GraphicsLayer.toImageBitmap()`; in split screen: MediaProjection + a short foreground service of type `mediaProjection`. Overlay with an 8-handle crop box (reuse `BoxHandle` / `LassoBox.dragged`), Cancel / Confirm; Confirm → `ImageImport.importBitmap` → `NotebookInk.addImages` on the current page, selected. All-black capture → "That app doesn't allow screenshots".
+2. **Step 3.8's sheet, once the user OKs a layout** (proposal in ISSUES.md "Open questions"): then add manifest `SEND`/`SEND_MULTIPLE` (`application/pdf`, `image/*`) and `VIEW` (`application/pdf`), and in `MainActivity.takeRequests` copy each shared URI with `SharedImport.copyToInbox(filesDir/shared-inbox)` straight away, then show the sheet from `NoteAppRoot`, call `SharedImport`, open the notebook, and delete the inbox copies.
+   - 3.8 groundwork: `data/SharedImport`, `NotebookRepository.newPageId / addPage(pageId) / createNotebookOfPages`, `PageSize.forPicture`.
    - 3.7 left: `data/PdfExport`, `StrokeShape`, `InkBrushes.exportShape`, `NotebookViewModel.exportPdf / ExportState`, `ExportDialogs` in `NotebookScreen`.
    - 3.6 left: `LassoState.Selected.images`, `LassoBox.mapImage`, `InkGeometry.imageInLoop`, `NotebookViewModel.Clip / replaceSelection / deleteSelection / imageAt / imagesInLoop`.
    - 3.5 left: `ImageMenu.kt`, `data/ImageImport` (+ `loadForScreen`), `data/RecentImages`, `NotebookViewModel.insertImages / insertImageAsPage / prepareImages / imageBitmaps`, `drawPicture` in `NotebookCanvas`, `InkSketch.drawImages`, FileProvider `${applicationId}.files` (`res/xml/file_paths.xml`: cache `camera/`, `exports/`).
@@ -42,6 +44,8 @@ _Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.7 done and pushed; nex
 - **Never install an older build than the tablet has** (it's now heading to database v3): Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
 
 ## Waiting on the user
+
+- **Phase 3, step 3.8: the "Share to Noteapp" sheet's layout** (no Notein screenshot of it; CLAUDE.md says to describe a new screen first). The proposal is in ISSUES.md → Open questions.
 
 - **Phase 2 on the tablet** (installed 15 Nov; the user is checking it):
   - writing with the OPPO Pencil 2: lag, pressure, palm rejection

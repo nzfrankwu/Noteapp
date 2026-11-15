@@ -8,6 +8,11 @@ _None known._
 
 ## Open questions
 
+- **Share to Noteapp sheet (Phase 3.8): OK this layout, or send a Notein screenshot of its import sheet.** Proposal: when you share into Noteapp, a dialog titled "Add to Noteapp" opens over the app.
+  - A **PDF**: "Import “Lecture 7.pdf” into…", then your folders as a list (subfolders indented under their folder, each with a folder icon). Tap a folder: the PDF becomes a notebook there and opens.
+  - **Pictures**: two tabs at the top, **Add to a notebook** | **New notebook in a folder**. The first lists your notebooks under folder headings; tap one and the pictures are added as new pages at its end (one page each, shaped like the picture) and it opens. The second lists folders; tap one and a new notebook (named after the picture, or "Shared pictures 16 Nov") is made there.
+  - A **Cancel** button at the bottom. Nothing is saved until you tap a folder or notebook.
+
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
 ## Follow-ups / tech debt

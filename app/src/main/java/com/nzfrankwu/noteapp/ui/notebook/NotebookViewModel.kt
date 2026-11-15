@@ -343,10 +343,7 @@ class NotebookViewModel(
         insertingImages = true
         try {
             val imported = imageImport.import(notebookId, open) ?: return null
-            val longSide = com.nzfrankwu.noteapp.data.db.Notebook.A4_HEIGHT
-            val aspect = imported.heightPx.toFloat() / imported.widthPx.coerceAtLeast(1)
-            val size = if (aspect >= 1f) com.nzfrankwu.noteapp.domain.PageSize(longSide / aspect, longSide)
-            else com.nzfrankwu.noteapp.domain.PageSize(longSide, longSide * aspect)
+            val size = com.nzfrankwu.noteapp.domain.PageSize.forPicture(imported.widthPx, imported.heightPx)
             val pageId = addPage(afterIndex + 1, size = size) ?: return null
             ink.addImages(
                 pageId,

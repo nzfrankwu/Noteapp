@@ -121,6 +121,41 @@ class NotebookRepository(
         NotebookResult.Success(notebookId)
     }
 
+    /** A fresh ID for a page whose file is written before the page is added (see [addPage]). */
+    fun newPageId(): String = newId()
+
+    /**
+     * Creates notebook [notebookId] in [folderId] with the given pages ([pages]: each page's ID and
+     * size), in order, in one transaction. For pictures shared into Noteapp: their page files are
+     * written first, under these IDs, so a page never shows before its picture is saved.
+     */
+    suspend fun createNotebookOfPages(
+        notebookId: String,
+        folderId: String,
+        title: String,
+        pages: List<Pair<String, PageSize>>,
+        template: PageTemplate = PageTemplate.DEFAULT,
+    ): NotebookResult = db.withTransaction {
+        val cleanTitle = title.trim()
+        if (cleanTitle.isEmpty()) return@withTransaction NotebookResult.Failure(NotebookError.BlankTitle)
+        if (pages.isEmpty() || pages.any { !it.second.isValid } || dao.getNotebook(notebookId) != null) {
+            return@withTransaction NotebookResult.Failure(NotebookError.BadPdf)
+        }
+        folderDao.getById(folderId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
+        val now = clock.instant()
+        val first = pages.first().second
+        dao.insertNotebook(
+            Notebook(
+                id = notebookId, folderId = folderId, title = cleanTitle, template = template,
+                pageWidth = first.width, pageHeight = first.height, createdAt = now, updatedAt = now,
+            ),
+        )
+        pages.forEachIndexed { index, (pageId, size) ->
+            dao.insertPage(Page(id = pageId, notebookId = notebookId, position = index, createdAt = now, updatedAt = now, width = size.width, height = size.height))
+        }
+        NotebookResult.Success(notebookId)
+    }
+
     suspend fun rename(notebookId: String, newTitle: String): NotebookResult = db.withTransaction {
         val cleanTitle = newTitle.trim()
         if (cleanTitle.isEmpty()) return@withTransaction NotebookResult.Failure(NotebookError.BlankTitle)
@@ -162,14 +197,15 @@ class NotebookRepository(
      * so a blank page among a PDF's pages matches them, unless [size] is given (e.g. a page shaped
      * like a picture). It's always a plain page, never a PDF page.
      */
-    suspend fun addPage(notebookId: String, index: Int, size: PageSize? = null): NotebookResult = db.withTransaction {
+    suspend fun addPage(notebookId: String, index: Int, size: PageSize? = null, pageId: String? = null): NotebookResult = db.withTransaction {
         val notebook = dao.getNotebook(notebookId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
         val now = clock.instant()
         val pages = dao.getPages(notebookId)
         val at = index.coerceIn(0, pages.size)
         val neighbour = pages.getOrNull(at - 1) ?: pages.getOrNull(at)
+        if (pageId != null && dao.getPage(pageId) != null) return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
         val page = Page(
-            id = newId(), notebookId = notebookId, position = at, createdAt = now, updatedAt = now,
+            id = pageId ?: newId(), notebookId = notebookId, position = at, createdAt = now, updatedAt = now,
             width = size?.width ?: neighbour?.width, height = size?.height ?: neighbour?.height,
         )
         val renumbered = pages.toMutableList().apply { add(at, page) }

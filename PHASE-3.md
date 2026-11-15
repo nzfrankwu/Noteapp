@@ -112,7 +112,7 @@ The goal is to let the user import lecture PDFs, write on them, drop images onto
    - Ink as vector: fill each stroke's outline from Jetpack Ink's `Stroke.shape` outlines; the highlighter at its opacity, via the PDF's transparency setting.
    - Add a `FileProvider` (cache-only paths) for Share; Save to device via `CreateDocument`.
    - Check that the exported PDF opens correctly in another PDF app.
-- [ ] **3.8 Share to Noteapp.** ★
+- [ ] **3.8 Share to Noteapp.** ★ _Part done 16 Nov: `data/SharedImport` (inbox copy, pictures → pages at the end of a notebook or a new notebook, PDF → `PdfImport`), `NotebookRepository.newPageId` / `addPage(pageId)` / `createNotebookOfPages`, `PageSize.forPicture`; tested (`SharedImportTest`). **Waiting on the user:** the destination sheet's layout (no Notein reference screenshot; see the question in ISSUES.md). The manifest share filters and `MainActivity` wiring wait for the sheet, so Noteapp doesn't appear as a share target that does nothing._
    - Manifest: `SEND`/`SEND_MULTIPLE` for `application/pdf` and `image/*`, plus `VIEW` for PDFs ("Open with").
    - `MainActivity.takeRequests` copies the shared files into a private import folder at once (the read permission on a shared file can lapse), then `NoteAppRoot` shows the destination sheet (layout above).
    - Several images: one page each.
