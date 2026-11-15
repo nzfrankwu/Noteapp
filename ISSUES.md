@@ -27,6 +27,8 @@ _None right now._
 
 ## Done
 
+- **Database version 4: subfolders and notebooks (Phase 2, step 2.1 🔺), 15 Nov.** Folders can now sit inside other folders, and the database has notebooks and pages (the handwriting itself will be saved in one file per page, step 2.5). Updating the app only adds an empty column and two new, empty tables: every course, folder and task is kept exactly. Deleting is safe: a folder that holds anything can't be deleted, and deleting a notebook or page only hides it. Checked with migration tests, a deliberately broken migration (caught, and the failed update left the old data untouched), and a real upgrade of the previous app with data on the emulator. Nothing visible changes yet, except that deleting a non-empty folder now explains why it can't. 11 unit tests, 15 emulator tests.
+
 - **Code review of phase-1b (15 Nov): 7 of 8 findings fixed.**
   - The Calendar's day panel slides away again.
   - Typing an archived course's code in New folder brings that course back.

@@ -52,6 +52,7 @@ import com.nzfrankwu.noteapp.ui.components.RoundIconButton
 import com.nzfrankwu.noteapp.ui.components.SegmentedTabs
 import com.nzfrankwu.noteapp.ui.components.TaskCard
 import com.nzfrankwu.noteapp.domain.DueGroup
+import com.nzfrankwu.noteapp.ui.home.DeleteFolderDialog
 import com.nzfrankwu.noteapp.ui.home.FolderEditDialog
 import com.nzfrankwu.noteapp.ui.theme.Dimens
 
@@ -283,18 +284,12 @@ fun FolderScreen(
             confirmButton = { TextButton(onClick = viewModel::confirmDialog, modifier = Modifier.testTag("dialog-confirm")) { Text("Unlink") } },
             dismissButton = { TextButton(onClick = viewModel::dismissDialog) { Text("Cancel") } },
         )
-        FolderScreenDialog.ConfirmDelete -> AlertDialog(
-            onDismissRequest = viewModel::dismissDialog,
-            title = { Text("Delete “${item?.folder?.name.orEmpty()}”?") },
-            text = { Text(if (courseCode != null) "Only the folder is removed. Tasks for $courseCode are kept." else "Only the folder is removed.") },
-            confirmButton = {
-                TextButton(
-                    onClick = viewModel::confirmDialog,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    modifier = Modifier.testTag("dialog-confirm"),
-                ) { Text("Delete") }
-            },
-            dismissButton = { TextButton(onClick = viewModel::dismissDialog) { Text("Cancel") } },
+        is FolderScreenDialog.ConfirmDelete -> DeleteFolderDialog(
+            name = item?.folder?.name.orEmpty(),
+            courseCode = courseCode,
+            onConfirm = viewModel::confirmDialog,
+            onDismiss = viewModel::dismissDialog,
+            error = d.error,
         )
         null -> Unit
     }

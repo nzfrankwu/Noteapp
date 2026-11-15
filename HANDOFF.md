@@ -5,16 +5,15 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
 ## Right now
 
 - **Phase 1 (Courses & tasks)** and **Phase 1b (Task views): both done and merged into `main`.** Their history is in `PHASE-1.md`, `PHASE-1B.md` and `ISSUES.md`.
-- **Current phase: Phase 2, Handwriting notebooks.** Planned with the user on 15 Nov: the plan is **`PHASE-2.md`** (decisions, design, checklist 2.1–2.12, layout drafts). Nothing built yet.
-- **Branch:** `phase-2` (from `main`).
-- **The tablet runs the merged `main` build** (database version 3).
-- **Mode:** "Working together".
+- **Current phase: Phase 2, Handwriting notebooks.** The plan is **`PHASE-2.md`** (decisions, design, checklist 2.1–2.12, layout drafts).
+- **Branch:** `phase-2` (pushed).
+- **Mode: "Hands-off"** since 15 Nov (the user said to use the remaining budget on Phase 2, push when it matters, and update docs often). Write `REPORT.md` when stopping, listing every 🔺 step done.
+- **The tablet runs the merged `main` build** (database version 3). **Don't install Phase 2 builds on the tablet without asking:** they upgrade its database to version 4.
+- **Done so far:** 2.1 (database v4).
 
 ## Next steps (in order)
 
-1. **Wait for the user's OK on `PHASE-2.md`**, then push `phase-2`.
-2. **Step 2.1 🔺 Database version 4** (subfolders, notebooks, pages). It's a migration step: tell the user first so they can switch to a stronger model / max effort. Follow the checklist at the top of `Migrations.kt` and the gotchas below.
-3. Then 2.2 (subfolders in the folder screen): describe the layout draft in `PHASE-2.md` to the user before coding.
+1. **2.2 + 2.3** (subfolders and notebook tiles in the folder screen; the layout draft in `PHASE-2.md`), then 2.4 onwards in order.
 
 ## Tablet database safety copy
 
@@ -76,8 +75,8 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
 
 | Folder | What's in it |
 |---|---|
-| `data/db/` | Room database **v3**: `Course` (+`archivedAt`), `Folder`, `Task` (+`availableAt`), DAOs, `Migrations.kt` (`MIGRATION_1_2`, `MIGRATION_2_3`), `CourseListItem` |
-| `data/` | Repositories (`FolderRepository`, `TaskRepository`), `CanvasSettings` (DataStore), `QuickAdd` |
+| `data/db/` | Room database **v4**: `Course` (+`archivedAt`), `Folder` (+`parentId`), `Task` (+`availableAt`), `Notebook`, `Page`, DAOs, `FolderPlace`, `Migrations.kt` (`MIGRATION_1_2` … `MIGRATION_3_4`) |
+| `data/` | Repositories (`FolderRepository`, `TaskRepository`, `NotebookRepository`), `CanvasSettings` (DataStore), `QuickAdd` |
 | `domain/` | Plain-Kotlin rules: `DaysLeft`, `CourseColorKey`, `TaskRules` (overdue, Due soon sections, default times), `Reminders`, `CourseCodes`, `Links`, `SharedLink`, `DateText` |
 | `canvas/` | `CanvasClient` (GET only), `CanvasParser`, `CanvasMerge`, `CanvasSync`, `CanvasSyncRunner`, `CanvasSyncWorker`, `CanvasAccount` (sign-in and out), `FakeCanvas` (debug; most assignments have "available from" dates) |
 | `reminders/` | Alarm scheduling and receivers |
@@ -114,6 +113,9 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
 - **Pinned versions:**
   - `kotlinx.serialization` is at 1.9.0 (the newest for Kotlin 2.2, which comes with AGP 9.5.1). It must stay at or above Room's needs, or `MigrationTest` crashes.
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
+- **Real upgrade test, old APK:** build `main` in a worktree (`git worktree add ../Noteapp-v3 main`, copy `local.properties`, `gradlew assembleDebug` there). Removing that worktree fails with "Filename too long"; delete it with `cmd /c rmdir /s /q` and `git worktree prune`.
+- **After a deliberately broken migration test, rebuild** (`assembleDebug`) before installing: the broken-migration test leaves a broken APK in `app/build/outputs`.
+- **Emulator UI scripting:** a `ui.py` helper (tap by exact text / content description via `uiautomator dump`) lived in the scratchpad; rewrite it if gone. Set `PYTHONIOENCODING=utf-8` (screen text has "＋" etc.).
 - **Database changes:** follow the steps at the top of `Migrations.kt`.
   - a version bump
   - a migration declared **above** `ALL_MIGRATIONS`

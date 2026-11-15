@@ -46,7 +46,7 @@ Work happens on branch `phase-2`; it's merged into `main` at the end, with the u
 
 ## Checklist
 
-- [ ] 🔺 **2.1 Database version 4.**
+- [x] 🔺 **2.1 Database version 4.** _(done 15 Nov, hands-off: `Folder.parentId`, new `Notebook`, `Page`, `NotebookDao`, `PageTemplate` (keys frozen in `StoredKeysTest`), `FolderPlace` (path + inherited course), `NotebookRepository`; `MIGRATION_3_4` = `ALTER TABLE folders ADD COLUMN parent_id … REFERENCES folders` + two `CREATE TABLE`s, schema 4 recorded. Notebooks and subfolders use `ON DELETE SET NULL`, so even a buggy delete can't remove them; `FolderRepository.deleteFolder` refuses non-empty folders. Marked-as-deleted notebooks in a deleted folder stay in the database with no folder (Phase 6 "Recently deleted" will offer them). Tested: 2 new migration tests, a deliberately broken migration caught by 7 of 9, a real upgrade of the version-3 app with data on the emulator (every row identical), and 15 new repository tests.)_
   - Subfolders, notebooks and pages, with a tested 3 → 4 migration (version-3 data must survive).
   - Record schema 4 in `SchemaHistoryTest`, extend `MigrationTest`, catch a deliberately broken migration, and do a real upgrade of the version-3 app with data on the emulator (see the gotchas in HANDOFF.md).
   - Repositories for folders inside folders, notebooks and pages.

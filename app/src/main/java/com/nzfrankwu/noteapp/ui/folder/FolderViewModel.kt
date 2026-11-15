@@ -42,7 +42,7 @@ sealed interface FolderScreenDialog {
         val typingOtherCode: Boolean = false,
     ) : FolderScreenDialog
     data object ConfirmUnlink : FolderScreenDialog
-    data object ConfirmDelete : FolderScreenDialog
+    data class ConfirmDelete(val error: String? = null) : FolderScreenDialog
 }
 
 /** One folder: its details, its course's tasks (grouped), and the dialogs. */
@@ -88,7 +88,7 @@ class FolderViewModel(
     fun startRename() { _dialog.value = FolderScreenDialog.Rename(folder.value?.folder?.name.orEmpty()) }
     fun startLinkCourse() { _dialog.value = FolderScreenDialog.LinkCourse() }
     fun startUnlink() { _dialog.value = FolderScreenDialog.ConfirmUnlink }
-    fun startDelete() { _dialog.value = FolderScreenDialog.ConfirmDelete }
+    fun startDelete() { _dialog.value = FolderScreenDialog.ConfirmDelete() }
 
     /** Archive (or bring back) this folder's course. Its tasks stay here either way. */
     fun setArchived(archived: Boolean) {
@@ -129,10 +129,12 @@ class FolderViewModel(
                     folders.unlinkCourse(folderId)
                     _dialog.value = null
                 }
-                FolderScreenDialog.ConfirmDelete -> {
-                    folders.deleteFolder(folderId)
-                    _dialog.value = null
-                    _deleted.value = true
+                is FolderScreenDialog.ConfirmDelete -> when (val result = folders.deleteFolder(folderId)) {
+                    is FolderResult.Success -> {
+                        _dialog.value = null
+                        _deleted.value = true
+                    }
+                    is FolderResult.Failure -> _dialog.value = dialog.copy(error = result.error.message())
                 }
             }
         }

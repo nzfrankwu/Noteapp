@@ -115,7 +115,20 @@ fun DeleteFolderDialog(
     courseCode: String?,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    /** Why the folder couldn't be deleted (e.g. it isn't empty), shown instead of the question. */
+    error: String? = null,
 ) {
+    if (error != null) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Can't delete “$name”") },
+            text = { Text(error) },
+            confirmButton = {
+                TextButton(onClick = onDismiss, modifier = Modifier.testTag("dialog-ok")) { Text("OK") }
+            },
+        )
+        return
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Delete “$name”?") },
