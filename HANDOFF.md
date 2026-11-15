@@ -1,28 +1,26 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 12:25 pm. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, 12:30 pm. Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phase 1 (Courses & tasks): done and merged into `main`** (`543b387`). Its history is in `PHASE-1.md` and `ISSUES.md`.
-- **Current phase: Phase 1b, Task views.** The plan is in **`PHASE-1B.md`**; the user approved both the plan and the calendar/timeline layouts.
-- **Branch:** `phase-1b`, pushed. Done:
-  - B.1 Days left
-  - B.2 Course colours ("next free colour")
-  - 🔺 B.3 Database version 2 ("available from"), done at max effort
-  - B.4 Home tabs
-  - B.5 Calendar
-  - B.6 Timeline
-  - B.7 Course folder views (added by the user after tablet testing; OK'd, pushed and installed on the tablet)
-  - 🔺 B.8 Archive courses (database v3), done at max effort; OK'd, pushed and installed on the tablet
-  - B.9 New folder course drop-down; OK'd, pushed and installed on the tablet
-- **The tablet runs B.1–B.9 (database version 3)**, installed 15 Nov ~11:50 am with the user's OK. The upgrade was compared with a fresh safety copy: every value of all 124 tasks, 10 courses and 4 folders was identical, no course started archived, integrity OK.
-- **Mode: "Working together"** (the user is back). They liked B.1–B.6 on the tablet ("looks good, feels good and works well") and asked for two more steps, now B.7 and B.8 in `PHASE-1B.md`.
+- **Phase 1 (Courses & tasks)** and **Phase 1b (Task views): both done and merged into `main`.** Phase 1b was merged on 15 Nov with the user's OK. Their history is in `PHASE-1.md`, `PHASE-1B.md` and `ISSUES.md`.
+- **Next phase: Phase 2, Handwriting notebooks** (IDEA.md §5). It isn't planned yet; there's no `PHASE-2.md`.
+- **Branch:** `main` (Phase 1b merged). Start Phase 2 on a new branch, `phase-2`.
+- **The tablet runs Phase 1b up to B.9 (database version 3).** The final review fixes (`49cdb3f`) aren't installed yet; they need no database change, so a plain `install -r` is enough.
+- **Mode:** "Working together".
 
 ## Next steps (in order)
 
-1. **Ask the user to approve merging `phase-1b` into `main`** (never merge without their OK). The end-of-phase `/code-review` is done and 7 of 8 findings are fixed (see ISSUES.md), with all tests passing. The review fixes are pushed but not on the tablet yet.
-2. **Later, in Phase 2: subfolders** (the user asked for them on 15 Nov). IDEA.md §2.1 and the §5 Phase 2 row now include them.
+1. **Plan Phase 2 with the user** in a new `PHASE-2.md` (like `PHASE-1B.md`: a checklist with ★ check-ins and 🔺 for hard steps).
+   - Read IDEA.md §2.5, §2.10 and §5a first.
+   - Describe the notebook screen layout and ask which `design-reference/` screenshot to follow before coding it.
+   - 🔺 steps to flag:
+     - the ink canvas (stylus input, pressure, palm rejection, smoothness)
+     - the notebook storage design (it must suit Phase 6 backup and "only upload what changed")
+     - the database change (version 4)
+2. Offer to install the review-fix build on the tablet.
+3. **In Phase 2, first: subfolders** (the user asked for them on 15 Nov). IDEA.md §2.1 and the §5 Phase 2 row now include them.
    - Planned for the start of Phase 2, so the folder database change goes in with the notebook storage change.
    - Layout reference: `design-reference/notein-inside-course-folder.jpg` (a filter row All · PDF · Note · Folder, then a thumbnail grid).
    - Open questions for then:
