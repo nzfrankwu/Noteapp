@@ -83,12 +83,12 @@ The goal is to let the user import lecture PDFs, write on them, drop images onto
    - `domain/ink/PageStrip` uses per-page widths and heights: running left edges, a binary search in `pageAt`/`visiblePages`, pages centred top to bottom, `fit` and `clamp` per page, and the F20 scroller fraction.
    - Rewrite `PageStripTest`.
    - Plain notebooks must look and scroll exactly as before.
-- [ ] 🔺 **3.3 Import a PDF.** ★
+- [x] 🔺 **3.3 Import a PDF.** ★ _Done 16 Nov (hands-off, so the ★ check-in is in REPORT.md): `data/PdfImport` (ID → copy → read → create; failures delete only the unused copy), `data/PdfPages` (one thread, 3 open files, 64 MB cache, whole page capped at 3000 px / 6 MP, a sharp region when zoomed further), editor layer 1 draws `pdfPictures` + `pdfDetail`, previews and thumbnails include the PDF page, "PDF" tag and All · PDFs · Notebooks · Folders. Emulator: a 100-page slide PDF (`screenshots/make_test_pdf.py`) imports, scrolls at a 17 ms median frame, scroller jump to slide 56 fine._
    - Folder ＋ → Import PDF (system file picker, `OpenDocument("application/pdf")`): copy the file in, read page sizes with `PdfRenderer`, create the notebook and open it.
    - New `data/PdfPages` (renderer, cache, tiles) drawn in `NotebookCanvas` layer 1, between the white paper and the ink. PDF pages are included in previews (F8) and thumbnails (`data/Thumbnails`).
    - Folder tile "PDF" tag and filter.
    - Measure with a 100-page lecture PDF on the emulator.
-- [ ] 🔺 **3.4 Page items: images in the model.**
+- [x] 🔺 **3.4 Page items: images in the model.** _Done 16 Nov: `InkImage` (box + rotation, `contains`, `bounds`, `centred`), `PageInkCodec` v2 (`decodePage` → `PageContent`; v1 written when a page has no pictures, byte-identical), `NotebookInk` picture edits + `InkEdit.Group` (lasso moves/deletes strokes and pictures as one undo step), `InkEdit.changedPages`, saves always include pictures, `NotebookFiles.newImageName`._
    - `domain/ink`: `InkImage`, `PageInkCodec` v2 (still reads v1), and `NotebookInk` holding strokes and images per page with undoable edits (add, remove, replace images).
    - `NotebookFiles` stores image assets.
    - Unit tests: v1 ↔ v2 round trips, a newer version refused, undo/redo of image edits.

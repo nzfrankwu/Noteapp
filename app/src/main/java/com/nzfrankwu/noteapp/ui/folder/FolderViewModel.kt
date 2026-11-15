@@ -52,9 +52,10 @@ data class FolderContents(
     val loaded: Boolean = false,
 )
 
-/** The filter row above a folder's grid. (PDF joins in Phase 3.) */
+/** The filter row above a folder's grid (IDEA.md §2.1). "Notebooks" means the handwritten ones. */
 enum class LibraryFilter(val label: String, val key: String) {
     ALL("All", "all"),
+    PDFS("PDFs", "pdfs"),
     NOTEBOOKS("Notebooks", "notebooks"),
     FOLDERS("Folders", "folders"),
 }
@@ -93,6 +94,7 @@ class FolderViewModel(
     private val folders: FolderRepository,
     private val tasks: TaskRepository,
     private val notebooks: NotebookRepository,
+    private val pdfImport: com.nzfrankwu.noteapp.data.PdfImport? = null,
     private val clock: Clock = Clock.systemDefaultZone(),
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel() {
@@ -151,6 +153,34 @@ class FolderViewModel(
     private var saving = false
 
     fun zone() = zone
+
+    /** True while a PDF is being copied in (the screen shows a progress note). */
+    private val _importing = MutableStateFlow(false)
+    val importing: StateFlow<Boolean> = _importing.asStateFlow()
+
+    /** A message to show once (e.g. why a PDF couldn't be imported). */
+    private val messageEvents = Channel<String>(Channel.BUFFERED)
+    val messages: Flow<String> = messageEvents.receiveAsFlow()
+
+    /**
+     * Imports a PDF as a new notebook here and opens it (PHASE-3.md 3.3). [displayName] is the
+     * file's name (for the title); [open] reads the file.
+     */
+    fun importPdf(displayName: String?, open: () -> java.io.InputStream?) {
+        val importer = pdfImport ?: return
+        if (_importing.value) return
+        _importing.value = true
+        viewModelScope.launch {
+            try {
+                when (val result = importer.import(folderId, com.nzfrankwu.noteapp.data.PdfImport.titleFrom(displayName), open)) {
+                    is com.nzfrankwu.noteapp.data.PdfImportResult.Success -> openNotebookEvents.send(result.notebookId)
+                    is com.nzfrankwu.noteapp.data.PdfImportResult.Failure -> messageEvents.send(result.message)
+                }
+            } finally {
+                _importing.value = false
+            }
+        }
+    }
 
     fun setStatus(taskId: String, status: TaskStatus) {
         viewModelScope.launch { tasks.setStatus(taskId, status) }

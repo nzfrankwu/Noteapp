@@ -1,5 +1,6 @@
 package com.nzfrankwu.noteapp.data
 
+import com.nzfrankwu.noteapp.domain.ink.InkImage
 import com.nzfrankwu.noteapp.domain.ink.InkStroke
 import com.nzfrankwu.noteapp.domain.ink.PageInkCodec
 import com.nzfrankwu.noteapp.domain.ink.PageFileException
@@ -13,7 +14,7 @@ import java.nio.file.StandardCopyOption
 sealed interface PageRead {
     /** No file yet: the page has never been written on. */
     data object Missing : PageRead
-    data class Ok(val strokes: List<InkStroke>) : PageRead
+    data class Ok(val strokes: List<InkStroke>, val images: List<InkImage> = emptyList()) : PageRead
     /** The file exists but can't be read. It's left untouched; [reason] says why. */
     data class Damaged(val reason: String) : PageRead
 }
@@ -36,7 +37,7 @@ class NotebookFiles(private val root: File) {
         val file = pageFile(notebookId, pageId)
         if (!file.exists()) return PageRead.Missing
         return try {
-            PageRead.Ok(PageInkCodec.decode(file.readBytes()))
+            PageInkCodec.decodePage(file.readBytes()).let { PageRead.Ok(it.strokes, it.images) }
         } catch (e: PageFileException) {
             PageRead.Damaged(e.message ?: "Damaged page file")
         } catch (e: java.io.IOException) {
@@ -44,13 +45,16 @@ class NotebookFiles(private val root: File) {
         }
     }
 
-    /** Saves the page's strokes, replacing the old file only once the new one is safely written. */
-    fun write(notebookId: String, pageId: String, strokes: List<InkStroke>) {
+    /**
+     * Saves the page's strokes and pictures, replacing the old file only once the new one is
+     * safely written. A page without pictures is saved in the version 1 format, as before.
+     */
+    fun write(notebookId: String, pageId: String, strokes: List<InkStroke>, images: List<InkImage> = emptyList()) {
         val target = pageFile(notebookId, pageId)
         target.parentFile?.mkdirs()
         val temp = File(target.parentFile, target.name + TEMP_SUFFIX)
         FileOutputStream(temp).use { out ->
-            out.write(PageInkCodec.encode(strokes))
+            out.write(PageInkCodec.encode(strokes, images))
             out.flush()
             out.fd.sync() // on the disk, not just in memory
         }
@@ -59,6 +63,62 @@ class NotebookFiles(private val root: File) {
         } catch (e: AtomicMoveNotSupportedException) {
             Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
+    }
+
+    /**
+     * A file kept in the notebook's folder, like an imported PDF (`pdf-<id>.pdf`) or, in an
+     * `images/` subfolder, an inserted image. [name] comes from our own database.
+     */
+    fun assetFile(notebookId: String, name: String): File {
+        require(name.isNotEmpty() && name.split('/').all { part -> part.isNotEmpty() && part != "." && part != ".." }) { "Unexpected file name: $name" }
+        require(name.all { it.isLetterOrDigit() || it in "-_./" }) { "Unexpected file name: $name" }
+        return File(notebookDir(notebookId), name)
+    }
+
+    /**
+     * Copies a PDF in whole into the notebook's folder and returns its new file name. The copy
+     * is written to a temporary file, flushed to the disk and then renamed, so the file is
+     * either all there or not there at all (PHASE-3.md: imported PDFs are copied, never linked).
+     */
+    fun importPdf(notebookId: String, input: java.io.InputStream): String {
+        val name = "pdf-${java.util.UUID.randomUUID()}.pdf"
+        writeAsset(notebookId, name, input)
+        return name
+    }
+
+    /** Writes [input] to the asset [name] atomically (temp file, flushed, renamed). */
+    fun writeAsset(notebookId: String, name: String, input: java.io.InputStream) {
+        val target = assetFile(notebookId, name)
+        target.parentFile?.mkdirs()
+        val temp = File(target.parentFile, target.name + TEMP_SUFFIX)
+        try {
+            FileOutputStream(temp).use { out ->
+                input.copyTo(out)
+                out.flush()
+                out.fd.sync()
+            }
+            try {
+                Files.move(temp.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
+            } catch (e: AtomicMoveNotSupportedException) {
+                Files.move(temp.toPath(), target.toPath())
+            }
+        } finally {
+            temp.delete() // only left over if the copy failed
+        }
+    }
+
+    /** A new, unused file name for an inserted picture: "images/<uuid>.<extension>". */
+    fun newImageName(extension: String): String {
+        require(extension == "jpg" || extension == "png") { "Unexpected picture type: $extension" }
+        return "images/${java.util.UUID.randomUUID()}.$extension"
+    }
+
+    /**
+     * Deletes the folder of a notebook that was never created (an import that failed before its
+     * rows were saved). Only for a notebook ID with no database rows: never for a real notebook.
+     */
+    fun deleteUnusedNotebookFolder(notebookId: String) {
+        notebookDir(notebookId).deleteRecursively()
     }
 
     /** Removes temporary files left by a save that was cut off (the real page files stay). */

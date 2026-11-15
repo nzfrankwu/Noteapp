@@ -21,6 +21,7 @@ import com.nzfrankwu.noteapp.data.db.Notebook
 import com.nzfrankwu.noteapp.data.db.Page
 import com.nzfrankwu.noteapp.domain.ink.EditorTool
 import com.nzfrankwu.noteapp.domain.ink.InkEdit
+import com.nzfrankwu.noteapp.domain.ink.changedPages
 import com.nzfrankwu.noteapp.domain.ink.InkGeometry
 import com.nzfrankwu.noteapp.domain.ink.InkStroke
 import com.nzfrankwu.noteapp.domain.ink.InkToolSettings
@@ -128,7 +129,7 @@ class NotebookViewModel(
             if (pageStatus[page.id] == PageStatus.Ready) continue
             when (read) {
                 PageRead.Missing -> ink.load(page.id, emptyList()).also { pageStatus[page.id] = PageStatus.Ready }
-                is PageRead.Ok -> ink.load(page.id, read.strokes).also { pageStatus[page.id] = PageStatus.Ready }
+                is PageRead.Ok -> ink.load(page.id, read.strokes, read.images).also { pageStatus[page.id] = PageStatus.Ready }
                 is PageRead.Damaged -> pageStatus[page.id] = PageStatus.Damaged(read.reason)
             }
             version++
@@ -196,8 +197,10 @@ class NotebookViewModel(
                 val strokes = ink.strokes(pageId).toList()
                 val size = pages.value.firstOrNull { it.id == pageId }?.size(nb)
                     ?: com.nzfrankwu.noteapp.domain.PageSize(nb.pageWidth, nb.pageHeight)
-                val picture = if (strokes.isEmpty()) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
-                    renderPreview(strokes, size.width, size.height)
+                val page = pages.value.firstOrNull { it.id == pageId }
+                val pdfBack = page?.let { p -> pdfFileOf(p)?.let { f -> pdf.wholePage(f, p.pdfPage ?: 0, size, PREVIEW_WIDTH_PX / size.width) } }
+                val picture = if (strokes.isEmpty() && pdfBack == null) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
+                    renderPreview(strokes, size.width, size.height, pdfBack?.bitmap)
                 }
                 // Changed while it was drawn: draw it again (the loop comes back to it).
                 if ((pageEdits[pageId] ?: 0) == edits) previews[pageId] = picture
@@ -205,11 +208,82 @@ class NotebookViewModel(
         }
     }
 
-    private fun renderPreview(strokes: List<InkStroke>, pageWidth: Float, pageHeight: Float): ImageBitmap {
+    private fun renderPreview(strokes: List<InkStroke>, pageWidth: Float, pageHeight: Float, pdfPage: Bitmap? = null): ImageBitmap {
         val scale = PREVIEW_WIDTH_PX / pageWidth
         val bitmap = Bitmap.createBitmap(PREVIEW_WIDTH_PX.toInt(), (pageHeight * scale).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
-        InkSketch.draw(android.graphics.Canvas(bitmap), strokes, scale, widthFactor = PREVIEW_LINE_FACTOR, minWidth = 0.7f)
+        val canvas = android.graphics.Canvas(bitmap)
+        if (pdfPage != null && !pdfPage.isRecycled) {
+            canvas.drawBitmap(pdfPage, null, android.graphics.Rect(0, 0, bitmap.width, bitmap.height), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
+        }
+        InkSketch.draw(canvas, strokes, scale, widthFactor = PREVIEW_LINE_FACTOR, minWidth = 0.7f)
         return bitmap.asImageBitmap()
+    }
+
+    // ---- PDF pages (Phase 3) ----
+
+    /** Draws imported PDFs' pages (one background thread; closed with the notebook). */
+    private val pdf = com.nzfrankwu.noteapp.data.PdfPages()
+
+    /** A drawn part of a PDF page, ready for the screen: [left]..[bottom] in page units. */
+    class PdfLayer(val image: ImageBitmap, val left: Float, val top: Float, val right: Float, val bottom: Float, val scale: Float)
+
+    /** Each PDF page near the screen, drawn whole at about the settled zoom. */
+    val pdfPictures = mutableStateMapOf<String, PdfLayer>()
+
+    /** Zoomed in further than a whole-page picture allows: a sharp picture of just the part on screen. */
+    val pdfDetail = mutableStateMapOf<String, PdfLayer>()
+    private var pdfJob: Job? = null
+    private var detailJob: Job? = null
+
+    private fun pdfFileOf(page: Page): java.io.File? =
+        page.pdfFile?.let { runCatching { files.assetFile(notebookId, it) }.getOrNull() }
+
+    private fun com.nzfrankwu.noteapp.data.PdfPicture.toLayer() = PdfLayer(bitmap.asImageBitmap(), left, top, right, bottom, scale)
+
+    /**
+     * Gets the PDF pages among [near] (nearest first) drawn at about [scale] pixels per page unit,
+     * and forgets the pictures of pages further away.
+     */
+    fun preparePdf(near: List<Page>, scale: Float) {
+        val nb = notebook.value ?: return
+        if (scale <= 0f) return
+        val wanted = near.filter { it.isPdf }
+        val keep = wanted.mapTo(HashSet()) { it.id }
+        pdfPictures.keys.filter { it !in keep }.forEach { pdfPictures.remove(it) }
+        pdfDetail.keys.filter { it !in keep }.forEach { pdfDetail.remove(it) }
+        if (wanted.isEmpty()) return
+        pdfJob?.cancel()
+        pdfJob = viewModelScope.launch {
+            for (page in wanted) {
+                val size = page.size(nb)
+                val target = com.nzfrankwu.noteapp.data.PdfPages.wholePageScale(size, scale)
+                val have = pdfPictures[page.id]
+                if (have != null && kotlin.math.abs(have.scale - target) <= target * 0.05f) continue
+                val file = pdfFileOf(page) ?: continue
+                pdf.wholePage(file, page.pdfPage ?: 0, size, scale)?.let { pdfPictures[page.id] = it.toLayer() }
+            }
+        }
+    }
+
+    /**
+     * When zoomed in past what a whole-page picture holds, draws just the [regions] on screen
+     * (page ID → left, top, right, bottom in page units) at [scale]. An empty map clears them.
+     */
+    fun preparePdfDetail(regions: Map<Page, FloatArray>, scale: Float) {
+        val nb = notebook.value ?: return
+        detailJob?.cancel()
+        val needed = regions.filterKeys { page ->
+            page.isPdf && scale > com.nzfrankwu.noteapp.data.PdfPages.wholePageScale(page.size(nb), scale = Float.MAX_VALUE) * 1.15f
+        }
+        val neededIds = needed.keys.mapTo(HashSet()) { it.id }
+        pdfDetail.keys.filter { it !in neededIds }.forEach { pdfDetail.remove(it) }
+        if (needed.isEmpty()) return
+        detailJob = viewModelScope.launch {
+            for ((page, r) in needed) {
+                val file = pdfFileOf(page) ?: continue
+                pdf.region(file, page.pdfPage ?: 0, r[0], r[1], r[2], r[3], scale)?.let { pdfDetail[page.id] = it.toLayer() }
+            }
+        }
     }
 
     /** Keeps only the pages near the screen ready to draw (the rest are rebuilt when needed). */
@@ -322,9 +396,9 @@ class NotebookViewModel(
 
     private fun afterUndoRedo(edit: InkEdit, undoing: Boolean) {
         when (edit) {
-            is InkEdit.Add -> changed(edit.pageId)
-            is InkEdit.Remove -> changed(edit.pageId)
-            is InkEdit.Replace -> changed(edit.pageId)
+            is InkEdit.Add, is InkEdit.Remove, is InkEdit.Replace,
+            is InkEdit.AddImages, is InkEdit.RemoveImages, is InkEdit.ReplaceImages, is InkEdit.Group,
+            -> edit.changedPages.forEach { changed(it) }
             is InkEdit.AddPage -> viewModelScope.launch {
                 if (undoing) notebooks.deletePage(edit.pageId) else notebooks.restorePage(edit.pageId, edit.index)
             }
@@ -443,17 +517,18 @@ class NotebookViewModel(
     fun saveNow(): Job? {
         if (dirty.isEmpty()) return null
         saveJob?.cancel()
-        val toSave = dirty.associateWith { ink.strokes(it).toList() }
+        // Strokes AND pictures: a save must never drop a page's pictures.
+        val toSave = dirty.associateWith { ink.strokes(it).toList() to ink.images(it).toList() }
         dirty.clear()
         // The tile shows the first page: redraw it only when that page changed.
         val thumbnail = if (pages.value.firstOrNull()?.id in toSave) thumbnailJob() else null
         return saveScope.launch {
             saveLock.withLock {
                 val saved = ArrayList<String>()
-                for ((pageId, strokes) in toSave) {
+                for ((pageId, content) in toSave) {
                     // A failed write is retried here, in the scope that outlives the screen, so a
                     // save made while leaving the notebook still gets its retries.
-                    if (writeWithRetries(pageId, strokes)) {
+                    if (writeWithRetries(pageId, content.first, content.second)) {
                         saved += pageId
                     } else {
                         withContext(Dispatchers.Main) {
@@ -471,11 +546,11 @@ class NotebookViewModel(
     }
 
     /** Writes a page's file, trying again after short pauses if it fails. True once it's saved. */
-    private suspend fun writeWithRetries(pageId: String, strokes: List<InkStroke>): Boolean {
+    private suspend fun writeWithRetries(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage>): Boolean {
         for (pause in SAVE_RETRY_PAUSES_MS) {
             delay(pause)
             try {
-                withContext(io) { files.write(notebookId, pageId, strokes) }
+                withContext(io) { files.write(notebookId, pageId, strokes, images) }
                 return true
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -495,7 +570,9 @@ class NotebookViewModel(
         val strokes = ink.strokes(first.id).toList()
         val paper = first.template ?: template ?: nb.template
         val size = first.size(nb)
-        return { t.render(notebookId, paper, size.width, size.height, strokes) }
+        val pdfFile = pdfFileOf(first)
+        val pdfPage = first.pdfPage ?: 0
+        return { t.render(notebookId, paper, size.width, size.height, strokes, pdfFile, pdfPage) }
     }
 
     /** Redraws the tile picture (e.g. after the first page changed). */
@@ -506,6 +583,7 @@ class NotebookViewModel(
 
     override fun onCleared() {
         saveNow()
+        pdf.close()
         super.onCleared()
     }
 

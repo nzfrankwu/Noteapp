@@ -20,13 +20,25 @@ import java.io.FileOutputStream
 class Thumbnails(private val dir: File) {
     fun file(notebookId: String): File = File(dir, "$notebookId.png")
 
-    /** Draws the page and saves it, replacing the old picture only once the new one is written. */
-    fun render(notebookId: String, template: PageTemplate, pageWidth: Float, pageHeight: Float, strokes: List<InkStroke>) {
+    /**
+     * Draws the page and saves it, replacing the old picture only once the new one is written.
+     * A page of an imported PDF ([pdfFile], page [pdfPage]) shows that page instead of a pattern.
+     */
+    fun render(
+        notebookId: String, template: PageTemplate, pageWidth: Float, pageHeight: Float, strokes: List<InkStroke>,
+        pdfFile: File? = null, pdfPage: Int = 0,
+    ) {
         val scale = WIDTH_PX / pageWidth
-        val bitmap = Bitmap.createBitmap(WIDTH_PX.toInt(), (pageHeight * scale).toInt(), Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(WIDTH_PX.toInt(), (pageHeight * scale).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(0xFFFFFFFF.toInt())
-        drawPattern(canvas, template, pageWidth, pageHeight, scale)
+        val pdf = pdfFile?.let { PdfPages.renderOnce(it, pdfPage, bitmap.width, bitmap.height) }
+        if (pdf != null) {
+            canvas.drawBitmap(pdf, 0f, 0f, null)
+            pdf.recycle()
+        } else if (pdfFile == null) {
+            drawPattern(canvas, template, pageWidth, pageHeight, scale)
+        }
         InkSketch.draw(canvas, strokes, scale)
         dir.mkdirs()
         val temp = File(dir, "$notebookId.png.tmp")

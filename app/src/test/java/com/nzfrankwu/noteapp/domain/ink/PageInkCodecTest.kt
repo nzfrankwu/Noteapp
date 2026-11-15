@@ -32,7 +32,9 @@ class PageInkCodecTest {
     fun theFile_startsWithItsMarkAndVersion() {
         val bytes = PageInkCodec.encode(page)
         assertEquals("NAPG", String(bytes.copyOfRange(0, 4), Charsets.US_ASCII))
-        assertEquals(PageInkCodec.VERSION, ((bytes[4].toInt() and 0xFF) shl 8) or (bytes[5].toInt() and 0xFF))
+        // Handwriting alone is still saved as version 1 (Phase 3: version 2 only when a page has pictures).
+        assertEquals(PageInkCodec.VERSION_STROKES_ONLY, ((bytes[4].toInt() and 0xFF) shl 8) or (bytes[5].toInt() and 0xFF))
+        assertEquals(1, PageInkCodec.VERSION_STROKES_ONLY)
     }
 
     @Test

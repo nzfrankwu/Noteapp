@@ -303,6 +303,38 @@ fun NotebookCanvas(
         val keep = (near.first - 1).coerceAtLeast(0)..(near.last + 1).coerceAtMost(pages.lastIndex)
         viewModel.keepReadyOnly(keep.mapNotNullTo(HashSet()) { pages.getOrNull(it)?.id })
     }
+    // Imported PDF pages near the screen, drawn at the settled zoom (see NotebookViewModel.preparePdf).
+    LaunchedEffect(visible, pages, view.inkScale) {
+        if (visible.isEmpty() || view.inkScale <= 0f) return@LaunchedEffect
+        val order = ((visible.first - 1)..(visible.last + 1))
+            .sortedBy { if (it in visible) 0 else 1 }
+            .mapNotNull { pages.getOrNull(it) }
+        viewModel.preparePdf(order, view.inkScale)
+    }
+    // Zoomed in very far on a PDF page: once the view rests, draw just the part on screen, sharp.
+    LaunchedEffect(view, strip, pages) {
+        snapshotFlow { view.camera }.collectLatest { cam ->
+            if (cam == null || pages.none { it.isPdf }) return@collectLatest
+            delay(PDF_DETAIL_DELAY_MS)
+            val vw = view.viewSize.width.toFloat()
+            val vh = view.viewSize.height.toFloat()
+            val regions = HashMap<Page, FloatArray>()
+            for (i in strip.visiblePages(cam, vw)) {
+                val page = pages.getOrNull(i)?.takeIf { it.isPdf } ?: continue
+                val pl = strip.pageLeft(i)
+                val pt = strip.pageTop(i)
+                // The part of the page on screen, plus a margin for small moves, in page units.
+                val mx = vw / cam.scale * 0.15f
+                val my = vh / cam.scale * 0.15f
+                val l = (cam.toWorldX(0f) - pl - mx).coerceAtLeast(0f)
+                val t = (cam.toWorldY(0f) - pt - my).coerceAtLeast(0f)
+                val r = (cam.toWorldX(vw) - pl + mx).coerceAtMost(strip.pageWidth(i))
+                val b = (cam.toWorldY(vh) - pt + my).coerceAtMost(strip.pageHeight(i))
+                if (r > l && b > t) regions[page] = floatArrayOf(l, t, r, b)
+            }
+            viewModel.preparePdfDetail(regions, cam.scale)
+        }
+    }
     // Follow the zoom once it has settled (see EditorViewState.inkScale).
     LaunchedEffect(view) {
         snapshotFlow { view.camera?.scale }.collectLatest { scale ->
@@ -348,7 +380,13 @@ fun NotebookCanvas(
                 val left = cam.toScreenX(strip.pageLeft(i))
                 val top = cam.toScreenY(strip.pageTop(i))
                 drawRect(PaperWhite, Offset(left, top), Size(w, h))
-                drawPaperPattern(page.template ?: notebook.template, pw, ph, PaperLine, left, top, s)
+                if (page.isPdf) {
+                    // An imported PDF's page (no paper pattern), then a sharper part when zoomed in far.
+                    viewModel.pdfPictures[page.id]?.let { drawPdfLayer(it, left, top, s) }
+                    viewModel.pdfDetail[page.id]?.let { drawPdfLayer(it, left, top, s) }
+                } else {
+                    drawPaperPattern(page.template ?: notebook.template, pw, ph, PaperLine, left, top, s)
+                }
                 // Until the page's ink is drawn in full, its quick preview stands in (soft, F8).
                 if (view.fullyDrawn[page.id] != true) {
                     viewModel.previews[page.id]?.let { img ->
@@ -962,3 +1000,22 @@ private fun handleAt(p: Offset, sel: LassoState.Selected, snap: Snapshot, cam: C
 }
 
 private fun androidx.compose.ui.input.pointer.PointerInputChange.changedToDownIgnoreConsumed() = !previousPressed && pressed
+
+/** How long the view must rest before a sharp part of a deeply zoomed PDF page is drawn. */
+private const val PDF_DETAIL_DELAY_MS = 180L
+
+/** Draws a part of a PDF page on the page whose top-left corner is at ([pageLeft], [pageTop]) px, at [scale] px per page unit. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPdfLayer(
+    layer: NotebookViewModel.PdfLayer, pageLeft: Float, pageTop: Float, scale: Float,
+) {
+    val x0 = pageLeft + layer.left * scale
+    val y0 = pageTop + layer.top * scale
+    val x1 = pageLeft + layer.right * scale
+    val y1 = pageTop + layer.bottom * scale
+    drawImage(
+        layer.image,
+        dstOffset = IntOffset(x0.roundToInt(), y0.roundToInt()),
+        dstSize = IntSize((x1 - x0).roundToInt().coerceAtLeast(1), (y1 - y0).roundToInt().coerceAtLeast(1)),
+        filterQuality = FilterQuality.Medium,
+    )
+}

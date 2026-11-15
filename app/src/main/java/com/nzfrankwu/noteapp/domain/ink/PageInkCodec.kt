@@ -15,6 +15,9 @@ import java.util.zip.ZipException
 /** A page file that can't be read. It's never overwritten, so nothing is lost. */
 class PageFileException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
+/** Everything on one page: its strokes and (from format 2) its pictures. */
+data class PageContent(val strokes: List<InkStroke>, val images: List<InkImage> = emptyList())
+
 /**
  * The page file format: how one page's strokes are saved (IDEA.md §5a, "store a format/version
  * number with saved data"). It's our own simple format, not Jetpack Ink's, so saved notes stay
@@ -26,21 +29,29 @@ class PageFileException(message: String, cause: Throwable? = null) : IOException
  *  - the rest is gzip-compressed, which also adds a checksum: a damaged file is detected, never
  *    half-read. Inside: the stroke count, then each stroke (ID, tool key, colour, size, input
  *    tool, point count, which optional values it has, then its point arrays).
+ *  - Version 2 (Phase 3) adds, after the strokes, the picture count and each picture (ID, file
+ *    name, left, top, width, height, rotation). It's written ONLY when a page has pictures, so a
+ *    page of handwriting alone is still saved exactly as version 1, byte for byte.
  *
  * Changing the layout means a NEW version number, with [decode] still reading every older one.
  */
 object PageInkCodec {
-    const val VERSION = 1
+    /** The newest format this app reads and writes. */
+    const val VERSION = 2
+
+    /** The format of a page without pictures. */
+    const val VERSION_STROKES_ONLY = 1
     private val MAGIC = byteArrayOf('N'.code.toByte(), 'A'.code.toByte(), 'P'.code.toByte(), 'G'.code.toByte())
 
     private const val HAS_PRESSURE = 1
     private const val HAS_TILT = 2
     private const val HAS_ORIENTATION = 4
 
-    fun encode(strokes: List<InkStroke>): ByteArray {
+    fun encode(strokes: List<InkStroke>, images: List<InkImage> = emptyList()): ByteArray {
+        val version = if (images.isEmpty()) VERSION_STROKES_ONLY else VERSION
         val bytes = ByteArrayOutputStream()
         bytes.write(MAGIC)
-        DataOutputStream(bytes).writeShort(VERSION)
+        DataOutputStream(bytes).writeShort(version)
         // Buffered: writing floats one byte at a time straight into gzip is very slow.
         DataOutputStream(BufferedOutputStream(GZIPOutputStream(bytes, BUFFER), BUFFER)).use { out ->
             out.writeInt(strokes.size)
@@ -63,15 +74,30 @@ object PageInkCodec {
                 if (flags and HAS_TILT != 0) for (i in 0 until n) out.writeFloat(s.tilt[i])
                 if (flags and HAS_ORIENTATION != 0) for (i in 0 until n) out.writeFloat(s.orientation[i])
             }
+            if (version >= 2) {
+                out.writeInt(images.size)
+                for (img in images) {
+                    out.writeUTF(img.id)
+                    out.writeUTF(img.asset)
+                    out.writeFloat(img.left)
+                    out.writeFloat(img.top)
+                    out.writeFloat(img.width)
+                    out.writeFloat(img.height)
+                    out.writeFloat(img.rotation)
+                }
+            }
         }
         return bytes.toByteArray()
     }
 
+    /** Reads just the strokes of a page file (see [decodePage]). */
+    fun decode(data: ByteArray): List<InkStroke> = decodePage(data).strokes
+
     /**
-     * Reads a page file. Throws [PageFileException] if it isn't a page file, was written by a newer
-     * app version, or is damaged (cut short or changed).
+     * Reads a page file: strokes and pictures. Throws [PageFileException] if it isn't a page file,
+     * was written by a newer app version, or is damaged (cut short or changed).
      */
-    fun decode(data: ByteArray): List<InkStroke> {
+    fun decodePage(data: ByteArray): PageContent {
         if (data.size < MAGIC.size + 2 || !data.copyOfRange(0, MAGIC.size).contentEquals(MAGIC)) {
             throw PageFileException("Not a Noteapp page file")
         }
@@ -100,9 +126,22 @@ object PageInkCodec {
                     val orientation = if (flags and HAS_ORIENTATION != 0) FloatArray(n) { input.readFloat() } else FloatArray(n) { InkStroke.NONE }
                     strokes.add(InkStroke(id, tool, color, size, xs, ys, times, pressure, tilt, orientation, inputTool))
                 }
+                val images = if (version >= 2) {
+                    val imageCount = input.readInt()
+                    if (imageCount < 0 || imageCount > MAX_IMAGES) throw PageFileException("Bad picture count $imageCount")
+                    List(imageCount) {
+                        InkImage(
+                            id = input.readUTF(), asset = input.readUTF(),
+                            left = input.readFloat(), top = input.readFloat(),
+                            width = input.readFloat(), height = input.readFloat(), rotation = input.readFloat(),
+                        )
+                    }
+                } else {
+                    emptyList()
+                }
                 // Reading to the end makes gzip check its checksum, so a changed byte is caught.
-                if (input.read() != -1) throw PageFileException("Unexpected data after the strokes")
-                return strokes
+                if (input.read() != -1) throw PageFileException("Unexpected data after the page")
+                return PageContent(strokes, images)
             }
         } catch (e: PageFileException) {
             throw e
@@ -120,4 +159,5 @@ object PageInkCodec {
     /** Sanity limits, so a damaged count can't make the app try to allocate gigabytes. */
     private const val MAX_STROKES = 1_000_000
     private const val MAX_POINTS = 10_000_000
+    private const val MAX_IMAGES = 100_000
 }

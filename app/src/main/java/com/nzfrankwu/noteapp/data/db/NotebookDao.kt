@@ -37,7 +37,9 @@ interface NotebookDao {
         """
         SELECT notebooks.*,
             (SELECT COUNT(*) FROM pages WHERE pages.notebook_id = notebooks.id AND pages.deleted_at IS NULL)
-            AS page_count
+            AS page_count,
+            EXISTS (SELECT 1 FROM pages WHERE pages.notebook_id = notebooks.id AND pages.pdf_file IS NOT NULL)
+            AS is_pdf
         FROM notebooks
         WHERE notebooks.folder_id = :folderId AND notebooks.deleted_at IS NULL
         ORDER BY notebooks.updated_at DESC, notebooks.title COLLATE NOCASE

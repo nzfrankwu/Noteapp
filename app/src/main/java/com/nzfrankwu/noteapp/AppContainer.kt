@@ -45,6 +45,11 @@ class AppContainer(context: Context) {
     /** First-page pictures for notebook tiles (a cache: drawn again whenever they're missing). */
     val thumbnails: Thumbnails by lazy { Thumbnails(java.io.File(appContext.cacheDir, "thumbnails")) }
 
+    /** Imports PDFs as notebooks (copied into the notebook's folder). */
+    val pdfImport: com.nzfrankwu.noteapp.data.PdfImport by lazy {
+        com.nzfrankwu.noteapp.data.PdfImport(notebookRepository, notebookFiles, thumbnails)
+    }
+
     /** The notebook toolbar's remembered choices. */
     val inkSettings: InkSettings by lazy { InkSettings(appContext) }
 
