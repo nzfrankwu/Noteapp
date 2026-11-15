@@ -1,12 +1,12 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 2 merged into `main`; next is planning Phase 3). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 3 planned with the user; `PHASE-3.md` written; no code yet). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
-- **Current phase: none started.** Next is Phase 3 (see IDEA.md §5): plan it with the user first (a new `PHASE-3.md`, then a `phase-3` branch).
-- **Branch:** `main` (pushed; the working tree is clean). `phase-2` is merged and can be kept or deleted.
+- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). Nothing is built yet.
+- **Branch:** `phase-3` (from `main`, pushed; holds only `PHASE-3.md` and this note so far).
 - **Mode:** "Working together" (the default) unless the user says otherwise; they gave Phase 2 feedback live on 16 Nov.
 - **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
 - **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor), 2.11 (thumbnails), **2.12 (performance; verified on the emulator, 15 Nov)**: two full pages scroll at a median 19 ms a frame (was 150 ms), render thread about 1 ms. Rotating now keeps the current page (`rememberSaveable` in `NotebookScreen`).
@@ -15,9 +15,16 @@ _Last updated: 16 Nov 2026 (Phase 2 merged into `main`; next is planning Phase 3
 
 ## Next steps (in order)
 
-1. **Plan Phase 3** with the user (IDEA.md §5): write `PHASE-3.md`, mark 🔺 steps, then branch `phase-3`.
-2. Follow-ups from Phase 2 (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release; tune the steady/low/medium pen widths after real use (F22); deleted notebooks left without a folder (Phase 6).
-3. Still unreported tablet checks: a reminder arriving with the app swiped away (ColorOS); "Last synced" moving on its own (background sync).
+1. **Start Phase 3 at step 3.1 (database version 5)**, a 🔺 step: tell the user first so they can pick a stronger model or higher effort. Work one step at a time ("Working together" mode: ★ steps need a check-in).
+2. Key Phase 3 decisions (details in `PHASE-3.md`):
+   - PdfBox-Android is approved for PDF export.
+   - The image menu shows recent photos; the photo-access permission is approved.
+   - The screenshot tool captures other apps too (via MediaProjection) and inserts the snip as an image right away. This pulls IDEA.md §2.7 forward from Phase 5; update IDEA.md §2.7 and §5 at step 3.9.
+   - A shared image asks each time: add to a notebook, or a new notebook in a folder.
+   - Writing on a PDF's last page adds a blank page (same as notebooks).
+   - Images are movable objects (lasso).
+3. Follow-ups from Phase 2 (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release; tune the steady/low/medium pen widths after real use (F22); deleted notebooks left without a folder (Phase 6).
+4. Still unreported tablet checks: a reminder arriving with the app swiped away (ColorOS); "Last synced" moving on its own (background sync).
 
 ## Tablet database safety copy
 
