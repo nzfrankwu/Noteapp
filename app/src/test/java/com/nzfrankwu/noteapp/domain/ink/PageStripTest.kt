@@ -40,8 +40,10 @@ class PageStripTest {
     @Test
     fun fitHeight_fillsTheHeight_andCentresThePage() {
         val cam = strip.fit(FitMode.HEIGHT, 1, w, h)
-        assertEquals((h - 48f) / 842f, cam.scale, 0.0001f)
-        assertEquals(24f, cam.toScreenY(0f), 0.01f)
+        // F17: the page fills the whole height, top to bottom, with no margin.
+        assertEquals(h / 842f, cam.scale, 0.0001f)
+        assertEquals(0f, cam.toScreenY(0f), 0.01f)
+        assertEquals(h, cam.toScreenY(842f), 0.01f)
         val centre = strip.pageLeft(1) + 595f / 2
         assertEquals(w / 2, cam.toScreenX(centre), 0.01f)
     }
@@ -50,7 +52,7 @@ class PageStripTest {
     fun fitWidth_fillsTheWidth_andStartsAtTheTop() {
         val cam = strip.fit(FitMode.WIDTH, 0, w, h)
         assertEquals((w - 48f) / 595f, cam.scale, 0.0001f)
-        assertEquals(24f, cam.toScreenY(0f), 0.01f)
+        assertEquals(0f, cam.toScreenY(0f), 0.01f) // starts right at the top (F17)
         assertEquals(24f, cam.toScreenX(0f), 0.01f)
     }
 

@@ -38,6 +38,8 @@ data class InkToolSettings(
         PenStyle(InkPalette.RED, InkPalette.SIZES[1]),
     ),
     val highlighter: PenStyle = PenStyle(InkPalette.HIGHLIGHT_YELLOW, InkPalette.HIGHLIGHTER_SIZE),
+    /** The highlighter's tip: round, or flat like a chisel marker (the default) (F18). */
+    val highlighterRound: Boolean = false,
     /** Eraser radius in page units. */
     val eraserRadius: Float = 6f,
     /** Press hard with the pen to erase (PHASE-2.md). */
@@ -64,6 +66,13 @@ data class InkToolSettings(
     /** Remembers [color] as a custom colour (newest first; no repeats; oldest dropped). */
     fun withCustomColor(color: Int): InkToolSettings =
         copy(customColors = (listOf(color) + customColors.filter { it != color }).take(InkPalette.MAX_CUSTOM))
+
+    /** The kind of ink [tool] puts down (null for the eraser and lasso). */
+    fun inkTool(tool: EditorTool = this.tool): InkTool? = when {
+        tool.penSlot != null -> InkTool.PEN
+        tool == EditorTool.HIGHLIGHTER -> if (highlighterRound) InkTool.HIGHLIGHTER_ROUND else InkTool.HIGHLIGHTER
+        else -> null
+    }
 
     fun penStyle(tool: EditorTool): PenStyle? = tool.penSlot?.let { pens[it] } ?: if (tool == EditorTool.HIGHLIGHTER) highlighter else null
 

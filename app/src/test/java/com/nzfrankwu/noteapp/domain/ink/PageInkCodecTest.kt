@@ -81,7 +81,9 @@ class PageInkCodecTest {
 
     @Test
     fun toolKeys_neverChange() {
-        assertEquals(setOf("pen-v1", "highlighter-v1"), InkTool.entries.map { it.key }.toSet())
+        // New kinds may be added (F18: the round highlighter); existing keys never change.
+        assertEquals(setOf("pen-v1", "highlighter-v1", "highlighter-round-v1"), InkTool.entries.map { it.key }.toSet())
+        assertTrue(InkTool.HIGHLIGHTER.isHighlighter && InkTool.HIGHLIGHTER_ROUND.isHighlighter && !InkTool.PEN.isHighlighter)
     }
 
     private fun assertRefused(bytes: ByteArray, messagePart: String?) {

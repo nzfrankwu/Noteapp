@@ -264,7 +264,7 @@ fun NotebookCanvas(
 
     // The pen layer's brush (read at the start of each stroke; its transform is set by the gestures).
     inputs.brush = settings.penStyle(settings.tool)?.let { style ->
-        InkBrushes.brush(if (settings.tool == EditorTool.HIGHLIGHTER) InkTool.HIGHLIGHTER else InkTool.PEN, style.colorArgb, style.size)
+        InkBrushes.brush(settings.inkTool() ?: InkTool.PEN, style.colorArgb, style.size)
     }
 
     // Latest values for the long-running gesture handler.
@@ -424,12 +424,12 @@ fun NotebookCanvas(
                 null -> Unit
             }
             view.straight?.let { line ->
-                val alpha = if (line.tool == InkTool.HIGHLIGHTER) 0.4f else 1f
+                val alpha = if (line.tool.isHighlighter) 0.4f else 1f
                 drawLine(
                     Color(line.colorArgb).copy(alpha = alpha),
                     Offset(cam.toScreenX(line.sx), cam.toScreenY(line.sy)),
                     Offset(cam.toScreenX(line.ex), cam.toScreenY(line.ey)),
-                    strokeWidth = line.size * cam.scale * if (line.tool == InkTool.HIGHLIGHTER) 1f else 0.8f,
+                    strokeWidth = line.size * cam.scale * if (line.tool.isHighlighter) 1f else 0.8f,
                     cap = if (line.tool == InkTool.HIGHLIGHTER) StrokeCap.Butt else StrokeCap.Round,
                 )
             }
@@ -869,7 +869,7 @@ private fun straightLine(snap: Snapshot, sx: Float, sy: Float, ex: Float, ey: Fl
     val style = snap.settings.penStyle(tool) ?: return null
     val (x, y) = Straighten.snappedEnd(sx, sy, ex, ey)
     val pressure = if (pressureCount > 0) pressureSum / pressureCount else InkStroke.NONE
-    return StraightLine(sx, sy, x, y, if (tool == EditorTool.HIGHLIGHTER) InkTool.HIGHLIGHTER else InkTool.PEN, style.colorArgb, style.size, pressure, byFinger)
+    return StraightLine(sx, sy, x, y, snap.settings.inkTool(tool) ?: InkTool.PEN, style.colorArgb, style.size, pressure, byFinger)
 }
 
 /** Saves a finished straight line onto the page where it started. */

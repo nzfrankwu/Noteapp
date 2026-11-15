@@ -1,5 +1,7 @@
 package com.nzfrankwu.noteapp.ui.notebook
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -56,12 +58,14 @@ import com.nzfrankwu.noteapp.domain.ink.EditorTool
 import com.nzfrankwu.noteapp.domain.ink.InkToolSettings
 import com.nzfrankwu.noteapp.domain.ink.PageStrip
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
+import com.nzfrankwu.noteapp.ui.theme.DeskDark
+import com.nzfrankwu.noteapp.ui.theme.DeskLight
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * An open notebook (PHASE-2.md 2.6): a slim top bar, the pages side by side, the floating
- * toolbar, and a page-number badge. Changes save themselves.
+ * An open notebook (PHASE-2.md 2.6): the pages side by side filling the screen, floating
+ * buttons over them (F17), the floating toolbar, and a page-number badge. Changes save themselves.
  *
  * Where the pages are on screen lives in [EditorViewState], which only the canvas and the small
  * overlays read, so scrolling and zooming don't rebuild this whole screen.
@@ -128,62 +132,11 @@ fun NotebookScreen(
         onBack()
     }
 
-    Column(modifier.fillMaxSize()) {
-        // ---- Top bar (dark, buttons only, like Notein: F5) ----
-        EditorTopBar(
-            canUndo = viewModel.canUndo,
-            canRedo = viewModel.canRedo,
-            onBack = ::leave,
-            onUndo = { view.lasso = null; viewModel.undo() },
-            onRedo = { view.lasso = null; viewModel.redo() },
-            onAddPage = {
-                view.lasso = null // a selection remembers its page's place, which moves
-                scope.launch {
-                    val at = pageNow() + 1
-                    if (viewModel.addPage(at) != null && strip != null) {
-                        val grown = PageStrip(strip.pageWidth, strip.pageHeight, pages.size + 1)
-                        view.animateTo(scope, grown.fit(settings.fitMode, at, view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
-                    }
-                }
-            },
-            menuOpen = menuOpen,
-            onMenuOpen = { menuOpen = it },
-        ) {
-            Text(
-                "Paper",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-            )
-            PageTemplate.entries.forEach { t ->
-                DropdownMenuItem(
-                    text = { Text(if (nb?.template == t) "✓  ${t.label}" else "    ${t.label}") },
-                    onClick = { menuOpen = false; viewModel.setTemplate(t) },
-                )
-            }
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = { Text("Delete this page", color = MaterialTheme.colorScheme.error) },
-                enabled = pages.size > 1,
-                onClick = {
-                    menuOpen = false
-                    view.lasso = null
-                    pages.getOrNull(pageNow())?.let { viewModel.deletePage(it.id) }
-                    scope.launch { snackbar.showSnackbar("Page deleted. Tap Undo to bring it back.") }
-                },
-            )
-            if (BuildConfig.DEBUG) {
-                HorizontalDivider()
-                DropdownMenuItem(
-                    text = { Text("Add 50 pages of test writing (debug)") },
-                    onClick = { menuOpen = false; viewModel.addTestPages(50) },
-                    modifier = Modifier.testTag("add-test-pages"),
-                )
-            }
-        }
-
-        // ---- Pages, toolbar and overlays ----
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+    val dark = isSystemInDarkTheme()
+    // No top bar (F17, like Notein): the pages fill the screen up to the status bar, and the
+    // buttons float over them.
+    Box(modifier.fillMaxSize().background(if (dark) DeskDark else DeskLight).statusBarsPadding()) {
+        Box(Modifier.fillMaxSize()) {
             if (nb != null && pages.isNotEmpty()) {
                 NotebookCanvas(viewModel = viewModel, notebook = nb, pages = pages, settings = settings, view = view)
             }
@@ -230,6 +183,58 @@ fun NotebookScreen(
                     }
                 }
                 PageBadge(view, strip, pages.size)
+            }
+            // ---- Floating buttons (F17) ----
+            EditorTopBar(
+                canUndo = viewModel.canUndo,
+                canRedo = viewModel.canRedo,
+                onBack = ::leave,
+                onUndo = { view.lasso = null; viewModel.undo() },
+                onRedo = { view.lasso = null; viewModel.redo() },
+                onAddPage = {
+                    view.lasso = null // a selection remembers its page's place, which moves
+                    scope.launch {
+                        val at = pageNow() + 1
+                        if (viewModel.addPage(at) != null && strip != null) {
+                            val grown = PageStrip(strip.pageWidth, strip.pageHeight, pages.size + 1)
+                            view.animateTo(scope, grown.fit(settings.fitMode, at, view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
+                        }
+                    }
+                },
+                menuOpen = menuOpen,
+                onMenuOpen = { menuOpen = it },
+            ) {
+                Text(
+                    "Paper",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+                PageTemplate.entries.forEach { t ->
+                    DropdownMenuItem(
+                        text = { Text(if (nb?.template == t) "✓  ${t.label}" else "    ${t.label}") },
+                        onClick = { menuOpen = false; viewModel.setTemplate(t) },
+                    )
+                }
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text("Delete this page", color = MaterialTheme.colorScheme.error) },
+                    enabled = pages.size > 1,
+                    onClick = {
+                        menuOpen = false
+                        view.lasso = null
+                        pages.getOrNull(pageNow())?.let { viewModel.deletePage(it.id) }
+                        scope.launch { snackbar.showSnackbar("Page deleted. Tap Undo to bring it back.") }
+                    },
+                )
+                if (BuildConfig.DEBUG) {
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("Add 50 pages of test writing (debug)") },
+                        onClick = { menuOpen = false; viewModel.addTestPages(50) },
+                        modifier = Modifier.testTag("add-test-pages"),
+                    )
+                }
             }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
         }

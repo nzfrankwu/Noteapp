@@ -115,6 +115,11 @@ Batch 4 (16 Nov, after trying F1–F12):
 - [x] **F15. No Done button:** a finger tap outside the selection lets it go (a finger drag still scrolls and keeps it); the pen outside it already did.
 - [x] 🔺 **F16. Pages stayed blurry after a fast scroll** (notebooks of a few short pages) until zoomed or touched. Cause: a page with little writing was marked ready to draw without telling the screen, so its layer never redrew. Readiness is now Compose state (`StrokeDrawables`).
 
+Batch 5 (16 Nov; references `doc ui reference.jpg` and `highligher menu.jpg` in design-reference/):
+- [x] **F17. No top bar: floating buttons** (Back; Undo and Redo pill; Add page and ⋮) over the pages, which now reach up to the status bar. Fitting a page uses the full height, with no margin above or below.
+- [x] **F18. Two highlighters: Flat tip (chisel, as before) and Round tip**, picked in the highlighter's settings panel. The round one is a new ink kind, `highlighter-round-v1` (old notes look the same).
+- [x] **F19. The lasso picks strokes only partly inside the loop** (any point inside, or a line crossing it), not just mostly-inside ones.
+
 - [ ] **End of phase (again, after 2.13):** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 
 ## Folder screen layout (2.2), draft to confirm

@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (tablet feedback batch 4, F13–F16, built and on the tablet; waiting for the user's check). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (tablet feedback batch 5, F17–F19, built and on the tablet; waiting for the user's check). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -15,7 +15,7 @@ _Last updated: 16 Nov 2026 (tablet feedback batch 4, F13–F16, built and on the
 
 ## Next steps (in order)
 
-1. **The user's tablet feedback (`PHASE-2.md` 2.13, F1–F16) is all built** (16 Nov) and on the tablet; waiting for their check and more feedback. Batch 4: a page is added after the last one when you write on it, lasso rotate handle, tap outside to deselect (no Done), fix for pages staying blurry after a fast scroll. Then run `/code-review` again on the new work (the phase plan's last box), and ask again about merging.
+1. **The user's tablet feedback (`PHASE-2.md` 2.13, F1–F19) is all built** (16 Nov) and on the tablet; waiting for their check and more feedback. Batch 4: a page is added after the last one when you write on it, lasso rotate handle, tap outside to deselect (no Done), fix for pages staying blurry after a fast scroll. Batch 5: floating buttons instead of a top bar (pages reach the status bar), flat/round highlighter tips, lasso picks partly-circled strokes. Then run `/code-review` again on the new work (the phase plan's last box), and ask again about merging.
 2. **Waiting on the user: approve merging `phase-2` into `main`** (CLAUDE.md: never merge without approval). `REPORT.md` (local) has the full report. After merging, Phase 3 is next (see IDEA.md §5).
 3. 2.12 follow-ups (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release.
 
@@ -142,6 +142,7 @@ _Last updated: 16 Nov 2026 (tablet feedback batch 4, F13–F16, built and on the
   - Screen tests draw with "Draw with finger" on (`InkToolSettings(drawWithFinger = true)`), since test touches are fingers.
 - **Pen button keys:** the OPPO Pencil 2's side button is a Bluetooth key (`KEY_F21`, Android 334), seen with `adb shell getevent -lt` (no device argument: it takes only one). Test it on the emulator with `adb shell input keyevent 334`.
 - **Scripted pen holds on the emulator:** `input stylus motionevent MOVE` at the same spot isn't delivered again, so a held pen sends nothing; use `sleep 0.8` between MOVEs (the 40 ms hold watcher in `NotebookCanvas` handles it). Scripted `input touchscreen swipe` sends too few moves to fling: test flings with Compose tests (`NotebookEditorTest`).
+- **Ink kinds (`InkTool`)**: PEN, HIGHLIGHTER (flat), HIGHLIGHTER_ROUND (F18, built in `InkBrushes` from the stock highlighter with a round tip). Use `tool.isHighlighter`, never `== HIGHLIGHTER`. Keys are frozen by `PageInkCodecTest.toolKeys_neverChange`.
 - **Page readiness is Compose state** (`StrokeDrawables.isReady` reads a `mutableStateMapOf`). Anything a composable checks before drawing must be state, or its layer never redraws when it changes (this was F16's blur bug).
 - **Lasso rotation (F14)** exists only during the rotate drag (`LassoState.Selected.angle`); on pen-up the strokes are saved turned and a fresh, axis-aligned selection is made, so move and resize never deal with a turned box.
 - **Python heredocs in Git Bash mangle non-ASCII (– ✓ etc.):** write the script with the Write tool and run it, or set `PYTHONUTF8=1`.

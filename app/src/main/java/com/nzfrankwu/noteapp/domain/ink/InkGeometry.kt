@@ -35,11 +35,25 @@ object InkGeometry {
      */
     fun insideLasso(stroke: InkStroke, loopXs: FloatArray, loopYs: FloatArray): Boolean {
         if (loopXs.size < 3 || stroke.pointCount == 0) return false
-        var inside = 0
+        // Any part inside picks the whole stroke (F19): you needn't circle all of it.
         for (i in 0 until stroke.pointCount) {
-            if (pointInPolygon(stroke.xs[i], stroke.ys[i], loopXs, loopYs)) inside++
+            if (pointInPolygon(stroke.xs[i], stroke.ys[i], loopXs, loopYs)) return true
         }
-        return inside * 2 > stroke.pointCount
+        // A stroke crossing the loop with no point inside (e.g. a long straight line, 2 points).
+        for (i in 1 until stroke.pointCount) {
+            if (crossesLoop(stroke.xs[i - 1], stroke.ys[i - 1], stroke.xs[i], stroke.ys[i], loopXs, loopYs)) return true
+        }
+        return false
+    }
+
+    /** Does the segment (ax, ay)–(bx, by) cross any side of the closed loop? */
+    private fun crossesLoop(ax: Float, ay: Float, bx: Float, by: Float, xs: FloatArray, ys: FloatArray): Boolean {
+        var j = xs.size - 1
+        for (i in xs.indices) {
+            if (segmentsCross(ax, ay, bx, by, xs[j], ys[j], xs[i], ys[i])) return true
+            j = i
+        }
+        return false
     }
 
     /** Even-odd rule: is (x, y) inside the polygon? */

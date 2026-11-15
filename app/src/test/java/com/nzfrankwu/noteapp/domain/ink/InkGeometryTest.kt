@@ -41,11 +41,22 @@ class InkGeometryTest {
     }
 
     @Test
-    fun strokeMostlyInside_isSelected_butMostlyOutside_isNot() {
-        val mostlyIn = testStroke("a", 10f to 10f, 20f to 20f, 30f to 30f, 150f to 150f)
+    fun aStrokeOnlyPartlyInside_isStillSelected() {
+        // F19: you needn't circle the whole stroke.
         val mostlyOut = testStroke("b", 90f to 90f, 150f to 150f, 160f to 160f)
-        assertTrue(InkGeometry.insideLasso(mostlyIn, square.first, square.second))
-        assertFalse(InkGeometry.insideLasso(mostlyOut, square.first, square.second))
+        assertTrue(InkGeometry.insideLasso(mostlyOut, square.first, square.second))
+    }
+
+    @Test
+    fun aLineCrossingTheLoop_withNoPointInside_isSelected() {
+        val across = testStroke("x", -50f to 50f, 150f to 50f)
+        assertTrue(InkGeometry.insideLasso(across, square.first, square.second))
+    }
+
+    @Test
+    fun aStrokeWhollyOutside_isNotSelected() {
+        val outside = testStroke("o", 150f to 150f, 200f to 160f, 260f to 120f)
+        assertFalse(InkGeometry.insideLasso(outside, square.first, square.second))
     }
 
     @Test

@@ -47,8 +47,8 @@ private class PageChunks {
 
     fun update(strokes: List<InkStroke>, hidden: Set<String>?) {
         val shown = if (hidden == null) strokes else strokes.filter { it.id !in hidden }
-        highlights = InkChunks.reconcile(highlights, shown.filter { it.tool == InkTool.HIGHLIGHTER })
-        pens = InkChunks.reconcile(pens, shown.filter { it.tool != InkTool.HIGHLIGHTER })
+        highlights = InkChunks.reconcile(highlights, shown.filter { it.tool.isHighlighter })
+        pens = InkChunks.reconcile(pens, shown.filter { !it.tool.isHighlighter })
     }
 }
 
@@ -212,7 +212,7 @@ private fun DrawScope.drawStrokes(
         drawIntoCanvas { canvas ->
             for (pass in 0..1) {
                 for (stroke in strokes) {
-                    if ((stroke.tool == InkTool.HIGHLIGHTER) != (pass == 0)) continue
+                    if (stroke.tool.isHighlighter != (pass == 0)) continue
                     drawables.get(pageId, stroke)?.let { renderer.draw(canvas.nativeCanvas, it, hint) }
                 }
             }

@@ -55,9 +55,12 @@ class PageStrip(val pageWidth: Float, val pageHeight: Float, val pageCount: Int,
     /** The page nearest the middle of the screen (for the page number badge). */
     fun currentPage(camera: Camera, viewWidth: Float): Int = pageAt(camera.toWorldX(viewWidth / 2))
 
-    /** The camera that fits page [index] to a [viewWidth] × [viewHeight] screen, [margin] px from the edges. */
-    fun fit(mode: FitMode, index: Int, viewWidth: Float, viewHeight: Float, margin: Float = MARGIN): Camera {
-        val byHeight = (viewHeight - 2 * margin) / pageHeight
+    /**
+     * The camera that fits page [index] to a [viewWidth] × [viewHeight] screen, [margin] px from
+     * the sides. Top to bottom it uses the whole height (F17, like Notein), [marginY] px.
+     */
+    fun fit(mode: FitMode, index: Int, viewWidth: Float, viewHeight: Float, margin: Float = MARGIN, marginY: Float = MARGIN_Y): Camera {
+        val byHeight = (viewHeight - 2 * marginY) / pageHeight
         val byWidth = (viewWidth - 2 * margin) / pageWidth
         val scale = when (mode) {
             FitMode.HEIGHT -> byHeight
@@ -66,7 +69,7 @@ class PageStrip(val pageWidth: Float, val pageHeight: Float, val pageCount: Int,
         }.coerceAtLeast(0.01f)
         val centreX = pageLeft(index.coerceIn(0, max(0, pageCount - 1))) + pageWidth / 2
         val offsetX = viewWidth / 2 - centreX * scale
-        val offsetY = if (pageHeight * scale + 2 * margin > viewHeight) margin else (viewHeight - pageHeight * scale) / 2
+        val offsetY = if (pageHeight * scale + 2 * marginY > viewHeight) marginY else (viewHeight - pageHeight * scale) / 2
         return Camera(scale, offsetX, offsetY)
     }
 
@@ -90,7 +93,7 @@ class PageStrip(val pageWidth: Float, val pageHeight: Float, val pageCount: Int,
      * Keeps the pages on screen: the middle of the screen can travel from the middle of the first
      * page to the middle of the last; a page shorter than the screen stays centred top to bottom.
      */
-    fun clamp(camera: Camera, viewWidth: Float, viewHeight: Float, margin: Float = MARGIN): Camera {
+    fun clamp(camera: Camera, viewWidth: Float, viewHeight: Float, margin: Float = MARGIN_Y): Camera {
         val s = camera.scale
         val firstCentre = pageWidth / 2
         val lastCentre = totalWidth - pageWidth / 2
@@ -114,8 +117,11 @@ class PageStrip(val pageWidth: Float, val pageHeight: Float, val pageCount: Int,
         /** Gap between pages on the desk, in page units: none, the pages touch (F4). */
         const val GAP = 0f
 
-        /** Space around a fitted page, in screen pixels. */
+        /** Space each side of a fitted page, in screen pixels. */
         const val MARGIN = 24f
+
+        /** Space above and below a fitted page, and past its top and bottom when zoomed in: none (F17). */
+        const val MARGIN_Y = 0f
 
         private const val MIN_ZOOM_OF_WHOLE_PAGE = 0.5f
         private const val MAX_ZOOM_OF_WIDTH = 4f

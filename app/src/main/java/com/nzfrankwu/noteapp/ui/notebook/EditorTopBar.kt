@@ -1,8 +1,5 @@
 package com.nzfrankwu.noteapp.ui.notebook
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
@@ -21,24 +17,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowCompat
 import com.nzfrankwu.noteapp.R
-import com.nzfrankwu.noteapp.ui.theme.EditorBar
 import com.nzfrankwu.noteapp.ui.theme.EditorBarButton
 import com.nzfrankwu.noteapp.ui.theme.EditorBarIcon
 import com.nzfrankwu.noteapp.ui.theme.EditorBarIconDisabled
 
 /**
- * The notebook's top bar (PHASE-2.md F5, like Notein): one thin dark strip of round icon
- * buttons, in both light and dark mode. Back on the left; Undo and Redo in a pill in the middle;
- * Add page and ⋮ on the right. [menu] fills the ⋮ menu.
+ * The notebook's buttons, floating over the pages (PHASE-2.md F5, F17, like Notein): no bar
+ * behind them, so the page can fill the screen. Dark round buttons in both light and dark mode.
+ * Back on the left; Undo and Redo in a pill in the middle; Add page and ⋮ on the right.
+ * [menu] fills the ⋮ menu. Taps between the buttons reach the page.
  */
 @Composable
 fun EditorTopBar(
@@ -52,20 +47,18 @@ fun EditorTopBar(
     onMenuOpen: (Boolean) -> Unit,
     menu: @Composable ColumnScope.() -> Unit,
 ) {
-    LightStatusBarIcons()
     Box(
         Modifier
             .fillMaxWidth()
-            .background(EditorBar)
-            .statusBarsPadding()
             .height(BarHeight)
-            .padding(horizontal = 10.dp),
+            .padding(horizontal = 12.dp),
     ) {
         BarButton(R.drawable.ic_arrow_back, "Back", onBack, Modifier.align(Alignment.CenterStart))
 
         Row(
             Modifier
                 .align(Alignment.Center)
+                .shadow(3.dp, RoundedCornerShape(50))
                 .background(EditorBarButton, RoundedCornerShape(50))
                 .padding(horizontal = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -102,12 +95,12 @@ private fun BarButton(
     IconButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.size(ButtonSize),
+        modifier = if (filled) modifier.size(ButtonSize).shadow(3.dp, CircleShape) else modifier.size(ButtonSize),
         shape = CircleShape,
         colors = IconButtonDefaults.iconButtonColors(
-            containerColor = if (filled) EditorBarButton else EditorBar.copy(alpha = 0f),
+            containerColor = if (filled) EditorBarButton else Color.Transparent,
             contentColor = EditorBarIcon,
-            disabledContainerColor = if (filled) EditorBarButton else EditorBar.copy(alpha = 0f),
+            disabledContainerColor = if (filled) EditorBarButton else Color.Transparent,
             disabledContentColor = EditorBarIconDisabled,
         ),
     ) {
@@ -115,25 +108,5 @@ private fun BarButton(
     }
 }
 
-/** The bar is dark, so the status bar's clock and icons turn white while it shows. */
-@Composable
-private fun LightStatusBarIcons() {
-    val view = LocalView.current
-    if (view.isInEditMode) return
-    DisposableEffect(view) {
-        val window = view.context.findActivity()?.window
-        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
-        val before = controller?.isAppearanceLightStatusBars
-        controller?.isAppearanceLightStatusBars = false
-        onDispose { if (before != null) controller.isAppearanceLightStatusBars = before }
-    }
-}
-
-private tailrec fun Context.findActivity(): Activity? = when (this) {
-    is Activity -> this
-    is ContextWrapper -> baseContext.findActivity()
-    else -> null
-}
-
-private val BarHeight = 52.dp
-private val ButtonSize = 40.dp
+private val BarHeight = 64.dp
+private val ButtonSize = 44.dp

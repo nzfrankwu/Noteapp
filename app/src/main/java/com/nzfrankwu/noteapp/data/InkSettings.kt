@@ -58,6 +58,7 @@ class InkSettings(context: Context) : InkSettingsStore {
             pressureEraseHoldMs = p[PRESSURE_HOLD_MS] ?: d.pressureEraseHoldMs,
             stability = p[STABILITY] ?: d.stability,
             holdToStraighten = p[HOLD_TO_STRAIGHTEN] ?: d.holdToStraighten,
+            highlighterRound = p[HIGHLIGHTER_ROUND] ?: d.highlighterRound,
             toolbarX = p[TOOLBAR_X] ?: d.toolbarX,
             toolbarY = p[TOOLBAR_Y] ?: d.toolbarY,
             toolbarCollapsed = p[TOOLBAR_COLLAPSED] ?: d.toolbarCollapsed,
@@ -81,6 +82,7 @@ class InkSettings(context: Context) : InkSettingsStore {
         p[PRESSURE_HOLD_MS] = s.pressureEraseHoldMs
         p[STABILITY] = s.stability
         p[HOLD_TO_STRAIGHTEN] = s.holdToStraighten
+        p[HIGHLIGHTER_ROUND] = s.highlighterRound
         p[TOOLBAR_X] = s.toolbarX
         p[TOOLBAR_Y] = s.toolbarY
         p[TOOLBAR_COLLAPSED] = s.toolbarCollapsed
@@ -106,6 +108,7 @@ class InkSettings(context: Context) : InkSettingsStore {
         val CUSTOM_COLORS = stringPreferencesKey("custom_colors")
         val STABILITY = intPreferencesKey("stability")
         val HOLD_TO_STRAIGHTEN = booleanPreferencesKey("hold_to_straighten")
+        val HIGHLIGHTER_ROUND = booleanPreferencesKey("highlighter_round")
         val TOOLBAR_X = floatPreferencesKey("toolbar_x")
         val TOOLBAR_Y = floatPreferencesKey("toolbar_y")
         val TOOLBAR_COLLAPSED = booleanPreferencesKey("toolbar_collapsed")

@@ -10,8 +10,14 @@ enum class InkTool(val key: String) {
     /** Pressure-sensitive pen (Jetpack Ink's pressure pen, version 1). */
     PEN("pen-v1"),
 
-    /** See-through highlighter (Jetpack Ink's highlighter, version 1). */
-    HIGHLIGHTER("highlighter-v1");
+    /** See-through highlighter with a flat, chisel tip (Jetpack Ink's highlighter, version 1). */
+    HIGHLIGHTER("highlighter-v1"),
+
+    /** See-through highlighter with a round tip (F18): Jetpack Ink's highlighter, version 1, with a round tip. */
+    HIGHLIGHTER_ROUND("highlighter-round-v1");
+
+    /** Highlighter ink: see-through, and always drawn under the pen. */
+    val isHighlighter: Boolean get() = this != PEN
 
     companion object {
         /** Unknown keys (e.g. written by a newer app) fall back to [PEN], so the ink still shows. */

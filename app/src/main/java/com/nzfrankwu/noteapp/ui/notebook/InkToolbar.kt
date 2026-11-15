@@ -20,6 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -243,11 +246,23 @@ fun ToolSettingsPanel(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                EditorTool.LASSO -> Text("Circle strokes to select them, then drag to move, pull the corner to resize, or delete.")
+                EditorTool.LASSO -> Text("Circle strokes (or just part of them) to select them, then drag to move, pull the corner to resize, or use the menu.")
                 else -> {
                     val style = settings.penStyle(tool) ?: return@Column
                     val highlighter = tool == EditorTool.HIGHLIGHTER
                     val range = if (highlighter) 3f..30f else InkPalette.MIN_SIZE..InkPalette.MAX_SIZE
+                    if (highlighter) {
+                        // Flat (chisel) or round tip, like Notein (F18).
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().testTag("highlighter-tip")) {
+                            listOf(false to "Flat tip", true to "Round tip").forEachIndexed { i, (round, label) ->
+                                SegmentedButton(
+                                    selected = settings.highlighterRound == round,
+                                    onClick = { onChange { it.copy(highlighterRound = round) } },
+                                    shape = SegmentedButtonDefaults.itemShape(i, 2),
+                                ) { Text(label) }
+                            }
+                        }
+                    }
                     LabeledSlider("Thickness", "%.1f".format(style.size), style.size, range) { onStyle(tool, style.copy(size = it)) }
                     Text("Colours", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val all = if (highlighter) InkPalette.HIGHLIGHTER_COLORS else InkPalette.PEN_COLORS + InkPalette.MORE_PEN_COLORS

@@ -1,6 +1,8 @@
 package com.nzfrankwu.noteapp.ui.notebook
 
 import androidx.ink.brush.Brush
+import androidx.ink.brush.BrushCoat
+import androidx.ink.brush.BrushTip
 import androidx.ink.brush.BrushFamily
 import androidx.ink.brush.InputToolType
 import androidx.ink.brush.SelfOverlap
@@ -25,13 +27,35 @@ object InkBrushes {
     // DISCARD: where a highlighter stroke crosses itself it doesn't get darker, like a real one.
     private val highlighterFamily: BrushFamily by lazy { StockBrushes.highlighter(SelfOverlap.DISCARD, StockBrushes.HighlighterVersion.V1) }
 
+    /**
+     * The round-tip highlighter (F18): the same highlighter (paint, behaviours), with its flat
+     * chisel tip swapped for a round one. Its look is pinned by its own key, "highlighter-round-v1".
+     */
+    @OptIn(androidx.ink.brush.ExperimentalInkCustomBrushApi::class)
+    private val roundHighlighterFamily: BrushFamily by lazy {
+        val coats = highlighterFamily.coats.map { coat ->
+            val t = coat.tip
+            BrushCoat(
+                BrushTip(
+                    scaleX = 1f, scaleY = 1f, cornerRounding = 1f, slantDegrees = 0f, pinch = 0f, rotationDegrees = 0f,
+                    particleGapDistanceScale = t.particleGapDistanceScale,
+                    particleGapDurationMillis = t.particleGapDurationMillis,
+                    behaviors = t.behaviors,
+                ),
+                coat.paintPreferences,
+            )
+        }
+        highlighterFamily.copy(coats = coats, clientBrushFamilyId = "noteapp:highlighter-round-v1")
+    }
+
     fun family(tool: InkTool): BrushFamily = when (tool) {
         InkTool.PEN -> penFamily
         InkTool.HIGHLIGHTER -> highlighterFamily
+        InkTool.HIGHLIGHTER_ROUND -> roundHighlighterFamily
     }
 
     fun brush(tool: InkTool, colorArgb: Int, size: Float): Brush =
-        Brush.createWithColorIntArgb(family(tool), if (tool == InkTool.HIGHLIGHTER) seeThrough(colorArgb) else colorArgb, size, EPSILON)
+        Brush.createWithColorIntArgb(family(tool), if (tool.isHighlighter) seeThrough(colorArgb) else colorArgb, size, EPSILON)
 
     /** Highlighter ink is see-through, so the writing and lines under it still show. */
     private fun seeThrough(argb: Int): Int =
@@ -40,7 +64,11 @@ object InkBrushes {
     private const val HIGHLIGHTER_ALPHA = 0x66
 
     /** Which tool drew a finished stroke (by its brush). */
-    fun toolOf(stroke: Stroke): InkTool = if (stroke.brush.family == highlighterFamily) InkTool.HIGHLIGHTER else InkTool.PEN
+    fun toolOf(stroke: Stroke): InkTool = when (stroke.brush.family) {
+        highlighterFamily -> InkTool.HIGHLIGHTER
+        roundHighlighterFamily -> InkTool.HIGHLIGHTER_ROUND
+        else -> InkTool.PEN
+    }
 
     /**
      * Turns a just-finished Jetpack Ink stroke (desk coordinates) into a saved stroke on its page,
