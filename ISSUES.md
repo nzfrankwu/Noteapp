@@ -13,6 +13,7 @@ _None known._
 ## Follow-ups / tech debt
 
 - **Image menu, not checked yet (Phase 3.5):** Take Photo with the emulator's camera; "Allow limited access" (only some photos) and "Don't allow" paths; HEIC photos (the emulator has none). 
+- **Export (Phase 3.7):** PDF pages with a `/Rotate` or a crop box offset aren't tested; ink is placed using the crop box. The app is about 9 MB bigger (debug) with PdfBox; check the release size.
 - **Pictures while selected (Phase 3.6):** a selected picture is drawn above the ink until it's let go (it's in the selection layer); the rotate handle turns pictures too but a non-square picture turned and then stretched sideways is only approximately right (the stretch follows the box, not the picture's own axes).
 - **PDF pages, things not checked yet (Phase 3.3):** the sharp deep-zoom part (`pdfDetail`) needs a two-finger pinch, which the emulator scripts can't do; check on the tablet. Jumping far with the page scroller shows the page white for a moment before its picture arrives (plain notebooks also have no preview that far away). PDFs with rotated pages (`/Rotate`) aren't tested. Android 15+ can open password-protected PDFs with a password; we just refuse them for now.
 - **Imported PDFs and images are never deleted (Phase 3 decision):** a notebook's `pdf-*.pdf` and `images/*` files stay even when their pages or images are deleted, so Undo and Phase 6's "Recently deleted" can bring them back. Clean-up of files nothing uses is a Phase 6/7 job.
@@ -50,6 +51,7 @@ _None known._
 
 ## Done
 
+- **Phase 3 step 3.7 (16 Nov):** Export as PDF (⋮ → Export as PDF → Share… or Save to device).
 - **Phase 3 step 3.6 (16 Nov):** the lasso selects pictures (loop or tap) to move, resize, turn, copy, cut, paste, duplicate and delete, all undoable.
 - **Phase 3 step 3.5 (16 Nov):** Insert image: the image menu (Recent Images, Photo Library, Take Photo); pictures sit under the ink and are saved with the page.
 - **Phase 3 steps 3.2–3.4 (16 Nov):** page files can hold pictures (format 2, only when a page has one).

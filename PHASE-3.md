@@ -106,7 +106,7 @@ The goal is to let the user import lecture PDFs, write on them, drop images onto
    - Selection includes images: a loop touching or crossing the image's box, or a lasso tap on the image.
    - Move, resize and rotate (reuse `LassoBox.map` maths for image boxes).
    - Duplicate, copy, cut, paste, and delete, all undoable.
-- [ ] 🔺 **3.7 Export as PDF** (add PdfBox-Android; `PDFBoxResourceLoader.init` in `NoteAppApplication`). ★
+- [x] 🔺 **3.7 Export as PDF** (add PdfBox-Android; `PDFBoxResourceLoader.init` in `NoteAppApplication`). ★ _Done 16 Nov: `com.tom-roush:pdfbox-android:2.0.27.0`; `data/PdfExport` (PDF pages imported as-is via `importPage` + ink appended; other pages new with paper pattern; pictures via JPEGFactory/LosslessFactory; ink filled from Jetpack Ink outlines, `InkBrushes.exportShape`; highlighter via ExtGState alpha; temp file then rename); ⋮ → Export as PDF → progress → Share… (FileProvider `exports/`) / Save to device (`CreateDocument`). 100 pages in under 8 s on the emulator; re-importing the export shows the ink in place. Debug APK +9 MB._
    - Pages from a PDF: import the original page and draw the ink over it.
    - Other pages: a new page with the paper pattern (`domain/PagePattern`), the images, then the ink.
    - Ink as vector: fill each stroke's outline from Jetpack Ink's `Stroke.shape` outlines; the highlighter at its opacity, via the PDF's transparency setting.

@@ -1,11 +1,11 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.6 done and pushed; next 3.7). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.7 done and pushed; next 3.8). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
-- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu) and 3.6 (lasso with pictures) are done**; next is 3.7 (Export as PDF).
+- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu), 3.6 (lasso with pictures) and 3.7 (Export as PDF) are done**; next is 3.8 (Share to Noteapp).
 - **Branch:** `phase-3` (from `main`), pushed after each step.
 - **Mode: hands-off** (the user said so on 16 Nov, 3.2 onwards): commit and push after each passing step; write `REPORT.md` when stopping; list every 🔺 step there.
 - **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
@@ -15,7 +15,8 @@ _Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.6 done and pushed; nex
 
 ## Next steps (in order)
 
-1. **Step 3.7 (Export as PDF)** 🔺 ★: add PdfBox-Android (approved; `com.tom-roush:pdfbox-android`, check the newest version that fits Kotlin 2.2 / AGP 9.5.1), `PDFBoxResourceLoader.init` in `NoteAppApplication`. PDF pages: import the original page (`LayerUtility` / `importPage`) and draw ink on top; other pages: new page with the paper pattern (`domain/PagePattern`), pictures, then ink. Ink as filled outlines (Jetpack Ink `Stroke.shape` outlines, or our own polyline fallback), highlighter with transparency. Share via the FileProvider (`exports/` is already in `file_paths.xml`), Save via `CreateDocument`. Then 3.8 (share into Noteapp), 3.9 (screenshot tool), 3.10 (tablet).
+1. **Step 3.8 (Share to Noteapp)** ★: manifest `SEND`/`SEND_MULTIPLE` for `application/pdf` and `image/*`, `VIEW` for PDFs; `MainActivity.takeRequests` copies shared files into a private import folder at once (permission can lapse), then `NoteAppRoot` shows a destination sheet (image: "Add to a notebook" / "New notebook in a folder"; PDF: folder picker). Reuse `PdfImport` and `NotebookViewModel`-free image insertion (`ImageImport` + `NotebookInk` needs the editor; simplest: add a page with the picture via repository + `NotebookFiles.write`). Then 3.9 (screenshot tool), 3.10 (tablet).
+   - 3.7 left: `data/PdfExport`, `StrokeShape`, `InkBrushes.exportShape`, `NotebookViewModel.exportPdf / ExportState`, `ExportDialogs` in `NotebookScreen`.
    - 3.6 left: `LassoState.Selected.images`, `LassoBox.mapImage`, `InkGeometry.imageInLoop`, `NotebookViewModel.Clip / replaceSelection / deleteSelection / imageAt / imagesInLoop`.
    - 3.5 left: `ImageMenu.kt`, `data/ImageImport` (+ `loadForScreen`), `data/RecentImages`, `NotebookViewModel.insertImages / insertImageAsPage / prepareImages / imageBitmaps`, `drawPicture` in `NotebookCanvas`, `InkSketch.drawImages`, FileProvider `${applicationId}.files` (`res/xml/file_paths.xml`: cache `camera/`, `exports/`).
    - 3.4 left: `InkImage`, `PageContent`, `PageInkCodec.decodePage`, `NotebookInk.images/addImages/remove/replace/add(strokes, images)`, `InkEdit.Group`, `changedPages`.

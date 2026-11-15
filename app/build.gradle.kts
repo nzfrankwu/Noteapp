@@ -118,6 +118,8 @@ dependencies {
     implementation(libs.androidx.ink.geometry)
     implementation(libs.androidx.ink.rendering)
     implementation(libs.androidx.ink.strokes)
+    // Export as PDF (Phase 3): keeps imported PDF pages as they are, with the ink on top.
+    implementation(libs.pdfbox.android)
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver) // a fake Canvas server for tests
     androidTestImplementation(libs.androidx.room.testing)

@@ -225,6 +225,56 @@ class NotebookViewModel(
         return bitmap.asImageBitmap()
     }
 
+    // ---- Export as PDF (Phase 3) ----
+
+    /** Where an export is. */
+    sealed interface ExportState {
+        data class Working(val done: Int, val total: Int) : ExportState
+        data class Ready(val file: java.io.File) : ExportState
+        data object Failed : ExportState
+    }
+
+    var exportState by mutableStateOf<ExportState?>(null)
+        private set
+    private var exportJob: Job? = null
+
+    /**
+     * Saves the notebook, then writes it as a PDF to [dir] (a cache folder, e.g. exports/), named
+     * after the notebook. The screen then offers Share or Save to device.
+     */
+    fun exportPdf(dir: java.io.File) {
+        if (exportState is ExportState.Working) return
+        val nb = notebook.value ?: return
+        val list = pages.value
+        if (list.isEmpty()) return
+        exportState = ExportState.Working(0, list.size)
+        exportJob = viewModelScope.launch {
+            exportState = try {
+                saveNow()?.join() // the export reads the saved pages
+                val out = java.io.File(dir, com.nzfrankwu.noteapp.data.PdfExport.fileNameFor(nb.title))
+                com.nzfrankwu.noteapp.data.PdfExport(files, io).export(nb, list, out, InkBrushes::exportShape) { done, total ->
+                    viewModelScope.launch { if (exportState is ExportState.Working) exportState = ExportState.Working(done, total) }
+                }
+                ExportState.Ready(out)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                null
+            } catch (e: Exception) {
+                ExportState.Failed
+            } catch (e: OutOfMemoryError) {
+                ExportState.Failed
+            }
+        }
+    }
+
+    fun cancelExport() {
+        exportJob?.cancel()
+        exportState = null
+    }
+
+    fun exportShown() {
+        if (exportState !is ExportState.Working) exportState = null
+    }
+
     // ---- Pictures (Phase 3) ----
 
     private val imageImport = com.nzfrankwu.noteapp.data.ImageImport(files, io)

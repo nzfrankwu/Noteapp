@@ -251,6 +251,16 @@ fun NotebookScreen(
                 }
                 HorizontalDivider()
                 DropdownMenuItem(
+                    text = { Text("Export as PDF") },
+                    onClick = {
+                        menuOpen = false
+                        view.lasso = null
+                        viewModel.exportPdf(java.io.File(context.cacheDir, EXPORT_DIR))
+                    },
+                    modifier = Modifier.testTag("export-pdf"),
+                )
+                HorizontalDivider()
+                DropdownMenuItem(
                     text = { Text("Delete this page", color = MaterialTheme.colorScheme.error) },
                     enabled = pages.size > 1,
                     onClick = {
@@ -304,11 +314,93 @@ fun NotebookScreen(
                     modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp),
                 )
             }
+            ExportDialogs(viewModel, nb?.title.orEmpty())
             if (viewModel.insertingImages) {
                 androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter).testTag("inserting-images"))
             }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
         }
+    }
+}
+
+/** Exported PDFs wait here (cache) to be shared or saved; see res/xml/file_paths.xml. */
+private const val EXPORT_DIR = "exports"
+
+/**
+ * Export as PDF (PHASE-3.md 3.7): a progress dialog, then Share… (Android's share sheet) or
+ * Save to device (Android's "save as").
+ */
+@Composable
+private fun ExportDialogs(viewModel: NotebookViewModel, title: String) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var saved by remember { mutableStateOf<String?>(null) }
+    val state = viewModel.exportState
+    val saveAs = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/pdf"),
+    ) { uri ->
+        val file = (viewModel.exportState as? NotebookViewModel.ExportState.Ready)?.file
+        if (uri != null && file != null) {
+            scope.launch {
+                saved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
+                        "Saved."
+                    }.getOrElse { "Couldn't save the PDF there." }
+                }
+            }
+        }
+    }
+    when (state) {
+        is NotebookViewModel.ExportState.Working -> androidx.compose.material3.AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Exporting PDF…") },
+            text = {
+                Column {
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { if (state.total == 0) 0f else state.done.toFloat() / state.total },
+                        modifier = Modifier.fillMaxWidth().testTag("export-progress"),
+                    )
+                    Text("Page ${state.done} of ${state.total}", modifier = Modifier.padding(top = 8.dp))
+                }
+            },
+            confirmButton = {},
+            dismissButton = { androidx.compose.material3.TextButton(onClick = viewModel::cancelExport) { Text("Cancel") } },
+        )
+        is NotebookViewModel.ExportState.Ready -> androidx.compose.material3.AlertDialog(
+            onDismissRequest = { saved = null; viewModel.exportShown() },
+            title = { Text("PDF ready") },
+            text = { Text(saved ?: "“${state.file.name}” is ready to share or save.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", state.file)
+                        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "application/pdf"
+                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(android.content.Intent.createChooser(send, "Share PDF"))
+                    },
+                    modifier = Modifier.testTag("export-share"),
+                ) { Text("Share…") }
+            },
+            dismissButton = {
+                Row {
+                    androidx.compose.material3.TextButton(onClick = { saveAs.launch(state.file.name) }, modifier = Modifier.testTag("export-save")) {
+                        Text("Save to device")
+                    }
+                    androidx.compose.material3.TextButton(onClick = { saved = null; viewModel.exportShown() }) { Text("Close") }
+                }
+            },
+        )
+        NotebookViewModel.ExportState.Failed -> androidx.compose.material3.AlertDialog(
+            onDismissRequest = viewModel::exportShown,
+            title = { Text("Couldn't export") },
+            text = { Text("The PDF couldn't be made. Your notes are safe; try again.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = viewModel::exportShown) { Text("OK") } },
+        )
+        null -> Unit
     }
 }
 

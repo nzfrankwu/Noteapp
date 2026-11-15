@@ -21,6 +21,8 @@ class NoteAppApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // PdfBox-Android (PDF export) needs its fonts and resources found once.
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(applicationContext)
         Notifications.createChannels(this)
         keepRemindersInStep()
         // While signed in to Canvas, keep the 6-hourly background sync scheduled (IDEA.md §3.3).
