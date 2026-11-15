@@ -83,7 +83,7 @@ Work happens on branch `phase-2`; it's merged into `main` at the end, with the u
   - A side-button click toggles lasso ↔ the previous tool.
   - Pressing harder than the threshold erases whole strokes it touches, with a sensitivity slider and an off switch.
   - Unit tests for the toggle and the threshold. The user tests both on the OPPO Pencil 2: the emulator can't check pressure levels or the pen button.
-- [ ] **2.11 Thumbnails.** Notebook tiles show their first page (a cached picture, refreshed after edits).
+- [x] **2.11 Thumbnails.** Notebook tiles show their first page (a cached picture, refreshed after edits). _(done 15 Nov: `data/Thumbnails` draws the first page to a PNG in the cache folder when that page is saved; `components/ThumbnailImage` loads it for the tile, reloading when the notebook changes. 2 emulator tests.)_
 - [ ] **2.12 Performance check on the tablet.** A long notebook (50+ pages of dense writing) stays smooth; fix what's slow.
 - [ ] **End of phase:** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 

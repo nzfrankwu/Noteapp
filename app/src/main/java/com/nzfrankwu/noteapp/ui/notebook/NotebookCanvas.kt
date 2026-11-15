@@ -7,7 +7,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -30,6 +35,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntSize
 import androidx.ink.authoring.compose.InProgressStrokes
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import androidx.ink.brush.Brush
 import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import androidx.ink.strokes.Stroke
@@ -77,6 +84,24 @@ sealed interface LassoState {
     }
 }
 
+/**
+ * What the editor is showing: where the pages are on screen ([camera]), the screen size, and the
+ * lasso. Kept in one holder that the canvas reads only while DRAWING, so panning, zooming and
+ * dragging a selection redraw the canvas without re-laying-out the whole screen.
+ */
+@Stable
+class EditorViewState {
+    var camera by mutableStateOf<Camera?>(null)
+    var viewSize by mutableStateOf(IntSize.Zero)
+    var lasso by mutableStateOf<LassoState?>(null)
+
+    /**
+     * The zoom the ink was last drawn for (it tunes how smooth stroke edges are). It follows the
+     * camera's zoom only once a zoom has settled, so pinching doesn't redraw every stroke.
+     */
+    var inkScale by mutableFloatStateOf(0f)
+}
+
 /** The pen layer's matrix and brush, kept in one stable object so the pen layer isn't rebuilt mid-stroke. */
 @Stable
 private class InkLayerInputs {
@@ -95,19 +120,6 @@ private class InkLayerInputs {
     }
 }
 
-/** Remembers drawable strokes so they're only built once (keyed by stroke ID and version). */
-private class DrawableCache {
-    private val map = HashMap<String, Pair<InkStroke, Stroke?>>()
-    fun get(stroke: InkStroke): Stroke? {
-        val hit = map[stroke.id]
-        if (hit != null && hit.first === stroke) return hit.second
-        val built = InkBrushes.toDrawable(stroke)
-        map[stroke.id] = stroke to built
-        return built
-    }
-    fun trim(keep: Int) { if (map.size > keep * 2 + 200) map.clear() }
-}
-
 /**
  * The notebook's pages side by side on a desk, with writing (PHASE-2.md 2.4–2.10).
  *
@@ -124,32 +136,24 @@ fun NotebookCanvas(
     notebook: Notebook,
     pages: List<Page>,
     settings: InkToolSettings,
-    camera: Camera?,
-    onCamera: (Camera) -> Unit,
-    onViewSize: (IntSize) -> Unit,
-    lasso: LassoState?,
-    onLasso: (LassoState?) -> Unit,
+    view: EditorViewState,
     modifier: Modifier = Modifier,
 ) {
     val strip = remember(notebook.pageWidth, notebook.pageHeight, pages.size) {
         PageStrip(notebook.pageWidth, notebook.pageHeight, pages.size)
     }
     val renderer = remember { CanvasStrokeRenderer.create() }
-    val cache = remember { DrawableCache() }
     val inputs = remember { InkLayerInputs() }
     val dark = isSystemInDarkTheme()
 
-    // Keep the pen layer's transform and brush current (read at the start of each stroke).
-    camera?.let(inputs::setCamera)
+    // The pen layer's brush (read at the start of each stroke; its transform is set by the gestures).
     inputs.brush = settings.penStyle(settings.tool)?.let { style ->
         InkBrushes.brush(if (settings.tool == EditorTool.HIGHLIGHTER) InkTool.HIGHLIGHTER else InkTool.PEN, style.colorArgb, style.size)
     }
 
     // Latest values for the long-running gesture handler.
-    val current by rememberUpdatedState(Snapshot(strip, pages, settings, camera, lasso))
+    val current by rememberUpdatedState(Snapshot(strip, pages, settings))
     var eraserAt by remember { mutableStateOf<Offset?>(null) }
-    val onCameraNow by rememberUpdatedState(onCamera)
-    val onLassoNow by rememberUpdatedState(onLasso)
 
     val onStrokesFinished: (List<Stroke>) -> Unit = remember(viewModel) {
         { strokes ->
@@ -164,30 +168,55 @@ fun NotebookCanvas(
         }
     }
 
+    // Which pages are on screen. This only changes when a page comes or goes, not on every scroll step.
+    val visible by remember(strip, view) {
+        derivedStateOf {
+            view.camera?.let { strip.visiblePages(it, view.viewSize.width.toFloat()) } ?: IntRange.EMPTY
+        }
+    }
+    // Get the pages on screen and their neighbours ready to draw; forget the far ones.
+    LaunchedEffect(visible, pages, viewModel.version) {
+        if (visible.isEmpty() || pages.isEmpty()) return@LaunchedEffect
+        val near = (visible.first - 1).coerceAtLeast(0)..(visible.last + 1).coerceAtMost(pages.lastIndex)
+        for (i in near) pages.getOrNull(i)?.let { viewModel.prepareToDraw(it.id) }
+        val keep = (near.first - 1).coerceAtLeast(0)..(near.last + 1).coerceAtMost(pages.lastIndex)
+        viewModel.keepReadyOnly(keep.mapNotNullTo(HashSet()) { pages.getOrNull(it)?.id })
+    }
+    // Follow the zoom once it has settled (see EditorViewState.inkScale).
+    LaunchedEffect(view) {
+        snapshotFlow { view.camera?.scale }.collectLatest { scale ->
+            if (scale == null) return@collectLatest
+            if (view.inkScale == 0f) { view.inkScale = scale; return@collectLatest }
+            val ratio = if (scale > view.inkScale) scale / view.inkScale else view.inkScale / scale
+            if (ratio > 1.4f) {
+                delay(300)
+                view.inkScale = scale
+            }
+        }
+    }
+
     Box(
         modifier
             .fillMaxSize()
             .testTag("notebook-canvas")
-            .onSizeChanged(onViewSize)
-            .pointerInput(viewModel) {
+            .onSizeChanged { view.viewSize = it }
+            .pointerInput(viewModel, view) {
                 handleGestures(
                     snapshot = { current },
+                    view = view,
+                    inputs = inputs,
                     viewModel = viewModel,
-                    onCamera = { onCameraNow(it) },
-                    onLasso = { onLassoNow(it) },
                     onEraser = { eraserAt = it },
                 )
             },
     ) {
+        // 1. The desk and the paper (cheap, redrawn as you scroll).
         Canvas(Modifier.fillMaxSize()) {
             drawRect(if (dark) DeskDark else DeskLight)
-            val cam = camera ?: return@Canvas
-            @Suppress("UNUSED_VARIABLE") val v = viewModel.version // redraw on every edit
+            val cam = view.camera ?: return@Canvas
             val s = cam.scale
             val w = notebook.pageWidth * s
             val h = notebook.pageHeight * s
-            val selected = lasso as? LassoState.Selected
-            var shown = 0
             for (i in strip.visiblePages(cam, size.width)) {
                 val page = pages.getOrNull(i) ?: continue
                 val left = cam.toScreenX(strip.pageLeft(i))
@@ -198,36 +227,21 @@ fun NotebookCanvas(
                 if (viewModel.pageStatus[page.id] is PageStatus.Damaged) {
                     drawRect(Color(0x22D32F2F), Offset(left, top), Size(w, h))
                 }
-                val hidden = if (selected != null && selected.pageId == page.id) selected.strokes.map { it.id }.toSet() else emptySet()
-                val strokes = viewModel.ink.strokes(page.id)
-                shown += strokes.size
-                clipRect(left, top, left + w, top + h) {
-                    drawIntoCanvas { composeCanvas ->
-                        // The renderer's matrix only tunes quality; the canvas must be moved too.
-                        val canvas = composeCanvas.nativeCanvas
-                        val m = Matrix().apply { setScale(s, s); postTranslate(left, top) }
-                        val saved = canvas.save()
-                        canvas.concat(m)
-                        // Highlighter under the pen, like on paper.
-                        for (pass in 0..1) {
-                            for (stroke in strokes) {
-                                if ((stroke.tool == InkTool.HIGHLIGHTER) != (pass == 0) || stroke.id in hidden) continue
-                                cache.get(stroke)?.let { renderer.draw(canvas, it, m) }
-                            }
-                        }
-                        if (selected != null && selected.pageId == page.id) {
-                            for (stroke in selected.transformed()) {
-                                InkBrushes.toDrawable(stroke)?.let { renderer.draw(canvas, it, m) }
-                            }
-                        }
-                        canvas.restoreToCount(saved)
-                    }
-                }
             }
-            cache.trim(shown)
+        }
 
-            // Lasso loop and selection box.
-            when (lasso) {
+        // 2. The ink: one layer per page on screen (see PageInkLayer).
+        for (i in visible) {
+            val page = pages.getOrNull(i) ?: continue
+            key(page.id) {
+                PageInkLayer(viewModel, page.id, i, notebook.pageWidth, notebook.pageHeight, strip, view, renderer)
+            }
+        }
+
+        // 3. The lasso's loop and box, and the eraser's ring.
+        Canvas(Modifier.fillMaxSize()) {
+            val cam = view.camera ?: return@Canvas
+            when (val lasso = view.lasso) {
                 is LassoState.Drawing -> if (lasso.xs.size > 1) {
                     val path = androidx.compose.ui.graphics.Path()
                     lasso.xs.indices.forEach { k ->
@@ -248,11 +262,12 @@ fun NotebookCanvas(
                 null -> Unit
             }
             eraserAt?.let { at ->
-                val radius = settings.eraserRadius * s
+                val radius = settings.eraserRadius * cam.scale
                 drawCircle(Color.White.copy(alpha = 0.6f), radius, at)
                 drawCircle(Color(0xFF5D6066), radius, at, style = DrawStroke(width = 2f))
             }
         }
+        // 4. The stroke being written (Jetpack Ink's low-latency layer).
         InkLayer(inputs, onStrokesFinished)
     }
 }
@@ -274,8 +289,6 @@ private data class Snapshot(
     val strip: PageStrip,
     val pages: List<Page>,
     val settings: InkToolSettings,
-    val camera: Camera?,
-    val lasso: LassoState?,
 )
 
 private const val HANDLE_RADIUS = 14f
@@ -288,17 +301,22 @@ private enum class PenMode { INK, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, B
 
 private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGestures(
     snapshot: () -> Snapshot,
+    view: EditorViewState,
+    inputs: InkLayerInputs,
     viewModel: NotebookViewModel,
-    onCamera: (Camera) -> Unit,
-    onLasso: (LassoState?) -> Unit,
     onEraser: (Offset?) -> Unit,
 ) = awaitPointerEventScope {
+    val onCamera: (Camera) -> Unit = { view.camera = it }
+    val onLasso: (LassoState?) -> Unit = { view.lasso = it }
     val touches = LinkedHashMap<PointerId, Offset>()
     var penId: PointerId? = null
     var penMode = PenMode.INK
     var penLast: Offset? = null
     var penStart = Offset.Zero
-    var pressures = ArrayList<Float>()
+    var penIsFinger = false
+    // Press-hard-to-erase only trusts pens whose pressure really varies (see PressureErase).
+    var firstPressure = 0f
+    var pressureVaries = false
     var buttonWasDown = false
     // Double-tap tracking (fingers).
     var tapDownAt = 0L
@@ -310,7 +328,9 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
     while (true) {
         val event = awaitPointerEvent(PointerEventPass.Initial)
         val snap = snapshot()
-        val cam = snap.camera ?: continue
+        val cam = view.camera ?: continue
+        // The pen layer runs after this handler: give it the current view before it starts a stroke.
+        inputs.setCamera(cam)
         val viewW = size.width.toFloat()
         val viewH = size.height.toFloat()
 
@@ -331,11 +351,13 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     penId = change.id
                     penStart = change.position
                     penLast = change.position
-                    pressures = arrayListOf(change.pressure)
+                    penIsFinger = !isPen
+                    firstPressure = change.pressure
+                    pressureVaries = false
                     val pageIndex = snap.strip.pageAt(cam.toWorldX(change.position.x))
                     val page = snap.pages.getOrNull(pageIndex)
                     val tool = snap.settings.tool
-                    val selected = snap.lasso as? LassoState.Selected
+                    val selected = view.lasso as? LassoState.Selected
                     penMode = when {
                         page == null || !viewModel.isEditable(page.id) -> PenMode.BLOCKED
                         change.type == PointerType.Eraser || tool == EditorTool.ERASER -> PenMode.ERASE
@@ -349,7 +371,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     }
                     if (penMode != PenMode.INK) change.consume()
                     if (penMode == PenMode.ERASE) eraseStep(viewModel, snap, cam, change.position, change.position, onEraser)
-                    if (tool != EditorTool.LASSO && snap.lasso != null) onLasso(null)
+                    if (tool != EditorTool.LASSO && view.lasso != null) onLasso(null)
                     continue
                 }
                 if (change.id != penId) { change.consume(); continue }
@@ -357,9 +379,9 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     val from = penLast ?: change.position
                     when (penMode) {
                         PenMode.INK -> {
-                            pressures.add(change.pressure)
+                            if (change.pressure != firstPressure) pressureVaries = true
                             val hard = snap.settings.pressureErase && isPen &&
-                                PressureErase.isHard(change.pressure, snap.settings.pressureEraseLevel, PressureErase.reportsPressure(pressures))
+                                PressureErase.isHard(change.pressure, snap.settings.pressureEraseLevel, pressureVaries)
                             if (hard) {
                                 penMode = PenMode.ERASE // consuming from now on cancels the wet stroke
                                 change.consume()
@@ -372,19 +394,19 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         }
                         PenMode.LASSO_LOOP -> {
                             change.consume()
-                            (snap.lasso as? LassoState.Drawing)?.let {
+                            (view.lasso as? LassoState.Drawing)?.let {
                                 onLasso(it.copy(xs = it.xs + cam.toWorldX(change.position.x), ys = it.ys + cam.toWorldY(change.position.y)))
                             }
                         }
                         PenMode.LASSO_MOVE -> {
                             change.consume()
-                            (snap.lasso as? LassoState.Selected)?.let {
+                            (view.lasso as? LassoState.Selected)?.let {
                                 onLasso(it.copy(dx = it.dx + (change.position.x - from.x) / cam.scale, dy = it.dy + (change.position.y - from.y) / cam.scale))
                             }
                         }
                         PenMode.LASSO_RESIZE -> {
                             change.consume()
-                            (snap.lasso as? LassoState.Selected)?.let { sel ->
+                            (view.lasso as? LassoState.Selected)?.let { sel ->
                                 val b = sel.bounds
                                 val pl = snap.strip.pageLeft(sel.pageIndex)
                                 val px = cam.toWorldX(change.position.x) - pl - (b[0] + sel.dx)
@@ -400,7 +422,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     // Pen lifted.
                     when (penMode) {
                         PenMode.LASSO_LOOP -> {
-                            val loop = snap.lasso as? LassoState.Drawing
+                            val loop = view.lasso as? LassoState.Drawing
                             val page = loop?.let { snap.pages.getOrNull(it.pageIndex) }
                             if (loop != null && page != null && loop.xs.size > 2) {
                                 val pl = snap.strip.pageLeft(loop.pageIndex)
@@ -416,7 +438,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             }
                         }
                         PenMode.LASSO_MOVE, PenMode.LASSO_RESIZE -> {
-                            (snap.lasso as? LassoState.Selected)?.let { sel ->
+                            (view.lasso as? LassoState.Selected)?.let { sel ->
                                 if (sel.dx != 0f || sel.dy != 0f || sel.scale != 1f) {
                                     val moved = sel.transformed()
                                     viewModel.replaceStrokes(sel.pageId, moved)
@@ -436,7 +458,19 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
 
             // ---- Finger ----
             change.consume() // fingers never reach the pen layer (palm rejection)
-            if (penId != null) { touches.remove(change.id); continue } // palm while writing: ignore
+            val pen = penId
+            if (pen != null) {
+                if (penIsFinger && penMode == PenMode.INK && change.changedToDownIgnoreConsumed()) {
+                    // Debug "Draw with finger": a second finger turns writing into a two-finger
+                    // scroll/zoom. The line being drawn is dropped (its next events arrive consumed).
+                    touches[pen] = penLast ?: change.position
+                    penId = null
+                    penLast = null
+                } else {
+                    touches.remove(change.id) // palm while writing: ignore
+                    continue
+                }
+            }
             if (change.changedToDownIgnoreConsumed()) {
                 touches[change.id] = change.position
                 if (touches.size == 1) {

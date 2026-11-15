@@ -24,6 +24,7 @@ import com.nzfrankwu.noteapp.domain.ink.NotebookInk
 import com.nzfrankwu.noteapp.domain.ink.PenButtonToggle
 import com.nzfrankwu.noteapp.domain.ink.Smoothing
 import com.nzfrankwu.noteapp.domain.ink.Straighten
+import com.nzfrankwu.noteapp.domain.ink.TestWriting
 import com.nzfrankwu.noteapp.ui.folder.message
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -118,6 +119,8 @@ class NotebookViewModel(
             if (pageStatus.containsKey(page.id)) continue
             pageStatus[page.id] = PageStatus.Loading
             val read = withContext(io) { files.read(notebookId, page.id) }
+            // A page just added here was made ready meanwhile (and may already have writing).
+            if (pageStatus[page.id] == PageStatus.Ready) continue
             when (read) {
                 PageRead.Missing -> ink.load(page.id, emptyList()).also { pageStatus[page.id] = PageStatus.Ready }
                 is PageRead.Ok -> ink.load(page.id, read.strokes).also { pageStatus[page.id] = PageStatus.Ready }
@@ -128,6 +131,36 @@ class NotebookViewModel(
     }
 
     fun isEditable(pageId: String): Boolean = pageStatus[pageId] == PageStatus.Ready
+
+    // ---- Getting pages ready to draw ----
+
+    /** The ready-to-draw strokes of the pages near the screen. */
+    val drawables = StrokeDrawables()
+    private val preparing = HashSet<String>()
+
+    /**
+     * Gets a page's strokes ready to draw (does nothing if they are, or it's under way). A page
+     * with little writing is ready at once; a full page is built in the background, so opening
+     * or scrolling to it never freezes the screen, and it appears a moment later.
+     */
+    fun prepareToDraw(pageId: String) {
+        if (drawables.isReady(pageId) || pageId in preparing || !isEditable(pageId)) return
+        val strokes = ink.strokes(pageId).toList()
+        if (strokes.size <= BUILD_NOW_LIMIT) {
+            drawables.put(pageId, emptyList()) // built one by one as they're first drawn
+            return
+        }
+        preparing += pageId
+        viewModelScope.launch {
+            val built = withContext(Dispatchers.Default) { strokes.map { it to InkBrushes.toDrawable(it) } }
+            drawables.put(pageId, built)
+            preparing -= pageId
+            version++
+        }
+    }
+
+    /** Keeps only the pages near the screen ready to draw (the rest are rebuilt when needed). */
+    fun keepReadyOnly(pageIds: Set<String>) = drawables.keepOnly(pageIds) { ink.strokes(it) }
 
     // ---- Editing ----
 
@@ -208,6 +241,29 @@ class NotebookViewModel(
         return result.id
     }
 
+    /**
+     * Debug builds only: adds [count] pages full of pretend handwriting at the end, to check that
+     * a long notebook stays smooth. They're ordinary pages (saved, and deletable).
+     */
+    fun addTestPages(count: Int) {
+        val nb = notebook.value ?: return
+        viewModelScope.launch {
+            val seedBase = pages.value.size
+            repeat(count) { n ->
+                val result = notebooks.addPage(notebookId, Int.MAX_VALUE) as? NotebookResult.Success ?: return@launch
+                val strokes = withContext(Dispatchers.Default) {
+                    TestWriting.page(nb.pageWidth, nb.pageHeight, seedBase + n) { java.util.UUID.randomUUID().toString() }
+                }
+                ink.load(result.id, strokes)
+                pageStatus[result.id] = PageStatus.Ready
+                dirty.add(result.id)
+            }
+            version++
+            saveNow()
+            _message.value = "Added $count test pages."
+        }
+    }
+
     /** Deletes a page (kept, hidden; Undo brings it back). The last page can't be deleted. */
     fun deletePage(pageId: String) {
         val index = pages.value.indexOfFirst { it.id == pageId }
@@ -272,7 +328,8 @@ class NotebookViewModel(
         saveJob?.cancel()
         val toSave = dirty.associateWith { ink.strokes(it).toList() }
         dirty.clear()
-        val thumbnail = thumbnailJob()
+        // The tile shows the first page: redraw it only when that page changed.
+        val thumbnail = if (pages.value.firstOrNull()?.id in toSave) thumbnailJob() else null
         return saveScope.launch {
             saveLock.withLock {
                 val saved = ArrayList<String>()
@@ -317,6 +374,9 @@ class NotebookViewModel(
     }
 
     companion object {
+        /** Pages with at most this many strokes are built as they're drawn; fuller ones in the background. */
+        const val BUILD_NOW_LIMIT = 120
+
         /** A changed page is saved this long after the last change. */
         const val SAVE_DELAY_MS = 400L
 

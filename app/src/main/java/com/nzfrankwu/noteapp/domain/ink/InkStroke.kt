@@ -53,8 +53,15 @@ class InkStroke(
 
     val pointCount: Int get() = xs.size
 
-    /** The smallest box around the points (not counting the brush width), as [left, top, right, bottom]. */
-    fun bounds(): FloatArray {
+    private var cachedBounds: FloatArray? = null
+
+    /**
+     * The smallest box around the points (not counting the brush width), as [left, top, right,
+     * bottom]. Worked out once and remembered (a stroke never changes); don't modify the array.
+     */
+    fun bounds(): FloatArray = cachedBounds ?: computeBounds().also { cachedBounds = it }
+
+    private fun computeBounds(): FloatArray {
         if (pointCount == 0) return floatArrayOf(0f, 0f, 0f, 0f)
         var l = xs[0]; var t = ys[0]; var r = xs[0]; var b = ys[0]
         for (i in 1 until pointCount) {

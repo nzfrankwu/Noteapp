@@ -13,7 +13,12 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
 
 ## Next steps (in order)
 
-1. **2.11 Thumbnails** (in progress: `data/Thumbnails`, `components/ThumbnailImage`), then **2.12 performance**, then the end-of-phase `/code-review`.
+1. **2.12 performance is in progress** (2.11 thumbnails is done). State on 15 Nov, evening:
+   - Found on the emulator with a 51-page test notebook (editor ⋮ → "Add 50 pages of test writing (debug)", about 900 strokes a page): drawing every stroke every frame gave about 150 ms frames.
+   - Done so far: buffered page codec (saving a full page 1300 ms → 124 ms), stroke bounds cached, drawables built in the background (`StrokeDrawables`, `NotebookViewModel.prepareToDraw`), camera/lasso moved into `EditorViewState` (read in the draw phase only), and ink drawn as per-page layers split into 32-stroke chunk layers (`domain/ink/InkChunks`, `ui/notebook/PageInkLayers.kt`).
+   - Still slow while scrolling full pages on the emulator. Next: read `dumpsys gfxinfo … framestats` per stage (scratchpad `framestats.py`) to see whether the app thread or the render thread is the bottleneck; if it's the render thread replaying thousands of meshes, cache each page as an offscreen layer (`CompositingStrategy.Offscreen`, drawn at the settled zoom) with the tail chunk outside it.
+   - The whole emulator suite has NOT been rerun since these changes: run it before calling 2.12 done.
+   - Then the end-of-phase `/code-review`, and `REPORT.md`.
 2. Waiting on the user: tablet checks (see ISSUES.md, Open questions).
 
 ## Tablet database safety copy
@@ -125,6 +130,7 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
   - Ink's own `encode`/`decode` use native code, which JVM unit tests can't load; we save with our own `PageInkCodec`.
   - Emulator stylus input: `adb shell input stylus swipe x1 y1 x2 y2 ms`, or `input stylus motionevent DOWN/MOVE/UP x y` (pressure is always 1.0 there).
   - Screen tests draw with "Draw with finger" on (`InkToolSettings(drawWithFinger = true)`), since test touches are fingers.
+- **`InkPerformanceProbe`** (androidTest) only logs timings (`adb logcat -s InkPerf`); like every connected test run it uninstalls the app from the emulator afterwards.
 - **Every `connectedDebugAndroidTest` run wipes the emulator app's data.** Take screenshots before running the suite, or recreate data with the scratchpad `setup2.sh` (fake Canvas, 3 course folders, and in "Electronics Design 2": 2 subfolders and 2 notebooks).
 - **Emulator UI scripting:** a `ui.py` helper (tap by exact text / content description via `uiautomator dump`) lived in the scratchpad; rewrite it if gone. Set `PYTHONIOENCODING=utf-8` (screen text has "＋" etc.).
 - **Database changes:** follow the steps at the top of `Migrations.kt`.

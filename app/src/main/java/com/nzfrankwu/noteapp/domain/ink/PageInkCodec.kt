@@ -1,5 +1,7 @@
 package com.nzfrankwu.noteapp.domain.ink
 
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -39,7 +41,8 @@ object PageInkCodec {
         val bytes = ByteArrayOutputStream()
         bytes.write(MAGIC)
         DataOutputStream(bytes).writeShort(VERSION)
-        DataOutputStream(GZIPOutputStream(bytes)).use { out ->
+        // Buffered: writing floats one byte at a time straight into gzip is very slow.
+        DataOutputStream(BufferedOutputStream(GZIPOutputStream(bytes, BUFFER), BUFFER)).use { out ->
             out.writeInt(strokes.size)
             for (s in strokes) {
                 out.writeUTF(s.id)
@@ -76,7 +79,7 @@ object PageInkCodec {
         if (version > VERSION) throw PageFileException("Saved by a newer version of Noteapp (page format $version)")
         if (version < 1) throw PageFileException("Unknown page format $version")
         try {
-            DataInputStream(GZIPInputStream(ByteArrayInputStream(data, 6, data.size - 6))).use { input ->
+            DataInputStream(BufferedInputStream(GZIPInputStream(ByteArrayInputStream(data, 6, data.size - 6), BUFFER), BUFFER)).use { input ->
                 val count = input.readInt()
                 if (count < 0 || count > MAX_STROKES) throw PageFileException("Bad stroke count $count")
                 val strokes = ArrayList<InkStroke>(count)
@@ -111,6 +114,8 @@ object PageInkCodec {
             throw PageFileException("Page file can't be read: ${e.message}", e)
         }
     }
+
+    private const val BUFFER = 64 * 1024
 
     /** Sanity limits, so a damaged count can't make the app try to allocate gigabytes. */
     private const val MAX_STROKES = 1_000_000
