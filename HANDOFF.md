@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 12:00 pm. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, 12:05 pm. Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -15,15 +15,14 @@ _Last updated: 15 Nov 2026, 12:00 pm. Keep this file current (see CLAUDE.md, "Se
   - B.6 Timeline
   - B.7 Course folder views (added by the user after tablet testing; OK'd, pushed and installed on the tablet)
   - 🔺 B.8 Archive courses (database v3), done at max effort; OK'd, pushed and installed on the tablet
-  - B.9 New folder course drop-down; committed, **not pushed or installed: waiting for the user's check-in OK**
-- **The tablet runs B.1–B.8 (database version 3)**, installed 15 Nov ~11:50 am with the user's OK. The upgrade was compared with a fresh safety copy: every value of all 124 tasks, 10 courses and 4 folders was identical, no course started archived, integrity OK.
+  - B.9 New folder course drop-down; OK'd, pushed and installed on the tablet
+- **The tablet runs B.1–B.9 (database version 3)**, installed 15 Nov ~11:50 am with the user's OK. The upgrade was compared with a fresh safety copy: every value of all 124 tasks, 10 courses and 4 folders was identical, no course started archived, integrity OK.
 - **Mode: "Working together"** (the user is back). They liked B.1–B.6 on the tablet ("looks good, feels good and works well") and asked for two more steps, now B.7 and B.8 in `PHASE-1B.md`.
 
 ## Next steps (in order)
 
-1. **B.9 check-in:** push and install on the tablet once the user OKs it. There's no database change, so no safety copy is needed.
-2. End of phase: `/code-review`, fix, retest, then ask to merge into `main`.
-3. **Later, in Phase 2: subfolders** (the user asked for them on 15 Nov). IDEA.md §2.1 and the §5 Phase 2 row now include them.
+1. End of phase (all of B.1–B.9 is done): `/code-review`, fix, retest, then ask to merge into `main`.
+2. **Later, in Phase 2: subfolders** (the user asked for them on 15 Nov). IDEA.md §2.1 and the §5 Phase 2 row now include them.
    - Planned for the start of Phase 2, so the folder database change goes in with the notebook storage change.
    - Layout reference: `design-reference/notein-inside-course-folder.jpg` (a filter row All · PDF · Note · Folder, then a thumbnail grid).
    - Open questions for then:
