@@ -79,7 +79,7 @@ object InkSketch {
             for (s in strokes) {
                 val highlighter = s.tool.isHighlighter
                 if (highlighter != (pass == 0) || s.pointCount == 0) continue
-                paint.color = if (highlighter) (s.colorArgb and 0x00FFFFFF) or 0x66000000 else s.colorArgb
+                paint.color = if (highlighter && (s.colorArgb ushr 24) == 0xFF) (s.colorArgb and 0x00FFFFFF) or 0x66000000 else s.colorArgb
                 paint.strokeWidth = (s.size * scale * (if (highlighter) 1f else widthFactor)).coerceAtLeast(minWidth)
                 path.rewind()
                 path.moveTo(s.xs[0] * scale, s.ys[0] * scale)

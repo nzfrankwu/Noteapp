@@ -73,8 +73,8 @@ val PaperLine = Color(0xFFC9D1DC)
 // Lines on small paper previews (e.g. New notebook), where the normal lines would vanish.
 val PaperLineStrong = Color(0xFF9DA9B8)
 // The desk the pages lie on in the notebook editor.
-val DeskLight = Color(0xFFE4E6EA)
-val DeskDark = Color(0xFF2A2B2F)
+val DeskLight = Color(0xFF3A3B3F) // dark grey round the pages, in both themes (F25)
+val DeskDark = Color(0xFF202124)
 
 /** The notebook editor's top bar: dark in both themes, like Notein (PHASE-2.md F5). */
 val EditorBar = Color(0xFF1C1C1E)

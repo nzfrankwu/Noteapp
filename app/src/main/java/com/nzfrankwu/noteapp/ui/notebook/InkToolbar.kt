@@ -1,5 +1,12 @@
 package com.nzfrankwu.noteapp.ui.notebook
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import com.nzfrankwu.noteapp.domain.ink.HighlightOpacity
+import com.nzfrankwu.noteapp.domain.ink.PaletteEdit
+import com.nzfrankwu.noteapp.domain.ink.PenPressure
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -69,6 +76,7 @@ fun InkToolbar(
     onDrag: (dx: Float, dy: Float) -> Unit,
     onDragEnd: () -> Unit,
     onCollapse: () -> Unit,
+    onSettings: ((InkToolSettings) -> InkToolSettings) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -110,21 +118,7 @@ fun InkToolbar(
             val style = settings.penStyle(settings.tool)
             if (style != null) {
                 HorizontalDivider(Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
-                val colors = if (settings.tool == EditorTool.HIGHLIGHTER) InkPalette.HIGHLIGHTER_COLORS else InkPalette.PEN_COLORS
-                colors.chunked(2).forEach { pair ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(vertical = 2.dp)) {
-                        pair.forEach { c ->
-                            Swatch(c, selected = style.colorArgb == c, size = 18) { onStyle(settings.tool, style.copy(colorArgb = c)) }
-                        }
-                    }
-                }
-                Box(
-                    Modifier.padding(top = 2.dp).size(22.dp).clip(CircleShape).clickable(onClick = onOpenSettings)
-                        .semantics { contentDescription = "More colours and settings" },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(painterResource(R.drawable.ic_add), null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                PaletteSwatches(settings, style, onStyle, onSettings)
                 HorizontalDivider(Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
                 val sizes = if (settings.tool == EditorTool.HIGHLIGHTER) InkPalette.HIGHLIGHTER_SIZES else InkPalette.SIZES
                 sizes.forEachIndexed { i, size ->
@@ -136,6 +130,81 @@ fun InkToolbar(
                 }
             }
         }
+    }
+}
+
+/**
+ * The toolbar's colours for the current tool (F23, F24), editable:
+ *  - tap a colour to use it; tap the one in use to change it with the colour wheel;
+ *  - hold a colour for Change, Move earlier / later and Delete;
+ *  - ＋ adds a colour from the colour wheel.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PaletteSwatches(
+    settings: InkToolSettings,
+    style: PenStyle,
+    onStyle: (EditorTool, PenStyle) -> Unit,
+    onSettings: ((InkToolSettings) -> InkToolSettings) -> Unit,
+) {
+    val tool = settings.tool
+    val highlighter = tool == EditorTool.HIGHLIGHTER
+    val palette = settings.palette(tool)
+    var menuFor by remember { mutableStateOf<Int?>(null) }
+    var editing by remember { mutableStateOf<Int?>(null) } // a palette index, or -1 for a new colour
+    palette.withIndex().chunked(2).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(vertical = 2.dp)) {
+            row.forEach { (i, c) ->
+                val selected = HighlightOpacity.sameColour(style.colorArgb, c)
+                Box {
+                    Box(
+                        Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(Color(c))
+                            .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.15f), CircleShape)
+                            .combinedClickable(
+                                onClick = { if (selected) editing = i else onStyle(tool, style.withColour(c, highlighter)) },
+                                onLongClick = { menuFor = i },
+                            )
+                            .semantics { contentDescription = "Colour ${"%08X".format(c)}"; this.selected = selected },
+                    )
+                    DropdownMenu(expanded = menuFor == i, onDismissRequest = { menuFor = null }) {
+                        DropdownMenuItem(text = { Text("Change colour") }, onClick = { menuFor = null; editing = i })
+                        DropdownMenuItem(
+                            text = { Text("Move earlier") }, enabled = i > 0,
+                            onClick = { menuFor = null; onSettings { it.withPalette(tool, PaletteEdit.move(palette, i, -1)) } },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Move later") }, enabled = i < palette.lastIndex,
+                            onClick = { menuFor = null; onSettings { it.withPalette(tool, PaletteEdit.move(palette, i, +1)) } },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, enabled = palette.size > 1,
+                            onClick = { menuFor = null; onSettings { it.withPalette(tool, PaletteEdit.delete(palette, i)) } },
+                        )
+                    }
+                }
+            }
+        }
+    }
+    Box(
+        Modifier.padding(top = 2.dp).size(22.dp).clip(CircleShape).clickable { editing = -1 }
+            .semantics { contentDescription = "Add a colour" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(painterResource(R.drawable.ic_add), null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    editing?.let { index ->
+        ColorPickerDialog(
+            initial = (palette.getOrNull(index) ?: style.colorArgb) or 0xFF000000.toInt(),
+            onDismiss = { editing = null },
+            onPick = { picked ->
+                editing = null
+                val colors = if (index >= 0) PaletteEdit.replace(palette, index, picked) else PaletteEdit.add(palette, picked)
+                onSettings { it.withPalette(tool, colors).withStyle(tool, style.withColour(picked, highlighter)) }
+            },
+        )
     }
 }
 
@@ -264,18 +333,43 @@ fun ToolSettingsPanel(
                         }
                     }
                     LabeledSlider("Thickness", "%.1f".format(style.size), style.size, range) { onStyle(tool, style.copy(size = it)) }
+                    if (highlighter) {
+                        // How see-through the highlighter is (F21), kept in its colour.
+                        val opacity = HighlightOpacity.of(style.colorArgb)
+                        LabeledSlider("Opacity", "${(opacity * 100).roundToInt()}%", opacity, HighlightOpacity.MIN..HighlightOpacity.MAX) { v ->
+                            onStyle(tool, style.copy(colorArgb = HighlightOpacity.applied(style.colorArgb, v)))
+                        }
+                    } else {
+                        // How much the line's width follows pressure (F22); Off draws the same width throughout.
+                        Column {
+                            Row(Modifier.fillMaxWidth()) {
+                                Text("Pressure", style = MaterialTheme.typography.bodyMedium)
+                                Spacer(Modifier.weight(1f))
+                                Text(PenPressure.LABELS[style.pressure.coerceIn(0, 3)], style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Slider(
+                                value = style.pressure.toFloat(),
+                                onValueChange = { v -> onStyle(tool, style.copy(pressure = v.roundToInt().coerceIn(PenPressure.OFF, PenPressure.FULL))) },
+                                valueRange = 0f..3f,
+                                steps = 2,
+                                modifier = Modifier.height(32.dp).testTag("pen-pressure"),
+                            )
+                        }
+                    }
                     Text("Colours", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    val all = if (highlighter) InkPalette.HIGHLIGHTER_COLORS else InkPalette.PEN_COLORS + InkPalette.MORE_PEN_COLORS
+                    val all = if (highlighter) settings.highlighterPalette else (settings.penPalette + InkPalette.MORE_PEN_COLORS).distinct()
                     all.chunked(8).forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            row.forEach { c -> Swatch(c, selected = style.colorArgb == c, size = 24) { onStyle(tool, style.copy(colorArgb = c)) } }
+                            row.forEach { c ->
+                                Swatch(c, selected = HighlightOpacity.sameColour(style.colorArgb, c), size = 24) { onStyle(tool, style.withColour(c, highlighter)) }
+                            }
                         }
                     }
                     // Your own colours from the colour wheel (F10), and the wheel itself.
                     var picking by remember { mutableStateOf(false) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         settings.customColors.take(6).forEach { c ->
-                            Swatch(c, selected = style.colorArgb == c, size = 24) { onStyle(tool, style.copy(colorArgb = c)) }
+                            Swatch(c, selected = HighlightOpacity.sameColour(style.colorArgb, c), size = 24) { onStyle(tool, style.withColour(c, highlighter)) }
                         }
                         TextButton(onClick = { picking = true }, modifier = Modifier.testTag("pick-colour")) { Text("Colour wheel…") }
                     }
@@ -285,7 +379,7 @@ fun ToolSettingsPanel(
                             onDismiss = { picking = false },
                             onPick = { c ->
                                 picking = false
-                                onStyle(tool, style.copy(colorArgb = c))
+                                onStyle(tool, style.withColour(c, highlighter))
                                 onChange { it.withCustomColor(c) }
                             },
                         )

@@ -13,6 +13,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.nzfrankwu.noteapp.domain.ink.EditorTool
 import com.nzfrankwu.noteapp.domain.ink.FitMode
 import com.nzfrankwu.noteapp.domain.ink.InkToolSettings
+import com.nzfrankwu.noteapp.domain.ink.PenPressure
 import com.nzfrankwu.noteapp.domain.ink.PenStyle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,7 +50,7 @@ class InkSettings(context: Context) : InkSettingsStore {
         return InkToolSettings(
             tool = EditorTool.fromKey(p[TOOL]),
             pens = d.pens.mapIndexed { i, pen ->
-                PenStyle(p[penColor(i)] ?: pen.colorArgb, p[penSize(i)] ?: pen.size)
+                PenStyle(p[penColor(i)] ?: pen.colorArgb, p[penSize(i)] ?: pen.size, (p[penPressure(i)] ?: pen.pressure).coerceIn(PenPressure.OFF, PenPressure.FULL))
             },
             highlighter = PenStyle(p[HIGHLIGHTER_COLOR] ?: d.highlighter.colorArgb, p[HIGHLIGHTER_SIZE] ?: d.highlighter.size),
             eraserRadius = p[ERASER_RADIUS] ?: d.eraserRadius,
@@ -65,6 +66,8 @@ class InkSettings(context: Context) : InkSettingsStore {
             fitMode = FitMode.fromKey(p[FIT_MODE]),
             drawWithFinger = p[DRAW_WITH_FINGER] ?: d.drawWithFinger,
             customColors = p[CUSTOM_COLORS]?.let(::parseColors) ?: d.customColors,
+            penPalette = p[PEN_PALETTE]?.let(::parseColors)?.takeIf { it.isNotEmpty() } ?: d.penPalette,
+            highlighterPalette = p[HIGHLIGHTER_PALETTE]?.let(::parseColors)?.takeIf { it.isNotEmpty() } ?: d.highlighterPalette,
         )
     }
 
@@ -73,6 +76,7 @@ class InkSettings(context: Context) : InkSettingsStore {
         s.pens.forEachIndexed { i, pen ->
             p[penColor(i)] = pen.colorArgb
             p[penSize(i)] = pen.size
+            p[penPressure(i)] = pen.pressure
         }
         p[HIGHLIGHTER_COLOR] = s.highlighter.colorArgb
         p[HIGHLIGHTER_SIZE] = s.highlighter.size
@@ -89,6 +93,8 @@ class InkSettings(context: Context) : InkSettingsStore {
         p[FIT_MODE] = s.fitMode.key
         p[DRAW_WITH_FINGER] = s.drawWithFinger
         p[CUSTOM_COLORS] = s.customColors.joinToString(",") { Integer.toHexString(it) }
+        p[PEN_PALETTE] = s.penPalette.joinToString(",") { Integer.toHexString(it) }
+        p[HIGHLIGHTER_PALETTE] = s.highlighterPalette.joinToString(",") { Integer.toHexString(it) }
     }
 
     /** Colours saved as "ff1b1c1e,ff2f6bdb"; anything unreadable is skipped. */
@@ -99,6 +105,9 @@ class InkSettings(context: Context) : InkSettingsStore {
         val TOOL = stringPreferencesKey("tool")
         fun penColor(i: Int) = intPreferencesKey("pen${i + 1}_color")
         fun penSize(i: Int) = floatPreferencesKey("pen${i + 1}_size")
+        fun penPressure(i: Int) = intPreferencesKey("pen${i + 1}_pressure")
+        val PEN_PALETTE = stringPreferencesKey("pen_palette")
+        val HIGHLIGHTER_PALETTE = stringPreferencesKey("highlighter_palette")
         val HIGHLIGHTER_COLOR = intPreferencesKey("highlighter_color")
         val HIGHLIGHTER_SIZE = floatPreferencesKey("highlighter_size")
         val ERASER_RADIUS = floatPreferencesKey("eraser_radius")

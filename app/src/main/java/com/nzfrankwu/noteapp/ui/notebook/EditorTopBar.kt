@@ -1,7 +1,14 @@
 package com.nzfrankwu.noteapp.ui.notebook
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
@@ -47,6 +54,7 @@ fun EditorTopBar(
     onMenuOpen: (Boolean) -> Unit,
     menu: @Composable ColumnScope.() -> Unit,
 ) {
+    LightStatusBarIcons()
     Box(
         Modifier
             .fillMaxWidth()
@@ -60,6 +68,7 @@ fun EditorTopBar(
                 .align(Alignment.Center)
                 .shadow(3.dp, RoundedCornerShape(50))
                 .background(EditorBarButton, RoundedCornerShape(50))
+                .border(1.dp, ButtonRim, RoundedCornerShape(50))
                 .padding(horizontal = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -95,7 +104,8 @@ private fun BarButton(
     IconButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = if (filled) modifier.size(ButtonSize).shadow(3.dp, CircleShape) else modifier.size(ButtonSize),
+        // A faint light rim keeps the dark buttons visible over the dark desk (F25).
+        modifier = if (filled) modifier.size(ButtonSize).shadow(3.dp, CircleShape).border(1.dp, ButtonRim, CircleShape) else modifier.size(ButtonSize),
         shape = CircleShape,
         colors = IconButtonDefaults.iconButtonColors(
             containerColor = if (filled) EditorBarButton else Color.Transparent,
@@ -107,6 +117,28 @@ private fun BarButton(
         Icon(painterResource(icon), contentDescription = description, modifier = Modifier.size(22.dp))
     }
 }
+
+/** The desk under the status bar is dark (F25), so its clock and icons turn white while the editor shows. */
+@Composable
+private fun LightStatusBarIcons() {
+    val view = LocalView.current
+    if (view.isInEditMode) return
+    DisposableEffect(view) {
+        val window = view.context.findActivity()?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        val before = controller?.isAppearanceLightStatusBars
+        controller?.isAppearanceLightStatusBars = false
+        onDispose { if (before != null) controller.isAppearanceLightStatusBars = before }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+private val ButtonRim = Color.White.copy(alpha = 0.18f)
 
 private val BarHeight = 64.dp
 private val ButtonSize = 44.dp

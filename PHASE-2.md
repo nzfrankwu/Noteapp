@@ -122,6 +122,13 @@ Batch 5 (16 Nov; references `doc ui reference.jpg` and `highligher menu.jpg` in 
 
 - [x] **F20. Page scroller:** the page number is now a handle on a track along the bottom, placed by how far through the notebook you are. Hold it and slide to move through every page. It shows while the pages move (and on opening), fades after 1.5 s, and ignores touches while hidden. It sits above Android's bottom swipe zone, or holding it there would leave the app.
 
+Batch 6 (16 Nov):
+- [x] **F21. Highlighter opacity** slider (10–90%; default 40% as before), kept in the colour's alpha so each stroke remembers it.
+- [x] 🔺 **F22. Pen pressure** slider per pen, 4 stops: Off (same width throughout), Low, Medium, Full (the old pen). New ink kinds `pen-steady-v1`, `pen-pressure-low-v1`, `pen-pressure-mid-v1` (our own round-tip brushes); old notes look the same.
+- [x] **F23. Edit the toolbar's colours:** hold a colour for Change colour, Move earlier / later, Delete; ＋ adds one from the colour wheel. Pens and the highlighter each keep their own list.
+- [x] **F24. Tap the colour in use** to change it with the colour wheel.
+- [x] **F25. Darker desk** round the pages (dark grey, not black), white status-bar icons, and a faint rim on the floating buttons so they still show.
+
 - [ ] **End of phase (again, after 2.13):** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 
 ## Folder screen layout (2.2), draft to confirm

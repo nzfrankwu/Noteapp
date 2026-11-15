@@ -302,6 +302,7 @@ private fun FloatingToolbar(
                         dragX = Float.NaN; dragY = Float.NaN
                     },
                     onCollapse = { onShowSettings(false); viewModel.updateSettings { it.copy(toolbarCollapsed = true) } },
+                    onSettings = viewModel::updateSettings,
                 )
                 if (showSettings) {
                     ToolSettingsPanel(

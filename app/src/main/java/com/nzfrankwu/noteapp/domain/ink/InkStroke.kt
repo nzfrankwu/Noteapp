@@ -14,14 +14,31 @@ enum class InkTool(val key: String) {
     HIGHLIGHTER("highlighter-v1"),
 
     /** See-through highlighter with a round tip (F18): Jetpack Ink's highlighter, version 1, with a round tip. */
-    HIGHLIGHTER_ROUND("highlighter-round-v1");
+    HIGHLIGHTER_ROUND("highlighter-round-v1"),
+
+    /** Pen that ignores pressure: always the same width (F22). */
+    PEN_STEADY("pen-steady-v1"),
+
+    /** Pen whose width follows pressure a little (F22). */
+    PEN_PRESSURE_LOW("pen-pressure-low-v1"),
+
+    /** Pen whose width follows pressure halfway (F22). */
+    PEN_PRESSURE_MID("pen-pressure-mid-v1");
 
     /** Highlighter ink: see-through, and always drawn under the pen. */
-    val isHighlighter: Boolean get() = this != PEN
+    val isHighlighter: Boolean get() = this == HIGHLIGHTER || this == HIGHLIGHTER_ROUND
 
     companion object {
         /** Unknown keys (e.g. written by a newer app) fall back to [PEN], so the ink still shows. */
         fun fromKey(key: String): InkTool = entries.firstOrNull { it.key == key } ?: PEN
+
+        /** The pen ink for a pressure level ([PenPressure]): 0 = steady width … 3 = full pressure pen. */
+        fun pen(pressureLevel: Int): InkTool = when (pressureLevel) {
+            PenPressure.OFF -> PEN_STEADY
+            PenPressure.LOW -> PEN_PRESSURE_LOW
+            PenPressure.MEDIUM -> PEN_PRESSURE_MID
+            else -> PEN
+        }
     }
 }
 

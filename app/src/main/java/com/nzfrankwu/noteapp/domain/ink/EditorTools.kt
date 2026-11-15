@@ -23,8 +23,78 @@ enum class EditorTool(val key: String, val label: String) {
     }
 }
 
-/** One pen slot's colour (0xAARRGGBB) and size (page units). */
-data class PenStyle(val colorArgb: Int, val size: Float)
+/**
+ * One pen slot's colour (0xAARRGGBB), size (page units) and how much its width follows pressure
+ * ([PenPressure], F22). For the highlighter, the colour's alpha is its opacity (see
+ * [HighlightOpacity], F21).
+ */
+data class PenStyle(val colorArgb: Int, val size: Float, val pressure: Int = PenPressure.FULL) {
+    /** This style with colour [color]; a highlighter keeps its opacity. */
+    fun withColour(color: Int, highlighter: Boolean): PenStyle =
+        copy(colorArgb = if (highlighter) HighlightOpacity.keepOpacity(colorArgb, color) else color or OPAQUE)
+}
+
+private const val OPAQUE = 0xFF000000.toInt()
+
+/** How much a pen's width follows pressure (F22): a slider with 4 stops. */
+object PenPressure {
+    const val OFF = 0
+    const val LOW = 1
+    const val MEDIUM = 2
+    const val FULL = 3
+    val LABELS = listOf("Off (same width)", "Low", "Medium", "Full")
+}
+
+/**
+ * The highlighter's opacity (F21), kept in its colour's alpha so every stroke remembers it.
+ * A fully opaque colour means "the default" ([DEFAULT], how highlighting always looked).
+ */
+object HighlightOpacity {
+    const val DEFAULT = 0.4f
+    const val MIN = 0.1f
+    const val MAX = 0.9f
+
+    fun of(argb: Int): Float = if ((argb ushr 24) == 0xFF) DEFAULT else (argb ushr 24) / 255f
+
+    /** [argb] at [opacity] (MIN–MAX). */
+    fun applied(argb: Int, opacity: Float): Int {
+        val a = (opacity.coerceIn(MIN, MAX) * 255).toInt().coerceIn(1, 0xFE)
+        return (argb and 0x00FFFFFF) or (a shl 24)
+    }
+
+    /** [newColor] with [current]'s opacity. */
+    fun keepOpacity(current: Int, newColor: Int): Int =
+        if ((current ushr 24) == 0xFF) newColor or OPAQUE else (newColor and 0x00FFFFFF) or (current and OPAQUE)
+
+    /** Same colour, whatever the opacity. */
+    fun sameColour(a: Int, b: Int): Boolean = (a and 0x00FFFFFF) == (b and 0x00FFFFFF)
+}
+
+/** Changing the toolbar's colour list (F23): reorder, delete, replace, add. Plain Kotlin, unit-tested. */
+object PaletteEdit {
+    const val MAX = 16
+
+    /** Moves the colour at [index] by [by] places (−1 earlier, +1 later). */
+    fun move(colors: List<Int>, index: Int, by: Int): List<Int> {
+        val to = index + by
+        if (index !in colors.indices || to !in colors.indices) return colors
+        return colors.toMutableList().also { val c = it.removeAt(index); it.add(to, c) }
+    }
+
+    /** Removes the colour at [index]; the last colour can't be removed. */
+    fun delete(colors: List<Int>, index: Int): List<Int> =
+        if (colors.size <= 1 || index !in colors.indices) colors else colors.filterIndexed { i, _ -> i != index }
+
+    fun replace(colors: List<Int>, index: Int, color: Int): List<Int> =
+        if (index !in colors.indices) colors else colors.toMutableList().also { it[index] = color or OPAQUE }
+
+    /** Adds [color] at the end (not twice; at most [MAX]). */
+    fun add(colors: List<Int>, color: Int): List<Int> {
+        val c = color or OPAQUE
+        if (colors.any { HighlightOpacity.sameColour(it, c) }) return colors
+        return (colors + c).takeLast(MAX)
+    }
+}
 
 /**
  * The notebook toolbar's saved choices (PHASE-2.md, 2.7 and 2.10), with sensible defaults.
@@ -62,14 +132,23 @@ data class InkToolSettings(
     val drawWithFinger: Boolean = false,
     /** Colours picked with the colour wheel (F10), newest first, at most [InkPalette.MAX_CUSTOM]. */
     val customColors: List<Int> = emptyList(),
+    /** The toolbar's colours for pens and for the highlighter, in order; editable (F23). */
+    val penPalette: List<Int> = InkPalette.PEN_COLORS,
+    val highlighterPalette: List<Int> = InkPalette.HIGHLIGHTER_COLORS,
 ) {
+    /** The toolbar colours shown for [tool]. */
+    fun palette(tool: EditorTool): List<Int> = if (tool == EditorTool.HIGHLIGHTER) highlighterPalette else penPalette
+
+    fun withPalette(tool: EditorTool, colors: List<Int>): InkToolSettings =
+        if (tool == EditorTool.HIGHLIGHTER) copy(highlighterPalette = colors) else copy(penPalette = colors)
+
     /** Remembers [color] as a custom colour (newest first; no repeats; oldest dropped). */
     fun withCustomColor(color: Int): InkToolSettings =
         copy(customColors = (listOf(color) + customColors.filter { it != color }).take(InkPalette.MAX_CUSTOM))
 
     /** The kind of ink [tool] puts down (null for the eraser and lasso). */
     fun inkTool(tool: EditorTool = this.tool): InkTool? = when {
-        tool.penSlot != null -> InkTool.PEN
+        tool.penSlot != null -> InkTool.pen(pens[tool.penSlot!!].pressure)
         tool == EditorTool.HIGHLIGHTER -> if (highlighterRound) InkTool.HIGHLIGHTER_ROUND else InkTool.HIGHLIGHTER
         else -> null
     }

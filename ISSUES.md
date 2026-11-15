@@ -12,6 +12,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Follow-ups / tech debt
 
+- **Steady pen width vs the pressure pen (F22):** at the same Thickness, the Off/Low/Medium pens may look thinner or thicker than the Full pen at your usual pressure (the emulator only has full pressure). Tune the multipliers in `InkBrushes.roundPen` after trying it on the tablet; changing them changes how existing strokes of those kinds look, so give a new key if notes already use them.
 - **Notebook editor, small things to revisit (Phase 2):**
   - Ink still being written shows on top of the toolbar if you write under it; it drops behind once you lift the pen.
   - Stability smooths a stroke when you lift the pen, so a wobbly line shifts slightly at that moment. It's off (0%) by default.
@@ -45,6 +46,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Done
 
+- **Tablet feedback, batch 6 (Phase 2, F21–F25), 16 Nov.** Highlighter opacity; pen pressure (Off/Low/Medium/Full, Off = same width); toolbar colours can be changed, reordered, deleted and added; tapping the colour in use opens the colour wheel; darker desk.
 - **Page scroller (Phase 2, F20), 16 Nov.** The page number became a draggable handle on a bottom track that scrolls through all pages; it fades when the pages stop moving.
 - **Tablet feedback, batch 5 (Phase 2, F17–F19), 16 Nov.** No top bar: the buttons float over the pages, which reach up to the status bar and fill the height when fitted. Highlighter has Flat tip and Round tip (new ink kind `highlighter-round-v1`). The lasso picks strokes that are only partly inside the loop.
 - **Tablet feedback, batch 4 (Phase 2, F13–F16), 16 Nov.** Writing on the last page adds an empty page after it (not an undo step). The lasso's Resize mode has a rotate handle above the box (snaps to quarter turns). No Done button: a finger tap outside the selection, or the pen outside it, lets it go. Fixed: small pages could stay blurry after a fast scroll until zoomed or touched (page readiness wasn't Compose state, so a waiting page never redrew). New unit tests (rotation, page readiness).

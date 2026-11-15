@@ -1,7 +1,9 @@
 package com.nzfrankwu.noteapp.ui.notebook
 
 import androidx.ink.brush.Brush
+import androidx.ink.brush.BrushBehavior
 import androidx.ink.brush.BrushCoat
+import androidx.ink.brush.BrushPaint
 import androidx.ink.brush.BrushTip
 import androidx.ink.brush.BrushFamily
 import androidx.ink.brush.InputToolType
@@ -48,16 +50,41 @@ object InkBrushes {
         highlighterFamily.copy(coats = coats, clientBrushFamilyId = "noteapp:highlighter-round-v1")
     }
 
+    // Pens with less (or no) pressure (F22): a round tip whose size follows pressure between the
+    // two multipliers. Pinned by their keys, like the stock brushes.
+    private val steadyPenFamily: BrushFamily by lazy { roundPen("pen-steady-v1", null) }
+    private val lowPressurePenFamily: BrushFamily by lazy { roundPen("pen-pressure-low-v1", 0.75f to 1.1f) }
+    private val midPressurePenFamily: BrushFamily by lazy { roundPen("pen-pressure-mid-v1", 0.5f to 1.2f) }
+
+    @OptIn(androidx.ink.brush.ExperimentalInkCustomBrushApi::class)
+    private fun roundPen(key: String, sizeByPressure: Pair<Float, Float>?): BrushFamily {
+        val behaviors = sizeByPressure?.let { (low, high) ->
+            listOf(
+                BrushBehavior(
+                    BrushBehavior.Source.NORMALIZED_PRESSURE, BrushBehavior.Target.SIZE_MULTIPLIER,
+                    0f, 1f, low, high, BrushBehavior.OutOfRange.CLAMP,
+                ),
+            )
+        } ?: emptyList()
+        return BrushFamily(BrushTip(behaviors = behaviors), BrushPaint(), "noteapp:$key")
+    }
+
     fun family(tool: InkTool): BrushFamily = when (tool) {
         InkTool.PEN -> penFamily
         InkTool.HIGHLIGHTER -> highlighterFamily
         InkTool.HIGHLIGHTER_ROUND -> roundHighlighterFamily
+        InkTool.PEN_STEADY -> steadyPenFamily
+        InkTool.PEN_PRESSURE_LOW -> lowPressurePenFamily
+        InkTool.PEN_PRESSURE_MID -> midPressurePenFamily
     }
 
     fun brush(tool: InkTool, colorArgb: Int, size: Float): Brush =
         Brush.createWithColorIntArgb(family(tool), if (tool.isHighlighter) seeThrough(colorArgb) else colorArgb, size, EPSILON)
 
-    /** Highlighter ink is see-through, so the writing and lines under it still show. */
+    /**
+     * Highlighter ink is see-through, so the writing and lines under it still show. A colour with
+     * its own alpha keeps it (the opacity slider, F21); a fully opaque one gets the default.
+     */
     private fun seeThrough(argb: Int): Int =
         if ((argb ushr 24) == 0xFF) (argb and 0x00FFFFFF) or (HIGHLIGHTER_ALPHA shl 24) else argb
 
@@ -67,6 +94,9 @@ object InkBrushes {
     fun toolOf(stroke: Stroke): InkTool = when (stroke.brush.family) {
         highlighterFamily -> InkTool.HIGHLIGHTER
         roundHighlighterFamily -> InkTool.HIGHLIGHTER_ROUND
+        steadyPenFamily -> InkTool.PEN_STEADY
+        lowPressurePenFamily -> InkTool.PEN_PRESSURE_LOW
+        midPressurePenFamily -> InkTool.PEN_PRESSURE_MID
         else -> InkTool.PEN
     }
 

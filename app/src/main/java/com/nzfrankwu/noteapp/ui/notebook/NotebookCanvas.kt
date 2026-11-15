@@ -424,9 +424,9 @@ fun NotebookCanvas(
                 null -> Unit
             }
             view.straight?.let { line ->
-                val alpha = if (line.tool.isHighlighter) 0.4f else 1f
+                val alpha = if (line.tool.isHighlighter) com.nzfrankwu.noteapp.domain.ink.HighlightOpacity.of(line.colorArgb) else 1f
                 drawLine(
-                    Color(line.colorArgb).copy(alpha = alpha),
+                    Color(line.colorArgb or 0xFF000000.toInt()).copy(alpha = alpha),
                     Offset(cam.toScreenX(line.sx), cam.toScreenY(line.sy)),
                     Offset(cam.toScreenX(line.ex), cam.toScreenY(line.ey)),
                     strokeWidth = line.size * cam.scale * if (line.tool.isHighlighter) 1f else 0.8f,
