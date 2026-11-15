@@ -1,13 +1,13 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 12:30 pm. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, 12:35 pm. Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1 (Courses & tasks)** and **Phase 1b (Task views): both done and merged into `main`.** Phase 1b was merged on 15 Nov with the user's OK. Their history is in `PHASE-1.md`, `PHASE-1B.md` and `ISSUES.md`.
 - **Next phase: Phase 2, Handwriting notebooks** (IDEA.md §5). It isn't planned yet; there's no `PHASE-2.md`.
 - **Branch:** `main` (Phase 1b merged). Start Phase 2 on a new branch, `phase-2`.
-- **The tablet runs Phase 1b up to B.9 (database version 3).** The final review fixes (`49cdb3f`) aren't installed yet; they need no database change, so a plain `install -r` is enough.
+- **The tablet runs the merged `main` build** (all of Phase 1b with the review fixes; database version 3). Installed on 15 Nov with the user's OK.
 - **Mode:** "Working together".
 
 ## Next steps (in order)
@@ -19,8 +19,7 @@ _Last updated: 15 Nov 2026, 12:30 pm. Keep this file current (see CLAUDE.md, "Se
      - the ink canvas (stylus input, pressure, palm rejection, smoothness)
      - the notebook storage design (it must suit Phase 6 backup and "only upload what changed")
      - the database change (version 4)
-2. Offer to install the review-fix build on the tablet.
-3. **In Phase 2, first: subfolders** (the user asked for them on 15 Nov). IDEA.md §2.1 and the §5 Phase 2 row now include them.
+2. **In Phase 2, first: subfolders** (the user asked for them on 15 Nov). IDEA.md §2.1 and the §5 Phase 2 row now include them.
    - Planned for the start of Phase 2, so the folder database change goes in with the notebook storage change.
    - Layout reference: `design-reference/notein-inside-course-folder.jpg` (a filter row All · PDF · Note · Folder, then a thumbnail grid).
    - Open questions for then:
