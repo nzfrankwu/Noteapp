@@ -77,7 +77,6 @@ val DeskLight = Color(0xFF3A3B3F) // dark grey round the pages, in both themes (
 val DeskDark = Color(0xFF202124)
 
 /** The notebook editor's top bar: dark in both themes, like Notein (PHASE-2.md F5). */
-val EditorBar = Color(0xFF1C1C1E)
 val EditorBarButton = Color(0xFF2E2E31)
 val EditorBarIcon = Color(0xFFF2F2F5)
 val EditorBarIconDisabled = Color(0x66F2F2F5)

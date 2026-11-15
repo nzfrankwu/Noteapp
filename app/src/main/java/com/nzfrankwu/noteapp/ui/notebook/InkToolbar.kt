@@ -107,7 +107,7 @@ fun InkToolbar(
                     if (settings.tool == tool) onOpenSettings() else onPickTool(tool)
                 }
             }
-            ToolButton(EditorTool.HIGHLIGHTER, R.drawable.ic_highlighter, Color(settings.highlighter.colorArgb), settings.tool == EditorTool.HIGHLIGHTER) {
+            ToolButton(EditorTool.HIGHLIGHTER, R.drawable.ic_highlighter, Color(settings.highlighter.colorArgb or 0xFF000000.toInt()), settings.tool == EditorTool.HIGHLIGHTER) {
                 if (settings.tool == EditorTool.HIGHLIGHTER) onOpenSettings() else onPickTool(EditorTool.HIGHLIGHTER)
             }
             ToolButton(EditorTool.ERASER, R.drawable.ic_eraser, null, settings.tool == EditorTool.ERASER) {
@@ -173,15 +173,15 @@ private fun PaletteSwatches(
                         DropdownMenuItem(text = { Text("Change colour") }, onClick = { menuFor = null; editing = i })
                         DropdownMenuItem(
                             text = { Text("Move earlier") }, enabled = i > 0,
-                            onClick = { menuFor = null; onSettings { it.withPalette(tool, PaletteEdit.move(palette, i, -1)) } },
+                            onClick = { menuFor = null; onSettings { it.withPalette(tool, PaletteEdit.move(it.palette(tool), i, -1)) } },
                         )
                         DropdownMenuItem(
                             text = { Text("Move later") }, enabled = i < palette.lastIndex,
-                            onClick = { menuFor = null; onSettings { it.withPalette(tool, PaletteEdit.move(palette, i, +1)) } },
+                            onClick = { menuFor = null; onSettings { it.withPalette(tool, PaletteEdit.move(it.palette(tool), i, +1)) } },
                         )
                         DropdownMenuItem(
                             text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, enabled = palette.size > 1,
-                            onClick = { menuFor = null; onSettings { it.withPalette(tool, PaletteEdit.delete(palette, i)) } },
+                            onClick = { menuFor = null; onSettings { it.withPalette(tool, PaletteEdit.delete(it.palette(tool), i)) } },
                         )
                     }
                 }
@@ -201,8 +201,12 @@ private fun PaletteSwatches(
             onDismiss = { editing = null },
             onPick = { picked ->
                 editing = null
-                val colors = if (index >= 0) PaletteEdit.replace(palette, index, picked) else PaletteEdit.add(palette, picked)
-                onSettings { it.withPalette(tool, colors).withStyle(tool, style.withColour(picked, highlighter)) }
+                onSettings { now ->
+                    val current = now.palette(tool)
+                    val colors = if (index >= 0) PaletteEdit.replace(current, index, picked) else PaletteEdit.add(current, picked)
+                    val withColours = now.withPalette(tool, colors)
+                    now.penStyle(tool)?.let { withColours.withStyle(tool, it.withColour(picked, highlighter)) } ?: withColours
+                }
             },
         )
     }
@@ -222,7 +226,7 @@ fun CollapsedToolbar(settings: InkToolSettings, onExpand: () -> Unit, modifier: 
             Icon(
                 painterResource(iconOf(settings.tool)),
                 contentDescription = "Show the toolbar",
-                tint = settings.penStyle(settings.tool)?.let { Color(it.colorArgb) } ?: MaterialTheme.colorScheme.onSurface,
+                tint = settings.penStyle(settings.tool)?.let { Color(it.colorArgb or 0xFF000000.toInt()) } ?: MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(22.dp),
             )
         }

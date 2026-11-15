@@ -433,7 +433,7 @@ fun NotebookCanvas(
                     Color(line.colorArgb or 0xFF000000.toInt()).copy(alpha = alpha),
                     Offset(cam.toScreenX(line.sx), cam.toScreenY(line.sy)),
                     Offset(cam.toScreenX(line.ex), cam.toScreenY(line.ey)),
-                    strokeWidth = line.size * cam.scale * if (line.tool.isHighlighter) 1f else 0.8f,
+                    strokeWidth = line.size * cam.scale * if (line.tool.isHighlighter || line.tool == InkTool.PEN_STEADY) 1f else 0.8f,
                     cap = if (line.tool == InkTool.HIGHLIGHTER) StrokeCap.Butt else StrokeCap.Round,
                 )
             }

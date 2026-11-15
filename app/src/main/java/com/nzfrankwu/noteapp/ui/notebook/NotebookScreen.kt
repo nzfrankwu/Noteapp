@@ -1,5 +1,6 @@
 package com.nzfrankwu.noteapp.ui.notebook
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -102,6 +103,12 @@ fun NotebookScreen(
     val snackbar = remember { SnackbarHostState() }
     val view = remember { EditorViewState() }
     var showSettings by remember { mutableStateOf(false) }
+    // Back closes the settings panel, then lets go of a lasso selection, before leaving.
+    // (Read through derivedStateOf: dragging a selection must not recompose this screen.)
+    val hasSelection by remember(view) { derivedStateOf { view.lasso != null } }
+    BackHandler(enabled = showSettings || hasSelection) {
+        if (showSettings) showSettings = false else view.lasso = null
+    }
     // Touching the page (pen or finger) closes the tool's settings panel (F27, F29).
     LaunchedEffect(view) {
         var seen = view.pageTouches

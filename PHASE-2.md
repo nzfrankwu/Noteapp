@@ -135,7 +135,8 @@ Batch 7 (16 Nov):
 - [x] **F29. A finger touch on the page closes the settings panel too.**
 - [x] **F28. Delete colour-wheel colours:** hold one in the panel for Add to toolbar / Delete.
 
-- [ ] **End of phase (again, after 2.13):** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
+- [x] **End of phase (again, after 2.13):** `/code-review` of F1–F29 (16 Nov): 7 findings, 6 fixed (toolbar colour edits used stale lists; Back now closes the panel / selection first; highlighter icon stayed visible at low opacity; steady-pen straight-line preview width; no duplicate swatches after Change colour; dead code). The 7th (any constant pressure below 1.0 counts as a pressure pen) is kept on purpose: Android reports exactly 1.0 for pens without pressure. Unit tests and all 183 emulator tests pass.
+- [ ] **Waiting on the user: approve merging `phase-2` into `main`.**
 
 ## Folder screen layout (2.2), draft to confirm
 

@@ -4,7 +4,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Known bugs
 
-- **Back closes the notebook while a tool panel is open** (minor). Open a pen or highlighter settings panel, press the system Back: the editor closes instead of just the panel. Nothing is lost (changes save).
+_None known._
 
 ## Open questions
 
@@ -46,6 +46,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Done
 
+- **Phase 2 second end-of-phase review (16 Nov):** 6 of 7 findings fixed, incl. Back now closes the tool panel (then the lasso selection) before leaving the notebook. All 183 emulator tests pass.
 - **Tablet feedback, batch 7 (Phase 2, F26–F28), 16 Nov.** A hard press held perfectly still now erases; the pen's settings panel closes when the pen touches the page; colour-wheel colours can be deleted or added to the toolbar.
 - **Tablet feedback, batch 6 (Phase 2, F21–F25), 16 Nov.** Highlighter opacity; pen pressure (Off/Low/Medium/Full, Off = same width); toolbar colours can be changed, reordered, deleted and added; tapping the colour in use opens the colour wheel; darker desk.
 - **Page scroller (Phase 2, F20), 16 Nov.** The page number became a draggable handle on a bottom track that scrolls through all pages; it fades when the pages stop moving.

@@ -54,6 +54,9 @@ class PenOptionsTest {
         assertEquals(listOf(list[0], list[2]), PaletteEdit.delete(list, 1))
         assertEquals(listOf(list[0]), PaletteEdit.delete(listOf(list[0]), 0)) // the last one stays
         assertEquals(0xFF0000FF.toInt(), PaletteEdit.replace(list, 2, 0x0000FF)[2])
+        // Changing one to a colour already in the list leaves just one of it.
+        assertEquals(listOf(list[1], list[2]), PaletteEdit.replace(list, 0, list[1]).let { listOf(it[0], it[1]) })
+        assertEquals(2, PaletteEdit.replace(list, 0, list[1]).size)
         assertEquals(4, PaletteEdit.add(list, 0x00FF00).size)
         assertEquals(list, PaletteEdit.add(list, 2)) // not twice
     }

@@ -85,8 +85,18 @@ object PaletteEdit {
     fun delete(colors: List<Int>, index: Int): List<Int> =
         if (colors.size <= 1 || index !in colors.indices) colors else colors.filterIndexed { i, _ -> i != index }
 
-    fun replace(colors: List<Int>, index: Int, color: Int): List<Int> =
-        if (index !in colors.indices) colors else colors.toMutableList().also { it[index] = color or OPAQUE }
+    /** Changes the colour at [index]; if that colour is already elsewhere in the list, that copy goes. */
+    fun replace(colors: List<Int>, index: Int, color: Int): List<Int> {
+        if (index !in colors.indices) return colors
+        val c = color or OPAQUE
+        return colors.mapIndexedNotNull { i, old ->
+            when {
+                i == index -> c
+                HighlightOpacity.sameColour(old, c) -> null
+                else -> old
+            }
+        }
+    }
 
     /** Adds [color] at the end (not twice; at most [MAX]). */
     fun add(colors: List<Int>, color: Int): List<Int> {
@@ -274,9 +284,6 @@ object PressureErase {
      */
     fun isHard(pressure: Float, level: Float, penReportsPressure: Boolean): Boolean =
         penReportsPressure && pressure >= level
-
-    /** True once a pen-down has shown varying pressure (so it's a real pressure pen). */
-    fun reportsPressure(pressures: List<Float>): Boolean = pressures.distinct().size > 1
 
     /**
      * Whether a pen reports pressure, from its first sample and the current one (F26). Pens

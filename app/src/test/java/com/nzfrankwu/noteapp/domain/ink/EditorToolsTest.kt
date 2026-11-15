@@ -40,8 +40,8 @@ class EditorToolsTest {
         assertTrue(PressureErase.isHard(1.0f, 0.98f, penReportsPressure = true))
         assertFalse(PressureErase.isHard(1.0f, 0.9f, penReportsPressure = false)) // a fixed "1.0"
         assertFalse(PressureErase.isHard(0.95f, 0.9f, penReportsPressure = false))
-        assertFalse(PressureErase.reportsPressure(listOf(1f, 1f, 1f)))
-        assertTrue(PressureErase.reportsPressure(listOf(0.2f, 0.4f)))
+        assertFalse(PressureErase.reportsPressure(first = 1f, now = 1f))
+        assertTrue(PressureErase.reportsPressure(first = 0.2f, now = 0.4f))
     }
 
     // ---- A test line (for stability) ----
