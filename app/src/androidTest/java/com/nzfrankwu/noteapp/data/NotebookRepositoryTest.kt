@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.nzfrankwu.noteapp.data.db.Notebook
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
+import com.nzfrankwu.noteapp.data.db.Page
 import com.nzfrankwu.noteapp.domain.PageTemplate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -144,5 +145,80 @@ class NotebookRepositoryTest {
         val id = create()
         repo.setTemplate(id, PageTemplate.DOTS)
         assertEquals(PageTemplate.DOTS, repo.getNotebook(id)!!.template)
+    }
+
+    // ---- PDF notebooks and page sizes (Phase 3) ----
+
+    private val slides = listOf(PageSize(842f, 595f), PageSize(842f, 595f), PageSize(612f, 792f))
+
+    private fun Page.size() = PageSize(width!!, height!!)
+
+    @Test
+    fun pdfNotebook_hasOnePagePerPdfPage_inOrder_withTheirSizes() = runBlocking {
+        val id = repo.newNotebookId()
+        assertEquals(NotebookResult.Success(id), repo.createPdfNotebook(id, folderId, " Week 1 slides ", "pdf-1.pdf", slides))
+        val nb = repo.getNotebook(id)!!
+        assertEquals("Week 1 slides", nb.title)
+        assertEquals(PageTemplate.LINED, nb.template)
+        assertEquals(842f, nb.pageWidth)
+        assertEquals(595f, nb.pageHeight)
+        val pages = repo.getPages(id)
+        assertEquals(listOf(0, 1, 2), pages.map { it.position })
+        assertEquals(listOf(0, 1, 2), pages.map { it.pdfPage })
+        assertEquals(List(3) { "pdf-1.pdf" }, pages.map { it.pdfFile })
+        assertEquals(slides, pages.map { it.size() })
+        assertEquals(3, repo.observeInFolder(folderId).first().single().pageCount)
+    }
+
+    @Test
+    fun pdfNotebook_refusesBadInput_andCreatesNothing() = runBlocking {
+        val id = repo.newNotebookId()
+        assertEquals(NotebookResult.Failure(NotebookError.BlankTitle), repo.createPdfNotebook(id, folderId, " ", "a.pdf", slides))
+        for (bad in listOf(emptyList(), listOf(PageSize(0f, 100f)), listOf(PageSize(Float.NaN, 100f)))) {
+            assertEquals(NotebookResult.Failure(NotebookError.BadPdf), repo.createPdfNotebook(id, folderId, "x", "a.pdf", bad))
+        }
+        assertEquals(NotebookResult.Failure(NotebookError.BadPdf), repo.createPdfNotebook(id, folderId, "x", " ", slides))
+        assertEquals(NotebookResult.Failure(NotebookError.NotFound), repo.createPdfNotebook(id, "missing", "x", "a.pdf", slides))
+        assertNull(repo.getNotebook(id))
+        assertEquals(0, repo.getPages(id).size)
+        assertEquals(0, repo.observeInFolder(folderId).first().size)
+    }
+
+    @Test
+    fun pdfNotebook_cantReuseAnExistingId() = runBlocking {
+        val existing = create()
+        assertEquals(
+            NotebookResult.Failure(NotebookError.BadPdf),
+            repo.createPdfNotebook(existing, folderId, "Slides", "a.pdf", slides),
+        )
+        assertEquals("Lecture 1", repo.getNotebook(existing)!!.title)
+        assertEquals(1, repo.getPages(existing).size)
+    }
+
+    @Test
+    fun addedPage_copiesTheSizeOfThePageBefore_andIsNeverAPdfPage() = runBlocking {
+        val id = repo.newNotebookId()
+        repo.createPdfNotebook(id, folderId, "Slides", "pdf-1.pdf", slides)
+        val atEnd = (repo.addPage(id, 99) as NotebookResult.Success).id
+        val afterFirst = (repo.addPage(id, 1) as NotebookResult.Success).id
+        val atFront = (repo.addPage(id, 0) as NotebookResult.Success).id
+        val pages = repo.getPages(id).associateBy { it.id }
+        assertEquals(PageSize(612f, 792f), pages.getValue(atEnd).size())
+        assertEquals(PageSize(842f, 595f), pages.getValue(afterFirst).size())
+        // At the front there's no page before it, so it copies the page after it.
+        assertEquals(PageSize(842f, 595f), pages.getValue(atFront).size())
+        for (added in listOf(atEnd, afterFirst, atFront)) {
+            assertNull(pages.getValue(added).pdfFile)
+            assertNull(pages.getValue(added).pdfPage)
+        }
+    }
+
+    @Test
+    fun addedPage_inAPlainNotebook_usesTheNotebooksSize() = runBlocking {
+        val id = create()
+        val page = db.notebookDao().getPage((repo.addPage(id, 1) as NotebookResult.Success).id)!!
+        assertNull(page.width)
+        assertNull(page.height)
+        assertNull(page.pdfFile)
     }
 }

@@ -12,6 +12,7 @@ _None known._
 
 ## Follow-ups / tech debt
 
+- **Imported PDFs and images are never deleted (Phase 3 decision):** a notebook's `pdf-*.pdf` and `images/*` files stay even when their pages or images are deleted, so Undo and Phase 6's "Recently deleted" can bring them back. Clean-up of files nothing uses is a Phase 6/7 job.
 - **Steady pen width vs the pressure pen (F22):** at the same Thickness, the Off/Low/Medium pens may look thinner or thicker than the Full pen at your usual pressure (the emulator only has full pressure). Tune the multipliers in `InkBrushes.roundPen` after trying it on the tablet; changing them changes how existing strokes of those kinds look, so give a new key if notes already use them.
 - **Notebook editor, small things to revisit (Phase 2):**
   - Ink still being written shows on top of the toolbar if you write under it; it drops behind once you lift the pen.
@@ -46,6 +47,7 @@ _None known._
 
 ## Done
 
+- **Phase 3 step 3.1, database version 5 (16 Nov):** pages got their own size and PDF page columns (empty for every existing page). Real v4 → v5 upgrade on the emulator: every row unchanged, all page files byte-identical; a deliberately broken migration is caught by `MigrationTest`.
 - **Phase 2 second end-of-phase review (16 Nov):** 6 of 7 findings fixed, incl. Back now closes the tool panel (then the lasso selection) before leaving the notebook. All 183 emulator tests pass.
 - **Tablet feedback, batch 7 (Phase 2, F26–F28), 16 Nov.** A hard press held perfectly still now erases; the pen's settings panel closes when the pen touches the page; colour-wheel colours can be deleted or added to the toolbar.
 - **Tablet feedback, batch 6 (Phase 2, F21–F25), 16 Nov.** Highlighter opacity; pen pressure (Off/Low/Medium/Full, Off = same width); toolbar colours can be changed, reordered, deleted and added; tapping the colour in use opens the colour wheel; darker desk.

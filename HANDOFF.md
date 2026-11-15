@@ -1,12 +1,12 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 3 planned with the user; `PHASE-3.md` written; no code yet). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 3 step 3.1, database v5, done and committed). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
-- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). Nothing is built yet.
-- **Branch:** `phase-3` (from `main`, pushed; holds only `PHASE-3.md` and this note so far).
+- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Step 3.1 (database version 5) is done**; next is 3.2.
+- **Branch:** `phase-3` (from `main`). Step 3.1 is committed; push once the user OKs it.
 - **Mode:** "Working together" (the default) unless the user says otherwise; they gave Phase 2 feedback live on 16 Nov.
 - **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
 - **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor), 2.11 (thumbnails), **2.12 (performance; verified on the emulator, 15 Nov)**: two full pages scroll at a median 19 ms a frame (was 150 ms), render thread about 1 ms. Rotating now keeps the current page (`rememberSaveable` in `NotebookScreen`).
@@ -15,7 +15,9 @@ _Last updated: 16 Nov 2026 (Phase 3 planned with the user; `PHASE-3.md` written;
 
 ## Next steps (in order)
 
-1. **Start Phase 3 at step 3.1 (database version 5)**, a 🔺 step: tell the user first so they can pick a stronger model or higher effort. Work one step at a time ("Working together" mode: ★ steps need a check-in).
+1. **Step 3.2 (pages of different sizes)**, a 🔺 step: tell the user first so they can pick a stronger model or higher effort. Work one step at a time ("Working together" mode: ★ steps need a check-in).
+   - 3.1 left: `Page.width/height` (null = the notebook's size), `Page.pdfFile/pdfPage`, `Page.isPdf`, `PageSize`, `NotebookRepository.newNotebookId()` + `createPdfNotebook(notebookId, folderId, title, pdfFile, pageSizes)`, and `addPage` copying the page before's size (or the page after's, at the front). The editor still uses the notebook's size for every page until 3.2.
+   - 3.3's import order: `newNotebookId()` → copy the PDF into `notebooks/<id>/` → `createPdfNotebook`. An interrupted import then leaves only an unused folder, never a notebook pointing at a missing file.
 2. Key Phase 3 decisions (details in `PHASE-3.md`):
    - PdfBox-Android is approved for PDF export.
    - The image menu shows recent photos; the photo-access permission is approved.
@@ -92,7 +94,7 @@ _Last updated: 16 Nov 2026 (Phase 3 planned with the user; `PHASE-3.md` written;
 
 | Folder | What's in it |
 |---|---|
-| `data/db/` | Room database **v4**: `Course` (+`archivedAt`), `Folder` (+`parentId`), `Task` (+`availableAt`), `Notebook`, `Page`, DAOs, `FolderPlace`, `Migrations.kt` (`MIGRATION_1_2` … `MIGRATION_3_4`) |
+| `data/db/` | Room database **v5** (pages: `width`, `height`, `pdf_file`, `pdf_page`): `Course` (+`archivedAt`), `Folder` (+`parentId`), `Task` (+`availableAt`), `Notebook`, `Page`, DAOs, `FolderPlace`, `Migrations.kt` (`MIGRATION_1_2` … `MIGRATION_4_5`) |
 | `data/` | Repositories (`FolderRepository`, `TaskRepository`, `NotebookRepository`), `NotebookFiles` (page files), `Thumbnails`, `InkSettings` / `CanvasSettings` / `ViewSettings` (DataStore), `QuickAdd` |
 | `domain/ink/` | Plain-Kotlin handwriting logic: `InkStroke`, `PageInkCodec` (file format), `NotebookInk` (undo/redo), `InkGeometry` (eraser, lasso), `PageStrip` (fit/zoom), `EditorTools` (tools, palette, pen button, press-hard, straighten, smoothing) |
 | `ui/notebook/` | The editor: `NotebookScreen`, `NotebookCanvas` (drawing, gestures, lasso), `InkToolbar`, `InkBrushes` (our strokes ↔ Jetpack Ink), `NotebookViewModel` (loading, saving) |
@@ -132,6 +134,9 @@ _Last updated: 16 Nov 2026 (Phase 3 planned with the user; `PHASE-3.md` written;
 - **Pinned versions:**
   - `kotlinx.serialization` is at 1.9.0 (the newest for Kotlin 2.2, which comes with AGP 9.5.1). It must stay at or above Room's needs, or `MigrationTest` crashes.
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
+- **Real upgrade test, scripted (3.1):** `screenshots/upgrade_v5.sh <old APK as a Windows path>` installs the old build, makes sample data and a 51-page notebook, snapshots, installs the new build, snapshots again; then `python compare_dbs.py upgrade-v5/before upgrade-v5/after` compares every row and the page files' md5s. Pass the APK as `C:\...`: the script sets `MSYS_NO_PATHCONV=1`, so adb can't read `/c/...` paths.
+- **`folders.course_id` is unique:** subfolders store NULL there (they inherit the course through `parent_id`). Test data with a subfolder must use NULL.
+- **Both the tablet and the emulator are often plugged in:** always set `ANDROID_SERIAL=emulator-5554` / `adb -s emulator-5554`.
 - **Real upgrade test, old APK:** build `main` in a worktree (`git worktree add ../Noteapp-v3 main`, copy `local.properties`, `gradlew assembleDebug` there). Removing that worktree fails with "Filename too long"; delete it with `cmd /c rmdir /s /q` and `git worktree prune`.
 - **After a deliberately broken migration test, rebuild** (`assembleDebug`) before installing: the broken-migration test leaves a broken APK in `app/build/outputs`.
 - **Helper scripts are saved in `screenshots/`** (git-ignored, this PC only): `ui.py` (tap by text or description), `setup.sh` (fake Canvas + 3 course folders), `perf_setup.sh` (install, set up, make a notebook, add 50 test pages), `framestats.py` (per-stage frame times). Run them from that folder with Git Bash and `PYTHONIOENCODING=utf-8`.

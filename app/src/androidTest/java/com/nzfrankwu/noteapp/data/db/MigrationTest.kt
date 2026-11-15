@@ -13,6 +13,9 @@ import com.nzfrankwu.noteapp.canvas.CanvasSource
 import com.nzfrankwu.noteapp.canvas.CanvasSubmission
 import com.nzfrankwu.noteapp.canvas.CanvasSync
 import com.nzfrankwu.noteapp.canvas.SyncSummary
+import com.nzfrankwu.noteapp.data.NotebookRepository
+import com.nzfrankwu.noteapp.data.NotebookResult
+import com.nzfrankwu.noteapp.data.PageSize
 import com.nzfrankwu.noteapp.domain.TaskSource
 import com.nzfrankwu.noteapp.domain.TaskStatus
 import kotlinx.coroutines.flow.first
@@ -325,7 +328,112 @@ class MigrationTest {
         db.close()
     }
 
+    // ---- Version 4 → 5: page sizes and PDF pages ----
+
+    /**
+     * Every row and every value saved by version 4 (notebooks and pages too) is still there after
+     * 4 → 5, untouched; every page stays a plain page of its notebook's size.
+     */
+    @Test
+    fun migration4To5_keepsEveryValue_andEveryPageStaysPlain() {
+        val before = helper.createDatabase(testDbName, 4).let { old ->
+            insertVersion4Data(old)
+            version4Columns.mapValues { (table, columns) -> rowsOf(old, table, columns) }.also { old.close() }
+        }
+
+        val db = helper.runMigrationsAndValidate(testDbName, 5, true, MIGRATION_4_5)
+
+        for ((table, columns) in version4Columns) {
+            assertEquals("Rows of $table after migrating", before.getValue(table), rowsOf(db, table, columns))
+        }
+        assertEquals(
+            "Every page keeps its notebook's size and is no PDF page",
+            List(3) { listOf(null, null, null, null) },
+            rowsOf(db, "pages", listOf("width", "height", "pdf_file", "pdf_page")),
+        )
+        db.query("PRAGMA foreign_key_check").use { assertFalse("Broken links between tables", it.moveToFirst()) }
+        db.close()
+    }
+
+    /**
+     * After updating, the current app sees version 4's notebooks and pages as before (the deleted
+     * page still deleted, the order kept), and can add a PDF notebook next to them.
+     */
+    @Test
+    fun dataSavedByVersion4_survivesUpdatingToTheCurrentVersion_andTakesAPdfNotebook() {
+        helper.createDatabase(testDbName, 4).apply {
+            insertVersion4Data(this)
+            close()
+        }
+
+        val db = openWithAllMigrations()
+        runBlocking {
+            val notebooks = NotebookRepository(db, newId = idsFrom("p"))
+            val nb = requireRow(notebooks.getNotebook("n1"))
+            assertEquals("Lecture 1", nb.title)
+            assertEquals("s1", nb.folderId)
+            assertEquals(595f, nb.pageWidth)
+            assertEquals(842f, nb.pageHeight)
+
+            val pages = notebooks.getPages("n1")
+            assertEquals("The deleted page stays hidden", listOf("pg1", "pg2"), pages.map { it.id })
+            assertEquals(listOf(null, null), pages.map { it.width })
+            assertFalse(pages.any { it.isPdf })
+            assertEquals(5000L, requireRow(db.notebookDao().getPage("pg3")).deletedAt?.toEpochMilli())
+            assertEquals("f1", requireRow(db.folderDao().getById("s1")).parentId)
+
+            val sizes = listOf(PageSize(842f, 595f), PageSize(612f, 792f))
+            assertEquals(NotebookResult.Success("n2"), notebooks.createPdfNotebook("n2", "s1", "Slides", "pdf-a.pdf", sizes))
+            assertEquals(listOf(0, 1), notebooks.getPages("n2").map { it.pdfPage })
+            assertEquals(2, notebooks.observeInFolder("s1").first().size)
+
+            val task = requireRow(db.taskDao().getById("t1"))
+            assertEquals(TaskStatus.STUCK, task.status)
+            assertEquals("Ask about Q4", task.notes)
+        }
+        db.close()
+    }
+
     // ---- Helpers ----
+
+    /**
+     * Rows as version 4 saved them: version 3's rows plus a subfolder of "ELECTENG 204", a
+     * notebook in it, and three pages (one deleted, one with its own template).
+     * FROZEN to version 4's tables on purpose: never update this SQL for new versions.
+     */
+    private fun insertVersion4Data(db: SupportSQLiteDatabase) {
+        insertVersion3Data(db) // version 3's tables are part of version 4 (a column and tables were added)
+        db.execSQL(
+            "INSERT INTO folders (id, name, course_id, created_at, updated_at, parent_id) " +
+                "VALUES ('s1', 'Lectures', NULL, 4100, 4100, 'f1')", // subfolders inherit the course
+        )
+        db.execSQL(
+            "INSERT INTO notebooks (id, folder_id, title, template, page_width, page_height, created_at, " +
+                "updated_at, deleted_at) VALUES ('n1', 's1', 'Lecture 1', 'lined', 595.0, 842.0, 4200, 4900, NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO pages (id, notebook_id, position, template, created_at, updated_at, deleted_at) " +
+                "VALUES ('pg1', 'n1', 0, NULL, 4200, 4800, NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO pages (id, notebook_id, position, template, created_at, updated_at, deleted_at) " +
+                "VALUES ('pg2', 'n1', 1, 'grid', 4300, 4900, NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO pages (id, notebook_id, position, template, created_at, updated_at, deleted_at) " +
+                "VALUES ('pg3', 'n1', 1, NULL, 4400, 5000, 5000)",
+        )
+    }
+
+    /** Version 4's columns: version 3's plus folders.parent_id, notebooks and pages. FROZEN like [insertVersion4Data]. */
+    private val version4Columns: Map<String, List<String>> by lazy {
+        version3Columns.mapValues { (table, columns) -> if (table == "folders") columns + "parent_id" else columns } + mapOf(
+            "notebooks" to listOf(
+                "id", "folder_id", "title", "template", "page_width", "page_height", "created_at", "updated_at", "deleted_at",
+            ),
+            "pages" to listOf("id", "notebook_id", "position", "template", "created_at", "updated_at", "deleted_at"),
+        )
+    }
 
     private fun idsFrom(prefix: String): () -> String {
         var n = 0

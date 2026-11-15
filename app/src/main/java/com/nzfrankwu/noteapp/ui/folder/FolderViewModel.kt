@@ -291,4 +291,5 @@ fun NotebookError.message(): String = when (this) {
     NotebookError.BlankTitle -> "Give the notebook a name."
     NotebookError.NotFound -> "This notebook no longer exists."
     NotebookError.LastPage -> "A notebook needs at least one page."
+    NotebookError.BadPdf -> "This PDF couldn't be opened."
 }
