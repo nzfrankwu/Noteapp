@@ -120,6 +120,8 @@ Batch 5 (16 Nov; references `doc ui reference.jpg` and `highligher menu.jpg` in 
 - [x] **F18. Two highlighters: Flat tip (chisel, as before) and Round tip**, picked in the highlighter's settings panel. The round one is a new ink kind, `highlighter-round-v1` (old notes look the same).
 - [x] **F19. The lasso picks strokes only partly inside the loop** (any point inside, or a line crossing it), not just mostly-inside ones.
 
+- [x] **F20. Page scroller:** the page number is now a handle on a track along the bottom, placed by how far through the notebook you are. Hold it and slide to move through every page. It shows while the pages move (and on opening), fades after 1.5 s, and ignores touches while hidden. It sits above Android's bottom swipe zone, or holding it there would leave the app.
+
 - [ ] **End of phase (again, after 2.13):** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 
 ## Folder screen layout (2.2), draft to confirm

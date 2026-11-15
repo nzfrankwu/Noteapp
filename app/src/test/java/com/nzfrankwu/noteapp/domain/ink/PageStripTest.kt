@@ -106,4 +106,26 @@ class PageStripTest {
         assertEquals(setOf("height", "width", "page"), FitMode.entries.map { it.key }.toSet())
         assertEquals(FitMode.HEIGHT, FitMode.fromKey(null))
     }
+
+    @Test
+    fun theScroller_goesFromTheFirstPageToTheLast_andBack() {
+        val cam = strip.fit(FitMode.HEIGHT, 0, w, h)
+        assertEquals(0f, strip.scrollFraction(cam, w), 0.001f)
+        val end = strip.atScrollFraction(cam, 1f, w, h)
+        assertEquals(strip.pageCount - 1, strip.currentPage(end, w))
+        assertEquals(1f, strip.scrollFraction(end, w), 0.001f)
+        val half = strip.atScrollFraction(cam, 0.5f, w, h)
+        assertEquals(0.5f, strip.scrollFraction(half, w), 0.001f)
+        assertEquals(cam.scale, half.scale, 0.0001f) // sliding never zooms
+        // Past the ends stays at the ends.
+        assertEquals(1f, strip.scrollFraction(strip.atScrollFraction(cam, 7f, w, h), w), 0.001f)
+    }
+
+    @Test
+    fun theScroller_withOnePage_staysPut() {
+        val one = PageStrip(595f, 842f, 1)
+        val cam = one.fit(FitMode.HEIGHT, 0, w, h)
+        assertEquals(0f, one.scrollFraction(cam, w), 0.001f)
+        assertEquals(cam.offsetX, one.atScrollFraction(cam, 0.8f, w, h).offsetX, 0.01f)
+    }
 }

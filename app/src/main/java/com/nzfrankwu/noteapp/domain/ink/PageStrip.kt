@@ -109,6 +109,25 @@ class PageStrip(val pageWidth: Float, val pageHeight: Float, val pageCount: Int,
         return Camera(s, x, y)
     }
 
+    /**
+     * How far through the notebook the screen is, 0 (middle of the first page in the middle of
+     * the screen) to 1 (the last page's middle): where the page scroller's handle sits (F20).
+     */
+    fun scrollFraction(camera: Camera, viewWidth: Float): Float {
+        val first = pageWidth / 2
+        val last = totalWidth - pageWidth / 2
+        if (last <= first) return 0f
+        return ((camera.toWorldX(viewWidth / 2) - first) / (last - first)).coerceIn(0f, 1f)
+    }
+
+    /** [camera] moved sideways (same zoom and height) to [fraction] of the way through (F20). */
+    fun atScrollFraction(camera: Camera, fraction: Float, viewWidth: Float, viewHeight: Float): Camera {
+        val first = pageWidth / 2
+        val last = totalWidth - pageWidth / 2
+        val centre = first + (last - first).coerceAtLeast(0f) * fraction.coerceIn(0f, 1f)
+        return clamp(camera.copy(offsetX = viewWidth / 2 - centre * camera.scale), viewWidth, viewHeight)
+    }
+
     /** True when two cameras show nearly the same thing (for "is it already fitted?"). */
     fun same(a: Camera, b: Camera): Boolean =
         abs(a.scale - b.scale) < a.scale * 0.01f && abs(a.offsetX - b.offsetX) < 2f && abs(a.offsetY - b.offsetY) < 2f

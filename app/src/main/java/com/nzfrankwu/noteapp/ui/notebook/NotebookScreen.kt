@@ -1,8 +1,26 @@
 package com.nzfrankwu.noteapp.ui.notebook
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.mandatorySystemGestures
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -182,7 +200,7 @@ fun NotebookScreen(
                         view.lasso = LassoState.Selected.of(index, page.id, pasted)
                     }
                 }
-                PageBadge(view, strip, pages.size)
+                PageScroller(view, strip, pages.size)
             }
             // ---- Floating buttons (F17) ----
             EditorTopBar(
@@ -356,24 +374,112 @@ private fun PasteBubble(view: EditorViewState, onPaste: (androidx.compose.ui.geo
     }
 }
 
-/** "3 / 12" at the bottom left: the page in the middle of the screen. */
+/**
+ * The page scroller (F20): a "3 / 12" handle on a track along the bottom, placed by how far
+ * through the notebook you are. Hold it and slide to scroll through every page. It shows while
+ * the pages move (and when the notebook opens), then fades away after [SCROLLER_FADE_MS]; while
+ * hidden it doesn't take touches, so writing near the bottom isn't blocked.
+ */
 @Composable
-private fun BoxScope.PageBadge(view: EditorViewState, strip: PageStrip, pageCount: Int) {
+private fun BoxScope.PageScroller(view: EditorViewState, strip: PageStrip, pageCount: Int) {
     if (pageCount == 0) return
-    // Only changes (and re-lays-out the badge) when the middle page does, not on every scroll step.
+    // Only changes (and re-lays-out the label) when the middle page does, not on every scroll step.
     val current by remember(view, strip) {
         derivedStateOf { view.camera?.let { strip.currentPage(it, view.viewSize.width.toFloat()) } ?: 0 }
     }
-    Surface(
-        modifier = Modifier.align(Alignment.BottomStart).padding(16.dp).testTag("page-badge"),
-        shape = RoundedCornerShape(50),
-        color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
+    var dragging by remember { mutableStateOf(false) }
+    var moving by remember { mutableStateOf(false) }
+    LaunchedEffect(view) {
+        snapshotFlow { view.camera?.offsetX }.collectLatest {
+            moving = true
+            delay(SCROLLER_FADE_MS)
+            moving = false
+        }
+    }
+    val shown = moving || dragging
+    val alpha by animateFloatAsState(if (shown) 1f else 0f, tween(if (shown) 120 else 500), label = "scroller")
+    var trackWidth by remember { mutableIntStateOf(0) }
+    var thumbWidth by remember { mutableIntStateOf(0) }
+    var thumbCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val inkStrip by rememberUpdatedState(strip)
+
+    Box(
+        Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            // Above the system's bottom swipe zone (home gesture), or a hold there leaves the app.
+            .windowInsetsPadding(
+                WindowInsets.mandatorySystemGestures.only(WindowInsetsSides.Bottom)
+                    .union(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
+            )
+            .padding(horizontal = 24.dp, vertical = 6.dp)
+            .height(40.dp)
+            .onSizeChanged { trackWidth = it.width }
+            .graphicsLayer { this.alpha = alpha },
     ) {
-        Text(
-            "${current + 1} / $pageCount",
-            color = MaterialTheme.colorScheme.inverseOnSurface,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+        // The track: a thin bar the handle slides along.
+        Box(
+            Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(MaterialTheme.colorScheme.inverseSurface.copy(alpha = if (dragging) 0.45f else 0.25f), RoundedCornerShape(50)),
         )
+        Surface(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset {
+                    val cam = view.camera
+                    val f = if (cam == null) 0f else inkStrip.scrollFraction(cam, view.viewSize.width.toFloat())
+                    IntOffset((f * (trackWidth - thumbWidth).coerceAtLeast(0)).roundToInt(), 0)
+                }
+                .onSizeChanged { thumbWidth = it.width }
+                .onGloballyPositioned { thumbCoords = it }
+                .testTag("page-badge")
+                .then(
+                    if (!shown) Modifier else Modifier.pointerInput(view) {
+                        // Hold and slide: the handle follows the finger (or pen), and the pages follow it.
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            down.consume()
+                            dragging = true
+                            view.stopMotion()
+                            val startX = thumbCoords?.localToRoot(down.position)?.x ?: 0f
+                            val startFraction = view.camera?.let { inkStrip.scrollFraction(it, view.viewSize.width.toFloat()) } ?: 0f
+                            try {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val c = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (!c.pressed) { c.consume(); break }
+                                    c.consume()
+                                    val x = thumbCoords?.localToRoot(c.position)?.x ?: continue
+                                    val range = (trackWidth - thumbWidth).coerceAtLeast(1)
+                                    val cam = view.camera ?: continue
+                                    val w = view.viewSize.width.toFloat()
+                                    val f = startFraction + (x - startX) / range
+                                    view.fastScroll = true // pages flying past show their quick preview
+                                    view.camera = inkStrip.atScrollFraction(cam, f, w, view.viewSize.height.toFloat())
+                                }
+                            } finally {
+                                dragging = false
+                                view.fastScroll = false
+                            }
+                        }
+                    },
+                ),
+            shape = RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = if (dragging) 0.95f else 0.8f),
+            shadowElevation = if (dragging) 4.dp else 0.dp,
+        ) {
+            Text(
+                "${current + 1} / $pageCount",
+                color = MaterialTheme.colorScheme.inverseOnSurface,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+            )
+        }
     }
 }
+
+/** The page scroller fades this long after the pages stop moving (ms). */
+private const val SCROLLER_FADE_MS = 1_500L
