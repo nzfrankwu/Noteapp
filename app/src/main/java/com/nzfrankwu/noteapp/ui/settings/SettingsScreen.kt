@@ -53,6 +53,8 @@ fun SettingsScreen(
     canvas: CanvasSettingsViewModel? = null,
     onOpenCanvasBrowser: () -> Unit = {},
     onOpenCourses: () -> Unit = {},
+    /** The notebook toolbar's settings (Notebooks section); hidden when null. */
+    inkSettings: com.nzfrankwu.noteapp.data.InkSettingsStore? = null,
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -110,6 +112,9 @@ fun SettingsScreen(
                             Text("Manage courses")
                         }
                     }
+                }
+                if (inkSettings != null) {
+                    SettingsSection("Notebooks") { NotebookSettingsSection(inkSettings, showDebug = BuildConfig.DEBUG) }
                 }
                 SettingsSection("Reminders") { RemindersSettings(onTestReminder) }
                 SettingsSection("About") {

@@ -24,6 +24,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.nzfrankwu.noteapp.data.FolderRepository
 import com.nzfrankwu.noteapp.data.FolderResult
+import com.nzfrankwu.noteapp.data.NotebookRepository
 import com.nzfrankwu.noteapp.data.TaskDraft
 import com.nzfrankwu.noteapp.data.TaskRepository
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
@@ -63,7 +64,7 @@ class FolderScreenTest {
     fun tearDown() = db.close()
 
     private fun show(folderId: String) {
-        val viewModel = FolderViewModel(folderId, folders, tasks)
+        val viewModel = FolderViewModel(folderId, folders, tasks, NotebookRepository(db))
         compose.setContent {
             NoteAppTheme {
                 Box(Modifier.size(width = 1120.dp, height = 800.dp)) {
@@ -173,6 +174,6 @@ class FolderScreenTest {
         waitFor("Read chapter 3")
         // "No due date" appears as the section heading and on the task's own row.
         compose.onAllNodesWithText("No due date").onFirst().assertExists()
-        compose.onNodeWithText("Notebooks arrive in Phase 2").assertExists()
+        compose.onNodeWithText("No notebooks yet").assertExists()
     }
 }

@@ -4,13 +4,31 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Known bugs
 
-_None yet._
+_None known._
 
 ## Open questions
 
-_None right now._
+- **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
 ## Follow-ups / tech debt
+
+- **Steady pen width vs the pressure pen (F22):** at the same Thickness, the Off/Low/Medium pens may look thinner or thicker than the Full pen at your usual pressure (the emulator only has full pressure). Tune the multipliers in `InkBrushes.roundPen` after trying it on the tablet; changing them changes how existing strokes of those kinds look, so give a new key if notes already use them.
+- **Notebook editor, small things to revisit (Phase 2):**
+  - Ink still being written shows on top of the toolbar if you write under it; it drops behind once you lift the pen.
+  - Stability smooths a stroke when you lift the pen, so a wobbly line shifts slightly at that moment. It's off (0%) by default.
+  - Hold-to-straighten snaps the line after you lift the pen, not while you're still holding.
+  - Panning stops when your finger lifts (no "fling").
+  - Moving a large lasso selection pauses briefly when you let go (the moved strokes are rebuilt).
+  - Every page of a notebook is loaded into memory when it opens (fine for 50 pages; revisit for very long notebooks).
+  - A full page appears in a few quick steps the first time it scrolls into view.
+  - Zoomed in very far (a page bigger than about 4,000 pixels on screen), pages are no longer kept as a ready-made picture, so scrolling there is slower (about the 50 ms a frame of before). Not measured, because the emulator can't pinch from a script. Ideas: skip ink that's off screen, or keep only the visible part as a picture.
+  - The next page isn't drawn ahead of time; it appears as it scrolls in.
+  - Quick page previews are kept for pages within 12 of the screen. A very long flick past that shows plain paper for a moment.
+  - Press-and-hold to erase can't be checked on the emulator (its pen pressure is always 100%); it needs the tablet.
+  - The copy/paste clipboard lasts while the notebook is open; it doesn't carry over to other notebooks or apps.
+  - When a straight line snaps while the pen is held perfectly still, the wobbly line can stay visible until the pen moves or lifts (some pens send nothing while still).
+  - If a page can't be saved at all (e.g. storage full), Noteapp tries 4 times over about 8 seconds, then keeps the page marked unsaved and says so. If that happens just as you leave the notebook, the last changes can still be lost once the notebook is closed. A fuller fix would keep unsaved pages app-wide and retry later; revisit with Phase 6 backup.
+  - Jetpack Ink adds about 7 MB to the app (its drawing code for every kind of processor). A release build for one device type would be smaller; not worth doing now.
 
 - Build warning: `libandroidx.graphics.path.so` can't be stripped of debug symbols, so it's packaged as is. This is harmless and comes from AndroidX. No action needed unless APK size matters.
 - The signing key exists only on this PC (in `C:\Users\hiimf\keys\`) plus your own backups. On a new computer, copy both `noteapp-release.jks` and `noteapp-keystore.properties` into `<user home>\keys\` before building. Otherwise builds fall back to the debug key (a warning is printed) and can't update the app on the tablet.
@@ -23,9 +41,38 @@ _None right now._
 - **The emulator's stylus handwriting is turned off** (emulator only; `settings put secure stylus_handwriting_enabled 0`), because its "Try out your stylus" tutorial swallowed scripted typing. The tablet is unaffected.
 - **Screen tests leave their in-memory databases open** (`TaskScreensTest`, `DueSoonTest`). Closing them while a screen was still reading crashed a run once. Harmless for tests; revisit if test memory ever becomes a problem.
 - **Never install an older build than the one on the tablet.** The database is now version 3 (B.8), and Room can't go back to an older version: the older app would refuse to open (crash at start). Your data stays safe, and installing a current build fixes it, but don't downgrade.
+- **For Phase 6 "Recently deleted":** deleting a folder only checks for notebooks that aren't deleted, so notebooks deleted earlier stay in the database with no folder (their pages and files are kept). "Recently deleted" must list these and offer somewhere to restore them.
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Phase 2 second end-of-phase review (16 Nov):** 6 of 7 findings fixed, incl. Back now closes the tool panel (then the lasso selection) before leaving the notebook. All 183 emulator tests pass.
+- **Tablet feedback, batch 7 (Phase 2, F26–F28), 16 Nov.** A hard press held perfectly still now erases; the pen's settings panel closes when the pen touches the page; colour-wheel colours can be deleted or added to the toolbar.
+- **Tablet feedback, batch 6 (Phase 2, F21–F25), 16 Nov.** Highlighter opacity; pen pressure (Off/Low/Medium/Full, Off = same width); toolbar colours can be changed, reordered, deleted and added; tapping the colour in use opens the colour wheel; darker desk.
+- **Page scroller (Phase 2, F20), 16 Nov.** The page number became a draggable handle on a bottom track that scrolls through all pages; it fades when the pages stop moving.
+- **Tablet feedback, batch 5 (Phase 2, F17–F19), 16 Nov.** No top bar: the buttons float over the pages, which reach up to the status bar and fill the height when fitted. Highlighter has Flat tip and Round tip (new ink kind `highlighter-round-v1`). The lasso picks strokes that are only partly inside the loop.
+- **Tablet feedback, batch 4 (Phase 2, F13–F16), 16 Nov.** Writing on the last page adds an empty page after it (not an undo step). The lasso's Resize mode has a rotate handle above the box (snaps to quarter turns). No Done button: a finger tap outside the selection, or the pen outside it, lets it go. Fixed: small pages could stay blurry after a fast scroll until zoomed or touched (page readiness wasn't Compose state, so a waiting page never redrew). New unit tests (rotation, page readiness).
+- **Tablet feedback, batches 2 and 3 (Phase 2, F4–F12), 16 Nov.** Pages touch with a thin line between them; a dark Notein-style top bar of buttons only; finger flicks coast through pages and stick to sideways; double-tap glides to fit; far pages show a soft preview while scrolling. Pens: press hard *and hold* to erase (hold time in settings, "how hard" up to 100%); a colour wheel with a hex box (picked colours remembered); hold still mid-line to snap a straight line whose end you can still move, with gentle angle snapping. Lasso menu: Resize (handles on every corner and edge), Duplicate, Copy, Cut, Delete, Done; a finger held on a page pastes. New unit tests (fling, axis lock, press-hold, angle snap, colour hex, lasso box) and an emulator flick test.
+
+- **Tablet feedback, batch 1 (Phase 2, F1–F3), 15 Nov.** Zoomed-in pages no longer draw over the top bar. The OPPO Pencil 2's side button now toggles the lasso (the pen sends it as a Bluetooth key, F21, which the app didn't listen for). Press hard to erase now also works on the very hardest presses (a full 100% reading was ignored).
+
+- **End-of-phase review fixes (Phase 2), 15 Nov.** A `/code-review` of the whole phase found 8 things; 7 fixed:
+  - a page that fails to save is now tried again a few times, even after you leave the notebook (new emulator test)
+  - a database error while noting a save can no longer crash the app
+  - the pen's eraser end, adding a page and deleting a page now end a lasso selection (before, erased strokes could stay visible in the selection, or its box showed over the wrong page)
+  - highlighting no longer redraws the whole page picture on every stroke
+  - a newly added page can't lose a stroke written on it in the first instant
+  - garbled characters in the database-upgrade notes (`Migrations.kt`) repaired
+
+  The 8th (deleted notebooks left without a folder) is kept for Phase 6; see Follow-ups.
+
+- **A long notebook scrolls smoothly (Phase 2, step 2.12), 15 Nov.** On the emulator, with two full pages on screen (about 1,800 strokes), a frame went from about 150 ms (up to 1.3 s) to a median of 19 ms, with the graphics work down from 13 ms to 1 ms. How: saving a full page is 10× faster, strokes are prepared in the background, the ink is drawn in reusable groups of 32 strokes, and each page is kept on the graphics card as a ready-made picture that scrolling just moves. Writing, erasing, the lasso, undo and rotating still look right. Also fixed: **rotating the tablet sent the editor back to page 1**; it now stays on the same page. Not yet tried on the tablet.
+
+- **Handwriting in notebooks (Phase 2, steps 2.4–2.10), 15 Nov.** Notebooks open on a desk with pages side by side; a double-tap fits the page (fit height, or fit width / whole page in Settings → Notebooks). The pen writes with low lag (Google's Jetpack Ink library); a finger never writes but scrolls, pinches to zoom and double-taps. The thin floating toolbar has 3 pens, a see-through highlighter (drawn under the writing), an eraser (whole strokes), the lasso (circle, move, resize, delete), 8 colours plus more, 3 sizes plus a slider, Stability, hold-to-straighten and press-hard-to-erase; drag it by its handle or tuck it away. Undo and redo cover drawing, erasing, the lasso and adding or deleting pages. Pages save themselves within half a second, when you leave and when the app goes to the background; each page is its own file, written so a crash can't leave half a page. 63 new unit tests and 6 editor tests on the emulator.
+
+- **Subfolders and notebooks in folders (Phase 2, steps 2.2–2.3), 15 Nov.** Inside a folder, a grid of its folders and notebooks sits above the tasks, with an All · Notebooks · Folders filter. The ＋ button makes a new notebook (name and paper: Lined, Blank, Grid or Dot grid) or a folder. Folders can go inside folders as deep as you like; they show the course colour and tag, and "in ELECTENG 292 › tutorials" at the top. Each tile's ⋮ has Rename and Delete; deleting a notebook offers Undo, and a folder can only be deleted when it's empty. A new notebook opens straight away, showing its blank pages (writing comes next). 7 new screen tests.
+
+- **Database version 4: subfolders and notebooks (Phase 2, step 2.1 🔺), 15 Nov.** Folders can now sit inside other folders, and the database has notebooks and pages (the handwriting itself will be saved in one file per page, step 2.5). Updating the app only adds an empty column and two new, empty tables: every course, folder and task is kept exactly. Deleting is safe: a folder that holds anything can't be deleted, and deleting a notebook or page only hides it. Checked with migration tests, a deliberately broken migration (caught, and the failed update left the old data untouched), and a real upgrade of the previous app with data on the emulator. Nothing visible changes yet, except that deleting a non-empty folder now explains why it can't. 11 unit tests, 15 emulator tests.
 
 - **Code review of phase-1b (15 Nov): 7 of 8 findings fixed.**
   - The Calendar's day panel slides away again.

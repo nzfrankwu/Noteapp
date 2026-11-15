@@ -47,7 +47,7 @@ sealed interface FolderDialog {
         val autoName: String? = null,
     ) : FolderDialog
     data class Rename(val folderId: String, val name: String, val error: String? = null) : FolderDialog
-    data class ConfirmDelete(val folderId: String, val name: String, val courseCode: String?) : FolderDialog
+    data class ConfirmDelete(val folderId: String, val name: String, val courseCode: String?, val error: String? = null) : FolderDialog
 }
 
 /**
@@ -230,8 +230,8 @@ class HomeViewModel(
                         finish(result) { error -> dialog.copy(error = error.message()) }
                     }
                     is FolderDialog.ConfirmDelete -> {
-                        folderRepository.deleteFolder(dialog.folderId)
-                        _dialog.value = null
+                        val result = folderRepository.deleteFolder(dialog.folderId)
+                        finish(result) { error -> dialog.copy(error = error.message()) }
                     }
                 }
             } finally {

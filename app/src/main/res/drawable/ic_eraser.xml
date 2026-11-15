@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Noteapp's own eraser icon. Colour comes from Icon's tint. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M16.24,3.56l4.95,4.95c0.78,0.78 0.78,2.05 0,2.83L12.36,20.17H6.1l-3.27,-3.27c-0.78,-0.78 -0.78,-2.05 0,-2.83L13.41,3.56C14.2,2.78 15.46,2.78 16.24,3.56zM4.24,15.49l3.28,3.28h4.25l1.6,-1.6 -4.95,-4.95 -4.18,3.27z M14,19h8v2h-8z" />
+</vector>

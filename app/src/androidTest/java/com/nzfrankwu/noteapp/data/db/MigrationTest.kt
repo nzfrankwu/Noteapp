@@ -77,7 +77,7 @@ class MigrationTest {
         helper.createDatabase(testDbName, 1).close()
         val upgraded = helper.runMigrationsAndValidate(testDbName, NoteAppDatabase.VERSION, true, *ALL_MIGRATIONS)
         val fresh = helper.createDatabase(freshDbName, NoteAppDatabase.VERSION)
-        for (table in listOf("courses", "folders", "tasks")) {
+        for (table in listOf("courses", "folders", "tasks", "notebooks", "pages")) {
             assertEquals("Columns of $table", columnsOf(fresh, table), columnsOf(upgraded, table))
         }
         upgraded.close()
@@ -258,7 +258,93 @@ class MigrationTest {
         db.close()
     }
 
+    // ---- Version 3 → 4: subfolders, notebooks, pages ----
+
+    /**
+     * Every row and every value saved by version 3 is still there after 3 → 4, untouched; every
+     * folder stays top-level, and the new tables start empty.
+     */
+    @Test
+    fun migration3To4_keepsEveryValue_andEveryFolderStaysTopLevel() {
+        val before = helper.createDatabase(testDbName, 3).let { old ->
+            insertVersion3Data(old)
+            version3Columns.mapValues { (table, columns) -> rowsOf(old, table, columns) }.also { old.close() }
+        }
+
+        val db = helper.runMigrationsAndValidate(testDbName, 4, true, MIGRATION_3_4)
+
+        for ((table, columns) in version3Columns) {
+            assertEquals("Rows of $table after migrating", before.getValue(table), rowsOf(db, table, columns))
+        }
+        assertEquals(
+            "Every folder is still top-level",
+            listOf(listOf(null), listOf(null)),
+            rowsOf(db, "folders", listOf("parent_id")),
+        )
+        db.query("SELECT COUNT(*) FROM notebooks").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        db.query("SELECT COUNT(*) FROM pages").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        db.query("PRAGMA foreign_key_check").use { assertFalse("Broken links between tables", it.moveToFirst()) }
+        db.close()
+    }
+
+    /**
+     * After updating, the current app sees version 3's data as before (folders on Home, an
+     * archived course still archived) and can make subfolders and notebooks in an old folder.
+     */
+    @Test
+    fun dataSavedByVersion3_survivesUpdatingToTheCurrentVersion_andTakesSubfoldersAndNotebooks() {
+        helper.createDatabase(testDbName, 3).apply {
+            insertVersion3Data(this)
+            close()
+        }
+
+        val db = openWithAllMigrations()
+        runBlocking {
+            val archived = requireRow(db.courseDao().getById("c2"))
+            assertEquals(4000L, archived.archivedAt?.toEpochMilli())
+
+            val home = db.folderDao().observeTopLevelWithCourse().first()
+            assertEquals(listOf("f2", "f1"), home.map { it.folder.id }) // "Computer Systems", "ELECTENG 204"
+            assertEquals("ELECTENG 204", home.single { it.folder.id == "f1" }.courseCode)
+
+            val folders = com.nzfrankwu.noteapp.data.FolderRepository(db, newId = idsFrom("s"))
+            val sub = folders.createSubfolder("f1", "Tutorials") as com.nzfrankwu.noteapp.data.FolderResult.Success
+            val notebooks = com.nzfrankwu.noteapp.data.NotebookRepository(db, newId = idsFrom("n"))
+            val nb = notebooks.createNotebook(sub.folderId, "Tutorial 1") as com.nzfrankwu.noteapp.data.NotebookResult.Success
+
+            assertEquals(listOf("f2", "f1"), db.folderDao().observeTopLevelWithCourse().first().map { it.folder.id })
+            assertEquals(1, db.folderDao().observeChildren("f1").first().single().itemCount)
+            assertEquals(1, notebooks.getPages(nb.id).size)
+            val place = requireRow(folders.observePlace(sub.folderId).first())
+            assertEquals("c1", place.course?.id)
+
+            val task = requireRow(db.taskDao().getById("t1"))
+            assertEquals(TaskStatus.STUCK, task.status)
+            assertEquals("Ask about Q4", task.notes)
+        }
+        db.close()
+    }
+
     // ---- Helpers ----
+
+    private fun idsFrom(prefix: String): () -> String {
+        var n = 0
+        return { "$prefix${n++}" }
+    }
+
+    /**
+     * Rows as version 3 saved them: version 2's rows, with ENGGEN 115 archived.
+     * FROZEN to version 3's tables on purpose: never update this SQL for new versions.
+     */
+    private fun insertVersion3Data(db: SupportSQLiteDatabase) {
+        insertVersion2Data(db) // version 2's tables are part of version 3 (only a column was added)
+        db.execSQL("UPDATE courses SET archived_at = 4000 WHERE id = 'c2'")
+    }
+
+    /** Version 3's columns: version 2's plus courses.archived_at. FROZEN like [insertVersion3Data]. */
+    private val version3Columns: Map<String, List<String>> by lazy {
+        version2Columns.mapValues { (table, columns) -> if (table == "courses") columns + "archived_at" else columns }
+    }
 
     /**
      * Rows as version 1 saved them: a Canvas course with a folder, a Canvas task with your own

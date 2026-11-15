@@ -2,6 +2,7 @@ package com.nzfrankwu.noteapp
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 import com.nzfrankwu.noteapp.domain.CourseSeen
 import com.nzfrankwu.noteapp.reminders.Notifications
 import com.nzfrankwu.noteapp.ui.NoteAppRoot
+import com.nzfrankwu.noteapp.ui.notebook.PenButtonKeyEvents
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -53,6 +55,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /** Pen side buttons that arrive as keys go to the open notebook (see PenButtonKeyEvents). */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        PenButtonKeyEvents.handle(event) || super.dispatchKeyEvent(event)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

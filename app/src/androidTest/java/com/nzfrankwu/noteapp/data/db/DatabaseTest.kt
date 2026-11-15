@@ -190,7 +190,7 @@ class DatabaseTest {
         db.folderDao().insert(folder(id = "f1", name = "Current", courseId = "c1"))
         db.folderDao().insert(folder(id = "f2", name = "Old", courseId = "old"))
         db.folderDao().insert(folder(id = "f3", name = "Personal", courseId = null))
-        val folders = db.folderDao().observeAllWithCourse().first().associateBy { it.folder.id }
+        val folders = db.folderDao().observeTopLevelWithCourse().first().associateBy { it.folder.id }
         assertTrue(!folders.getValue("f1").isArchived)
         assertTrue(folders.getValue("f2").isArchived)
         assertTrue(!folders.getValue("f3").isArchived)

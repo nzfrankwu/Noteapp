@@ -5,9 +5,13 @@ import com.nzfrankwu.noteapp.data.db.Course
 import com.nzfrankwu.noteapp.data.db.CourseListItem
 import com.nzfrankwu.noteapp.data.db.Folder
 import com.nzfrankwu.noteapp.data.db.FolderListItem
+import com.nzfrankwu.noteapp.data.db.FolderPlace
+import com.nzfrankwu.noteapp.data.db.SubfolderListItem
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 import com.nzfrankwu.noteapp.domain.CourseCodes
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
@@ -19,6 +23,10 @@ sealed interface FolderError {
     data object NotFound : FolderError
     /** The course (saved as [courseCode]) is already linked to another folder, called [folderName]. */
     data class CourseAlreadyLinked(val courseCode: String, val folderName: String) : FolderError
+    /** Subfolders belong to their top folder's course and can't link one of their own. */
+    data object SubfolderCantLinkCourse : FolderError
+    /** The folder still holds subfolders or notebooks, so it can't be deleted. */
+    data class NotEmpty(val subfolders: Int, val notebooks: Int) : FolderError
 }
 
 sealed interface FolderResult {
@@ -39,9 +47,33 @@ class FolderRepository(
 ) {
     private val folderDao = db.folderDao()
     private val courseDao = db.courseDao()
+    private val notebookDao = db.notebookDao()
 
-    /** Every folder A–Z with its course code, updating live. */
-    fun observeFolders(): Flow<List<FolderListItem>> = folderDao.observeAllWithCourse()
+    /** Top-level folders (the home screen's) A–Z with their course codes, updating live. */
+    fun observeFolders(): Flow<List<FolderListItem>> = folderDao.observeTopLevelWithCourse()
+
+    /** The folders inside [parentId], A–Z, with how many things each holds. Updates live. */
+    fun observeSubfolders(parentId: String): Flow<List<SubfolderListItem>> = folderDao.observeChildren(parentId)
+
+    /**
+     * Where a folder sits: its path from the top folder down to it, and the top folder's course
+     * (which subfolders belong to). Null once the folder is deleted. Updates live.
+     */
+    fun observePlace(folderId: String): Flow<FolderPlace?> =
+        combine(folderDao.observeAll(), courseDao.observeAll()) { folders, courses ->
+            FolderPlace.of(folderId, folders, courses)
+        }.distinctUntilChanged()
+
+    /** Creates a folder inside [parentId]. Subfolders have no course of their own. */
+    suspend fun createSubfolder(parentId: String, name: String): FolderResult = db.withTransaction {
+        val cleanName = name.trim()
+        if (cleanName.isEmpty()) return@withTransaction FolderResult.Failure(FolderError.BlankName)
+        folderDao.getById(parentId) ?: return@withTransaction FolderResult.Failure(FolderError.NotFound)
+        val now = clock.instant()
+        val folder = Folder(id = newId(), name = cleanName, courseId = null, createdAt = now, updatedAt = now, parentId = parentId)
+        folderDao.insert(folder)
+        FolderResult.Success(folder.id)
+    }
 
     /**
      * Creates a folder. If [courseCode] is given, the folder is linked to that course, which is
@@ -83,6 +115,7 @@ class FolderRepository(
      */
     suspend fun linkCourse(folderId: String, courseCode: String): FolderResult = db.withTransaction {
         val folder = folderDao.getById(folderId) ?: return@withTransaction FolderResult.Failure(FolderError.NotFound)
+        if (folder.parentId != null) return@withTransaction FolderResult.Failure(FolderError.SubfolderCantLinkCourse)
         val code = CourseCodes.tidy(courseCode) ?: return@withTransaction FolderResult.Failure(FolderError.BlankCourseCode)
         val now = clock.instant()
         val course = findOrCreateCourse(code, now)
@@ -137,6 +170,7 @@ class FolderRepository(
      */
     suspend fun linkCourseById(folderId: String, courseId: String): FolderResult = db.withTransaction {
         val folder = folderDao.getById(folderId) ?: return@withTransaction FolderResult.Failure(FolderError.NotFound)
+        if (folder.parentId != null) return@withTransaction FolderResult.Failure(FolderError.SubfolderCantLinkCourse)
         val course = courseDao.getById(courseId) ?: return@withTransaction FolderResult.Failure(FolderError.NotFound)
         folderDao.getByCourseId(course.id)?.let { linked ->
             if (linked.id != folderId) {
@@ -154,9 +188,21 @@ class FolderRepository(
         FolderResult.Success(folderId)
     }
 
-    /** Deletes only the folder. Its course and that course's tasks are kept. */
-    suspend fun deleteFolder(folderId: String) {
-        folderDao.getById(folderId)?.let { folderDao.delete(it) }
+    /**
+     * Deletes the folder, but only when it's empty: a folder holding subfolders or notebooks is
+     * refused ([FolderError.NotEmpty]), so nothing inside can be lost by accident. Its course and
+     * that course's tasks are kept. Notebooks deleted earlier (hidden, kept for "Recently
+     * deleted") stay in the database without a folder.
+     */
+    suspend fun deleteFolder(folderId: String): FolderResult = db.withTransaction {
+        val folder = folderDao.getById(folderId) ?: return@withTransaction FolderResult.Success(folderId)
+        val subfolders = folderDao.countChildren(folderId)
+        val notebooks = notebookDao.countInFolder(folderId)
+        if (subfolders + notebooks > 0) {
+            return@withTransaction FolderResult.Failure(FolderError.NotEmpty(subfolders, notebooks))
+        }
+        folderDao.delete(folder)
+        FolderResult.Success(folderId)
     }
 
     /**

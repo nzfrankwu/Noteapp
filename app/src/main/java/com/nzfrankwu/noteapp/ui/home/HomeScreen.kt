@@ -162,6 +162,7 @@ fun HomeScreen(
             courseCode = d.courseCode,
             onConfirm = viewModel::confirmDialog,
             onDismiss = viewModel::dismissDialog,
+            error = d.error,
         )
         null -> Unit
     }

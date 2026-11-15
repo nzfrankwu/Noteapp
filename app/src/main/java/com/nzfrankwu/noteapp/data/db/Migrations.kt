@@ -50,8 +50,42 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
     }
 }
 
+/**
+ * Version 3 → 4 (Phase 2, step 2.1): subfolders and notebooks.
+ *  - folders get `parent_id` (null = a top-level folder, which every existing folder stays).
+ *  - new, empty `notebooks` and `pages` tables. (The handwriting itself goes in per-page files.)
+ *
+ * Existing rows are never copied or rewritten: the folders table only gains an empty column, so
+ * every course, folder and task stays exactly as it was. The SQL matches Room's schema 4 exactly
+ * (app/schemas/.../4.json); MigrationTest checks that.
+ */
+val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE `folders` ADD COLUMN `parent_id` TEXT " +
+                "REFERENCES `folders`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_folders_parent_id` ON `folders` (`parent_id`)")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `notebooks` (`id` TEXT NOT NULL, `folder_id` TEXT, `title` TEXT NOT NULL, " +
+                "`template` TEXT NOT NULL, `page_width` REAL NOT NULL, `page_height` REAL NOT NULL, " +
+                "`created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`folder_id`) REFERENCES `folders`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_notebooks_folder_id` ON `notebooks` (`folder_id`)")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `pages` (`id` TEXT NOT NULL, `notebook_id` TEXT NOT NULL, " +
+                "`position` INTEGER NOT NULL, `template` TEXT, `created_at` INTEGER NOT NULL, " +
+                "`updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`notebook_id`) REFERENCES `notebooks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_pages_notebook_id` ON `pages` (`notebook_id`)")
+    }
+}
+
 /** Every migration, oldest first. Keep this list at the bottom of the file (see above). */
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
+    MIGRATION_3_4,
 )

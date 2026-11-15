@@ -10,11 +10,18 @@ import com.nzfrankwu.noteapp.canvas.FakeCanvas
 import com.nzfrankwu.noteapp.canvas.WebViewCanvasCookies
 import com.nzfrankwu.noteapp.data.CanvasSettings
 import com.nzfrankwu.noteapp.data.FolderRepository
+import com.nzfrankwu.noteapp.data.InkSettings
+import com.nzfrankwu.noteapp.data.NotebookFiles
+import com.nzfrankwu.noteapp.data.NotebookRepository
 import com.nzfrankwu.noteapp.data.QuickAdd
 import com.nzfrankwu.noteapp.data.TaskRepository
+import com.nzfrankwu.noteapp.data.Thumbnails
 import com.nzfrankwu.noteapp.data.ViewSettings
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 import com.nzfrankwu.noteapp.reminders.ReminderScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 
 /**
@@ -29,6 +36,20 @@ class AppContainer(context: Context) {
     val folderRepository: FolderRepository by lazy { FolderRepository(database) }
 
     val taskRepository: TaskRepository by lazy { TaskRepository(database) }
+
+    val notebookRepository: NotebookRepository by lazy { NotebookRepository(database) }
+
+    /** The handwriting: one file per page in the app's private files folder (never the cache). */
+    val notebookFiles: NotebookFiles by lazy { NotebookFiles(appContext.filesDir) }
+
+    /** First-page pictures for notebook tiles (a cache: drawn again whenever they're missing). */
+    val thumbnails: Thumbnails by lazy { Thumbnails(java.io.File(appContext.cacheDir, "thumbnails")) }
+
+    /** The notebook toolbar's remembered choices. */
+    val inkSettings: InkSettings by lazy { InkSettings(appContext) }
+
+    /** Work that must finish even after its screen closes (saving notebook pages). */
+    val appScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     /** Turns links shared from other apps into prefilled New task forms. */
     val quickAdd: QuickAdd by lazy { QuickAdd(database) { canvasSettings.address.first() } }

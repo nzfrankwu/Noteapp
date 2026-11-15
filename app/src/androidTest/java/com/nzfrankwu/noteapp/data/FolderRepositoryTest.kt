@@ -231,4 +231,72 @@ class FolderRepositoryTest {
         assertEquals(courseId, db.folderDao().getById(second)!!.courseId) // same course, not a new one
         assertNull(db.courseDao().getById(courseId)!!.archivedAt) // and it's current again
     }
+
+    // ---- Subfolders (Phase 2) ----
+
+    @Test
+    fun subfolders_stayOffHome_andShowInTheirParent() = runBlocking {
+        val top = (repo.createFolder("ELECTENG 292", "ELECTENG 292") as FolderResult.Success).folderId
+        val sub = (repo.createSubfolder(top, "  tutorials ") as FolderResult.Success).folderId
+        repo.createSubfolder(sub, "week 1")
+
+        assertEquals(listOf(top), folders().map { it.folder.id })
+        val children = repo.observeSubfolders(top).first()
+        assertEquals(listOf("tutorials"), children.map { it.folder.name })
+        assertEquals(1, children.single().itemCount)
+        assertNull("Subfolders have no course of their own", db.folderDao().getById(sub)!!.courseId)
+    }
+
+    @Test
+    fun subfolders_belongToTheTopFoldersCourse_atAnyDepth() = runBlocking {
+        val top = (repo.createFolder("EE 292", "ELECTENG 292") as FolderResult.Success).folderId
+        val a = (repo.createSubfolder(top, "a") as FolderResult.Success).folderId
+        val b = (repo.createSubfolder(a, "b") as FolderResult.Success).folderId
+        val c = (repo.createSubfolder(b, "c") as FolderResult.Success).folderId
+
+        val place = repo.observePlace(c).first()!!
+        assertEquals(listOf(top, a, b, c), place.path.map { it.id })
+        assertEquals("ELECTENG 292", place.course?.code)
+    }
+
+    @Test
+    fun subfolders_cantLinkACourse() = runBlocking {
+        val top = (repo.createFolder("Top", null) as FolderResult.Success).folderId
+        val sub = (repo.createSubfolder(top, "sub") as FolderResult.Success).folderId
+        assertEquals(FolderResult.Failure(FolderError.SubfolderCantLinkCourse), repo.linkCourse(sub, "COMPSYS 201"))
+        repo.createFolder("Other", "COMPSYS 201")
+        val courseId = db.courseDao().getAll().single().id
+        assertEquals(FolderResult.Failure(FolderError.SubfolderCantLinkCourse), repo.linkCourseById(sub, courseId))
+    }
+
+    @Test
+    fun subfolder_needsANameAndAParent() = runBlocking {
+        val top = (repo.createFolder("Top", null) as FolderResult.Success).folderId
+        assertEquals(FolderResult.Failure(FolderError.BlankName), repo.createSubfolder(top, "  "))
+        assertEquals(FolderResult.Failure(FolderError.NotFound), repo.createSubfolder("missing", "x"))
+    }
+
+    @Test
+    fun aFolderWithSubfoldersOrNotebooks_cantBeDeleted() = runBlocking {
+        val top = (repo.createFolder("Top", null) as FolderResult.Success).folderId
+        val sub = (repo.createSubfolder(top, "sub") as FolderResult.Success).folderId
+        assertEquals(FolderResult.Failure(FolderError.NotEmpty(subfolders = 1, notebooks = 0)), repo.deleteFolder(top))
+
+        val notebooks = NotebookRepository(db) { "nb-${++nextId}" }
+        val nb = (notebooks.createNotebook(sub, "Notes") as NotebookResult.Success).id
+        assertEquals(FolderResult.Failure(FolderError.NotEmpty(subfolders = 0, notebooks = 1)), repo.deleteFolder(sub))
+        assertNotNull(db.folderDao().getById(sub))
+
+        // Once the notebook is deleted (kept, hidden), the empty folder can go, and the notebook
+        // stays in the database without a folder.
+        notebooks.delete(nb)
+        assertEquals(FolderResult.Success(sub), repo.deleteFolder(sub))
+        assertNull(db.folderDao().getById(sub))
+        val kept = db.notebookDao().getNotebook(nb)!!
+        assertNull(kept.folderId)
+        assertNotNull(kept.deletedAt)
+        assertEquals(1, db.notebookDao().getPages(nb).size)
+
+        assertEquals(FolderResult.Success(top), repo.deleteFolder(top))
+    }
 }

@@ -45,4 +45,10 @@ object Dimens {
 
     /** Below this top-bar width home shows only the Overview · Calendar · Timeline tabs, not the app name. */
     val HomeTitleMinWidth = 480.dp
+
+    /** Smallest width of a notebook or subfolder tile inside a folder (Phase 2). */
+    val LibraryTileMinWidth = 150.dp
+
+    /** Height of a tile's picture area (the page thumbnail or the folder icon). */
+    val LibraryTileThumbHeight = 170.dp
 }

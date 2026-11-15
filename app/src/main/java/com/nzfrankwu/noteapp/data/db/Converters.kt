@@ -1,6 +1,7 @@
 package com.nzfrankwu.noteapp.data.db
 
 import androidx.room.TypeConverter
+import com.nzfrankwu.noteapp.domain.PageTemplate
 import com.nzfrankwu.noteapp.domain.TaskSource
 import com.nzfrankwu.noteapp.domain.TaskStatus
 import java.time.Instant
@@ -8,7 +9,8 @@ import java.time.Instant
 /**
  * How values that SQLite can't store directly are saved:
  *  - Times are saved as UTC milliseconds since 1970, and shown in local time by the UI.
- *  - Status and source are saved by their fixed [TaskStatus.key] / [TaskSource.key], never by
+ *  - Status, source and page template are saved by their fixed keys ([TaskStatus.key],
+ *    [TaskSource.key], [PageTemplate.key]), never by
  *    the Kotlin name or position, so renaming or reordering them in code can't scramble data.
  */
 class Converters {
@@ -29,4 +31,10 @@ class Converters {
 
     @TypeConverter
     fun keyToSource(key: String): TaskSource = TaskSource.fromKey(key)
+
+    @TypeConverter
+    fun templateToKey(template: PageTemplate?): String? = template?.key
+
+    @TypeConverter
+    fun keyToTemplate(key: String?): PageTemplate? = key?.let(PageTemplate::fromKey)
 }

@@ -79,9 +79,12 @@
   - Lasso select → move / resize / delete
   - Undo / redo
   - Insert image
-- **Pen toolbar:** **small, floating and movable** (drag it anywhere; remembers its position).
+- **Pen toolbar:** **small, floating and movable** (drag it anywhere; remembers its position). A bit thinner than Notein's, and it can collapse (added Nov 2026).
+- **Pen button** (added Nov 2026): one click of the stylus side button switches to lasso; another click goes back to the tool I was using.
+- **Press hard to erase** (added Nov 2026): pressing the pen tip harder than a set level erases instead of drawing, with a sensitivity setting and an off switch.
 - **Stylus vs finger:** stylus draws, finger scrolls/zooms (palm rejection).
-- Pinch to zoom, scroll between pages, add/delete pages.
+- Pinch to zoom, scroll between pages (side by side, like Notein), add/delete pages.
+- **Double-tap to fit** (added Nov 2026): a double-tap fits the page to the screen. Default: fit height; fit width or whole page can be chosen in Settings.
 - **Autosave** — never lose strokes.
 
 ### 2.6 Files: PDFs, images, Word/PowerPoint
@@ -204,10 +207,10 @@ Build one phase at a time; each phase should leave a working app. Commit after e
 |---|---|
 | **1. Courses & tasks** | Folders, manual tasks, status tags, home screen (Due soon + No due date + folders), task detail, reminders → then **Canvas sign-in + sync** (test the in-app login first), course linking, auto-status, quick-add from a link |
 | **1b. Task views** | Days left on tasks, automatic course colours, Canvas "available from" date (database v2), home tabs, Calendar (month), Timeline |
-| **2. Handwriting notebooks** | **Subfolders** (folder-in-folder, done together with the notebook storage changes), notebook/page model, ink canvas with pen/highlighter/eraser, undo/redo, page templates (lined default), floating movable toolbar, zoom/scroll, palm rejection, autosave |
+| **2. Handwriting notebooks** | **Subfolders** (folder-in-folder, done together with the notebook storage changes), notebook/page model, ink canvas with pen/highlighter/eraser, undo/redo, page templates (lined default), floating movable toolbar, zoom/scroll, palm rejection, autosave, **lasso select** (moved here from Phase 5, Nov 2026), pen button → lasso, press hard to erase, double-tap to fit |
 | **3. Images & PDFs** | Insert images, import PDFs and annotate, export annotated PDF, "Share to NoteApp" |
 | **4. Linking** | Link notebooks/files ↔ tasks; course folder view showing notes + tasks together |
-| **5. Productivity extras** | Lasso select, text boxes, in-app split view of two notebooks, screen capture/snip (whole screen incl. other apps → crop → insert; snip between split notebooks) |
+| **5. Productivity extras** | Text boxes, in-app split view of two notebooks, screen capture/snip (whole screen incl. other apps → crop → insert; snip between split notebooks) |
 | **6. Google Drive & backup** | ⚠️ Must be done and tested before I use the app for real. Google sign-in, automatic full backup + restore, manual "Export everything" / "Import from export", PDF copies mirroring course folders, backup status/warnings, Recently deleted, Word/PowerPoint conversion → later: Version history |
 | **7. Polish** | Search, partial eraser, custom tags, per-page templates, settings, performance tuning |
 

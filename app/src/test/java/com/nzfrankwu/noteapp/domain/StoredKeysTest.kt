@@ -36,8 +36,21 @@ class StoredKeysTest {
     }
 
     @Test
+    fun pageTemplateKeys_neverChange() {
+        assertEquals(setOf("lined", "blank", "grid", "dots"), PageTemplate.entries.map { it.key }.toSet())
+    }
+
+    @Test
+    fun unknownPageTemplate_isLined() {
+        assertEquals(PageTemplate.LINED, PageTemplate.fromKey("hexagons"))
+        assertEquals(PageTemplate.DOTS, PageTemplate.fromKey("dots"))
+        assertEquals(PageTemplate.LINED, PageTemplate.DEFAULT)
+    }
+
+    @Test
     fun keys_areUnique() {
         assertEquals(TaskStatus.entries.size, TaskStatus.entries.map { it.key }.toSet().size)
         assertEquals(TaskSource.entries.size, TaskSource.entries.map { it.key }.toSet().size)
+        assertEquals(PageTemplate.entries.size, PageTemplate.entries.map { it.key }.toSet().size)
     }
 }

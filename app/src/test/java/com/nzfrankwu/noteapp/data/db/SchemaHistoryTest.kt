@@ -22,6 +22,7 @@ class SchemaHistoryTest {
         1 to "b27669dff183eb5efc7d815cae29680e",
         2 to "cc7190b5bf8617347de1f80aff0e1987", // Phase 1b: tasks.available_at
         3 to "c46f5206b09771b08f5070500a2fe591", // Phase 1b: courses.archived_at
+        4 to "a64c218ee32b0a66128cb5539c44d312", // Phase 2: subfolders, notebooks, pages
     )
 
     // Unit tests run with the app module folder as the working directory.

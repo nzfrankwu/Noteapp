@@ -1,35 +1,27 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 12:35 pm. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (feedback F1–F29 done; second end-of-phase review done; waiting for the user's OK to merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phase 1 (Courses & tasks)** and **Phase 1b (Task views): both done and merged into `main`.** Phase 1b was merged on 15 Nov with the user's OK. Their history is in `PHASE-1.md`, `PHASE-1B.md` and `ISSUES.md`.
-- **Next phase: Phase 2, Handwriting notebooks** (IDEA.md §5). It isn't planned yet; there's no `PHASE-2.md`.
-- **Branch:** `main` (Phase 1b merged). Start Phase 2 on a new branch, `phase-2`.
-- **The tablet runs the merged `main` build** (all of Phase 1b with the review fixes; database version 3). Installed on 15 Nov with the user's OK.
-- **Mode:** "Working together".
+- **Phase 1 (Courses & tasks)** and **Phase 1b (Task views): both done and merged into `main`.** Their history is in `PHASE-1.md`, `PHASE-1B.md` and `ISSUES.md`.
+- **Current phase: Phase 2, Handwriting notebooks.** The plan is **`PHASE-2.md`** (decisions, design, checklist 2.1–2.12, layout drafts).
+- **Branch:** `phase-2` (pushed; the working tree is clean).
+- **Mode: "Hands-off"** since 15 Nov (the user said to spend the remaining budget on Phase 2, push when it matters, and update docs often). `REPORT.md` (local, git-ignored) has the report so far; update it when stopping, listing every 🔺 step done.
+- **The tablet runs the `phase-2` build (`d94ea61`) since 15 Nov, late**, with the user's OK. Its database upgraded to **version 4** cleanly (10 courses, 4 folders, 124 tasks kept; integrity OK). **Never install a `main` build (v3) on it again** until Phase 2 is merged: Room can't downgrade.
+- **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor), 2.11 (thumbnails), **2.12 (performance; verified on the emulator, 15 Nov)**: two full pages scroll at a median 19 ms a frame (was 150 ms), render thread about 1 ms. Rotating now keeps the current page (`rememberSaveable` in `NotebookScreen`).
+- **End-of-phase `/code-review` done (15 Nov):** 8 findings, 7 fixed (save retries even after leaving, no crash from a DB error after saving, lasso cleared by the eraser end / add page / delete page, newest highlighter chunk in its own layer under the page picture, add-page race, garbled `Migrations.kt` comments). The 8th (deleted notebooks left without a folder when their folder is deleted) is a Phase 6 follow-up in ISSUES.md.
+- Unit tests and the full emulator suite (**182 tests**) pass after the fixes.
 
 ## Next steps (in order)
 
-1. **Plan Phase 2 with the user** in a new `PHASE-2.md` (like `PHASE-1B.md`: a checklist with ★ check-ins and 🔺 for hard steps).
-   - Read IDEA.md §2.5, §2.10 and §5a first.
-   - Describe the notebook screen layout and ask which `design-reference/` screenshot to follow before coding it.
-   - 🔺 steps to flag:
-     - the ink canvas (stylus input, pressure, palm rejection, smoothness)
-     - the notebook storage design (it must suit Phase 6 backup and "only upload what changed")
-     - the database change (version 4)
-2. **In Phase 2, first: subfolders** (the user asked for them on 15 Nov). IDEA.md §2.1 and the §5 Phase 2 row now include them.
-   - Planned for the start of Phase 2, so the folder database change goes in with the notebook storage change.
-   - Layout reference: `design-reference/notein-inside-course-folder.jpg` (a filter row All · PDF · Note · Folder, then a thumbnail grid).
-   - Open questions for then:
-     - do subfolders inherit the parent's course?
-     - do their tasks show in the parent?
-     - how deep can folders nest?
+1. **The user's tablet feedback (`PHASE-2.md` 2.13, F1–F29) is all built** (16 Nov) and on the tablet; waiting for their check and more feedback. **The second `/code-review` is done (16 Nov): 6 of 7 fixed, 183 emulator tests pass.** Batch 4: a page is added after the last one when you write on it, lasso rotate handle, tap outside to deselect (no Done), fix for pages staying blurry after a fast scroll. Batch 5: floating buttons instead of a top bar (pages reach the status bar), flat/round highlighter tips, lasso picks partly-circled strokes. F20: the page number is a draggable page scroller that fades. Batch 6 (F21–F25): highlighter opacity, pen pressure levels, editable toolbar colours, darker desk. Batch 7 (F26–F28): hard press held still erases, panel closes on any page touch (pen or finger), delete colour-wheel colours. Next: the user approves merging `phase-2` into `main` (never merge without it).
+2. **Waiting on the user: approve merging `phase-2` into `main`** (CLAUDE.md: never merge without approval). `REPORT.md` (local) has the full report. After merging, Phase 3 is next (see IDEA.md §5).
+3. 2.12 follow-ups (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release.
 
 ## Tablet database safety copy
 
-- **`backups/tablet-db-2026-11-15-before-v2/`** and **`…-before-v3/`** (git-ignored, local only) hold the tablet's database from just before the B.3 and B.8 upgrades. It contains personal Canvas names but no secrets. Keep it until Phase 1b is merged and the user is happy; never commit it.
+- **`backups/tablet-db-2026-11-15-before-v2/`**, **`…-before-v3/`** and **`…-before-v4/`** (git-ignored, local only) hold the tablet's database from just before the B.3 and B.8 upgrades. It contains personal Canvas names but no secrets. Keep it until Phase 1b is merged and the user is happy; never commit it.
 - How it was made, for next time (ask the user first):
   - force-stop the app
   - `adb -s <tablet> exec-out run-as com.nzfrankwu.noteapp cat databases/<f>` for `noteapp.db`, `-wal` and `-shm`
@@ -37,6 +29,12 @@ _Last updated: 15 Nov 2026, 12:35 pm. Keep this file current (see CLAUDE.md, "Se
 - **Never install an older build than the tablet has** (it's now heading to database v3): Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
 
 ## Waiting on the user
+
+- **Phase 2 on the tablet** (installed 15 Nov; the user is checking it):
+  - writing with the OPPO Pencil 2: lag, pressure, palm rejection
+  - the pen's side button: does one click switch to the lasso and back?
+  - press hard to erase: is 90% the right level?
+  - a long notebook stays smooth (editor ⋮ → "Add 50 pages of test writing (debug)")
 
 - **Tablet testing** of B.1–B.6 (installed; see `REPORT.md` for the steps).
 - **Tablet checks not yet reported:**
@@ -75,12 +73,22 @@ _Last updated: 15 Nov 2026, 12:35 pm. Keep this file current (see CLAUDE.md, "Se
     - Reminders skip archived courses' tasks (`ReminderScheduler.apply`, plus a re-check in `ReminderReceiver`)
     - Course colours still count archived courses, so colours never shift
 
+- **Phase 2 (15 Nov):** the main choices are listed at the top of `PHASE-2.md`. In short:
+  - Jetpack Ink for drawing; pages side by side (like Notein)
+  - notebooks and subfolders above the tasks in a folder
+  - subfolders inherit the course, any depth
+  - strokes in one file per page; Room v4 for the structure
+  - pen button toggles lasso, press hard to erase, double-tap to fit (default fit height)
+  - lasso moved from Phase 5 into Phase 2 (IDEA.md updated with the user's OK)
+
 ## Code map (app/src/main/java/com/nzfrankwu/noteapp/)
 
 | Folder | What's in it |
 |---|---|
-| `data/db/` | Room database **v3**: `Course` (+`archivedAt`), `Folder`, `Task` (+`availableAt`), DAOs, `Migrations.kt` (`MIGRATION_1_2`, `MIGRATION_2_3`), `CourseListItem` |
-| `data/` | Repositories (`FolderRepository`, `TaskRepository`), `CanvasSettings` (DataStore), `QuickAdd` |
+| `data/db/` | Room database **v4**: `Course` (+`archivedAt`), `Folder` (+`parentId`), `Task` (+`availableAt`), `Notebook`, `Page`, DAOs, `FolderPlace`, `Migrations.kt` (`MIGRATION_1_2` … `MIGRATION_3_4`) |
+| `data/` | Repositories (`FolderRepository`, `TaskRepository`, `NotebookRepository`), `NotebookFiles` (page files), `Thumbnails`, `InkSettings` / `CanvasSettings` / `ViewSettings` (DataStore), `QuickAdd` |
+| `domain/ink/` | Plain-Kotlin handwriting logic: `InkStroke`, `PageInkCodec` (file format), `NotebookInk` (undo/redo), `InkGeometry` (eraser, lasso), `PageStrip` (fit/zoom), `EditorTools` (tools, palette, pen button, press-hard, straighten, smoothing) |
+| `ui/notebook/` | The editor: `NotebookScreen`, `NotebookCanvas` (drawing, gestures, lasso), `InkToolbar`, `InkBrushes` (our strokes ↔ Jetpack Ink), `NotebookViewModel` (loading, saving) |
 | `domain/` | Plain-Kotlin rules: `DaysLeft`, `CourseColorKey`, `TaskRules` (overdue, Due soon sections, default times), `Reminders`, `CourseCodes`, `Links`, `SharedLink`, `DateText` |
 | `canvas/` | `CanvasClient` (GET only), `CanvasParser`, `CanvasMerge`, `CanvasSync`, `CanvasSyncRunner`, `CanvasSyncWorker`, `CanvasAccount` (sign-in and out), `FakeCanvas` (debug; most assignments have "available from" dates) |
 | `reminders/` | Alarm scheduling and receivers |
@@ -117,6 +125,33 @@ _Last updated: 15 Nov 2026, 12:35 pm. Keep this file current (see CLAUDE.md, "Se
 - **Pinned versions:**
   - `kotlinx.serialization` is at 1.9.0 (the newest for Kotlin 2.2, which comes with AGP 9.5.1). It must stay at or above Room's needs, or `MigrationTest` crashes.
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
+- **Real upgrade test, old APK:** build `main` in a worktree (`git worktree add ../Noteapp-v3 main`, copy `local.properties`, `gradlew assembleDebug` there). Removing that worktree fails with "Filename too long"; delete it with `cmd /c rmdir /s /q` and `git worktree prune`.
+- **After a deliberately broken migration test, rebuild** (`assembleDebug`) before installing: the broken-migration test leaves a broken APK in `app/build/outputs`.
+- **Helper scripts are saved in `screenshots/`** (git-ignored, this PC only): `ui.py` (tap by text or description), `setup.sh` (fake Canvas + 3 course folders), `perf_setup.sh` (install, set up, make a notebook, add 50 test pages), `framestats.py` (per-stage frame times). Run them from that folder with Git Bash and `PYTHONIOENCODING=utf-8`.
+- **Measuring editor speed on the emulator:**
+  - Per-stage frame times: `adb shell dumpsys gfxinfo com.nzfrankwu.noteapp framestats` (columns `DrawStart`, `SyncQueued`, `IssueDrawCommandsStart`, `SwapBuffers`, `FrameCompleted`); a small Python script summarised medians (rewrite if the scratchpad is gone).
+  - Finger scroll: `adb shell input touchscreen swipe x1 y1 x2 y2 ms`. Double-tap: two `input touchscreen tap` about 0.12 s apart.
+  - Give long emulator scripts a `timeout` per adb call and run them in the background: one was killed mid-way and its leftover Back presses left the app.
+- **How the ink is drawn (2.12):** `NotebookCanvas` = desk and paper canvas → one `PageInkLayer` per page on screen → overlay canvas (lasso loop/box, eraser ring) → Jetpack Ink's wet layer. `PageInkLayer` splits a page's strokes into 32-stroke `InkChunk`s (`InkChunks.reconcile` reuses untouched chunks by object identity), each a `graphicsLayer` drawn once. Camera, lasso and `inkScale` live in `EditorViewState` and are read only in draw or layer blocks, so scrolling doesn't recompose.
+- **Jetpack Ink gotchas:**
+  - `CanvasStrokeRenderer.draw(canvas, stroke, matrix)` does NOT move the canvas: the matrix only tunes quality. `canvas.concat(matrix)` first.
+  - The Compose `InProgressStrokes` takes a Compose `Matrix` (screen → desk), and draws every pointer nobody consumed. Our gesture layer consumes fingers in `PointerEventPass.Initial` (palm rejection) and stylus events for eraser/lasso.
+  - Keep `InProgressStrokes`' inputs the same objects (`InkLayerInputs`), or it restarts and cancels the stroke being written.
+  - Ink's own `encode`/`decode` use native code, which JVM unit tests can't load; we save with our own `PageInkCodec`.
+  - Emulator stylus input: `adb shell input stylus swipe x1 y1 x2 y2 ms`, or `input stylus motionevent DOWN/MOVE/UP x y` (pressure is always 1.0 there).
+  - Screen tests draw with "Draw with finger" on (`InkToolSettings(drawWithFinger = true)`), since test touches are fingers.
+- **Pen button keys:** the OPPO Pencil 2's side button is a Bluetooth key (`KEY_F21`, Android 334), seen with `adb shell getevent -lt` (no device argument: it takes only one). Test it on the emulator with `adb shell input keyevent 334`.
+- **Scripted pen holds on the emulator:** `input stylus motionevent MOVE` at the same spot isn't delivered again, so a held pen sends nothing; use `sleep 0.8` between MOVEs (the 40 ms hold watcher in `NotebookCanvas` handles it). Scripted `input touchscreen swipe` sends too few moves to fling: test flings with Compose tests (`NotebookEditorTest`).
+- **Ink kinds (`InkTool`)**: PEN (stock pressure pen = pressure Full), PEN_STEADY / PEN_PRESSURE_LOW / PEN_PRESSURE_MID (F22, our round-tip brushes in `InkBrushes.roundPen`), HIGHLIGHTER (flat), HIGHLIGHTER_ROUND (F18). Highlighter opacity is the colour's alpha (opaque = default 40%, `HighlightOpacity`). Use `tool.isHighlighter`, never `== HIGHLIGHTER`. Keys are frozen by `PageInkCodecTest.toolKeys_neverChange`.
+- **Emulator: touches near the bottom edge (y > ~1500 of 1600) hit the system home gesture** and leave the app; keep UI out of `WindowInsets.mandatorySystemGestures`. Also `ui.py dump` takes ~2 s, longer than the scroller's 1.5 s fade: grab it straight after a swipe, in the same `adb shell` call.
+- **Page readiness is Compose state** (`StrokeDrawables.isReady` reads a `mutableStateMapOf`). Anything a composable checks before drawing must be state, or its layer never redraws when it changes (this was F16's blur bug).
+- **Lasso rotation (F14)** exists only during the rotate drag (`LassoState.Selected.angle`); on pen-up the strokes are saved turned and a fresh, axis-aligned selection is made, so move and resize never deal with a turned box.
+- **Python heredocs in Git Bash mangle non-ASCII (– ✓ etc.):** write the script with the Write tool and run it, or set `PYTHONUTF8=1`.
+- **The editor's gesture handler** (`NotebookCanvas.handleGestures`) now also does: fling + axis lock (`domain/ink/PanPhysics.kt`), animated fit (`EditorViewState.animateTo`), press-hold erase (`PressHold`), live straight line (`Straighten`, `StraightLine`), lasso handles (`LassoBox`, `BoxHandle`), finger long-press → Paste bubble.
+- **Rotating the emulator from a script:** `settings put system accelerometer_rotation 0` first (it can switch itself back on), then `settings put system user_rotation 1` (portrait) or `0` (landscape); wait about 5 s.
+- **`InkPerformanceProbe`** (androidTest) only logs timings (`adb logcat -s InkPerf`); like every connected test run it uninstalls the app from the emulator afterwards.
+- **Every `connectedDebugAndroidTest` run wipes the emulator app's data.** Take screenshots before running the suite, or recreate data with the scratchpad `setup2.sh` (fake Canvas, 3 course folders, and in "Electronics Design 2": 2 subfolders and 2 notebooks).
+- **Emulator UI scripting:** a `ui.py` helper (tap by exact text / content description via `uiautomator dump`) lived in the scratchpad; rewrite it if gone. Set `PYTHONIOENCODING=utf-8` (screen text has "＋" etc.).
 - **Database changes:** follow the steps at the top of `Migrations.kt`.
   - a version bump
   - a migration declared **above** `ALL_MIGRATIONS`
@@ -126,4 +161,4 @@ _Last updated: 15 Nov 2026, 12:35 pm. Keep this file current (see CLAUDE.md, "Se
 
   Never destructive. The guard tests (`SchemaHistoryTest`, `MigrationListTest`, `DataSafetyRulesTest`, `MigrationTest`) fail otherwise.
 - **Secrets:** never create, read or print files in `C:\Users\hiimf\keys\` (signing key and passwords). Never read the in-app browser's cookie store.
-- **`REPORT.md`, `REPORT-*.md` and `screenshots/` are git-ignored**: local only. `REPORT-phase-1.md` is the old Phase 1 overnight report.
+- **`REPORT.md`, `REPORT-*.md` and `screenshots/` are git-ignored**: local only. `REPORT.md` is the Phase 2 report so far; `REPORT-phase-1.md` and `REPORT-phase-1b.md` are the older ones.
