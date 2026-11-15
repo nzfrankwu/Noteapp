@@ -269,6 +269,28 @@ private fun Swatch(color: Int, selected: Boolean, size: Int, onClick: () -> Unit
     )
 }
 
+/** A colour made with the colour wheel: tap to use it, hold for Add to toolbar / Delete (F28). */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CustomSwatch(color: Int, selected: Boolean, onPick: () -> Unit, onAddToToolbar: () -> Unit, onDelete: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Box(
+            Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(Color(color))
+                .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.15f), CircleShape)
+                .combinedClickable(onClick = onPick, onLongClick = { menu = true })
+                .semantics { contentDescription = "Your colour ${"%08X".format(color)}"; this.selected = selected },
+        )
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text("Add to toolbar") }, onClick = { menu = false; onAddToToolbar() })
+            DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; onDelete() })
+        }
+    }
+}
+
 @Composable
 private fun SizeDot(dot: Int, selected: Boolean, description: String, onClick: () -> Unit) {
     Box(
@@ -368,8 +390,15 @@ fun ToolSettingsPanel(
                     // Your own colours from the colour wheel (F10), and the wheel itself.
                     var picking by remember { mutableStateOf(false) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // Hold one for Add to toolbar / Delete (F28).
                         settings.customColors.take(6).forEach { c ->
-                            Swatch(c, selected = HighlightOpacity.sameColour(style.colorArgb, c), size = 24) { onStyle(tool, style.withColour(c, highlighter)) }
+                            CustomSwatch(
+                                color = c,
+                                selected = HighlightOpacity.sameColour(style.colorArgb, c),
+                                onPick = { onStyle(tool, style.withColour(c, highlighter)) },
+                                onAddToToolbar = { onChange { it.withPalette(tool, PaletteEdit.add(it.palette(tool), c)) } },
+                                onDelete = { onChange { it.withoutCustomColor(c) } },
+                            )
                         }
                         TextButton(onClick = { picking = true }, modifier = Modifier.testTag("pick-colour")) { Text("Colour wheel…") }
                     }

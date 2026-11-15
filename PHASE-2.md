@@ -129,6 +129,11 @@ Batch 6 (16 Nov):
 - [x] **F24. Tap the colour in use** to change it with the colour wheel.
 - [x] **F25. Darker desk** round the pages (dark grey, not black), white status-bar icons, and a faint rim on the floating buttons so they still show.
 
+Batch 7 (16 Nov):
+- [x] **F26. Press hard without moving erases:** the pen-down sample now counts (where the pen is, how hard), and a pen whose first reading is already below 1.0 counts as a pressure pen. Before, a hard press that never moved sent no more samples, so it never erased and the ring had nowhere to show.
+- [x] **F27. The pen's settings panel closes** when the pen touches the page.
+- [x] **F28. Delete colour-wheel colours:** hold one in the panel for Add to toolbar / Delete.
+
 - [ ] **End of phase (again, after 2.13):** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 
 ## Folder screen layout (2.2), draft to confirm

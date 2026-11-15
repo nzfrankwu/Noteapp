@@ -46,6 +46,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Done
 
+- **Tablet feedback, batch 7 (Phase 2, F26–F28), 16 Nov.** A hard press held perfectly still now erases; the pen's settings panel closes when the pen touches the page; colour-wheel colours can be deleted or added to the toolbar.
 - **Tablet feedback, batch 6 (Phase 2, F21–F25), 16 Nov.** Highlighter opacity; pen pressure (Off/Low/Medium/Full, Off = same width); toolbar colours can be changed, reordered, deleted and added; tapping the colour in use opens the colour wheel; darker desk.
 - **Page scroller (Phase 2, F20), 16 Nov.** The page number became a draggable handle on a bottom track that scrolls through all pages; it fades when the pages stop moving.
 - **Tablet feedback, batch 5 (Phase 2, F17–F19), 16 Nov.** No top bar: the buttons float over the pages, which reach up to the status bar and fill the height when fitted. Highlighter has Flat tip and Round tip (new ink kind `highlighter-round-v1`). The lasso picks strokes that are only partly inside the loop.

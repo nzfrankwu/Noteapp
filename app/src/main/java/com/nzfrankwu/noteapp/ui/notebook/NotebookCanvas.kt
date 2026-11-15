@@ -24,6 +24,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -142,6 +143,9 @@ class EditorViewState {
      * their quick preview instead of being drawn in full (PHASE-2.md F8).
      */
     var fastScroll by mutableStateOf(false)
+
+    /** Counts pen touches on the page; the pen's settings panel closes on the next one (F27). */
+    var penDowns by mutableIntStateOf(0)
 
     /** Where a finger was held to paste (screen pixels): shows the Paste bubble (F12). */
     var pasteAt by mutableStateOf<Offset?>(null)
@@ -578,6 +582,18 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     lastPenTime = change.uptimeMillis
                     lastHard = false
                     lastStraightStill = -1L
+                    // Where the pen is, from its very first sample: a hard press that never moves
+                    // sends nothing more, and the hold watcher erases (and shows the ring) here (F26).
+                    lastScreen = change.position
+                    lastWorld = Offset(cam.toWorldX(change.position.x), cam.toWorldY(change.position.y))
+                    pressureVaries = PressureErase.reportsPressure(firstPressure, change.pressure)
+                    var hardAtOnce = false
+                    if (snap.settings.pressureErase && isPen) {
+                        val level = snap.settings.pressureEraseLevel
+                        lastHard = PressureErase.isHard(change.pressure, level, pressureVaries)
+                        hardAtOnce = pressHold.feed(change.pressure, level, pressureVaries, lastWorld.x, lastWorld.y, change.uptimeMillis)
+                    }
+                    view.penDowns++ // closes the pen's settings panel (F27)
                     holdWatch?.cancel()
                     val watchedPen = change.id
                     holdWatch = motionScope.launch {
@@ -616,6 +632,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         }
                         else -> PenMode.INK
                     }
+                    if (penMode == PenMode.INK && hardAtOnce) penMode = PenMode.ERASE // "Hold for: no wait"
                     if (penMode != PenMode.INK) change.consume()
                     if (penMode == PenMode.ERASE) eraseStep(viewModel, snap, cam, change.position, change.position, onEraser)
                     // Any other tool, or the pen's eraser end, ends the lasso's selection (it would
@@ -628,7 +645,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     val from = penLast ?: change.position
                     when (penMode) {
                         PenMode.INK -> {
-                            if (change.pressure != firstPressure) pressureVaries = true
+                            if (PressureErase.reportsPressure(firstPressure, change.pressure)) pressureVaries = true
                             if (change.pressure in 0f..1f) { pressureSum += change.pressure; pressureCount++ }
                             val wx = cam.toWorldX(change.position.x)
                             val wy = cam.toWorldY(change.position.y)

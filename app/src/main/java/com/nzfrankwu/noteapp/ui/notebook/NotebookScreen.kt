@@ -102,6 +102,11 @@ fun NotebookScreen(
     val snackbar = remember { SnackbarHostState() }
     val view = remember { EditorViewState() }
     var showSettings by remember { mutableStateOf(false) }
+    // The pen touching the page again closes the tool's settings panel (F27).
+    LaunchedEffect(view) {
+        var seen = view.penDowns
+        snapshotFlow { view.penDowns }.collect { if (it != seen) { seen = it; showSettings = false } }
+    }
     var menuOpen by remember { mutableStateOf(false) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveNow() }

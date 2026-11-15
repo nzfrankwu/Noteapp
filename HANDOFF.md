@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (tablet feedback batch 5, F17–F25, built and on the tablet; waiting for the user's check). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (tablet feedback batch 5, F17–F28, built and on the tablet; waiting for the user's check). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -15,7 +15,7 @@ _Last updated: 16 Nov 2026 (tablet feedback batch 5, F17–F25, built and on the
 
 ## Next steps (in order)
 
-1. **The user's tablet feedback (`PHASE-2.md` 2.13, F1–F25) is all built** (16 Nov) and on the tablet; waiting for their check and more feedback. Batch 4: a page is added after the last one when you write on it, lasso rotate handle, tap outside to deselect (no Done), fix for pages staying blurry after a fast scroll. Batch 5: floating buttons instead of a top bar (pages reach the status bar), flat/round highlighter tips, lasso picks partly-circled strokes. F20: the page number is a draggable page scroller that fades. Batch 6 (F21–F25): highlighter opacity, pen pressure levels, editable toolbar colours, darker desk. Then run `/code-review` again on the new work (the phase plan's last box), and ask again about merging.
+1. **The user's tablet feedback (`PHASE-2.md` 2.13, F1–F28) is all built** (16 Nov) and on the tablet; waiting for their check and more feedback. Batch 4: a page is added after the last one when you write on it, lasso rotate handle, tap outside to deselect (no Done), fix for pages staying blurry after a fast scroll. Batch 5: floating buttons instead of a top bar (pages reach the status bar), flat/round highlighter tips, lasso picks partly-circled strokes. F20: the page number is a draggable page scroller that fades. Batch 6 (F21–F25): highlighter opacity, pen pressure levels, editable toolbar colours, darker desk. Batch 7 (F26–F28): hard press held still erases, panel closes on pen touch, delete colour-wheel colours. Then run `/code-review` again on the new work (the phase plan's last box), and ask again about merging.
 2. **Waiting on the user: approve merging `phase-2` into `main`** (CLAUDE.md: never merge without approval). `REPORT.md` (local) has the full report. After merging, Phase 3 is next (see IDEA.md §5).
 3. 2.12 follow-ups (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release.
 

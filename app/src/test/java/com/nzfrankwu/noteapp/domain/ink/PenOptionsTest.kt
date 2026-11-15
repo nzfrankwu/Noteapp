@@ -64,4 +64,28 @@ class PenOptionsTest {
         assertEquals(listOf(InkPalette.HIGHLIGHT_PINK), s.palette(EditorTool.HIGHLIGHTER))
         assertEquals(InkPalette.PEN_COLORS, s.palette(EditorTool.PEN_3))
     }
+
+    @Test
+    fun aHardPressThatNeverMoves_stillCountsAsAPressurePen() {
+        // F26: the OPPO pen's first sample of a hard press may already be high and never change.
+        assertTrue(PressureErase.reportsPressure(first = 0.95f, now = 0.95f))
+        assertTrue(PressureErase.reportsPressure(first = 1f, now = 0.97f))
+        // A pen without pressure sends exactly 1.0 all along: never "hard".
+        assertFalse(PressureErase.reportsPressure(first = 1f, now = 1f))
+    }
+
+    @Test
+    fun aHardPressFromTheFirstSample_erasesAfterTheHold_evenWithNoMoreSamples() {
+        val hold = PressHold(holdMs = 500)
+        // Only the pen-down sample arrives (hard), then nothing: the watcher's quiet time counts.
+        assertFalse(hold.feed(0.95f, 0.9f, true, 10f, 10f, 1_000L))
+        assertFalse(hold.doneAfterQuiet(stillHard = true, quietMs = 300))
+        assertTrue(hold.doneAfterQuiet(stillHard = true, quietMs = 520))
+    }
+
+    @Test
+    fun colourWheelColours_canBeDeleted() {
+        val s = InkToolSettings().withCustomColor(0xFF123456.toInt()).withCustomColor(0xFF654321.toInt())
+        assertEquals(listOf(0xFF654321.toInt()), s.withoutCustomColor(0xFF123456.toInt()).customColors)
+    }
 }

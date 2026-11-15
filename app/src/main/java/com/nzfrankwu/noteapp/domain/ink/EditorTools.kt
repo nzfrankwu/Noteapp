@@ -153,6 +153,9 @@ data class InkToolSettings(
         else -> null
     }
 
+    /** Forgets a colour-wheel colour (F28). */
+    fun withoutCustomColor(color: Int): InkToolSettings = copy(customColors = customColors.filter { it != color })
+
     fun penStyle(tool: EditorTool): PenStyle? = tool.penSlot?.let { pens[it] } ?: if (tool == EditorTool.HIGHLIGHTER) highlighter else null
 
     fun withStyle(tool: EditorTool, style: PenStyle): InkToolSettings = when {
@@ -274,6 +277,13 @@ object PressureErase {
 
     /** True once a pen-down has shown varying pressure (so it's a real pressure pen). */
     fun reportsPressure(pressures: List<Float>): Boolean = pressures.distinct().size > 1
+
+    /**
+     * Whether a pen reports pressure, from its first sample and the current one (F26). Pens
+     * without pressure send exactly 1.0 throughout; any other value, or a change, means real
+     * pressure. So a hard press that never moves (or changes) still counts.
+     */
+    fun reportsPressure(first: Float, now: Float): Boolean = now != first || (now >= 0f && now < 1f)
 }
 
 /**
