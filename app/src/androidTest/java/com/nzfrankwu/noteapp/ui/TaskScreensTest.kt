@@ -20,6 +20,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.nzfrankwu.noteapp.data.FolderRepository
 import com.nzfrankwu.noteapp.data.FolderResult
+import com.nzfrankwu.noteapp.data.NotebookRepository
 import com.nzfrankwu.noteapp.data.TaskDraft
 import com.nzfrankwu.noteapp.data.TaskRepository
 import com.nzfrankwu.noteapp.data.TaskResult
@@ -232,7 +233,7 @@ class TaskScreensTest {
         addTask("Problem set 1")
         var addedFor: String? = null
         var opened: String? = null
-        val viewModel = FolderViewModel(folderId, folders, tasks)
+        val viewModel = FolderViewModel(folderId, folders, tasks, NotebookRepository(db))
         showOnTablet {
             FolderScreen(viewModel, onBack = {}, onOpenTask = { opened = it }, onAddTask = { addedFor = it })
         }

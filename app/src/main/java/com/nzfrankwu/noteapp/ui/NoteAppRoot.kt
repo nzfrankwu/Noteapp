@@ -43,6 +43,9 @@ import com.nzfrankwu.noteapp.ui.folder.FolderScreen
 import com.nzfrankwu.noteapp.ui.folder.FolderViewModel
 import com.nzfrankwu.noteapp.ui.home.HomeScreen
 import com.nzfrankwu.noteapp.ui.navigation.FolderRoute
+import com.nzfrankwu.noteapp.ui.navigation.NotebookRoute
+import com.nzfrankwu.noteapp.ui.notebook.NotebookScreen
+import com.nzfrankwu.noteapp.ui.notebook.NotebookViewModel
 import com.nzfrankwu.noteapp.ui.home.HomeViewModel
 import com.nzfrankwu.noteapp.ui.navigation.HomeRoute
 import com.nzfrankwu.noteapp.ui.navigation.SettingsRoute
@@ -239,11 +242,13 @@ fun NoteAppRoot(
                 entry<FolderRoute> { route ->
                     FolderScreen(
                         viewModel = viewModel {
-                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository)
+                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository)
                         },
                         onBack = ::back,
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                         onAddTask = { courseId -> backStack.add(TaskEditRoute(courseId = courseId)) },
+                        onOpenFolder = { folderId -> backStack.add(FolderRoute(folderId)) },
+                        onOpenNotebook = { notebookId -> backStack.add(NotebookRoute(notebookId)) },
                         calendar = { courseId ->
                             CalendarScreen(
                                 viewModel = viewModel(key = "folder-calendar-$courseId") {
@@ -263,6 +268,12 @@ fun NoteAppRoot(
                                 onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                             )
                         },
+                    )
+                }
+                entry<NotebookRoute> { route ->
+                    NotebookScreen(
+                        viewModel = viewModel { NotebookViewModel(route.notebookId, container.notebookRepository) },
+                        onBack = ::back,
                     )
                 }
                 entry<CoursesRoute> {

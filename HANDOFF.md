@@ -9,11 +9,11 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
 - **Branch:** `phase-2` (pushed).
 - **Mode: "Hands-off"** since 15 Nov (the user said to use the remaining budget on Phase 2, push when it matters, and update docs often). Write `REPORT.md` when stopping, listing every 🔺 step done.
 - **The tablet runs the merged `main` build** (database version 3). **Don't install Phase 2 builds on the tablet without asking:** they upgrade its database to version 4.
-- **Done so far:** 2.1 (database v4).
+- **Done so far:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles in the folder screen).
 
 ## Next steps (in order)
 
-1. **2.2 + 2.3** (subfolders and notebook tiles in the folder screen; the layout draft in `PHASE-2.md`), then 2.4 onwards in order.
+1. **2.4 🔺 Jetpack Ink go/no-go**: add `androidx.ink` 1.0.0 (stable; 1.1.0 is alpha) and draw on one page. Then 2.5 onwards in order.
 
 ## Tablet database safety copy
 
@@ -115,6 +115,7 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
 - **Real upgrade test, old APK:** build `main` in a worktree (`git worktree add ../Noteapp-v3 main`, copy `local.properties`, `gradlew assembleDebug` there). Removing that worktree fails with "Filename too long"; delete it with `cmd /c rmdir /s /q` and `git worktree prune`.
 - **After a deliberately broken migration test, rebuild** (`assembleDebug`) before installing: the broken-migration test leaves a broken APK in `app/build/outputs`.
+- **Every `connectedDebugAndroidTest` run wipes the emulator app's data.** Take screenshots before running the suite, or recreate data with the scratchpad `setup2.sh` (fake Canvas, 3 course folders, and in "Electronics Design 2": 2 subfolders and 2 notebooks).
 - **Emulator UI scripting:** a `ui.py` helper (tap by exact text / content description via `uiautomator dump`) lived in the scratchpad; rewrite it if gone. Set `PYTHONIOENCODING=utf-8` (screen text has "＋" etc.).
 - **Database changes:** follow the steps at the top of `Migrations.kt`.
   - a version bump

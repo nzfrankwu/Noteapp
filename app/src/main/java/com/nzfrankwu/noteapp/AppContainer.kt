@@ -10,6 +10,7 @@ import com.nzfrankwu.noteapp.canvas.FakeCanvas
 import com.nzfrankwu.noteapp.canvas.WebViewCanvasCookies
 import com.nzfrankwu.noteapp.data.CanvasSettings
 import com.nzfrankwu.noteapp.data.FolderRepository
+import com.nzfrankwu.noteapp.data.NotebookRepository
 import com.nzfrankwu.noteapp.data.QuickAdd
 import com.nzfrankwu.noteapp.data.TaskRepository
 import com.nzfrankwu.noteapp.data.ViewSettings
@@ -29,6 +30,8 @@ class AppContainer(context: Context) {
     val folderRepository: FolderRepository by lazy { FolderRepository(database) }
 
     val taskRepository: TaskRepository by lazy { TaskRepository(database) }
+
+    val notebookRepository: NotebookRepository by lazy { NotebookRepository(database) }
 
     /** Turns links shared from other apps into prefilled New task forms. */
     val quickAdd: QuickAdd by lazy { QuickAdd(database) { canvasSettings.address.first() } }

@@ -2,14 +2,15 @@ package com.nzfrankwu.noteapp.ui.folder
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,10 +21,15 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -33,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,8 +49,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.R
+import com.nzfrankwu.noteapp.domain.DueGroup
 import com.nzfrankwu.noteapp.ui.components.CourseChoiceField
 import com.nzfrankwu.noteapp.ui.components.CourseTag
 import com.nzfrankwu.noteapp.ui.components.EmptyState
@@ -51,10 +60,10 @@ import com.nzfrankwu.noteapp.ui.components.InfoBadge
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
 import com.nzfrankwu.noteapp.ui.components.SegmentedTabs
 import com.nzfrankwu.noteapp.ui.components.TaskCard
-import com.nzfrankwu.noteapp.domain.DueGroup
 import com.nzfrankwu.noteapp.ui.home.DeleteFolderDialog
 import com.nzfrankwu.noteapp.ui.home.FolderEditDialog
 import com.nzfrankwu.noteapp.ui.theme.Dimens
+import java.time.Instant
 
 /** Max width of the folder page's content on wide screens. */
 private val FolderContentMaxWidth = 900.dp
@@ -67,8 +76,9 @@ enum class FolderTab(val label: String, val key: String) {
 }
 
 /**
- * A folder: its course, a Notebooks area (Phase 2), and the course's tasks in sections.
- * "Add task" (when a course is linked) opens the task form with the course filled in.
+ * A folder: its subfolders and notebooks in a grid (with an All · Notebooks · Folders filter),
+ * then, for a top-level folder with a course, the course's tasks in sections. ＋ adds a notebook
+ * or a folder. Subfolders show their top folder's course but no tasks or tabs (PHASE-2.md, 2.2).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,22 +88,41 @@ fun FolderScreen(
     onOpenTask: (taskId: String) -> Unit,
     onAddTask: (courseId: String) -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens a folder inside this one. */
+    onOpenFolder: (folderId: String) -> Unit = {},
+    /** Opens a notebook. */
+    onOpenNotebook: (notebookId: String) -> Unit = {},
     /** The Calendar tab for this folder's course. */
     calendar: @Composable (courseId: String) -> Unit = {},
     /** The Timeline tab for this folder's course. */
     timeline: @Composable (courseId: String) -> Unit = {},
 ) {
     val item by viewModel.folder.collectAsStateWithLifecycle()
+    val place by viewModel.place.collectAsStateWithLifecycle()
+    val contents by viewModel.contents.collectAsStateWithLifecycle()
+    val filter by viewModel.filter.collectAsStateWithLifecycle()
     val tasksNow by viewModel.tasksNow.collectAsStateWithLifecycle()
     val sections = tasksNow.sections
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
     val deleted by viewModel.deleted.collectAsStateWithLifecycle()
+    val deletedNotebook by viewModel.deletedNotebook.collectAsStateWithLifecycle()
     val coursesWithoutFolder by viewModel.coursesWithoutFolder.collectAsStateWithLifecycle()
+    val openNotebook by rememberUpdatedState(onOpenNotebook)
     LaunchedEffect(deleted) { if (deleted) onBack() }
+    LaunchedEffect(viewModel) { viewModel.openNotebook.collect { openNotebook(it) } }
 
-    val courseCode = item?.courseCode
-    val linkedCourseId = item?.folder?.courseId
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(deletedNotebook) {
+        val gone = deletedNotebook ?: return@LaunchedEffect
+        val result = snackbar.showSnackbar("Deleted “${gone.title}”", actionLabel = "Undo", duration = SnackbarDuration.Long)
+        if (result == SnackbarResult.ActionPerformed) viewModel.undoDeleteNotebook() else viewModel.dismissDeletedNotebook()
+    }
+
+    val isSubfolder = place?.isSubfolder == true
+    val courseCode = if (isSubfolder) place?.course?.code else item?.courseCode
+    val linkedCourseId = if (isSubfolder) null else item?.folder?.courseId
     var menuOpen by remember { mutableStateOf(false) }
+    var addMenuOpen by remember { mutableStateOf(false) }
     var chosenTab by rememberSaveable { mutableStateOf(FolderTab.TASKS) }
     // Without a linked course there's nothing to put on a calendar: Tasks only.
     val tab = if (linkedCourseId == null) FolderTab.TASKS else chosenTab
@@ -101,15 +130,50 @@ fun FolderScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbar) },
+        floatingActionButton = {
+            if (tab == FolderTab.TASKS) {
+                Box {
+                    FloatingActionButton(onClick = { addMenuOpen = true }, modifier = Modifier.testTag("folder-add")) {
+                        Icon(painterResource(R.drawable.ic_add), contentDescription = "New notebook or folder")
+                    }
+                    DropdownMenu(expanded = addMenuOpen, onDismissRequest = { addMenuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("New notebook") },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_note_add), contentDescription = null) },
+                            onClick = { addMenuOpen = false; viewModel.startNewNotebook() },
+                            modifier = Modifier.testTag("new-notebook"),
+                        )
+                        DropdownMenuItem(
+                            text = { Text("New folder") },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_create_new_folder), contentDescription = null) },
+                            onClick = { addMenuOpen = false; viewModel.startNewSubfolder() },
+                            modifier = Modifier.testTag("new-subfolder"),
+                        )
+                    }
+                }
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
                     Column {
                         Text(item?.folder?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (courseCode != null) {
+                        val parents = place?.path?.dropLast(1).orEmpty()
+                        if (courseCode != null || parents.isNotEmpty()) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                CourseTag(courseCode, style = MaterialTheme.typography.labelLarge)
-                                if (item?.isArchived == true) InfoBadge("Archived", Modifier.testTag("archived-badge"))
+                                if (courseCode != null) CourseTag(courseCode, style = MaterialTheme.typography.labelLarge)
+                                if (!isSubfolder && item?.isArchived == true) InfoBadge("Archived", Modifier.testTag("archived-badge"))
+                                if (parents.isNotEmpty()) {
+                                    Text(
+                                        "in " + parents.joinToString(" › ") { it.name },
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.testTag("folder-path"),
+                                    )
+                                }
                             }
                         }
                     }
@@ -132,16 +196,18 @@ fun FolderScreen(
                         RoundIconButton(R.drawable.ic_more_vert, "Folder options", { menuOpen = true }, Modifier.padding(end = 8.dp))
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(text = { Text("Rename folder") }, onClick = { menuOpen = false; viewModel.startRename() })
-                            if (courseCode == null) {
-                                DropdownMenuItem(text = { Text("Link a course") }, onClick = { menuOpen = false; viewModel.startLinkCourse() })
-                            } else {
-                                DropdownMenuItem(text = { Text("Unlink course") }, onClick = { menuOpen = false; viewModel.startUnlink() })
-                                val archived = item?.isArchived == true
-                                DropdownMenuItem(
-                                    text = { Text(if (archived) "Unarchive course" else "Archive course") },
-                                    onClick = { menuOpen = false; viewModel.setArchived(!archived) },
-                                    modifier = Modifier.testTag("folder-archive"),
-                                )
+                            if (!isSubfolder) {
+                                if (courseCode == null) {
+                                    DropdownMenuItem(text = { Text("Link a course") }, onClick = { menuOpen = false; viewModel.startLinkCourse() })
+                                } else {
+                                    DropdownMenuItem(text = { Text("Unlink course") }, onClick = { menuOpen = false; viewModel.startUnlink() })
+                                    val archived = item?.isArchived == true
+                                    DropdownMenuItem(
+                                        text = { Text(if (archived) "Unarchive course" else "Archive course") },
+                                        onClick = { menuOpen = false; viewModel.setArchived(!archived) },
+                                        modifier = Modifier.testTag("folder-archive"),
+                                    )
+                                }
                             }
                             DropdownMenuItem(
                                 text = { Text("Delete folder", color = MaterialTheme.colorScheme.error) },
@@ -160,82 +226,160 @@ fun FolderScreen(
             }
             return@Scaffold
         }
-        Box(Modifier.padding(innerPadding).fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        BoxWithConstraints(Modifier.padding(innerPadding).fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            val gridWidth = min(maxWidth, FolderContentMaxWidth) - Dimens.ScreenPadding * 2
+            val columns = libraryColumns(gridWidth)
+            val tiles = contents.itemsFor(filter)
+            val now = remember(contents) { Instant.now() }
             LazyColumn(
-                modifier = Modifier.widthIn(max = FolderContentMaxWidth).fillMaxWidth(),
-                contentPadding = PaddingValues(Dimens.ScreenPadding),
+                modifier = Modifier.widthIn(max = FolderContentMaxWidth).fillMaxWidth().testTag("folder-content"),
+                // Room at the bottom so the last row isn't hidden under ＋.
+                contentPadding = PaddingValues(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, top = Dimens.ScreenPadding, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
             ) {
-                item { SectionTitle("Notebooks") }
-                item {
-                    EmptyState(
-                        title = "Notebooks arrive in Phase 2",
-                        message = "Handwritten notebooks and PDFs for this folder will live here.",
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                item {
-                    Row(Modifier.fillMaxWidth().padding(top = Dimens.PaneGap), verticalAlignment = Alignment.CenterVertically) {
-                        SectionTitle("Tasks")
-                        Spacer(Modifier.weight(1f))
-                        val courseId = item?.folder?.courseId
-                        if (courseId != null) {
-                            FilledTonalButton(
-                                onClick = { onAddTask(courseId) },
-                                contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-                                modifier = Modifier.testTag("add-task"),
-                            ) {
-                                Icon(painterResource(R.drawable.ic_add), contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                                Text("Add task")
-                            }
-                        }
-                    }
-                }
-                when {
-                    item == null -> Unit
-                    courseCode == null -> item {
-                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                            EmptyState(
-                                title = "Link a course to add tasks here",
-                                message = "Tasks belong to a course. Link this folder to one, e.g. ELECTENG 204.",
-                            )
-                            FilledTonalButton(onClick = viewModel::startLinkCourse) { Text("Link a course") }
-                        }
-                    }
-                    sections.isEmpty() -> item {
+                if (contents.loaded && contents.subfolders.isEmpty() && contents.notebooks.isEmpty()) {
+                    item(key = "library-empty") {
                         EmptyState(
-                            title = "No tasks yet",
-                            message = "Tap “Add task” to add your own. Canvas assignments for $courseCode will show up here too.",
+                            title = "No notebooks yet",
+                            message = "Tap ＋ to add a notebook, or a folder to group them (e.g. tutorials, lectures).",
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
-                    else -> sections.forEach { section ->
-                        item(key = "header-${section.group}") {
+                } else if (contents.loaded) {
+                    item(key = "library-filter") {
+                        SegmentedTabs(
+                            options = LibraryFilter.entries,
+                            selected = filter,
+                            label = { it.label },
+                            testTag = { "library-filter-${it.key}" },
+                            onSelect = viewModel::setFilter,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    if (tiles.isEmpty()) {
+                        item(key = "library-filter-empty") {
                             Text(
-                                text = section.group.title,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = if (section.group == DueGroup.OVERDUE) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
-                        }
-                        items(section.tasks, key = { it.id }) { task ->
-                            TaskCard(
-                                task = task,
-                                courseCode = courseCode,
-                                now = tasksNow.now,
-                                zone = viewModel.zone(),
-                                onClick = { onOpenTask(task.id) },
-                                onStatusChange = { viewModel.setStatus(task.id, it) },
-                                showCourse = false,
+                                if (filter == LibraryFilter.FOLDERS) "No folders here." else "No notebooks here.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp),
                             )
                         }
                     }
+                    tiles.chunked(columns).forEach { row ->
+                        item(key = "row-" + row.first().key) {
+                            LibraryRow(
+                                items = row,
+                                columns = columns,
+                                now = now,
+                                zone = viewModel.zone(),
+                                onOpenFolder = onOpenFolder,
+                                onOpenNotebook = onOpenNotebook,
+                                onRenameFolder = viewModel::startRenameSubfolder,
+                                onDeleteFolder = viewModel::startDeleteSubfolder,
+                                onRenameNotebook = viewModel::startRenameNotebook,
+                                onDeleteNotebook = viewModel::deleteNotebook,
+                                courseCode = courseCode,
+                            )
+                        }
+                    }
+                }
+                if (!isSubfolder) {
+                    taskItems(
+                        courseCode = courseCode,
+                        courseId = linkedCourseId,
+                        loaded = item != null,
+                        sections = sections,
+                        tasksNow = tasksNow,
+                        viewModel = viewModel,
+                        onAddTask = onAddTask,
+                        onOpenTask = onOpenTask,
+                    )
                 }
             }
         }
     }
 
+    FolderDialogs(dialog, viewModel, item?.folder?.name.orEmpty(), courseCode, coursesWithoutFolder)
+}
+
+/** The Tasks heading and the course's task sections (top-level folders only). */
+private fun androidx.compose.foundation.lazy.LazyListScope.taskItems(
+    courseCode: String?,
+    courseId: String?,
+    loaded: Boolean,
+    sections: List<com.nzfrankwu.noteapp.domain.TaskSection<com.nzfrankwu.noteapp.data.db.Task>>,
+    tasksNow: FolderTasks,
+    viewModel: FolderViewModel,
+    onAddTask: (String) -> Unit,
+    onOpenTask: (String) -> Unit,
+) {
+    item(key = "tasks-title") {
+        Row(Modifier.fillMaxWidth().padding(top = Dimens.PaneGap), verticalAlignment = Alignment.CenterVertically) {
+            SectionTitle("Tasks")
+            Spacer(Modifier.weight(1f))
+            if (courseId != null) {
+                FilledTonalButton(
+                    onClick = { onAddTask(courseId) },
+                    contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+                    modifier = Modifier.testTag("add-task"),
+                ) {
+                    Icon(painterResource(R.drawable.ic_add), contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Add task")
+                }
+            }
+        }
+    }
+    when {
+        !loaded -> Unit
+        courseCode == null -> item(key = "tasks-no-course") {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                EmptyState(
+                    title = "Link a course to add tasks here",
+                    message = "Tasks belong to a course. Link this folder to one, e.g. ELECTENG 204.",
+                )
+                FilledTonalButton(onClick = viewModel::startLinkCourse) { Text("Link a course") }
+            }
+        }
+        sections.isEmpty() -> item(key = "tasks-empty") {
+            EmptyState(
+                title = "No tasks yet",
+                message = "Tap “Add task” to add your own. Canvas assignments for $courseCode will show up here too.",
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        else -> sections.forEach { section ->
+            item(key = "header-${section.group}") {
+                Text(
+                    text = section.group.title,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (section.group == DueGroup.OVERDUE) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            items(section.tasks, key = { it.id }) { task ->
+                TaskCard(
+                    task = task,
+                    courseCode = courseCode,
+                    now = tasksNow.now,
+                    zone = viewModel.zone(),
+                    onClick = { onOpenTask(task.id) },
+                    onStatusChange = { viewModel.setStatus(task.id, it) },
+                    showCourse = false,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FolderDialogs(
+    dialog: FolderScreenDialog?,
+    viewModel: FolderViewModel,
+    folderName: String,
+    courseCode: String?,
+    coursesWithoutFolder: List<com.nzfrankwu.noteapp.data.db.Course>,
+) {
     when (val d = dialog) {
         is FolderScreenDialog.Rename -> FolderEditDialog(
             title = "Rename folder", name = d.name, onNameChange = viewModel::onTextChange,
@@ -285,11 +429,42 @@ fun FolderScreen(
             dismissButton = { TextButton(onClick = viewModel::dismissDialog) { Text("Cancel") } },
         )
         is FolderScreenDialog.ConfirmDelete -> DeleteFolderDialog(
-            name = item?.folder?.name.orEmpty(),
-            courseCode = courseCode,
+            name = folderName,
+            courseCode = courseCode.takeIf { viewModel.place.value?.isSubfolder != true },
             onConfirm = viewModel::confirmDialog,
             onDismiss = viewModel::dismissDialog,
             error = d.error,
+        )
+        is FolderScreenDialog.NewSubfolder -> FolderEditDialog(
+            title = "New folder", name = d.name, onNameChange = viewModel::onTextChange,
+            courseCode = "", onCourseCodeChange = null, error = d.error, confirmLabel = "Create",
+            onConfirm = viewModel::confirmDialog, onDismiss = viewModel::dismissDialog,
+        )
+        is FolderScreenDialog.RenameSubfolder -> FolderEditDialog(
+            title = "Rename folder", name = d.name, onNameChange = viewModel::onTextChange,
+            courseCode = "", onCourseCodeChange = null, error = d.error, confirmLabel = "Save",
+            onConfirm = viewModel::confirmDialog, onDismiss = viewModel::dismissDialog,
+        )
+        is FolderScreenDialog.DeleteSubfolder -> DeleteFolderDialog(
+            name = d.name,
+            courseCode = null,
+            onConfirm = viewModel::confirmDialog,
+            onDismiss = viewModel::dismissDialog,
+            error = d.error,
+        )
+        is FolderScreenDialog.NewNotebook -> NewNotebookDialog(
+            title = d.title,
+            template = d.template,
+            error = d.error,
+            onTitleChange = viewModel::onTextChange,
+            onPickTemplate = viewModel::pickTemplate,
+            onConfirm = viewModel::confirmDialog,
+            onDismiss = viewModel::dismissDialog,
+        )
+        is FolderScreenDialog.RenameNotebook -> FolderEditDialog(
+            title = "Rename notebook", name = d.title, onNameChange = viewModel::onTextChange,
+            courseCode = "", onCourseCodeChange = null, error = d.error, confirmLabel = "Save",
+            onConfirm = viewModel::confirmDialog, onDismiss = viewModel::dismissDialog,
         )
         null -> Unit
     }

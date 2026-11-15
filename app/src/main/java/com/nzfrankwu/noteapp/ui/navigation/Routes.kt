@@ -20,6 +20,10 @@ data object CoursesRoute : NavKey
 @Serializable
 data class FolderRoute(val folderId: String) : NavKey
 
+/** A notebook open for writing (Phase 2). */
+@Serializable
+data class NotebookRoute(val notebookId: String) : NavKey
+
 /** One task's details. */
 @Serializable
 data class TaskRoute(val taskId: String) : NavKey

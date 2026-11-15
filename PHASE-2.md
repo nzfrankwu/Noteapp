@@ -51,8 +51,8 @@ Work happens on branch `phase-2`; it's merged into `main` at the end, with the u
   - Record schema 4 in `SchemaHistoryTest`, extend `MigrationTest`, catch a deliberately broken migration, and do a real upgrade of the version-3 app with data on the emulator (see the gotchas in HANDOFF.md).
   - Repositories for folders inside folders, notebooks and pages.
   - Settle here what happens to marked-as-deleted notebooks when their folder is deleted.
-- [ ] **2.2 Subfolders in the folder screen** (layout below). ★ Describe the layout to the user before coding it.
-- [ ] **2.3 New notebook and notebook tiles.**
+- [x] **2.2 Subfolders in the folder screen** (layout below). ★ _(done 15 Nov, hands-off, following the layout draft below and `notein-inside-course-folder.jpg`; the ★ check-in is in REPORT.md. `ui/folder/FolderLibrary.kt`, `components/LibraryTiles.kt`. Filter row is All · Notebooks · Folders. Subfolder icons take the course colour; a subfolder's header shows the course tag and "in Top › Parent". ＋ is a floating button with New notebook / New folder.)_
+- [x] **2.3 New notebook and notebook tiles.** _(done 15 Nov: `NewNotebookDialog` (name pre-filled "Notes 15 Nov", paper picker), a new notebook opens straight away, tiles show "15 Nov · 1 page" and the paper pattern (`components/PaperBackground.kt`, `domain/PagePattern`), Delete shows "Deleted … Undo". `NotebookRoute` opens a first `ui/notebook/NotebookScreen` (pages side by side, no writing yet).)_
   - The New notebook dialog (title and template).
   - Tiles show the title, date and page count, with the template's pattern as a placeholder picture.
   - Rename, and delete with Undo.

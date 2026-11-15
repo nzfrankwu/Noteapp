@@ -65,3 +65,13 @@ val RedContainerLight = Color(0xFFFFDAD6)
 val RedOnLight = Color(0xFF8C0009)
 val RedContainerDark = Color(0xFF7A1A14)
 val RedOnDark = Color(0xFFFFDAD6)
+
+// Notebook paper: white with soft blue-grey lines in BOTH light and dark mode, like real paper
+// (and like the PDF copies in Phase 6). Ink colours are chosen to read well on it.
+val PaperWhite = Color(0xFFFFFFFF)
+val PaperLine = Color(0xFFC9D1DC)
+// Lines on small paper previews (e.g. New notebook), where the normal lines would vanish.
+val PaperLineStrong = Color(0xFF9DA9B8)
+// The desk the pages lie on in the notebook editor.
+val DeskLight = Color(0xFFE4E6EA)
+val DeskDark = Color(0xFF2A2B2F)

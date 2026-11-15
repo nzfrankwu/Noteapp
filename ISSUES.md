@@ -27,6 +27,8 @@ _None right now._
 
 ## Done
 
+- **Subfolders and notebooks in folders (Phase 2, steps 2.2–2.3), 15 Nov.** Inside a folder, a grid of its folders and notebooks sits above the tasks, with an All · Notebooks · Folders filter. The ＋ button makes a new notebook (name and paper: Lined, Blank, Grid or Dot grid) or a folder. Folders can go inside folders as deep as you like; they show the course colour and tag, and "in ELECTENG 292 › tutorials" at the top. Each tile's ⋮ has Rename and Delete; deleting a notebook offers Undo, and a folder can only be deleted when it's empty. A new notebook opens straight away, showing its blank pages (writing comes next). 7 new screen tests.
+
 - **Database version 4: subfolders and notebooks (Phase 2, step 2.1 🔺), 15 Nov.** Folders can now sit inside other folders, and the database has notebooks and pages (the handwriting itself will be saved in one file per page, step 2.5). Updating the app only adds an empty column and two new, empty tables: every course, folder and task is kept exactly. Deleting is safe: a folder that holds anything can't be deleted, and deleting a notebook or page only hides it. Checked with migration tests, a deliberately broken migration (caught, and the failed update left the old data untouched), and a real upgrade of the previous app with data on the emulator. Nothing visible changes yet, except that deleting a non-empty folder now explains why it can't. 11 unit tests, 15 emulator tests.
 
 - **Code review of phase-1b (15 Nov): 7 of 8 findings fixed.**
