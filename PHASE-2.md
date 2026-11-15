@@ -1,0 +1,133 @@
+# Phase 2: Handwriting notebooks
+
+Subfolders, notebooks and the ink canvas (IDEA.md §2.1, §2.5 and §5).
+Work happens on branch `phase-2`; it's merged into `main` at the end, with the user's OK.
+- ★ marks a check-in with the user.
+- 🔺 marks a difficult or high-stakes step. Before starting one, tell the user so they can switch to a stronger model or higher effort.
+
+## Decided with the user (15 Nov 2026)
+
+- **Ink engine: Jetpack Ink** (`androidx.ink`, Google's stylus library). The user OK'd adding it. Standard Android, not OPPO-only.
+- **Pages run side by side, scrolling sideways, like Notein** (`design-reference/doc ui reference.jpg`).
+- **Inside a folder, its subfolders and notebooks sit above the tasks** (one grid on top of the task list, in the same scroll), not in a separate tab.
+- **Subfolders:**
+  - They belong to the top folder's course and can't link a course of their own.
+  - The course's tasks show only in the top course folder.
+  - They can nest to any depth.
+- **Pen button:** one click of the stylus side button switches to lasso; another click goes back to the tool used before. This uses the standard `MotionEvent.BUTTON_STYLUS_PRIMARY`; whether the OPPO Pencil 2 reports its button that way is checked on the tablet.
+- **Press hard to erase:** with the pen or highlighter, pressing the tip harder than a set level erases instead of drawing. The pen pop-up has a sensitivity slider and an off switch, so normal writing never triggers it.
+- **Double-tap with a finger fits the page to the screen.** The default is "fit height". Settings → Notebooks offers fit height, fit width or whole page.
+- **The toolbar is a bit thinner than Notein's:** one narrow column, about 48 dp. Extras that fit without widening it:
+  - 3 pen slots, each remembering its own colour and thickness, plus highlighter, eraser and lasso
+  - 8 colour swatches plus "More colours"; 3 thickness presets plus a slider in the pop-up
+  - stroke smoothing ("Stability") in the pen pop-up
+  - hold the pen still at the end of a line to straighten it (pen and highlighter)
+  - a collapse button that tucks the toolbar into a small round handle
+- **Lasso moved from Phase 5 into Phase 2** (select, then move, resize or delete). IDEA.md §2.5 and §5 were updated to match.
+
+## Design decisions (data safety, IDEA.md §5a)
+
+- **Database version 4** (one migration, 3 → 4):
+  - `folders.parent_id`: null means a top-level folder.
+  - a new `notebooks` table: id, folder, title, template, page width and height (in page units), created, updated, `deleted_at`
+  - a new `pages` table: id, notebook, position, created, updated
+- **Strokes live in files, one per page:** `filesDir/notebooks/<notebookId>/<pageId>.ink`, not in the database.
+  - Each file has a small header with a format version, then the strokes (Jetpack Ink's stroke encoding plus our brush settings).
+  - Files are written whole to a temporary file and then renamed, so a crash never leaves half a page.
+  - One file per page lets Phase 6 back up only the pages that changed.
+- **Stroke positions are in page units.** Pages are A4 portrait for now, but the size is stored per notebook, so other sizes later need no migration.
+- **Thumbnails are only a cache:** they can be rebuilt and are never backed up.
+- **Deleting is safe:**
+  - Deleting a notebook only marks it (`deleted_at`), hides it and offers Undo. The real "Recently deleted" screen comes in Phase 6.
+  - A folder can be deleted only when it has no subfolders or notebooks.
+- **Home shows top-level folders only.**
+- **New notebook:** a title and a template (Lined by default, Blank, Grid, Dot grid), loosely after Notein's "New Note" screen, without covers, paper colours or paper sizes.
+- **A debug-only "Draw with finger" setting** lets the emulator test drawing. The real stylus is tested on the tablet.
+
+## Checklist
+
+- [ ] 🔺 **2.1 Database version 4.**
+  - Subfolders, notebooks and pages, with a tested 3 → 4 migration (version-3 data must survive).
+  - Record schema 4 in `SchemaHistoryTest`, extend `MigrationTest`, catch a deliberately broken migration, and do a real upgrade of the version-3 app with data on the emulator (see the gotchas in HANDOFF.md).
+  - Repositories for folders inside folders, notebooks and pages.
+  - Settle here what happens to marked-as-deleted notebooks when their folder is deleted.
+- [ ] **2.2 Subfolders in the folder screen** (layout below). ★ Describe the layout to the user before coding it.
+- [ ] **2.3 New notebook and notebook tiles.**
+  - The New notebook dialog (title and template).
+  - Tiles show the title, date and page count, with the template's pattern as a placeholder picture.
+  - Rename, and delete with Undo.
+- [ ] 🔺 **2.4 Jetpack Ink go/no-go.** ★
+  - Add the library and confirm it builds with our Kotlin 2.2, AGP 9.5.1 and minSdk 26.
+  - Draw low-latency strokes on one page on the emulator.
+  - The user then tries the OPPO Pencil 2 on the tablet: pressure and lag. If Jetpack Ink doesn't fit, stop and discuss a fallback.
+- [ ] 🔺 **2.5 Page files and autosave.**
+  - The per-page file format, with its version number, written atomically.
+  - Save shortly after each stroke, when leaving the notebook, and when the app goes to the background. Load on open.
+  - A damaged file is never overwritten with an empty page.
+  - Unit tests: save and load give the same strokes, a newer format version is refused safely, and an interrupted write keeps the old file.
+- [ ] 🔺 **2.6 Notebook editor** (layout below). ★ Describe the layout to the user before coding it.
+  - Templates drawn: lined, blank, grid, dot grid.
+  - Pinch to zoom, pan with a finger, double-tap to fit (following the Settings choice).
+  - The stylus draws and a finger never does (palm rejection).
+  - Add and delete pages; a page-number badge.
+  - Landscape and portrait, light and dark.
+- [ ] **2.7 Tools and the floating toolbar.** ★
+  - The thin, draggable toolbar remembers where it was left and can collapse.
+  - 3 pen slots: pressure-sensitive, colour swatches plus "More colours", 3 thickness presets, and a pop-up with a thickness slider and Stability.
+  - Highlighter (see-through), whole-stroke eraser, and hold-to-straighten.
+- [ ] **2.8 Undo and redo** for drawing, erasing and adding or deleting pages, with unit tests.
+- [ ] 🔺 **2.9 Lasso select.** ★
+  - Draw a loop to select strokes, then move them, resize them (corner handles) or delete them. All undoable.
+  - Unit tests for which strokes a loop selects.
+- [ ] 🔺 **2.10 Pen button and press hard to erase.** ★
+  - A side-button click toggles lasso ↔ the previous tool.
+  - Pressing harder than the threshold erases whole strokes it touches, with a sensitivity slider and an off switch.
+  - Unit tests for the toggle and the threshold. The user tests both on the OPPO Pencil 2: the emulator can't check pressure levels or the pen button.
+- [ ] **2.11 Thumbnails.** Notebook tiles show their first page (a cached picture, refreshed after edits).
+- [ ] **2.12 Performance check on the tablet.** A long notebook (50+ pages of dense writing) stays smooth; fix what's slow.
+- [ ] **End of phase:** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
+
+## Folder screen layout (2.2), draft to confirm
+
+```
+┌ ←  ELECTENG 292  ▌ELECTENG 292                [Tasks|Calendar|Timeline]  ⋮ ┐
+│  [ All | Note | Folder ]                                                   │
+│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐                                       │
+│  │ ▭▭▭  │ │ ≡≡≡  │ │ ≡≡≡  │ │ ▭▭▭  │                                       │
+│  └──────┘ └──────┘ └──────┘ └──────┘                                       │
+│  tutorials Lecture 3  Tut 5     practice                                   │
+│  2 items  12 Nov·8p  10 Nov·3p  5 items                                    │
+│  ── Overdue ───────────────────────────                                     │
+│  task cards … (as today)                                                    │
+│                                                               ( ＋ )        │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+- The grid of subfolders (first) and notebooks sits above today's task sections, in one scroll.
+- **＋** offers New folder and New notebook.
+- A subfolder shows its own name, with the top folder's course tag, and no task sections or tabs.
+- Back goes up one level. Each tile's ⋮ has Rename and Delete.
+- Reference: `design-reference/notein-inside-course-folder.jpg`.
+
+## Notebook editor layout (2.6), draft to confirm
+
+```
+┌ ←  Lecture 3            ↶  ↷                         ＋page   ⋮ ┐
+│ ┌──┐ ┌─────────────────────┐ ┌─────────────────────┐ ┌────     │
+│ │✒ │ │ ─────────────────── │ │ ─────────────────── │ │ ───     │
+│ │✒ │ │ ─────────────────── │ │ ─────────────────── │ │ ───     │
+│ │✒ │ │ ─────────────────── │ │ ─────────────────── │ │ ───     │
+│ │▬ │ │                     │ │                     │ │         │
+│ │⌫ │ │                     │ │                     │ │         │
+│ │◌ │ │                     │ │                     │ │         │
+│ │●●│ │                     │ │                     │ │         │
+│ │●●│ │                     │ │                     │ │         │
+│ │ ‑│ │                     │ │                     │ │         │
+│ └──┘ └─────────────────────┘ └─────────────────────┘ └────     │
+│ (1)                                                            │
+└────────────────────────────────────────────────────────────────┘
+```
+- A slim top bar: back, title, undo and redo, add page, ⋮ (template, delete page).
+- Pages sit side by side and scroll sideways. A double-tap fits the page to the screen.
+- The floating toolbar on the left (draggable, collapsible): 3 pens, highlighter, eraser, lasso, colours, thicknesses.
+- A page-number badge sits at the bottom left.
+- Reference: `design-reference/doc ui reference.jpg` and `pen selection tab.jpg`.

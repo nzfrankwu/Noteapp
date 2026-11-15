@@ -1,31 +1,20 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 12:35 pm. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phase 1 (Courses & tasks)** and **Phase 1b (Task views): both done and merged into `main`.** Phase 1b was merged on 15 Nov with the user's OK. Their history is in `PHASE-1.md`, `PHASE-1B.md` and `ISSUES.md`.
-- **Next phase: Phase 2, Handwriting notebooks** (IDEA.md §5). It isn't planned yet; there's no `PHASE-2.md`.
-- **Branch:** `main` (Phase 1b merged). Start Phase 2 on a new branch, `phase-2`.
-- **The tablet runs the merged `main` build** (all of Phase 1b with the review fixes; database version 3). Installed on 15 Nov with the user's OK.
+- **Phase 1 (Courses & tasks)** and **Phase 1b (Task views): both done and merged into `main`.** Their history is in `PHASE-1.md`, `PHASE-1B.md` and `ISSUES.md`.
+- **Current phase: Phase 2, Handwriting notebooks.** Planned with the user on 15 Nov: the plan is **`PHASE-2.md`** (decisions, design, checklist 2.1–2.12, layout drafts). Nothing built yet.
+- **Branch:** `phase-2` (from `main`).
+- **The tablet runs the merged `main` build** (database version 3).
 - **Mode:** "Working together".
 
 ## Next steps (in order)
 
-1. **Plan Phase 2 with the user** in a new `PHASE-2.md` (like `PHASE-1B.md`: a checklist with ★ check-ins and 🔺 for hard steps).
-   - Read IDEA.md §2.5, §2.10 and §5a first.
-   - Describe the notebook screen layout and ask which `design-reference/` screenshot to follow before coding it.
-   - 🔺 steps to flag:
-     - the ink canvas (stylus input, pressure, palm rejection, smoothness)
-     - the notebook storage design (it must suit Phase 6 backup and "only upload what changed")
-     - the database change (version 4)
-2. **In Phase 2, first: subfolders** (the user asked for them on 15 Nov). IDEA.md §2.1 and the §5 Phase 2 row now include them.
-   - Planned for the start of Phase 2, so the folder database change goes in with the notebook storage change.
-   - Layout reference: `design-reference/notein-inside-course-folder.jpg` (a filter row All · PDF · Note · Folder, then a thumbnail grid).
-   - Open questions for then:
-     - do subfolders inherit the parent's course?
-     - do their tasks show in the parent?
-     - how deep can folders nest?
+1. **Wait for the user's OK on `PHASE-2.md`**, then push `phase-2`.
+2. **Step 2.1 🔺 Database version 4** (subfolders, notebooks, pages). It's a migration step: tell the user first so they can switch to a stronger model / max effort. Follow the checklist at the top of `Migrations.kt` and the gotchas below.
+3. Then 2.2 (subfolders in the folder screen): describe the layout draft in `PHASE-2.md` to the user before coding.
 
 ## Tablet database safety copy
 
@@ -74,6 +63,14 @@ _Last updated: 15 Nov 2026, 12:35 pm. Keep this file current (see CLAUDE.md, "Se
     - The task form's course picker shows current courses plus the task's own course
     - Reminders skip archived courses' tasks (`ReminderScheduler.apply`, plus a re-check in `ReminderReceiver`)
     - Course colours still count archived courses, so colours never shift
+
+- **Phase 2 (15 Nov):** the main choices are listed at the top of `PHASE-2.md`. In short:
+  - Jetpack Ink for drawing; pages side by side (like Notein)
+  - notebooks and subfolders above the tasks in a folder
+  - subfolders inherit the course, any depth
+  - strokes in one file per page; Room v4 for the structure
+  - pen button toggles lasso, press hard to erase, double-tap to fit (default fit height)
+  - lasso moved from Phase 5 into Phase 2 (IDEA.md updated with the user's OK)
 
 ## Code map (app/src/main/java/com/nzfrankwu/noteapp/)
 
