@@ -5,6 +5,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import android.graphics.Bitmap
+import com.nzfrankwu.noteapp.data.InkSketch
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nzfrankwu.noteapp.data.InkSettingsStore
@@ -159,6 +163,52 @@ class NotebookViewModel(
         }
     }
 
+    // ---- Quick previews (PHASE-2.md F8) ----
+
+    /**
+     * A small, quickly drawn picture of each page near the screen (ink only, about 256 px wide).
+     * The screen stretches it over a page that isn't drawn in full yet, or while pages fly past,
+     * so a long notebook never shows empty pages while scrolling (like Notein's blurry pages).
+     */
+    val previews = mutableStateMapOf<String, ImageBitmap>()
+    private var previewOrder: List<String> = emptyList()
+    private var previewJob: Job? = null
+    private val pageEdits = HashMap<String, Int>()
+
+    /** Wants previews of the pages around page [index]: nearest first. Far ones are dropped. */
+    fun requestPreviews(index: Int) {
+        val list = pages.value
+        if (list.isEmpty()) return
+        val keep = list.indices.filter { kotlin.math.abs(it - index) <= PREVIEW_KEEP }.mapTo(HashSet()) { list[it].id }
+        previews.keys.filter { it !in keep }.forEach { previews.remove(it) }
+        previewOrder = list.indices
+            .filter { kotlin.math.abs(it - index) <= PREVIEW_RANGE }
+            .sortedBy { kotlin.math.abs(it - index) }
+            .map { list[it].id }
+        if (previewJob?.isActive == true) return
+        previewJob = viewModelScope.launch {
+            delay(PREVIEW_DELAY_MS) // let a burst of edits or scrolling settle first
+            while (true) {
+                val nb = notebook.value ?: break
+                val pageId = previewOrder.firstOrNull { it !in previews && isEditable(it) } ?: break
+                val edits = pageEdits[pageId] ?: 0
+                val strokes = ink.strokes(pageId).toList()
+                val picture = if (strokes.isEmpty()) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
+                    renderPreview(strokes, nb.pageWidth, nb.pageHeight)
+                }
+                // Changed while it was drawn: draw it again (the loop comes back to it).
+                if ((pageEdits[pageId] ?: 0) == edits) previews[pageId] = picture
+            }
+        }
+    }
+
+    private fun renderPreview(strokes: List<InkStroke>, pageWidth: Float, pageHeight: Float): ImageBitmap {
+        val scale = PREVIEW_WIDTH_PX / pageWidth
+        val bitmap = Bitmap.createBitmap(PREVIEW_WIDTH_PX.toInt(), (pageHeight * scale).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+        InkSketch.draw(android.graphics.Canvas(bitmap), strokes, scale, widthFactor = PREVIEW_LINE_FACTOR, minWidth = 0.7f)
+        return bitmap.asImageBitmap()
+    }
+
     /** Keeps only the pages near the screen ready to draw (the rest are rebuilt when needed). */
     fun keepReadyOnly(pageIds: Set<String>) = drawables.keepOnly(pageIds) { ink.strokes(it) }
 
@@ -309,6 +359,8 @@ class NotebookViewModel(
 
     private fun changed(pageId: String) {
         dirty.add(pageId)
+        pageEdits[pageId] = (pageEdits[pageId] ?: 0) + 1
+        previews.remove(pageId) // redrawn by the next requestPreviews
         refreshUndo()
         version++
         saveJob?.cancel()
@@ -393,6 +445,20 @@ class NotebookViewModel(
     }
 
     companion object {
+        /** Preview width in pixels: small, so it's quick to draw and looks soft when stretched (F8). */
+        const val PREVIEW_WIDTH_PX = 320f
+
+        /** Preview lines are thinner than the pen's size, to look like the real ink. */
+        private const val PREVIEW_LINE_FACTOR = 0.5f
+
+        /** Previews are drawn for pages this far either side of the screen, and kept a little further. */
+        const val PREVIEW_RANGE = 12
+        const val PREVIEW_KEEP = 18
+        private const val PREVIEW_DELAY_MS = 150L
+
+        /** The preview of a blank page: nothing to draw. */
+        private val EMPTY_PREVIEW: ImageBitmap by lazy { ImageBitmap(1, 1) }
+
         /** Pages with at most this many strokes are built as they're drawn; fuller ones in the background. */
         const val BUILD_NOW_LIMIT = 120
 

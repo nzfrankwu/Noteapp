@@ -26,6 +26,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -34,6 +35,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStroke
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -46,7 +48,9 @@ import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import kotlin.math.roundToInt
 import androidx.ink.authoring.compose.InProgressStrokes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -119,6 +123,9 @@ class EditorViewState {
      * their quick preview instead of being drawn in full (PHASE-2.md F8).
      */
     var fastScroll by mutableStateOf(false)
+
+    /** Pages whose ink is drawn in full right now; the others show their quick preview (F8). */
+    val fullyDrawn = mutableStateMapOf<String, Boolean>()
 
     private var motion: Job? = null
 
@@ -259,8 +266,10 @@ fun NotebookCanvas(
         }
     }
     // Get the pages on screen and their neighbours ready to draw; forget the far ones.
-    LaunchedEffect(visible, pages, viewModel.version) {
+    LaunchedEffect(visible, pages, viewModel.version, view.fastScroll) {
         if (visible.isEmpty() || pages.isEmpty()) return@LaunchedEffect
+        viewModel.requestPreviews(visible.first)
+        if (view.fastScroll) return@LaunchedEffect // pages flying past show only their preview
         val near = (visible.first - 1).coerceAtLeast(0)..(visible.last + 1).coerceAtMost(pages.lastIndex)
         for (i in near) pages.getOrNull(i)?.let { viewModel.prepareToDraw(it.id) }
         val keep = (near.first - 1).coerceAtLeast(0)..(near.last + 1).coerceAtMost(pages.lastIndex)
@@ -310,6 +319,17 @@ fun NotebookCanvas(
                 val left = cam.toScreenX(strip.pageLeft(i))
                 drawRect(PaperWhite, Offset(left, top), Size(w, h))
                 drawPaperPattern(page.template ?: notebook.template, notebook.pageWidth, notebook.pageHeight, PaperLine, left, top, s)
+                // Until the page's ink is drawn in full, its quick preview stands in (soft, F8).
+                if (view.fullyDrawn[page.id] != true) {
+                    viewModel.previews[page.id]?.let { img ->
+                        drawImage(
+                            img,
+                            dstOffset = IntOffset(left.roundToInt(), top.roundToInt()),
+                            dstSize = IntSize(w.roundToInt(), h.roundToInt()),
+                            filterQuality = FilterQuality.Low,
+                        )
+                    }
+                }
                 if (viewModel.pageStatus[page.id] is PageStatus.Damaged) {
                     drawRect(Color(0x22D32F2F), Offset(left, top), Size(w, h))
                 }
@@ -324,8 +344,11 @@ fun NotebookCanvas(
         }
 
         // 2. The ink: one layer per page on screen (see PageInkLayer).
+        val flying = view.fastScroll
         for (i in visible) {
             val page = pages.getOrNull(i) ?: continue
+            // While pages fly past, only those already drawn stay; the rest show their preview.
+            if (flying && view.fullyDrawn[page.id] != true) continue
             key(page.id) {
                 PageInkLayer(viewModel, page.id, i, notebook.pageWidth, notebook.pageHeight, strip, view, renderer)
             }

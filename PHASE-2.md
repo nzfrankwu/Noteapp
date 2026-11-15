@@ -101,7 +101,7 @@ Batch 2, the page view:
 - [x] **F5. Top bar like Notein:** one thin dark bar of round icon buttons, no title. Left: Back. Middle pill: Undo, Redo. Right: Add page, ⋮.
 - [x] 🔺 **F6. Fling scrolling:** a quick finger flick keeps moving (through many pages), easing to a stop, and sticks to the sideways direction while flicking, even zoomed in.
 - [x] **F7. Double-tap to fit animates** (smooth, short: about 250 ms).
-- [ ] 🔺 **F8. Faster scrolling through a long, full notebook:** pages far from the current one show a quick, blurry preview first (like Notein) and sharpen when you stop.
+- [x] 🔺 **F8. Faster scrolling through a long, full notebook:** pages far from the current one show a quick, blurry preview first (like Notein) and sharpen when you stop.
 
 Batch 3, pens:
 - [ ] 🔺 **F9. Press hard to erase, held:** erasing starts only when you press hard **and hold roughly still for about 0.5 s** (the time is a setting). Allow a harder "how hard" range.

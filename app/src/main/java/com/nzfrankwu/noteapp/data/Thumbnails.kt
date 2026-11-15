@@ -27,24 +27,7 @@ class Thumbnails(private val dir: File) {
         val canvas = Canvas(bitmap)
         canvas.drawColor(0xFFFFFFFF.toInt())
         drawPattern(canvas, template, pageWidth, pageHeight, scale)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeCap = Paint.Cap.ROUND
-            strokeJoin = Paint.Join.ROUND
-        }
-        for (pass in 0..1) {
-            for (s in strokes) {
-                val highlighter = s.tool == InkTool.HIGHLIGHTER
-                if (highlighter != (pass == 0) || s.pointCount == 0) continue
-                paint.color = if (highlighter) (s.colorArgb and 0x00FFFFFF) or 0x66000000 else s.colorArgb
-                paint.strokeWidth = (s.size * scale).coerceAtLeast(1f)
-                val path = Path()
-                path.moveTo(s.xs[0] * scale, s.ys[0] * scale)
-                for (i in 1 until s.pointCount) path.lineTo(s.xs[i] * scale, s.ys[i] * scale)
-                if (s.pointCount == 1) path.lineTo(s.xs[0] * scale + 0.1f, s.ys[0] * scale)
-                canvas.drawPath(path, paint)
-            }
-        }
+        InkSketch.draw(canvas, strokes, scale)
         dir.mkdirs()
         val temp = File(dir, "$notebookId.png.tmp")
         FileOutputStream(temp).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -73,5 +56,37 @@ class Thumbnails(private val dir: File) {
     companion object {
         /** Thumbnail width in pixels (tiles are about 120 dp wide). */
         const val WIDTH_PX = 360f
+    }
+}
+
+/**
+ * A quick sketch of strokes with plain Android graphics: one line per stroke, highlighter under
+ * pen. Plenty for small pictures (notebook tiles, page previews); not for the page itself.
+ */
+object InkSketch {
+    /**
+     * Draws [strokes] (page units) onto [canvas] at [scale] pixels per page unit. [widthFactor]
+     * thins the lines (a pressure pen's line is usually thinner than its full size).
+     */
+    fun draw(canvas: Canvas, strokes: List<InkStroke>, scale: Float, widthFactor: Float = 1f, minWidth: Float = 1f) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+        val path = Path()
+        for (pass in 0..1) {
+            for (s in strokes) {
+                val highlighter = s.tool == InkTool.HIGHLIGHTER
+                if (highlighter != (pass == 0) || s.pointCount == 0) continue
+                paint.color = if (highlighter) (s.colorArgb and 0x00FFFFFF) or 0x66000000 else s.colorArgb
+                paint.strokeWidth = (s.size * scale * (if (highlighter) 1f else widthFactor)).coerceAtLeast(minWidth)
+                path.rewind()
+                path.moveTo(s.xs[0] * scale, s.ys[0] * scale)
+                for (i in 1 until s.pointCount) path.lineTo(s.xs[i] * scale, s.ys[i] * scale)
+                if (s.pointCount == 1) path.lineTo(s.xs[0] * scale + 0.1f, s.ys[0] * scale)
+                canvas.drawPath(path, paint)
+            }
+        }
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -76,6 +77,8 @@ fun PageInkLayer(
     view: EditorViewState,
     renderer: CanvasStrokeRenderer,
 ) {
+    // While this page is on screen, say whether it's drawn in full (else its preview shows: F8).
+    DisposableEffect(view, pageId) { onDispose { view.fullyDrawn.remove(pageId) } }
     @Suppress("UNUSED_VARIABLE") val version = viewModel.version // re-split the chunks on every edit
     val raster = view.inkScale
     if (raster <= 0f || !viewModel.drawables.isReady(pageId)) return
@@ -104,6 +107,8 @@ fun PageInkLayer(
             revealed += REVEAL_PER_FRAME
         }
         revealed = Int.MAX_VALUE // from now on, edits show at once
+        withFrameNanos { } // let the last chunks draw before the preview goes
+        view.fullyDrawn[pageId] = true
     }
 
     // The page in screen pixels at the settled zoom.
