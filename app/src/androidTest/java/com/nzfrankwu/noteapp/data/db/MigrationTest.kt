@@ -15,7 +15,7 @@ import com.nzfrankwu.noteapp.canvas.CanvasSync
 import com.nzfrankwu.noteapp.canvas.SyncSummary
 import com.nzfrankwu.noteapp.data.NotebookRepository
 import com.nzfrankwu.noteapp.data.NotebookResult
-import com.nzfrankwu.noteapp.data.PageSize
+import com.nzfrankwu.noteapp.domain.PageSize
 import com.nzfrankwu.noteapp.domain.TaskSource
 import com.nzfrankwu.noteapp.domain.TaskStatus
 import kotlinx.coroutines.flow.first

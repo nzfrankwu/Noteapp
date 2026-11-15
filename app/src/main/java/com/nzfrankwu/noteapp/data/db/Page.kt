@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.nzfrankwu.noteapp.domain.PageSize
 import com.nzfrankwu.noteapp.domain.PageTemplate
 import java.time.Instant
 
@@ -64,4 +65,7 @@ data class Page(
 ) {
     /** True if this page shows a page of an imported PDF. */
     val isPdf: Boolean get() = pdfFile != null
+
+    /** This page's size: its own, or else [notebook]'s. */
+    fun size(notebook: Notebook): PageSize = PageSize(width ?: notebook.pageWidth, height ?: notebook.pageHeight)
 }

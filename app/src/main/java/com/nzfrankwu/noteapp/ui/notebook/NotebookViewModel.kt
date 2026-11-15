@@ -194,8 +194,10 @@ class NotebookViewModel(
                 val pageId = previewOrder.firstOrNull { it !in previews && isEditable(it) } ?: break
                 val edits = pageEdits[pageId] ?: 0
                 val strokes = ink.strokes(pageId).toList()
+                val size = pages.value.firstOrNull { it.id == pageId }?.size(nb)
+                    ?: com.nzfrankwu.noteapp.domain.PageSize(nb.pageWidth, nb.pageHeight)
                 val picture = if (strokes.isEmpty()) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
-                    renderPreview(strokes, nb.pageWidth, nb.pageHeight)
+                    renderPreview(strokes, size.width, size.height)
                 }
                 // Changed while it was drawn: draw it again (the loop comes back to it).
                 if ((pageEdits[pageId] ?: 0) == edits) previews[pageId] = picture
@@ -492,7 +494,8 @@ class NotebookViewModel(
         if (!isEditable(first.id)) return null
         val strokes = ink.strokes(first.id).toList()
         val paper = first.template ?: template ?: nb.template
-        return { t.render(notebookId, paper, nb.pageWidth, nb.pageHeight, strokes) }
+        val size = first.size(nb)
+        return { t.render(notebookId, paper, size.width, size.height, strokes) }
     }
 
     /** Redraws the tile picture (e.g. after the first page changed). */

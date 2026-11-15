@@ -79,7 +79,7 @@ The goal is to let the user import lecture PDFs, write on them, drop images onto
 
 ## Checklist
 - [x] 🔺 **3.1 Database version 5.** _Done 16 Nov: `createPdfNotebook` takes the notebook ID from `newNotebookId()` so the PDF can be copied into the notebook's folder before its rows exist (see the method's comment). Real upgrade passed (`screenshots/upgrade_v5.sh` + `compare_dbs.py`)._ Add the four `pages` columns; record the schema in `SchemaHistoryTest`; extend `MigrationTest`; check that a deliberately broken migration is caught; upgrade a real v4 install with data on the emulator. Repository: `createPdfNotebook(folderId, title, pdfFile, pageSizes)` in one transaction; `addPage` copies the neighbouring page's size. Unit and emulator tests.
-- [ ] 🔺 **3.2 Pages of different sizes.**
+- [x] 🔺 **3.2 Pages of different sizes.** _Done 16 Nov: `PageStrip(sizes)` (the old uniform constructor stays, so the old tests prove plain notebooks unchanged); `pageTop(i)` centres pages in a band as tall as the tallest page, and every page-relative conversion in the editor (save, erase, lasso, straight line, paste, lasso menu) subtracts it. Checked on the emulator with pages set to landscape/Letter (`screenshots/set_page_sizes.py`)._
    - `domain/ink/PageStrip` uses per-page widths and heights: running left edges, a binary search in `pageAt`/`visiblePages`, pages centred top to bottom, `fit` and `clamp` per page, and the F20 scroller fraction.
    - Rewrite `PageStripTest`.
    - Plain notebooks must look and scroll exactly as before.

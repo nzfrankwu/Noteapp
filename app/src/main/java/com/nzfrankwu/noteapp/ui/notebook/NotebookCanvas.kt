@@ -258,9 +258,8 @@ fun NotebookCanvas(
     view: EditorViewState,
     modifier: Modifier = Modifier,
 ) {
-    val strip = remember(notebook.pageWidth, notebook.pageHeight, pages.size) {
-        PageStrip(notebook.pageWidth, notebook.pageHeight, pages.size)
-    }
+    val sizes = pages.map { it.size(notebook) }
+    val strip = remember(sizes) { PageStrip(sizes) }
     val renderer = remember { CanvasStrokeRenderer.create() }
     val motionScope = rememberCoroutineScope()
     val inputs = remember { InkLayerInputs() }
@@ -283,7 +282,7 @@ fun NotebookCanvas(
                 snap.strip.pageAt(first.x)
             }.forEach { (index, group) ->
                 val page = snap.pages.getOrNull(index) ?: return@forEach
-                viewModel.addStrokes(page.id, group.map { InkBrushes.toSaved(it, snap.strip.pageLeft(index), 0f) })
+                viewModel.addStrokes(page.id, group.map { InkBrushes.toSaved(it, snap.strip.pageLeft(index), snap.strip.pageTop(index)) })
             }
         }
     }
@@ -339,15 +338,17 @@ fun NotebookCanvas(
             drawRect(if (dark) DeskDark else DeskLight)
             val cam = view.camera ?: return@Canvas
             val s = cam.scale
-            val w = notebook.pageWidth * s
-            val h = notebook.pageHeight * s
             val shown = strip.visiblePages(cam, size.width)
-            val top = cam.toScreenY(0f)
             for (i in shown) {
                 val page = pages.getOrNull(i) ?: continue
+                val pw = strip.pageWidth(i)
+                val ph = strip.pageHeight(i)
+                val w = pw * s
+                val h = ph * s
                 val left = cam.toScreenX(strip.pageLeft(i))
+                val top = cam.toScreenY(strip.pageTop(i))
                 drawRect(PaperWhite, Offset(left, top), Size(w, h))
-                drawPaperPattern(page.template ?: notebook.template, notebook.pageWidth, notebook.pageHeight, PaperLine, left, top, s)
+                drawPaperPattern(page.template ?: notebook.template, pw, ph, PaperLine, left, top, s)
                 // Until the page's ink is drawn in full, its quick preview stands in (soft, F8).
                 if (view.fullyDrawn[page.id] != true) {
                     viewModel.previews[page.id]?.let { img ->
@@ -364,10 +365,14 @@ fun NotebookCanvas(
                 }
             }
             // The pages touch (F4): a thin dark line marks each edge, including the outer ones.
+            // Where two pages meet, the line is as tall as the taller of the two.
             if (!shown.isEmpty()) {
                 for (i in shown.first..shown.last + 1) {
                     val x = cam.toScreenX(strip.pageLeft(i) - if (i > 0) strip.gap / 2 else 0f)
-                    drawLine(PageEdge, Offset(x, top), Offset(x, top + h), strokeWidth = PAGE_EDGE_PX)
+                    val tall = listOfNotNull(i - 1, i).filter { it in 0 until strip.pageCount }
+                        .maxByOrNull { strip.pageHeight(it) } ?: continue
+                    val top = cam.toScreenY(strip.pageTop(tall))
+                    drawLine(PageEdge, Offset(x, top), Offset(x, top + strip.pageHeight(tall) * s), strokeWidth = PAGE_EDGE_PX)
                 }
             }
         }
@@ -379,7 +384,7 @@ fun NotebookCanvas(
             // While pages fly past, only those already drawn stay; the rest show their preview.
             if (flying && view.fullyDrawn[page.id] != true) continue
             key(page.id) {
-                PageInkLayer(viewModel, page.id, i, notebook.pageWidth, notebook.pageHeight, strip, view, renderer)
+                PageInkLayer(viewModel, page.id, i, strip.pageWidth(i), strip.pageHeight(i), strip, view, renderer)
             }
         }
 
@@ -398,8 +403,9 @@ fun NotebookCanvas(
                 is LassoState.Selected -> {
                     val box = lasso.box()
                     val pl = strip.pageLeft(lasso.pageIndex)
-                    val l = cam.toScreenX(pl + box[0]) - 6f; val t = cam.toScreenY(box[1]) - 6f
-                    val r = cam.toScreenX(pl + box[2]) + 6f; val b = cam.toScreenY(box[3]) + 6f
+                    val pt = strip.pageTop(lasso.pageIndex)
+                    val l = cam.toScreenX(pl + box[0]) - 6f; val t = cam.toScreenY(pt + box[1]) - 6f
+                    val r = cam.toScreenX(pl + box[2]) + 6f; val b = cam.toScreenY(pt + box[3]) + 6f
                     // While the rotate handle is dragged, the box turns with the writing (F14).
                     rotate(Math.toDegrees(lasso.angle.toDouble()).toFloat(), pivot = Offset((l + r) / 2, (t + b) / 2)) {
                         drawRect(SelectionBlue, Offset(l, t), Size(r - l, b - t), style = DrawStroke(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))))
@@ -708,7 +714,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             (view.lasso as? LassoState.Selected)?.let { sel ->
                                 val pl = snap.strip.pageLeft(sel.pageIndex)
                                 val x = cam.toWorldX(change.position.x) - pl
-                                val y = cam.toWorldY(change.position.y)
+                                val y = cam.toWorldY(change.position.y) - snap.strip.pageTop(sel.pageIndex)
                                 // The plain corner handle keeps the shape; Resize's handles stretch freely.
                                 onLasso(sel.copy(target = LassoBox.dragged(sel.target, grabbed, x, y, keepShape = !sel.handles)))
                             }
@@ -737,8 +743,9 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             val page = loop?.let { snap.pages.getOrNull(it.pageIndex) }
                             if (loop != null && page != null && loop.xs.size > 2) {
                                 val pl = snap.strip.pageLeft(loop.pageIndex)
+                                val pt = snap.strip.pageTop(loop.pageIndex)
                                 val xs = FloatArray(loop.xs.size) { loop.xs[it] - pl }
-                                val ys = loop.ys.toFloatArray()
+                                val ys = FloatArray(loop.ys.size) { loop.ys[it] - pt }
                                 val picked = viewModel.strokesInLoop(page.id, xs, ys)
                                 onLasso(
                                     if (picked.isEmpty()) null
@@ -894,9 +901,10 @@ private fun finishStraightLine(line: StraightLine, snap: Snapshot, viewModel: No
     val index = snap.strip.pageAt(line.sx)
     val page = snap.pages.getOrNull(index) ?: return
     val left = snap.strip.pageLeft(index)
+    val top = snap.strip.pageTop(index)
     val stroke = Straighten.line(
         java.util.UUID.randomUUID().toString(), line.tool, line.colorArgb, line.size,
-        line.sx - left, line.sy, line.ex - left, line.ey, line.pressure,
+        line.sx - left, line.sy - top, line.ex - left, line.ey - top, line.pressure,
         if (line.byFinger) InkStroke.TOOL_TOUCH else InkStroke.TOOL_STYLUS,
     )
     viewModel.addStrokes(page.id, listOf(stroke))
@@ -912,10 +920,11 @@ private fun eraseStep(viewModel: NotebookViewModel, snap: Snapshot, cam: Camera,
     val index = snap.strip.pageAt(cam.toWorldX(to.x))
     val page = snap.pages.getOrNull(index) ?: return
     val pl = snap.strip.pageLeft(index)
+    val pt = snap.strip.pageTop(index)
     viewModel.eraseAlong(
         page.id,
-        cam.toWorldX(from.x) - pl, cam.toWorldY(from.y),
-        cam.toWorldX(to.x) - pl, cam.toWorldY(to.y),
+        cam.toWorldX(from.x) - pl, cam.toWorldY(from.y) - pt,
+        cam.toWorldX(to.x) - pl, cam.toWorldY(to.y) - pt,
         snap.settings.eraserRadius,
     )
 }
@@ -923,7 +932,8 @@ private fun eraseStep(viewModel: NotebookViewModel, snap: Snapshot, cam: Camera,
 private fun selectionScreenBox(sel: LassoState.Selected, snap: Snapshot, cam: Camera): FloatArray {
     val box = sel.box()
     val pl = snap.strip.pageLeft(sel.pageIndex)
-    return floatArrayOf(cam.toScreenX(pl + box[0]), cam.toScreenY(box[1]), cam.toScreenX(pl + box[2]), cam.toScreenY(box[3]))
+    val pt = snap.strip.pageTop(sel.pageIndex)
+    return floatArrayOf(cam.toScreenX(pl + box[0]), cam.toScreenY(pt + box[1]), cam.toScreenX(pl + box[2]), cam.toScreenY(pt + box[3]))
 }
 
 private fun insideSelection(p: Offset, sel: LassoState.Selected, snap: Snapshot, cam: Camera): Boolean {

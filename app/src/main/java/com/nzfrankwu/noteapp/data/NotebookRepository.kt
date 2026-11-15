@@ -5,6 +5,7 @@ import com.nzfrankwu.noteapp.data.db.Notebook
 import com.nzfrankwu.noteapp.data.db.NotebookListItem
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 import com.nzfrankwu.noteapp.data.db.Page
+import com.nzfrankwu.noteapp.domain.PageSize
 import com.nzfrankwu.noteapp.domain.PageTemplate
 import kotlinx.coroutines.flow.Flow
 import java.time.Clock
@@ -20,10 +21,6 @@ sealed interface NotebookError {
     data object BadPdf : NotebookError
 }
 
-/** A page's size in page units (1/72 inch, the same as a PDF's points). */
-data class PageSize(val width: Float, val height: Float) {
-    val isValid: Boolean get() = width.isFinite() && height.isFinite() && width > 0f && height > 0f
-}
 
 sealed interface NotebookResult {
     /** [id] is the notebook's (or, for page changes, the page's) ID. */

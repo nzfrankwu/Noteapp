@@ -1,13 +1,13 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 3 step 3.1, database v5, done and committed). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (hands-off mode; steps 3.1 and 3.2 done and pushed; 3.3 in progress). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
-- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Step 3.1 (database version 5) is done**; next is 3.2.
-- **Branch:** `phase-3` (from `main`). Step 3.1 is committed; push once the user OKs it.
-- **Mode:** "Working together" (the default) unless the user says otherwise; they gave Phase 2 feedback live on 16 Nov.
+- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5) and 3.2 (pages of different sizes) are done**; 3.3 (Import a PDF) is in progress.
+- **Branch:** `phase-3` (from `main`), pushed after each step.
+- **Mode: hands-off** (the user said so on 16 Nov, 3.2 onwards): commit and push after each passing step; write `REPORT.md` when stopping; list every 🔺 step there.
 - **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
 - **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor), 2.11 (thumbnails), **2.12 (performance; verified on the emulator, 15 Nov)**: two full pages scroll at a median 19 ms a frame (was 150 ms), render thread about 1 ms. Rotating now keeps the current page (`rememberSaveable` in `NotebookScreen`).
 - **End-of-phase `/code-review` done (15 Nov):** 8 findings, 7 fixed (save retries even after leaving, no crash from a DB error after saving, lasso cleared by the eraser end / add page / delete page, newest highlighter chunk in its own layer under the page picture, add-page race, garbled `Migrations.kt` comments). The 8th (deleted notebooks left without a folder when their folder is deleted) is a Phase 6 follow-up in ISSUES.md.
@@ -15,7 +15,8 @@ _Last updated: 16 Nov 2026 (Phase 3 step 3.1, database v5, done and committed). 
 
 ## Next steps (in order)
 
-1. **Step 3.2 (pages of different sizes)**, a 🔺 step: tell the user first so they can pick a stronger model or higher effort. Work one step at a time ("Working together" mode: ★ steps need a check-in).
+1. **Step 3.3 (Import a PDF)**: `data/PdfPages.kt` (PdfRenderer on one thread, cache, region tiles), `data/PdfImport.kt` (copy → read → create), `NotebookFiles.assetFile/importPdf`, and `Thumbnails.render(pdfFile, pdfPage)` are written but not yet wired up or tested. Still to do: Folder ＋ → Import PDF, PDF pictures in `NotebookCanvas` layer 1 (no paper pattern on PDF pages), previews, the PDF tag and filter, tests, emulator check with a 100-page PDF.
+   - 3.2 left: `PageStrip(sizes)`, `pageTop(i)` (pages centred in a band as tall as the tallest), `withPageAdded`, `Page.size(notebook)`.
    - 3.1 left: `Page.width/height` (null = the notebook's size), `Page.pdfFile/pdfPage`, `Page.isPdf`, `PageSize`, `NotebookRepository.newNotebookId()` + `createPdfNotebook(notebookId, folderId, title, pdfFile, pageSizes)`, and `addPage` copying the page before's size (or the page after's, at the front). The editor still uses the notebook's size for every page until 3.2.
    - 3.3's import order: `newNotebookId()` → copy the PDF into `notebooks/<id>/` → `createPdfNotebook`. An interrupted import then leaves only an unused folder, never a notebook pointing at a missing file.
 2. Key Phase 3 decisions (details in `PHASE-3.md`):

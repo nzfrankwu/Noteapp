@@ -1,5 +1,6 @@
 package com.nzfrankwu.noteapp.domain.ink
 
+import com.nzfrankwu.noteapp.domain.PageSize
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -119,6 +120,103 @@ class PageStripTest {
         assertEquals(cam.scale, half.scale, 0.0001f) // sliding never zooms
         // Past the ends stays at the ends.
         assertEquals(1f, strip.scrollFraction(strip.atScrollFraction(cam, 7f, w, h), w), 0.001f)
+    }
+
+    // ---- Pages of different sizes (Phase 3) ----
+
+    // A portrait A4 page, two landscape slides, and a US Letter page, with a gap.
+    private val mixed = PageStrip(
+        listOf(PageSize(595f, 842f), PageSize(842f, 595f), PageSize(842f, 595f), PageSize(612f, 792f)),
+        gap = 20f,
+    )
+
+    @Test
+    fun mixed_pagesRunOnFromEachOther() {
+        assertEquals(0f, mixed.pageLeft(0))
+        assertEquals(615f, mixed.pageLeft(1))
+        assertEquals(1477f, mixed.pageLeft(2))
+        assertEquals(2339f, mixed.pageLeft(3))
+        assertEquals(2339f + 612f, mixed.totalWidth)
+        assertEquals(842f, mixed.pageWidth(1))
+        assertEquals(595f, mixed.pageHeight(1))
+    }
+
+    @Test
+    fun mixed_pagesAreCentredTopToBottom_inABandAsTallAsTheTallest() {
+        assertEquals(842f, mixed.bandHeight)
+        assertEquals(0f, mixed.pageTop(0))
+        assertEquals((842f - 595f) / 2, mixed.pageTop(1))
+        assertEquals((842f - 792f) / 2, mixed.pageTop(3))
+    }
+
+    @Test
+    fun mixed_pageAt_findsEachPage_andTheNearestInAGap() {
+        assertEquals(0, mixed.pageAt(594f))
+        assertEquals(0, mixed.pageAt(604f)) // first half of the gap
+        assertEquals(1, mixed.pageAt(606f)) // second half
+        assertEquals(1, mixed.pageAt(1400f))
+        assertEquals(2, mixed.pageAt(1477f))
+        assertEquals(3, mixed.pageAt(2400f))
+        assertEquals(3, mixed.pageAt(99_999f))
+        assertEquals(0, mixed.pageAt(-5f))
+        // Against a plain search through every page.
+        var x = -50f
+        while (x < mixed.totalWidth + 50f) {
+            val expected = (0 until mixed.pageCount).last { it == 0 || mixed.pageLeft(it) - 10f <= x }
+            assertEquals("at $x", expected, mixed.pageAt(x))
+            x += 7.3f
+        }
+    }
+
+    @Test
+    fun mixed_fitHeight_fillsTheScreenWithThatPage() {
+        val cam = mixed.fit(FitMode.HEIGHT, 1, w, h)
+        assertEquals(h / 595f, cam.scale, 0.0001f)
+        assertEquals(0f, cam.toScreenY(mixed.pageTop(1)), 0.01f)
+        assertEquals(h, cam.toScreenY(mixed.pageTop(1) + 595f), 0.01f)
+        assertEquals(w / 2, cam.toScreenX(mixed.pageLeft(1) + 842f / 2), 0.01f)
+        assertEquals(1, mixed.currentPage(cam, w))
+        // Fitting doesn't move the page when clamped afterwards (it's a valid place to be).
+        assertTrue(mixed.same(cam, mixed.clamp(cam, w, h)))
+    }
+
+    @Test
+    fun mixed_fitWholePage_centresASmallPage() {
+        val cam = mixed.fit(FitMode.PAGE, 3, w, h)
+        val top = cam.toScreenY(mixed.pageTop(3))
+        val bottom = cam.toScreenY(mixed.pageTop(3) + 792f)
+        assertEquals(h - bottom, top, 0.5f)
+    }
+
+    @Test
+    fun mixed_clamp_travelsFromTheFirstPagesMiddleToTheLastPagesMiddle() {
+        val cam = mixed.fit(FitMode.HEIGHT, 0, w, h)
+        val start = mixed.clamp(cam.copy(offsetX = 99_999f), w, h)
+        assertEquals(w / 2, start.toScreenX(595f / 2), 0.5f)
+        val end = mixed.clamp(cam.copy(offsetX = -99_999f), w, h)
+        assertEquals(w / 2, end.toScreenX(2339f + 612f / 2), 0.5f)
+        assertEquals(1f, mixed.scrollFraction(end, w), 0.001f)
+        assertEquals(3, mixed.currentPage(mixed.atScrollFraction(cam, 1f, w, h), w))
+    }
+
+    @Test
+    fun withPageAdded_copiesThePageBefore_orAfterAtTheFront() {
+        assertEquals(PageSize(612f, 792f), mixed.withPageAdded(4).sizes[4])
+        assertEquals(PageSize(842f, 595f), mixed.withPageAdded(2).sizes[2])
+        assertEquals(PageSize(595f, 842f), mixed.withPageAdded(0).sizes[0])
+        assertEquals(5, mixed.withPageAdded(99).pageCount)
+        assertEquals(PageStrip.DEFAULT_SIZE, PageStrip(emptyList()).withPageAdded(0).sizes.single())
+    }
+
+    @Test
+    fun aPlainNotebook_laysOutExactlyAsTheSameSizedList() {
+        val plain = PageStrip(595f, 842f, 3, gap = 24f)
+        val listed = PageStrip(List(3) { PageSize(595f, 842f) }, gap = 24f)
+        for (i in 0..5) assertEquals(i * 619f, plain.pageLeft(i))
+        for (i in 0 until 3) assertEquals(0f, plain.pageTop(i))
+        val cam = plain.fit(FitMode.HEIGHT, 1, w, h)
+        assertEquals(cam, listed.fit(FitMode.HEIGHT, 1, w, h))
+        assertEquals(plain.scaleRange(w, h), listed.scaleRange(w, h))
     }
 
     @Test

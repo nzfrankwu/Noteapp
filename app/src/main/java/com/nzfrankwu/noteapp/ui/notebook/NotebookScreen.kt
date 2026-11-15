@@ -133,9 +133,8 @@ fun NotebookScreen(
     }
 
     val nb = notebook
-    val strip = remember(nb?.pageWidth, nb?.pageHeight, pages.size) {
-        nb?.let { PageStrip(it.pageWidth, it.pageHeight, pages.size) }
-    }
+    val sizes = nb?.let { n -> pages.map { it.size(n) } }
+    val strip = remember(sizes) { sizes?.let { PageStrip(it) } }
     // Fit the page once the screen size is known, and refit the same page after rotating.
     // Rotating rebuilds the screen, so the page being viewed is kept in saved state.
     val viewSize = view.viewSize
@@ -205,7 +204,7 @@ fun NotebookScreen(
                     val wx = cam.toWorldX(at.x)
                     val index = strip.pageAt(wx)
                     val page = pages.getOrNull(index) ?: return@PasteBubble
-                    val pasted = viewModel.paste(page.id, wx - strip.pageLeft(index), cam.toWorldY(at.y))
+                    val pasted = viewModel.paste(page.id, wx - strip.pageLeft(index), cam.toWorldY(at.y) - strip.pageTop(index))
                     if (pasted.isNotEmpty()) {
                         // Pasted strokes come selected, ready to move (that needs the lasso).
                         if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
@@ -226,7 +225,7 @@ fun NotebookScreen(
                     scope.launch {
                         val at = pageNow() + 1
                         if (viewModel.addPage(at) != null && strip != null) {
-                            val grown = PageStrip(strip.pageWidth, strip.pageHeight, pages.size + 1)
+                            val grown = strip.withPageAdded(at)
                             view.animateTo(scope, grown.fit(settings.fitMode, at, view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
                         }
                     }
@@ -350,7 +349,7 @@ private fun LassoMenu(
     val box = sel.box()
     val bx = cam.toScreenX(strip.pageLeft(sel.pageIndex) + box[0])
         .coerceIn(8f, (view.viewSize.width - menuWidth - 8f).coerceAtLeast(8f))
-    val by = (cam.toScreenY(box[3]) + gap).coerceAtMost(view.viewSize.height - 160f)
+    val by = (cam.toScreenY(strip.pageTop(sel.pageIndex) + box[3]) + gap).coerceAtMost(view.viewSize.height - 160f)
     Surface(
         modifier = Modifier
             .offset { IntOffset(bx.roundToInt(), by.roundToInt()) }

@@ -126,7 +126,7 @@ fun PageInkLayer(
             scaleX = cam.scale / raster
             scaleY = cam.scale / raster
             translationX = cam.toScreenX(strip.pageLeft(pageIndex))
-            translationY = cam.toScreenY(0f)
+            translationY = cam.toScreenY(strip.pageTop(pageIndex))
         }
     }
 

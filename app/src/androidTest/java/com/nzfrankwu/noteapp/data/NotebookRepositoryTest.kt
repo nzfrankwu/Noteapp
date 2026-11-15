@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.nzfrankwu.noteapp.data.db.Notebook
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 import com.nzfrankwu.noteapp.data.db.Page
+import com.nzfrankwu.noteapp.domain.PageSize
 import com.nzfrankwu.noteapp.domain.PageTemplate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
