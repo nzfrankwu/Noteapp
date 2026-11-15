@@ -27,7 +27,6 @@ import com.nzfrankwu.noteapp.domain.ink.InkToolSettings
 import com.nzfrankwu.noteapp.domain.ink.NotebookInk
 import com.nzfrankwu.noteapp.domain.ink.PenButtonToggle
 import com.nzfrankwu.noteapp.domain.ink.Smoothing
-import com.nzfrankwu.noteapp.domain.ink.Straighten
 import com.nzfrankwu.noteapp.domain.ink.TestWriting
 import com.nzfrankwu.noteapp.ui.folder.message
 import kotlinx.coroutines.CoroutineDispatcher
@@ -214,14 +213,11 @@ class NotebookViewModel(
 
     // ---- Editing ----
 
-    /** New strokes from the pen layer, already on their page. Straightens and smooths them as set. */
+    /** New strokes from the pen layer, already on their page. Smooths them as set (Stability). */
     fun addStrokes(pageId: String, strokes: List<InkStroke>) {
         if (!isEditable(pageId) || strokes.isEmpty()) return
-        val s = settings.value
-        val finished = strokes.map { stroke ->
-            val straight = if (s.holdToStraighten && Straighten.wanted(stroke)) Straighten.straightened(stroke) else stroke
-            if (straight === stroke) Smoothing.smoothed(stroke, s.stability) else straight
-        }
+        val stability = settings.value.stability
+        val finished = strokes.map { Smoothing.smoothed(it, stability) }
         ink.add(pageId, finished)
         changed(pageId)
     }

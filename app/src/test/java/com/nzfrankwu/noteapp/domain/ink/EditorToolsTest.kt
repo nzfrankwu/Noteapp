@@ -44,7 +44,7 @@ class EditorToolsTest {
         assertTrue(PressureErase.reportsPressure(listOf(0.2f, 0.4f)))
     }
 
-    // ---- Hold to straighten ----
+    // ---- A test line (for stability) ----
 
     private fun line(holdMs: Int, wobble: Float = 0f): InkStroke {
         val xs = ArrayList<Float>(); val ys = ArrayList<Float>(); val ts = ArrayList<Int>()
@@ -55,35 +55,6 @@ class EditorToolsTest {
         val n = xs.size
         return InkStroke("l", InkTool.PEN, 0, 1.5f, xs.toFloatArray(), ys.toFloatArray(), ts.toIntArray(),
             FloatArray(n) { 0.5f }, FloatArray(n) { InkStroke.NONE }, FloatArray(n) { InkStroke.NONE })
-    }
-
-    @Test
-    fun aLineEndingInAHold_isStraightened() {
-        val stroke = line(holdMs = 600)
-        assertTrue(Straighten.wanted(stroke))
-        val straight = Straighten.straightened(stroke)
-        assertEquals("l", straight.id)
-        assertTrue(straight.ys.all { it == straight.ys[0] || kotlin.math.abs(it - 100f) < 2.01f })
-        assertEquals(stroke.xs.first(), straight.xs.first())
-        assertEquals(stroke.xs.last(), straight.xs.last())
-    }
-
-    @Test
-    fun aLineWithoutAHold_staysAsDrawn() {
-        assertFalse(Straighten.wanted(line(holdMs = 100)))
-    }
-
-    @Test
-    fun aHoldWithTheHandMoving_isNotAHold() {
-        assertFalse(Straighten.wanted(line(holdMs = 600, wobble = 8f)))
-    }
-
-    @Test
-    fun aDotHeldStill_isNotStraightened() {
-        val n = 60
-        val dot = InkStroke("d", InkTool.PEN, 0, 1.5f, FloatArray(n) { 50f }, FloatArray(n) { 50f }, IntArray(n) { it * 10 },
-            FloatArray(n) { 0.5f }, FloatArray(n) { InkStroke.NONE }, FloatArray(n) { InkStroke.NONE })
-        assertFalse(Straighten.wanted(dot))
     }
 
     // ---- Stability ----
@@ -124,5 +95,63 @@ class EditorToolsTest {
         assertTrue(PenButtonKeys.isPenButton(keyCode = 308, scanCode = 0))
         assertFalse(PenButtonKeys.isPenButton(keyCode = 29, scanCode = 30)) // the letter A
         assertFalse(PenButtonKeys.isPenButton(keyCode = 4, scanCode = 158)) // Back
+    }
+
+    @Test
+    fun pressHold_erasesOnlyAfterAHardStillPress_ofTheSetTime() {
+        val hold = PressHold(holdMs = 500)
+        assertFalse(hold.feed(0.95f, 0.9f, true, 100f, 100f, 0))
+        assertFalse(hold.feed(0.97f, 0.9f, true, 101f, 101f, 300)) // still, but not long enough
+        assertTrue(hold.feed(0.96f, 0.9f, true, 102f, 100f, 520))
+    }
+
+    @Test
+    fun pressHold_startsAgain_whenThePressEasesOrThePenMoves() {
+        val hold = PressHold(holdMs = 500)
+        hold.feed(0.95f, 0.9f, true, 100f, 100f, 0)
+        assertFalse(hold.feed(0.5f, 0.9f, true, 100f, 100f, 300)) // eased off
+        assertFalse(hold.feed(0.95f, 0.9f, true, 100f, 100f, 600)) // the wait starts again here
+        assertFalse(hold.feed(0.95f, 0.9f, true, 140f, 100f, 900)) // moved away: again
+        assertTrue(hold.feed(0.95f, 0.9f, true, 141f, 101f, 1_400))
+        // A hold time of 0 erases at once, like before.
+        assertTrue(PressHold(holdMs = 0).feed(0.95f, 0.9f, true, 0f, 0f, 0))
+        // A pen without real pressure never erases.
+        assertFalse(PressHold(holdMs = 0).feed(1f, 0.9f, false, 0f, 0f, 0))
+    }
+
+    @Test
+    fun stillTimer_countsTimeSpentNearOnePlace() {
+        val t = StillTimer(radius = 3f)
+        assertEquals(0L, t.feed(0f, 0f, 1_000))
+        assertEquals(200L, t.feed(2f, 1f, 1_200))
+        assertEquals(0L, t.feed(10f, 0f, 1_300))
+        assertEquals(100L, t.feed(11f, 0f, 1_400))
+    }
+
+    @Test
+    fun straightLines_snapGentlyToHorizontalVerticalAnd45() {
+        // 2 degrees off horizontal: snaps flat, same length.
+        val (x, y) = Straighten.snappedEnd(0f, 0f, 100f, 3.5f)
+        assertEquals(0f, y, 0.01f)
+        assertEquals(kotlin.math.hypot(100f, 3.5f), x, 0.01f)
+        // Near 45 degrees (down-right on screen): snaps onto the diagonal.
+        val (dx, dy) = Straighten.snappedEnd(10f, 10f, 110f, 113f)
+        assertEquals(dx - 10f, dy - 10f, 0.01f)
+        // 20 degrees: left alone.
+        assertEquals(100f to 36.4f, Straighten.snappedEnd(0f, 0f, 100f, 36.4f))
+        // Straight up.
+        val (ux, _) = Straighten.snappedEnd(50f, 200f, 52f, 100f)
+        assertEquals(50f, ux, 0.01f)
+    }
+
+    @Test
+    fun aStraightLineStroke_runsFromStartToEnd_withEvenPressure() {
+        val s = Straighten.line("id", InkTool.PEN, 0xFF000000.toInt(), 1.5f, 10f, 20f, 110f, 20f, 0.4f, InkStroke.TOOL_STYLUS)
+        assertEquals(10f, s.xs.first(), 0.001f)
+        assertEquals(110f, s.xs.last(), 0.001f)
+        assertTrue(s.ys.all { it == 20f })
+        assertTrue(s.pressure.all { it == 0.4f })
+        assertTrue(s.pointCount > 10)
+        assertTrue((1 until s.pointCount).all { s.times[it] > s.times[it - 1] })
     }
 }

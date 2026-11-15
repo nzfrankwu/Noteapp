@@ -44,6 +44,8 @@ data class InkToolSettings(
     val pressureErase: Boolean = true,
     /** How hard counts as "hard", 0–1 of the pen's full pressure. */
     val pressureEraseLevel: Float = PressureErase.DEFAULT_LEVEL,
+    /** How long a hard press must be held (roughly still) before it erases, in ms (F9). */
+    val pressureEraseHoldMs: Int = PressureErase.DEFAULT_HOLD_MS,
     /** Smoothing of finished strokes, 0 (off) to 100. */
     val stability: Int = 0,
     /** Hold the pen still at the end of a line to straighten it. */
@@ -56,7 +58,13 @@ data class InkToolSettings(
     val fitMode: FitMode = FitMode.DEFAULT,
     /** Debug builds only: a finger draws too (for the emulator). */
     val drawWithFinger: Boolean = false,
+    /** Colours picked with the colour wheel (F10), newest first, at most [InkPalette.MAX_CUSTOM]. */
+    val customColors: List<Int> = emptyList(),
 ) {
+    /** Remembers [color] as a custom colour (newest first; no repeats; oldest dropped). */
+    fun withCustomColor(color: Int): InkToolSettings =
+        copy(customColors = (listOf(color) + customColors.filter { it != color }).take(InkPalette.MAX_CUSTOM))
+
     fun penStyle(tool: EditorTool): PenStyle? = tool.penSlot?.let { pens[it] } ?: if (tool == EditorTool.HIGHLIGHTER) highlighter else null
 
     fun withStyle(tool: EditorTool, style: PenStyle): InkToolSettings = when {
@@ -103,6 +111,9 @@ object InkPalette {
     /** The slider's range for pens. */
     const val MIN_SIZE = 0.4f
     const val MAX_SIZE = 8f
+
+    /** How many colour-wheel colours are remembered (F10). */
+    const val MAX_CUSTOM = 8
 
     const val HIGHLIGHTER_SIZE = 10f
     val HIGHLIGHTER_SIZES = listOf(6f, 10f, 16f)
@@ -156,7 +167,14 @@ class PenButtonToggle {
 object PressureErase {
     const val DEFAULT_LEVEL = 0.9f
     const val MIN_LEVEL = 0.6f
-    const val MAX_LEVEL = 0.98f
+    const val MAX_LEVEL = 1.0f
+
+    /** Hold a hard press this long (roughly still) to start erasing (F9); 0 = at once. */
+    const val DEFAULT_HOLD_MS = 500
+    const val MAX_HOLD_MS = 1_500
+
+    /** How far the pen may drift while held "still", in page units (about 1.8 mm). */
+    const val STILL_RADIUS = 5f
 
     /**
      * True when [pressure] counts as a hard press. A full 1.0 counts too: it's what the hardest
@@ -171,11 +189,61 @@ object PressureErase {
 }
 
 /**
- * Hold to straighten (PHASE-2.md 2.7): a line that ends with the pen held still for a moment
- * becomes a straight line from its start to its end.
+ * How long the pen has stayed roughly still: within [radius] of where it settled. Moving further
+ * starts the count again from the new place. Used by press-hard-to-erase and hold-to-straighten.
+ */
+class StillTimer(private val radius: Float) {
+    private var anchorX = 0f
+    private var anchorY = 0f
+    private var since = -1L
+
+    fun reset() { since = -1L }
+
+    /** Feeds the pen's position at [timeMs]; returns how long it has been still there (ms). */
+    fun feed(x: Float, y: Float, timeMs: Long): Long {
+        if (since < 0 || hypot(x - anchorX, y - anchorY) > radius) {
+            anchorX = x; anchorY = y; since = timeMs
+        }
+        return timeMs - since
+    }
+}
+
+/**
+ * Press hard and hold to erase (PHASE-2.md F9): erasing starts once the pen has pressed hard and
+ * stayed roughly still for [holdMs]. Easing off, or moving away, starts the wait again.
+ */
+class PressHold(val holdMs: Int, radius: Float = PressureErase.STILL_RADIUS) {
+    private val still = StillTimer(radius)
+
+    /** How long the current hard press has been held still (0 when not pressing hard). */
+    var heldMs = 0L
+        private set
+
+    /** One pen sample (page units, ms). True once the hard, still press has lasted long enough. */
+    fun feed(pressure: Float, level: Float, penReportsPressure: Boolean, x: Float, y: Float, timeMs: Long): Boolean {
+        if (!PressureErase.isHard(pressure, level, penReportsPressure)) {
+            still.reset()
+            heldMs = 0L
+            return false
+        }
+        heldMs = still.feed(x, y, timeMs)
+        return heldMs >= holdMs
+    }
+
+    /**
+     * True when a pen that's pressing hard has sent nothing new for [quietMs] (a pen held
+     * perfectly still may go quiet) and that makes the hold long enough.
+     */
+    fun doneAfterQuiet(stillHard: Boolean, quietMs: Long): Boolean = stillHard && heldMs + quietMs >= holdMs
+}
+
+/**
+ * Hold to straighten (PHASE-2.md 2.7, live since F11): hold the pen still for a moment while
+ * drawing a line, and the line snaps straight from its start to the pen; keep moving the pen to
+ * place the end, then lift. Near-horizontal, vertical and 45° lines snap to those angles.
  */
 object Straighten {
-    /** How long the pen must stay still at the end, in milliseconds. */
+    /** How long the pen must stay still before the line snaps straight, in milliseconds. */
     const val HOLD_MS = 450
 
     /** How far it may wander while "still", in page units (about 1 mm). */
@@ -184,38 +252,44 @@ object Straighten {
     /** Shorter lines aren't straightened (dots, ticks). */
     const val MIN_LENGTH = 20f
 
-    /** True when [stroke] ends with a hold and is long enough to straighten. */
-    fun wanted(stroke: InkStroke): Boolean {
-        val n = stroke.pointCount
-        if (n < 3) return false
-        val endT = stroke.times[n - 1]
-        if (endT - stroke.times[0] < HOLD_MS) return false
-        val ex = stroke.xs[n - 1]
-        val ey = stroke.ys[n - 1]
-        // Every point in the last HOLD_MS stays near the end point…
-        var i = n - 1
-        while (i >= 0 && endT - stroke.times[i] <= HOLD_MS) {
-            if (hypot(stroke.xs[i] - ex, stroke.ys[i] - ey) > STILL_RADIUS) return false
-            i--
-        }
-        if (i < 0) return false
-        // …and the line itself is long enough.
-        return hypot(ex - stroke.xs[0], ey - stroke.ys[0]) >= MIN_LENGTH
+    /** Lines within this many degrees of a multiple of 45° snap to it (gently: F11). */
+    const val SNAP_DEGREES = 4f
+
+    /**
+     * Where the line's end goes: ([ex], [ey]), or turned onto the nearest multiple of 45° around
+     * the start ([sx], [sy]) when it's within [SNAP_DEGREES] of it (same length).
+     */
+    fun snappedEnd(sx: Float, sy: Float, ex: Float, ey: Float): Pair<Float, Float> {
+        val dx = ex - sx
+        val dy = ey - sy
+        val length = hypot(dx, dy)
+        if (length < 1e-3f) return ex to ey
+        val angle = Math.toDegrees(kotlin.math.atan2(dy, dx).toDouble())
+        val nearest = Math.round(angle / 45.0) * 45.0
+        if (kotlin.math.abs(angle - nearest) > SNAP_DEGREES) return ex to ey
+        val rad = Math.toRadians(nearest)
+        return (sx + length * kotlin.math.cos(rad)).toFloat() to (sy + length * kotlin.math.sin(rad)).toFloat()
     }
 
-    /** The straight version: the start and end points, with the stroke's average pressure. */
-    fun straightened(stroke: InkStroke): InkStroke {
-        val n = stroke.pointCount
-        val p = stroke.pressure.filter { it != InkStroke.NONE }.average().toFloat().takeIf { !it.isNaN() } ?: InkStroke.NONE
-        val steps = 12
-        val xs = FloatArray(steps + 1) { stroke.xs[0] + (stroke.xs[n - 1] - stroke.xs[0]) * it / steps }
-        val ys = FloatArray(steps + 1) { stroke.ys[0] + (stroke.ys[n - 1] - stroke.ys[0]) * it / steps }
+    /**
+     * A straight stroke from ([sx], [sy]) to ([ex], [ey]) in page units, with points every few
+     * units and an even [pressure] (or [InkStroke.NONE]), so it draws like the pen.
+     */
+    fun line(
+        id: String, tool: InkTool, colorArgb: Int, size: Float,
+        sx: Float, sy: Float, ex: Float, ey: Float, pressure: Float, inputTool: Int,
+    ): InkStroke {
+        val steps = (hypot(ex - sx, ey - sy) / LINE_POINT_SPACING).toInt().coerceIn(2, 400)
+        val xs = FloatArray(steps + 1) { sx + (ex - sx) * it / steps }
+        val ys = FloatArray(steps + 1) { sy + (ey - sy) * it / steps }
         return InkStroke(
-            stroke.id, stroke.tool, stroke.colorArgb, stroke.size, xs, ys,
-            IntArray(steps + 1) { it * 8 }, FloatArray(steps + 1) { p },
-            FloatArray(steps + 1) { InkStroke.NONE }, FloatArray(steps + 1) { InkStroke.NONE }, stroke.inputTool,
+            id, tool, colorArgb, size, xs, ys,
+            IntArray(steps + 1) { it * 4 }, FloatArray(steps + 1) { pressure },
+            FloatArray(steps + 1) { InkStroke.NONE }, FloatArray(steps + 1) { InkStroke.NONE }, inputTool,
         )
     }
+
+    private const val LINE_POINT_SPACING = 4f
 }
 
 /** Stability (PHASE-2.md 2.7): smooths a finished stroke's wobble. 0 leaves it untouched. */

@@ -25,6 +25,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -251,12 +256,31 @@ fun ToolSettingsPanel(
                             row.forEach { c -> Swatch(c, selected = style.colorArgb == c, size = 24) { onStyle(tool, style.copy(colorArgb = c)) } }
                         }
                     }
+                    // Your own colours from the colour wheel (F10), and the wheel itself.
+                    var picking by remember { mutableStateOf(false) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        settings.customColors.take(6).forEach { c ->
+                            Swatch(c, selected = style.colorArgb == c, size = 24) { onStyle(tool, style.copy(colorArgb = c)) }
+                        }
+                        TextButton(onClick = { picking = true }, modifier = Modifier.testTag("pick-colour")) { Text("Colour wheel…") }
+                    }
+                    if (picking) {
+                        ColorPickerDialog(
+                            initial = style.colorArgb,
+                            onDismiss = { picking = false },
+                            onPick = { c ->
+                                picking = false
+                                onStyle(tool, style.copy(colorArgb = c))
+                                onChange { it.withCustomColor(c) }
+                            },
+                        )
+                    }
                     if (!highlighter) {
                         LabeledSlider("Stability", "${settings.stability}%", settings.stability.toFloat(), 0f..100f) { v ->
                             onChange { it.copy(stability = v.roundToInt()) }
                         }
                     }
-                    SwitchRow("Hold at the end to draw a straight line", settings.holdToStraighten) { on ->
+                    SwitchRow("Hold still to snap a straight line", settings.holdToStraighten) { on ->
                         onChange { it.copy(holdToStraighten = on) }
                     }
                     SwitchRow("Press hard to erase", settings.pressureErase) { on -> onChange { it.copy(pressureErase = on) } }
@@ -267,6 +291,12 @@ fun ToolSettingsPanel(
                             settings.pressureEraseLevel,
                             PressureErase.MIN_LEVEL..PressureErase.MAX_LEVEL,
                         ) { v -> onChange { it.copy(pressureEraseLevel = v) } }
+                        LabeledSlider(
+                            "Hold for",
+                            if (settings.pressureEraseHoldMs == 0) "No wait" else "%.1f s".format(settings.pressureEraseHoldMs / 1000f),
+                            settings.pressureEraseHoldMs.toFloat(),
+                            0f..PressureErase.MAX_HOLD_MS.toFloat(),
+                        ) { v -> onChange { it.copy(pressureEraseHoldMs = (v / 100f).roundToInt() * 100) } }
                     }
                 }
             }

@@ -55,6 +55,7 @@ class InkSettings(context: Context) : InkSettingsStore {
             eraserRadius = p[ERASER_RADIUS] ?: d.eraserRadius,
             pressureErase = p[PRESSURE_ERASE] ?: d.pressureErase,
             pressureEraseLevel = p[PRESSURE_LEVEL] ?: d.pressureEraseLevel,
+            pressureEraseHoldMs = p[PRESSURE_HOLD_MS] ?: d.pressureEraseHoldMs,
             stability = p[STABILITY] ?: d.stability,
             holdToStraighten = p[HOLD_TO_STRAIGHTEN] ?: d.holdToStraighten,
             toolbarX = p[TOOLBAR_X] ?: d.toolbarX,
@@ -62,6 +63,7 @@ class InkSettings(context: Context) : InkSettingsStore {
             toolbarCollapsed = p[TOOLBAR_COLLAPSED] ?: d.toolbarCollapsed,
             fitMode = FitMode.fromKey(p[FIT_MODE]),
             drawWithFinger = p[DRAW_WITH_FINGER] ?: d.drawWithFinger,
+            customColors = p[CUSTOM_COLORS]?.let(::parseColors) ?: d.customColors,
         )
     }
 
@@ -76,6 +78,7 @@ class InkSettings(context: Context) : InkSettingsStore {
         p[ERASER_RADIUS] = s.eraserRadius
         p[PRESSURE_ERASE] = s.pressureErase
         p[PRESSURE_LEVEL] = s.pressureEraseLevel
+        p[PRESSURE_HOLD_MS] = s.pressureEraseHoldMs
         p[STABILITY] = s.stability
         p[HOLD_TO_STRAIGHTEN] = s.holdToStraighten
         p[TOOLBAR_X] = s.toolbarX
@@ -83,7 +86,12 @@ class InkSettings(context: Context) : InkSettingsStore {
         p[TOOLBAR_COLLAPSED] = s.toolbarCollapsed
         p[FIT_MODE] = s.fitMode.key
         p[DRAW_WITH_FINGER] = s.drawWithFinger
+        p[CUSTOM_COLORS] = s.customColors.joinToString(",") { Integer.toHexString(it) }
     }
+
+    /** Colours saved as "ff1b1c1e,ff2f6bdb"; anything unreadable is skipped. */
+    private fun parseColors(text: String): List<Int> =
+        text.split(',').mapNotNull { it.trim().takeIf(String::isNotEmpty)?.toLongOrNull(16)?.toInt() }
 
     private companion object {
         val TOOL = stringPreferencesKey("tool")
@@ -94,6 +102,8 @@ class InkSettings(context: Context) : InkSettingsStore {
         val ERASER_RADIUS = floatPreferencesKey("eraser_radius")
         val PRESSURE_ERASE = booleanPreferencesKey("pressure_erase")
         val PRESSURE_LEVEL = floatPreferencesKey("pressure_erase_level")
+        val PRESSURE_HOLD_MS = intPreferencesKey("pressure_erase_hold_ms")
+        val CUSTOM_COLORS = stringPreferencesKey("custom_colors")
         val STABILITY = intPreferencesKey("stability")
         val HOLD_TO_STRAIGHTEN = booleanPreferencesKey("hold_to_straighten")
         val TOOLBAR_X = floatPreferencesKey("toolbar_x")

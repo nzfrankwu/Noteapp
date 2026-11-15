@@ -37,6 +37,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -68,6 +69,9 @@ import com.nzfrankwu.noteapp.domain.ink.InkTool
 import com.nzfrankwu.noteapp.domain.ink.InkToolSettings
 import com.nzfrankwu.noteapp.domain.ink.PageStrip
 import com.nzfrankwu.noteapp.domain.ink.PressureErase
+import com.nzfrankwu.noteapp.domain.ink.PressHold
+import com.nzfrankwu.noteapp.domain.ink.StillTimer
+import com.nzfrankwu.noteapp.domain.ink.Straighten
 import com.nzfrankwu.noteapp.ui.components.drawPaperPattern
 import com.nzfrankwu.noteapp.ui.theme.DeskDark
 import com.nzfrankwu.noteapp.ui.theme.DeskLight
@@ -123,6 +127,9 @@ class EditorViewState {
      * their quick preview instead of being drawn in full (PHASE-2.md F8).
      */
     var fastScroll by mutableStateOf(false)
+
+    /** A straight line being placed (hold to straighten, F11), drawn on the overlay. */
+    var straight by mutableStateOf<StraightLine?>(null)
 
     /** Pages whose ink is drawn in full right now; the others show their quick preview (F8). */
     val fullyDrawn = mutableStateMapOf<String, Boolean>()
@@ -377,6 +384,16 @@ fun NotebookCanvas(
                 }
                 null -> Unit
             }
+            view.straight?.let { line ->
+                val alpha = if (line.tool == InkTool.HIGHLIGHTER) 0.4f else 1f
+                drawLine(
+                    Color(line.colorArgb).copy(alpha = alpha),
+                    Offset(cam.toScreenX(line.sx), cam.toScreenY(line.sy)),
+                    Offset(cam.toScreenX(line.ex), cam.toScreenY(line.ey)),
+                    strokeWidth = line.size * cam.scale * if (line.tool == InkTool.HIGHLIGHTER) 1f else 0.8f,
+                    cap = if (line.tool == InkTool.HIGHLIGHTER) StrokeCap.Butt else StrokeCap.Round,
+                )
+            }
             eraserAt?.let { at ->
                 val radius = settings.eraserRadius * cam.scale
                 drawCircle(Color.White.copy(alpha = 0.6f), radius, at)
@@ -409,6 +426,9 @@ private data class Snapshot(
 
 private const val HANDLE_RADIUS = 14f
 
+/** How often a held pen is checked when it sends nothing new (ms). */
+private const val HOLD_CHECK_MS = 40L
+
 /** The line between touching pages (F4). */
 private val PageEdge = Color(0xFF2B2B2B)
 private const val PAGE_EDGE_PX = 1.5f
@@ -417,7 +437,7 @@ private const val TAP_MS = 300L
 private const val DOUBLE_TAP_MS = 320L
 
 /** What a stylus (or the debug finger) is doing between down and up. */
-private enum class PenMode { INK, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, BLOCKED }
+private enum class PenMode { INK, STRAIGHT, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, BLOCKED }
 
 private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGestures(
     snapshot: () -> Snapshot,
@@ -438,6 +458,19 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
     // Press-hard-to-erase only trusts pens whose pressure really varies (see PressureErase).
     var firstPressure = 0f
     var pressureVaries = false
+    var pressHold = PressHold(PressureErase.DEFAULT_HOLD_MS)
+    // Hold to straighten (F11): how long the pen has been still, and its average pressure.
+    val straightStill = StillTimer(Straighten.STILL_RADIUS)
+    var pressureSum = 0f
+    var pressureCount = 0
+    // A pen held perfectly still may send nothing new, so a watcher checks the holds every few
+    // milliseconds too, from the pen's last sample (F9, F11).
+    var holdWatch: Job? = null
+    var lastPenTime = 0L
+    var lastHard = false
+    var lastStraightStill = -1L // -1: not a line that could straighten
+    var lastWorld = Offset.Zero
+    var lastScreen = Offset.Zero
     var buttonWasDown = false
     // Double-tap tracking (fingers).
     var tapDownAt = 0L
@@ -481,6 +514,35 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     penIsFinger = !isPen
                     firstPressure = change.pressure
                     pressureVaries = false
+                    pressHold = PressHold(snap.settings.pressureEraseHoldMs)
+                    straightStill.reset()
+                    pressureSum = 0f
+                    pressureCount = 0
+                    lastPenTime = change.uptimeMillis
+                    lastHard = false
+                    lastStraightStill = -1L
+                    holdWatch?.cancel()
+                    val watchedPen = change.id
+                    holdWatch = motionScope.launch {
+                        while (true) {
+                            delay(HOLD_CHECK_MS)
+                            if (penId != watchedPen || penMode != PenMode.INK) break
+                            val quiet = android.os.SystemClock.uptimeMillis() - lastPenTime
+                            if (quiet < HOLD_CHECK_MS) continue // samples are still arriving
+                            val now = snapshot()
+                            val c = view.camera ?: break
+                            if (pressHold.doneAfterQuiet(lastHard, quiet)) {
+                                penMode = PenMode.ERASE // the next sample is consumed, which cancels the wet stroke
+                                eraseStep(viewModel, now, c, lastScreen, lastScreen, onEraser)
+                                break
+                            }
+                            if (lastStraightStill >= 0 && lastStraightStill + quiet >= Straighten.HOLD_MS) {
+                                penMode = PenMode.STRAIGHT
+                                view.straight = straightLine(now, c.toWorldX(penStart.x), c.toWorldY(penStart.y), lastWorld.x, lastWorld.y, pressureSum, pressureCount, penIsFinger)
+                                break
+                            }
+                        }
+                    }
                     val pageIndex = snap.strip.pageAt(cam.toWorldX(change.position.x))
                     val page = snap.pages.getOrNull(pageIndex)
                     val tool = snap.settings.tool
@@ -509,12 +571,43 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     when (penMode) {
                         PenMode.INK -> {
                             if (change.pressure != firstPressure) pressureVaries = true
-                            val hard = snap.settings.pressureErase && isPen &&
-                                PressureErase.isHard(change.pressure, snap.settings.pressureEraseLevel, pressureVaries)
-                            if (hard) {
+                            if (change.pressure in 0f..1f) { pressureSum += change.pressure; pressureCount++ }
+                            val wx = cam.toWorldX(change.position.x)
+                            val wy = cam.toWorldY(change.position.y)
+                            val time = change.uptimeMillis
+                            val erasing = snap.settings.pressureErase && isPen
+                            val level = snap.settings.pressureEraseLevel
+                            lastPenTime = time
+                            lastWorld = Offset(wx, wy)
+                            lastScreen = change.position
+                            lastHard = erasing && PressureErase.isHard(change.pressure, level, pressureVaries)
+                            lastStraightStill = -1L
+                            if (erasing && pressHold.feed(change.pressure, level, pressureVaries, wx, wy, time)) {
+                                // Pressed hard and held (F9): erase from here on.
                                 penMode = PenMode.ERASE // consuming from now on cancels the wet stroke
                                 change.consume()
                                 eraseStep(viewModel, snap, cam, from, change.position, onEraser)
+                            } else if (snap.settings.holdToStraighten && snap.settings.tool.draws &&
+                                !(erasing && PressureErase.isHard(change.pressure, level, pressureVaries))
+                            ) {
+                                // Held still mid-line (F11): the line snaps straight, and its end follows the pen.
+                                val sx = cam.toWorldX(penStart.x)
+                                val sy = cam.toWorldY(penStart.y)
+                                val still = straightStill.feed(wx, wy, time)
+                                val longEnough = hypot(wx - sx, wy - sy) >= Straighten.MIN_LENGTH
+                                if (longEnough) lastStraightStill = still
+                                if (still >= Straighten.HOLD_MS && longEnough) {
+                                    penMode = PenMode.STRAIGHT
+                                    change.consume()
+                                    view.straight = straightLine(snap, sx, sy, wx, wy, pressureSum, pressureCount, penIsFinger)
+                                }
+                            }
+                        }
+                        PenMode.STRAIGHT -> {
+                            change.consume()
+                            view.straight?.let { line ->
+                                val (ex, ey) = Straighten.snappedEnd(line.sx, line.sy, cam.toWorldX(change.position.x), cam.toWorldY(change.position.y))
+                                view.straight = line.copy(ex = ex, ey = ey)
                             }
                         }
                         PenMode.ERASE -> {
@@ -549,7 +642,12 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     penLast = change.position
                 } else {
                     // Pen lifted.
+                    holdWatch?.cancel()
                     when (penMode) {
+                        PenMode.STRAIGHT -> {
+                            view.straight?.let { line -> finishStraightLine(line, snap, viewModel) }
+                            view.straight = null
+                        }
                         PenMode.LASSO_LOOP -> {
                             val loop = view.lasso as? LassoState.Drawing
                             val page = loop?.let { snap.pages.getOrNull(it.pageIndex) }
@@ -674,6 +772,33 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
             }
         }
     }
+}
+
+/** A straight line in progress (F11), in desk units, with the pen it's drawn with. */
+data class StraightLine(
+    val sx: Float, val sy: Float, val ex: Float, val ey: Float,
+    val tool: InkTool, val colorArgb: Int, val size: Float, val pressure: Float, val byFinger: Boolean,
+)
+
+private fun straightLine(snap: Snapshot, sx: Float, sy: Float, ex: Float, ey: Float, pressureSum: Float, pressureCount: Int, byFinger: Boolean): StraightLine? {
+    val tool = snap.settings.tool
+    val style = snap.settings.penStyle(tool) ?: return null
+    val (x, y) = Straighten.snappedEnd(sx, sy, ex, ey)
+    val pressure = if (pressureCount > 0) pressureSum / pressureCount else InkStroke.NONE
+    return StraightLine(sx, sy, x, y, if (tool == EditorTool.HIGHLIGHTER) InkTool.HIGHLIGHTER else InkTool.PEN, style.colorArgb, style.size, pressure, byFinger)
+}
+
+/** Saves a finished straight line onto the page where it started. */
+private fun finishStraightLine(line: StraightLine, snap: Snapshot, viewModel: NotebookViewModel) {
+    val index = snap.strip.pageAt(line.sx)
+    val page = snap.pages.getOrNull(index) ?: return
+    val left = snap.strip.pageLeft(index)
+    val stroke = Straighten.line(
+        java.util.UUID.randomUUID().toString(), line.tool, line.colorArgb, line.size,
+        line.sx - left, line.sy, line.ex - left, line.ey, line.pressure,
+        if (line.byFinger) InkStroke.TOOL_TOUCH else InkStroke.TOOL_STYLUS,
+    )
+    viewModel.addStrokes(page.id, listOf(stroke))
 }
 
 private fun centroid(points: List<Offset>): Offset =
