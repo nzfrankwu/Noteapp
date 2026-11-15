@@ -107,7 +107,7 @@ Batch 3, pens:
 - [x] 🔺 **F9. Press hard to erase, held:** erasing starts only when you press hard **and hold roughly still for about 0.5 s** (the time is a setting). Allow a harder "how hard" range.
 - [x] **F10. Custom pen colours:** a colour wheel with a hex box.
 - [x] 🔺 **F11. Hold to straighten, live:** after holding still, the line snaps straight right away, and you can keep moving its end; it gently snaps to common angles (horizontal, vertical, 45°). _(A pen held perfectly still may send no samples, so a 40 ms watcher also checks both holds. The emulator can't test F9: its pen pressure is always 1.0.)_
-- [ ] **F12. Lasso menu:** Resize (handles on all corners and edges), Duplicate, Copy, Cut, Delete; Paste from a finger press-and-hold on the page.
+- [x] **F12. Lasso menu:** Resize (handles on all corners and edges), Duplicate, Copy, Cut, Delete; Paste from a finger press-and-hold on the page.
 
 - [ ] **End of phase (again, after 2.13):** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 

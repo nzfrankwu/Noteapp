@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, late (Phase 2 finished and reviewed; waiting for the user's OK to merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (tablet feedback F1–F12 built; waiting for the user's check). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -15,7 +15,7 @@ _Last updated: 15 Nov 2026, late (Phase 2 finished and reviewed; waiting for the
 
 ## Next steps (in order)
 
-1. **Working through the user's tablet feedback: `PHASE-2.md` → "2.13 Tablet feedback" (F1–F12).** Batch 1 (F1–F3) done and on the tablet; waiting for the user's check, then batch 2 (F4–F8: pages touching, Notein-style dark top bar, fling scrolling, animated double-tap, blurry previews of far pages). Working-together mode: check in after each batch. Then ask again about merging.
+1. **The user's tablet feedback (`PHASE-2.md` 2.13, F1–F12) is all built** (16 Nov) and on the tablet; waiting for their check and more feedback. Then run `/code-review` again on the new work (the phase plan's last box), and ask again about merging.
 2. **Waiting on the user: approve merging `phase-2` into `main`** (CLAUDE.md: never merge without approval). `REPORT.md` (local) has the full report. After merging, Phase 3 is next (see IDEA.md §5).
 3. 2.12 follow-ups (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release.
 
@@ -141,6 +141,8 @@ _Last updated: 15 Nov 2026, late (Phase 2 finished and reviewed; waiting for the
   - Emulator stylus input: `adb shell input stylus swipe x1 y1 x2 y2 ms`, or `input stylus motionevent DOWN/MOVE/UP x y` (pressure is always 1.0 there).
   - Screen tests draw with "Draw with finger" on (`InkToolSettings(drawWithFinger = true)`), since test touches are fingers.
 - **Pen button keys:** the OPPO Pencil 2's side button is a Bluetooth key (`KEY_F21`, Android 334), seen with `adb shell getevent -lt` (no device argument: it takes only one). Test it on the emulator with `adb shell input keyevent 334`.
+- **Scripted pen holds on the emulator:** `input stylus motionevent MOVE` at the same spot isn't delivered again, so a held pen sends nothing; use `sleep 0.8` between MOVEs (the 40 ms hold watcher in `NotebookCanvas` handles it). Scripted `input touchscreen swipe` sends too few moves to fling: test flings with Compose tests (`NotebookEditorTest`).
+- **The editor's gesture handler** (`NotebookCanvas.handleGestures`) now also does: fling + axis lock (`domain/ink/PanPhysics.kt`), animated fit (`EditorViewState.animateTo`), press-hold erase (`PressHold`), live straight line (`Straighten`, `StraightLine`), lasso handles (`LassoBox`, `BoxHandle`), finger long-press → Paste bubble.
 - **Rotating the emulator from a script:** `settings put system accelerometer_rotation 0` first (it can switch itself back on), then `settings put system user_rotation 1` (portrait) or `0` (landscape); wait about 5 s.
 - **`InkPerformanceProbe`** (androidTest) only logs timings (`adb logcat -s InkPerf`); like every connected test run it uninstalls the app from the emulator afterwards.
 - **Every `connectedDebugAndroidTest` run wipes the emulator app's data.** Take screenshots before running the suite, or recreate data with the scratchpad `setup2.sh` (fake Canvas, 3 course folders, and in "Electronics Design 2": 2 subfolders and 2 notebooks).

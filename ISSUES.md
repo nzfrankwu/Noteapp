@@ -22,6 +22,10 @@ _None known._
   - A full page appears in a few quick steps the first time it scrolls into view.
   - Zoomed in very far (a page bigger than about 4,000 pixels on screen), pages are no longer kept as a ready-made picture, so scrolling there is slower (about the 50 ms a frame of before). Not measured, because the emulator can't pinch from a script. Ideas: skip ink that's off screen, or keep only the visible part as a picture.
   - The next page isn't drawn ahead of time; it appears as it scrolls in.
+  - Quick page previews are kept for pages within 12 of the screen. A very long flick past that shows plain paper for a moment.
+  - Press-and-hold to erase can't be checked on the emulator (its pen pressure is always 100%); it needs the tablet.
+  - The copy/paste clipboard lasts while the notebook is open; it doesn't carry over to other notebooks or apps.
+  - When a straight line snaps while the pen is held perfectly still, the wobbly line can stay visible until the pen moves or lifts (some pens send nothing while still).
   - If a page can't be saved at all (e.g. storage full), Noteapp tries 4 times over about 8 seconds, then keeps the page marked unsaved and says so. If that happens just as you leave the notebook, the last changes can still be lost once the notebook is closed. A fuller fix would keep unsaved pages app-wide and retry later; revisit with Phase 6 backup.
   - Jetpack Ink adds about 7 MB to the app (its drawing code for every kind of processor). A release build for one device type would be smaller; not worth doing now.
 
@@ -40,6 +44,8 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Tablet feedback, batches 2 and 3 (Phase 2, F4–F12), 16 Nov.** Pages touch with a thin line between them; a dark Notein-style top bar of buttons only; finger flicks coast through pages and stick to sideways; double-tap glides to fit; far pages show a soft preview while scrolling. Pens: press hard *and hold* to erase (hold time in settings, "how hard" up to 100%); a colour wheel with a hex box (picked colours remembered); hold still mid-line to snap a straight line whose end you can still move, with gentle angle snapping. Lasso menu: Resize (handles on every corner and edge), Duplicate, Copy, Cut, Delete, Done; a finger held on a page pastes. New unit tests (fling, axis lock, press-hold, angle snap, colour hex, lasso box) and an emulator flick test.
 
 - **Tablet feedback, batch 1 (Phase 2, F1–F3), 15 Nov.** Zoomed-in pages no longer draw over the top bar. The OPPO Pencil 2's side button now toggles the lasso (the pen sends it as a Bluetooth key, F21, which the app didn't listen for). Press hard to erase now also works on the very hardest presses (a full 100% reading was ignored).
 

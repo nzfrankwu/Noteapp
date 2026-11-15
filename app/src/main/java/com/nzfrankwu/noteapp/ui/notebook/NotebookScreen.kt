@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -194,10 +195,40 @@ fun NotebookScreen(
                 viewModel = viewModel,
             )
             if (strip != null) {
-                LassoMenu(view, strip, onDelete = { sel ->
-                    viewModel.deleteStrokes(sel.pageId, sel.strokes.map { it.id }.toSet())
-                    view.lasso = null
-                })
+                LassoMenu(
+                    view, strip,
+                    onResize = { sel -> view.lasso = sel.copy(handles = !sel.handles) },
+                    onDuplicate = { sel ->
+                        val copies = viewModel.duplicate(sel.pageId, sel.strokes)
+                        view.lasso = LassoState.Selected.of(sel.pageIndex, sel.pageId, copies, sel.handles) ?: sel
+                    },
+                    onCopy = { sel ->
+                        viewModel.copy(sel.strokes)
+                        scope.launch { snackbar.showSnackbar("Copied. Hold a finger on a page to paste.") }
+                    },
+                    onCut = { sel ->
+                        viewModel.cut(sel.pageId, sel.strokes)
+                        view.lasso = null
+                        scope.launch { snackbar.showSnackbar("Cut. Hold a finger on a page to paste.") }
+                    },
+                    onDelete = { sel ->
+                        viewModel.deleteStrokes(sel.pageId, sel.strokes.map { it.id }.toSet())
+                        view.lasso = null
+                    },
+                )
+                PasteBubble(view) { at ->
+                    view.pasteAt = null
+                    val cam = view.camera ?: return@PasteBubble
+                    val wx = cam.toWorldX(at.x)
+                    val index = strip.pageAt(wx)
+                    val page = pages.getOrNull(index) ?: return@PasteBubble
+                    val pasted = viewModel.paste(page.id, wx - strip.pageLeft(index), cam.toWorldY(at.y))
+                    if (pasted.isNotEmpty()) {
+                        // Pasted strokes come selected, ready to move (that needs the lasso).
+                        if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
+                        view.lasso = LassoState.Selected.of(index, page.id, pasted)
+                    }
+                }
                 PageBadge(view, strip, pages.size)
             }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
@@ -262,25 +293,59 @@ private fun FloatingToolbar(
     }
 }
 
-/** Delete / Done under the lasso's selection. */
+/** The menu under the lasso's selection (F12): Resize, Duplicate, Copy, Cut, Delete, Done. */
 @Composable
-private fun LassoMenu(view: EditorViewState, strip: PageStrip, onDelete: (LassoState.Selected) -> Unit) {
+private fun LassoMenu(
+    view: EditorViewState,
+    strip: PageStrip,
+    onResize: (LassoState.Selected) -> Unit,
+    onDuplicate: (LassoState.Selected) -> Unit,
+    onCopy: (LassoState.Selected) -> Unit,
+    onCut: (LassoState.Selected) -> Unit,
+    onDelete: (LassoState.Selected) -> Unit,
+) {
     val sel = view.lasso as? LassoState.Selected ?: return
     val cam = view.camera ?: return
     val gap = with(LocalDensity.current) { 12.dp.toPx() }
+    var menuWidth by remember { mutableIntStateOf(0) }
     val box = sel.box()
     val bx = cam.toScreenX(strip.pageLeft(sel.pageIndex) + box[0])
+        .coerceIn(8f, (view.viewSize.width - menuWidth - 8f).coerceAtLeast(8f))
     val by = (cam.toScreenY(box[3]) + gap).coerceAtMost(view.viewSize.height - 160f)
     Surface(
-        modifier = Modifier.offset { IntOffset(bx.roundToInt(), by.roundToInt()) }.testTag("lasso-menu"),
+        modifier = Modifier
+            .offset { IntOffset(bx.roundToInt(), by.roundToInt()) }
+            .onSizeChanged { menuWidth = it.width }
+            .testTag("lasso-menu"),
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = 6.dp,
     ) {
         Row {
+            TextButton(onClick = { onResize(sel) }) { Text(if (sel.handles) "Resize ✓" else "Resize") }
+            TextButton(onClick = { onDuplicate(sel) }) { Text("Duplicate") }
+            TextButton(onClick = { onCopy(sel) }) { Text("Copy") }
+            TextButton(onClick = { onCut(sel) }) { Text("Cut") }
             TextButton(onClick = { onDelete(sel) }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             TextButton(onClick = { view.lasso = null }) { Text("Done") }
         }
+    }
+}
+
+/** The Paste bubble where a finger was held (F12). */
+@Composable
+private fun PasteBubble(view: EditorViewState, onPaste: (androidx.compose.ui.geometry.Offset) -> Unit) {
+    val at = view.pasteAt ?: return
+    val lift = with(LocalDensity.current) { 56.dp.toPx() }
+    Surface(
+        modifier = Modifier
+            .offset { IntOffset((at.x - 40f).roundToInt(), (at.y - lift).roundToInt().coerceAtLeast(0)) }
+            .testTag("paste-bubble"),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.inverseSurface,
+        shadowElevation = 6.dp,
+    ) {
+        TextButton(onClick = { onPaste(at) }) { Text("Paste", color = MaterialTheme.colorScheme.inverseOnSurface) }
     }
 }
 

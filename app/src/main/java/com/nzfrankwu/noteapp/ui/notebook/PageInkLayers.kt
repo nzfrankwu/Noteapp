@@ -36,6 +36,7 @@ import com.nzfrankwu.noteapp.domain.ink.InkChunk
 import com.nzfrankwu.noteapp.domain.ink.InkChunks
 import com.nzfrankwu.noteapp.domain.ink.InkStroke
 import com.nzfrankwu.noteapp.domain.ink.InkTool
+import com.nzfrankwu.noteapp.domain.ink.LassoBox
 import com.nzfrankwu.noteapp.domain.ink.PageStrip
 import kotlin.math.ceil
 
@@ -153,12 +154,12 @@ fun PageInkLayer(
                     Modifier.fillMaxSize()
                         .graphicsLayer {
                             val sel = view.lasso as? LassoState.Selected ?: return@graphicsLayer
-                            // Resize around the selection box's top-left corner, then move.
+                            // Stretch around the box's top-left corner, then move (F12: free stretching).
                             transformOrigin = TransformOrigin(sel.bounds[0] * raster / size.width, sel.bounds[1] * raster / size.height)
-                            scaleX = sel.scale
-                            scaleY = sel.scale
-                            translationX = sel.dx * raster
-                            translationY = sel.dy * raster
+                            scaleX = LassoBox.scaleX(sel.bounds, sel.target)
+                            scaleY = LassoBox.scaleY(sel.bounds, sel.target)
+                            translationX = (sel.target[0] - sel.bounds[0]) * raster
+                            translationY = (sel.target[1] - sel.bounds[1]) * raster
                         }
                         .drawBehind { drawStrokes(strokes, pageId, raster, viewModel.drawables, renderer) },
                 )

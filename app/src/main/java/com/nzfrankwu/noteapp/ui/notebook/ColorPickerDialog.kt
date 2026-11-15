@@ -68,7 +68,11 @@ fun ColorPickerDialog(initial: Int, onDismiss: () -> Unit, onPick: (Int) -> Unit
         title = { Text("Pick a colour") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                HueSatWheel(hue, sat, value, Modifier.size(220.dp).testTag("colour-wheel")) { h, s -> fromWheel(h, s) }
+                // Picking a colour on the wheel while it's nearly black brings the brightness back up,
+                // so the pick is actually visible.
+                HueSatWheel(hue, sat, Modifier.size(220.dp).testTag("colour-wheel")) { h, s ->
+                    fromWheel(h, s, if (value < 0.25f) 1f else value)
+                }
                 Column(Modifier.width(260.dp)) {
                     Text("Brightness", style = MaterialTheme.typography.bodyMedium)
                     Slider(value = value, onValueChange = { fromWheel(hue, sat, it) }, modifier = Modifier.height(32.dp))
@@ -104,9 +108,12 @@ fun ColorPickerDialog(initial: Int, onDismiss: () -> Unit, onPick: (Int) -> Unit
     )
 }
 
-/** The colour wheel: hue around the circle, saturation from the middle out, at brightness [value]. */
+/**
+ * The colour wheel: hue around the circle, saturation from the middle out. Always drawn at full
+ * brightness so the colours can be seen; the Brightness slider sets the final shade.
+ */
 @Composable
-private fun HueSatWheel(hue: Float, sat: Float, value: Float, modifier: Modifier, onChange: (Float, Float) -> Unit) {
+private fun HueSatWheel(hue: Float, sat: Float, modifier: Modifier, onChange: (Float, Float) -> Unit) {
     fun pick(p: Offset, w: Float, h: Float) {
         val cx = w / 2; val cy = h / 2; val r = min(w, h) / 2
         val dx = p.x - cx; val dy = p.y - cy
@@ -122,10 +129,9 @@ private fun HueSatWheel(hue: Float, sat: Float, value: Float, modifier: Modifier
             },
     ) {
         val r = min(size.width, size.height) / 2
-        // Colours around (a sweep), fading to white in the middle, then dimmed by brightness.
+        // Colours around (a sweep), fading to white in the middle.
         drawCircle(Brush.sweepGradient(hues, center), r)
         drawCircle(Brush.radialGradient(listOf(Color.White, Color.White.copy(alpha = 0f)), center, r), r)
-        drawCircle(Color.Black.copy(alpha = 1f - value), r)
         // Where the current colour sits.
         val rad = Math.toRadians(hue.toDouble())
         val at = Offset(center.x + (sat * r * cos(rad)).toFloat(), center.y + (sat * r * sin(rad)).toFloat())

@@ -247,6 +247,43 @@ class NotebookViewModel(
         if (ink.erase(pageId, ids) > 0) changed(pageId)
     }
 
+    // ---- Copy, cut, duplicate and paste (PHASE-2.md F12) ----
+
+    /** Strokes copied or cut with the lasso, ready to paste (this notebook only, until it closes). */
+    var clipboard by mutableStateOf<List<InkStroke>?>(null)
+        private set
+
+    fun copy(strokes: List<InkStroke>) {
+        if (strokes.isNotEmpty()) clipboard = strokes
+    }
+
+    fun cut(pageId: String, strokes: List<InkStroke>) {
+        copy(strokes)
+        deleteStrokes(pageId, strokes.mapTo(HashSet()) { it.id })
+    }
+
+    /** Adds a copy of [strokes] a little down and to the right; returns the copy (for selecting it). */
+    fun duplicate(pageId: String, strokes: List<InkStroke>): List<InkStroke> {
+        if (!isEditable(pageId) || strokes.isEmpty()) return emptyList()
+        val copies = strokes.map { it.mapped(1f, 0f, 0f, DUPLICATE_OFFSET, DUPLICATE_OFFSET, newId = java.util.UUID.randomUUID().toString()) }
+        ink.add(pageId, copies)
+        changed(pageId)
+        return copies
+    }
+
+    /** Pastes the clipboard centred on ([x], [y]) (page units); returns what was pasted. */
+    fun paste(pageId: String, x: Float, y: Float): List<InkStroke> {
+        val strokes = clipboard ?: return emptyList()
+        if (!isEditable(pageId)) return emptyList()
+        val box = InkGeometry.boundsOf(strokes) ?: return emptyList()
+        val dx = x - (box[0] + box[2]) / 2
+        val dy = y - (box[1] + box[3]) / 2
+        val pasted = strokes.map { it.mapped(1f, 0f, 0f, dx, dy, newId = java.util.UUID.randomUUID().toString()) }
+        ink.add(pageId, pasted)
+        changed(pageId)
+        return pasted
+    }
+
     fun undo() {
         val edit = ink.undo() ?: return
         afterUndoRedo(edit, undoing = true)
@@ -460,6 +497,9 @@ class NotebookViewModel(
 
         /** A changed page is saved this long after the last change. */
         const val SAVE_DELAY_MS = 400L
+
+        /** How far a duplicate lands from the original (page units, about 5 mm). */
+        const val DUPLICATE_OFFSET = 14f
 
         /** Pauses before each try at writing a page (the first try is immediate). */
         private val SAVE_RETRY_PAUSES_MS = longArrayOf(0L, 500L, 2_000L, 5_000L)
