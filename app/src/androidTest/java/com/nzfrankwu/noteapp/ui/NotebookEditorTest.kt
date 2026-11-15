@@ -8,6 +8,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -184,6 +185,32 @@ class NotebookEditorTest {
         val again = NotebookViewModel(notebookId, notebooks, files, InMemoryInkSettings(), scope)
         compose.waitUntil(5_000) { again.isEditable(pageId()) }
         assertEquals(2, again.ink.strokes(pageId()).size)
+    }
+
+    @Test
+    fun aQuickFlick_keepsThePagesMoving_butASlowDragDoesnt() {
+        runBlocking { repeat(5) { notebooks.addPage(notebookId, Int.MAX_VALUE) } }
+        show(InkToolSettings())
+        compose.waitUntil(5_000) { viewModel.pages.value.size == 6 }
+        compose.onNodeWithText("1 / 6").assertExists()
+
+        // A slow drag of 300 px stays on page 1 (no coasting).
+        compose.onNodeWithTag("notebook-canvas").performTouchInput {
+            swipe(Offset(centerX + 150f, centerY), Offset(centerX - 150f, centerY), durationMillis = 1_500)
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("1 / 6").assertExists()
+
+        // The same distance flicked quickly coasts on past several pages.
+        compose.onNodeWithTag("notebook-canvas").performTouchInput {
+            swipe(Offset(centerX + 150f, centerY), Offset(centerX - 150f, centerY), durationMillis = 60)
+        }
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.waitForIdle()
+        val badge = (3..6).firstOrNull { n ->
+            compose.onAllNodesWithText("$n / 6").fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue("The flick should reach page 3 or later (badge page: $badge)", badge != null)
     }
 
     @Test

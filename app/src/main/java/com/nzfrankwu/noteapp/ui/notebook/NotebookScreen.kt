@@ -128,76 +128,56 @@ fun NotebookScreen(
     }
 
     Column(modifier.fillMaxSize()) {
-        // ---- Top bar ----
-        Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
-            Row(
-                Modifier.fillMaxWidth().statusBarsPadding().height(56.dp).padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                RoundIconButton(R.drawable.ic_arrow_back, "Back", ::leave)
-                Text(
-                    nb?.title.orEmpty(),
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                )
-                IconButton(onClick = { view.lasso = null; viewModel.undo() }, enabled = viewModel.canUndo, modifier = Modifier.testTag("undo")) {
-                    Icon(painterResource(R.drawable.ic_undo), contentDescription = "Undo")
-                }
-                IconButton(onClick = { view.lasso = null; viewModel.redo() }, enabled = viewModel.canRedo, modifier = Modifier.testTag("redo")) {
-                    Icon(painterResource(R.drawable.ic_redo), contentDescription = "Redo")
-                }
-                IconButton(
-                    onClick = {
-                        view.lasso = null // a selection remembers its page's place, which moves
-                        scope.launch {
-                            val at = pageNow() + 1
-                            if (viewModel.addPage(at) != null && strip != null) {
-                                val grown = PageStrip(strip.pageWidth, strip.pageHeight, pages.size + 1)
-                                view.camera = grown.fit(settings.fitMode, at, view.viewSize.width.toFloat(), view.viewSize.height.toFloat())
-                            }
-                        }
-                    },
-                    modifier = Modifier.testTag("add-page"),
-                ) { Icon(painterResource(R.drawable.ic_note_add), contentDescription = "Add a page after this one") }
-                Box {
-                    RoundIconButton(R.drawable.ic_more_vert, "Notebook options", { menuOpen = true })
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        Text(
-                            "Paper",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        )
-                        PageTemplate.entries.forEach { t ->
-                            DropdownMenuItem(
-                                text = { Text(if (nb?.template == t) "✓  ${t.label}" else "    ${t.label}") },
-                                onClick = { menuOpen = false; viewModel.setTemplate(t) },
-                            )
-                        }
-                        HorizontalDivider()
-                        DropdownMenuItem(
-                            text = { Text("Delete this page", color = MaterialTheme.colorScheme.error) },
-                            enabled = pages.size > 1,
-                            onClick = {
-                                menuOpen = false
-                                view.lasso = null
-                                pages.getOrNull(pageNow())?.let { viewModel.deletePage(it.id) }
-                                scope.launch { snackbar.showSnackbar("Page deleted. Tap Undo to bring it back.") }
-                            },
-                        )
-                        if (BuildConfig.DEBUG) {
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("Add 50 pages of test writing (debug)") },
-                                onClick = { menuOpen = false; viewModel.addTestPages(50) },
-                                modifier = Modifier.testTag("add-test-pages"),
-                            )
-                        }
+        // ---- Top bar (dark, buttons only, like Notein: F5) ----
+        EditorTopBar(
+            canUndo = viewModel.canUndo,
+            canRedo = viewModel.canRedo,
+            onBack = ::leave,
+            onUndo = { view.lasso = null; viewModel.undo() },
+            onRedo = { view.lasso = null; viewModel.redo() },
+            onAddPage = {
+                view.lasso = null // a selection remembers its page's place, which moves
+                scope.launch {
+                    val at = pageNow() + 1
+                    if (viewModel.addPage(at) != null && strip != null) {
+                        val grown = PageStrip(strip.pageWidth, strip.pageHeight, pages.size + 1)
+                        view.animateTo(scope, grown.fit(settings.fitMode, at, view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
                     }
                 }
+            },
+            menuOpen = menuOpen,
+            onMenuOpen = { menuOpen = it },
+        ) {
+            Text(
+                "Paper",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            )
+            PageTemplate.entries.forEach { t ->
+                DropdownMenuItem(
+                    text = { Text(if (nb?.template == t) "✓  ${t.label}" else "    ${t.label}") },
+                    onClick = { menuOpen = false; viewModel.setTemplate(t) },
+                )
+            }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text("Delete this page", color = MaterialTheme.colorScheme.error) },
+                enabled = pages.size > 1,
+                onClick = {
+                    menuOpen = false
+                    view.lasso = null
+                    pages.getOrNull(pageNow())?.let { viewModel.deletePage(it.id) }
+                    scope.launch { snackbar.showSnackbar("Page deleted. Tap Undo to bring it back.") }
+                },
+            )
+            if (BuildConfig.DEBUG) {
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text("Add 50 pages of test writing (debug)") },
+                    onClick = { menuOpen = false; viewModel.addTestPages(50) },
+                    modifier = Modifier.testTag("add-test-pages"),
+                )
             }
         }
 

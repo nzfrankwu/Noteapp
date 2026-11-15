@@ -75,3 +75,9 @@ val PaperLineStrong = Color(0xFF9DA9B8)
 // The desk the pages lie on in the notebook editor.
 val DeskLight = Color(0xFFE4E6EA)
 val DeskDark = Color(0xFF2A2B2F)
+
+/** The notebook editor's top bar: dark in both themes, like Notein (PHASE-2.md F5). */
+val EditorBar = Color(0xFF1C1C1E)
+val EditorBarButton = Color(0xFF2E2E31)
+val EditorBarIcon = Color(0xFFF2F2F5)
+val EditorBarIconDisabled = Color(0x66F2F2F5)

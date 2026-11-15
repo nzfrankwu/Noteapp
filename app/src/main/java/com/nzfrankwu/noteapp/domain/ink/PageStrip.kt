@@ -28,7 +28,8 @@ data class Camera(val scale: Float, val offsetX: Float, val offsetY: Float) {
 
 /**
  * A notebook's pages laid side by side on a "desk", left to right, [gap] apart (PHASE-2.md:
- * pages scroll sideways, like Notein). Positions are in page units; page `i` starts at
+ * pages scroll sideways, like Notein). By default they touch, with a thin line drawn between
+ * them (PHASE-2.md F4). Positions are in page units; page `i` starts at
  * [pageLeft]. Works out fitting, zooming and how far you can scroll.
  */
 class PageStrip(val pageWidth: Float, val pageHeight: Float, val pageCount: Int, val gap: Float = GAP) {
@@ -110,8 +111,8 @@ class PageStrip(val pageWidth: Float, val pageHeight: Float, val pageCount: Int,
         abs(a.scale - b.scale) < a.scale * 0.01f && abs(a.offsetX - b.offsetX) < 2f && abs(a.offsetY - b.offsetY) < 2f
 
     companion object {
-        /** Gap between pages on the desk, in page units. */
-        const val GAP = 24f
+        /** Gap between pages on the desk, in page units: none, the pages touch (F4). */
+        const val GAP = 0f
 
         /** Space around a fitted page, in screen pixels. */
         const val MARGIN = 24f

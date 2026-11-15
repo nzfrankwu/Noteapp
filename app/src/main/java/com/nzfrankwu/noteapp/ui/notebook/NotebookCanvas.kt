@@ -1,6 +1,18 @@
 package com.nzfrankwu.noteapp.ui.notebook
 
 import android.graphics.Matrix
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.runtime.rememberCoroutineScope
+import com.nzfrankwu.noteapp.domain.ink.AxisLock
+import com.nzfrankwu.noteapp.domain.ink.Fling
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -101,6 +113,76 @@ class EditorViewState {
      * camera's zoom only once a zoom has settled, so pinching doesn't redraw every stroke.
      */
     var inkScale by mutableFloatStateOf(0f)
+
+    /**
+     * True while the pages fly past quickly (a fast flick or drag): far pages then show only
+     * their quick preview instead of being drawn in full (PHASE-2.md F8).
+     */
+    var fastScroll by mutableStateOf(false)
+
+    private var motion: Job? = null
+
+    /** Stops an animation or flick in progress (e.g. a finger or the pen touched down). */
+    fun stopMotion() {
+        motion?.cancel()
+        motion = null
+        fastScroll = false
+    }
+
+    /** Glides the camera to [target] (double-tap to fit, a new page: PHASE-2.md F7). */
+    fun animateTo(scope: CoroutineScope, target: Camera, durationMs: Int = FIT_ANIMATION_MS) {
+        stopMotion()
+        val from = camera ?: run { camera = target; return }
+        motion = scope.launch {
+            animate(0f, 1f, animationSpec = tween(durationMs, easing = FastOutSlowInEasing)) { t, _ ->
+                camera = Camera(
+                    scale = from.scale + (target.scale - from.scale) * t,
+                    offsetX = from.offsetX + (target.offsetX - from.offsetX) * t,
+                    offsetY = from.offsetY + (target.offsetY - from.offsetY) * t,
+                )
+            }
+        }
+    }
+
+    /**
+     * Keeps the pages moving after a flick at ([vx], [vy]) pixels per second, slowing down
+     * (see [Fling]). [clamp] keeps the camera within the pages; hitting an end stops that way.
+     */
+    fun fling(scope: CoroutineScope, vx: Float, vy: Float, clamp: (Camera) -> Camera) {
+        stopMotion()
+        motion = scope.launch {
+            var velX = vx
+            var velY = vy
+            var last = withFrameNanos { it }
+            try {
+                while (hypot(velX, velY) > Fling.STOP_SPEED) {
+                    val now = withFrameNanos { it }
+                    val dt = ((now - last) / 1e9f).coerceIn(0f, 0.05f)
+                    last = now
+                    val cam = camera ?: break
+                    val wantX = Fling.distance(velX, dt)
+                    val wantY = Fling.distance(velY, dt)
+                    val next = clamp(cam.copy(offsetX = cam.offsetX + wantX, offsetY = cam.offsetY + wantY))
+                    if (abs(next.offsetX - (cam.offsetX + wantX)) > 0.5f) velX = 0f // reached an end
+                    if (abs(next.offsetY - (cam.offsetY + wantY)) > 0.5f) velY = 0f
+                    camera = next
+                    velX = Fling.velocityAfter(velX, dt)
+                    velY = Fling.velocityAfter(velY, dt)
+                    fastScroll = abs(velX) > FAST_SCROLL_SPEED
+                }
+            } finally {
+                fastScroll = false
+            }
+        }
+    }
+
+    companion object {
+        /** Double-tap-to-fit animation length: smooth but short (F7). */
+        const val FIT_ANIMATION_MS = 260
+
+        /** Faster than this (pixels per second), pages flying past show only their preview (F8). */
+        const val FAST_SCROLL_SPEED = 2_500f
+    }
 }
 
 /** The pen layer's matrix and brush, kept in one stable object so the pen layer isn't rebuilt mid-stroke. */
@@ -144,6 +226,7 @@ fun NotebookCanvas(
         PageStrip(notebook.pageWidth, notebook.pageHeight, pages.size)
     }
     val renderer = remember { CanvasStrokeRenderer.create() }
+    val motionScope = rememberCoroutineScope()
     val inputs = remember { InkLayerInputs() }
     val dark = isSystemInDarkTheme()
 
@@ -206,6 +289,7 @@ fun NotebookCanvas(
                 handleGestures(
                     snapshot = { current },
                     view = view,
+                    motionScope = motionScope,
                     inputs = inputs,
                     viewModel = viewModel,
                     onEraser = { eraserAt = it },
@@ -219,15 +303,22 @@ fun NotebookCanvas(
             val s = cam.scale
             val w = notebook.pageWidth * s
             val h = notebook.pageHeight * s
-            for (i in strip.visiblePages(cam, size.width)) {
+            val shown = strip.visiblePages(cam, size.width)
+            val top = cam.toScreenY(0f)
+            for (i in shown) {
                 val page = pages.getOrNull(i) ?: continue
                 val left = cam.toScreenX(strip.pageLeft(i))
-                val top = cam.toScreenY(0f)
-                drawRect(Color.Black.copy(alpha = 0.12f), Offset(left + 2f, top + 3f), Size(w, h))
                 drawRect(PaperWhite, Offset(left, top), Size(w, h))
                 drawPaperPattern(page.template ?: notebook.template, notebook.pageWidth, notebook.pageHeight, PaperLine, left, top, s)
                 if (viewModel.pageStatus[page.id] is PageStatus.Damaged) {
                     drawRect(Color(0x22D32F2F), Offset(left, top), Size(w, h))
+                }
+            }
+            // The pages touch (F4): a thin dark line marks each edge, including the outer ones.
+            if (!shown.isEmpty()) {
+                for (i in shown.first..shown.last + 1) {
+                    val x = cam.toScreenX(strip.pageLeft(i) - if (i > 0) strip.gap / 2 else 0f)
+                    drawLine(PageEdge, Offset(x, top), Offset(x, top + h), strokeWidth = PAGE_EDGE_PX)
                 }
             }
         }
@@ -294,6 +385,10 @@ private data class Snapshot(
 )
 
 private const val HANDLE_RADIUS = 14f
+
+/** The line between touching pages (F4). */
+private val PageEdge = Color(0xFF2B2B2B)
+private const val PAGE_EDGE_PX = 1.5f
 private const val TAP_SLOP = 24f
 private const val TAP_MS = 300L
 private const val DOUBLE_TAP_MS = 320L
@@ -304,6 +399,7 @@ private enum class PenMode { INK, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, B
 private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGestures(
     snapshot: () -> Snapshot,
     view: EditorViewState,
+    motionScope: CoroutineScope,
     inputs: InkLayerInputs,
     viewModel: NotebookViewModel,
     onEraser: (Offset?) -> Unit,
@@ -326,6 +422,10 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
     var tapMoved = false
     var lastTapUpAt = 0L
     var lastTapPos = Offset.Zero
+    // Finger scrolling: the sideways lock, how fast the finger moves, and whether it pinched.
+    var lock = AxisLock()
+    val velocity = VelocityTracker()
+    var pinched = false
 
     while (true) {
         val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -335,6 +435,8 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
         inputs.setCamera(cam)
         val viewW = size.width.toFloat()
         val viewH = size.height.toFloat()
+        // Any new touch (finger or pen) stops a flick or animation where it is.
+        if (event.changes.any { it.changedToDownIgnoreConsumed() }) view.stopMotion()
 
         // ---- Stylus side button: a click toggles lasso (hovering or touching). ----
         val stylusInEvent = event.changes.any { it.type == PointerType.Stylus || it.type == PointerType.Eraser }
@@ -481,18 +583,40 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     tapDownAt = change.uptimeMillis
                     tapDownPos = change.position
                     tapMoved = false
+                    lock = AxisLock()
+                    velocity.resetTracking()
+                    pinched = false
                 } else {
                     tapMoved = true // a pinch is not a tap
+                    pinched = true
                 }
+                velocity.addPosition(change.uptimeMillis, change.position)
                 continue
             }
             if (!change.pressed) {
+                // The lift can be a little further on than the last move: apply that bit too.
+                val lastPos = touches[change.id]
+                if (lastPos != null && touches.size == 1 && !pinched && (change.position - lastPos).getDistance() > 0.5f) {
+                    val (mx, my) = lock.step(change.position.x - lastPos.x, change.position.y - lastPos.y)
+                    onCamera(snap.strip.clamp(cam.copy(offsetX = cam.offsetX + mx, offsetY = cam.offsetY + my), viewW, viewH))
+                }
                 touches.remove(change.id)
                 val isTap = !tapMoved && touches.isEmpty() && change.uptimeMillis - tapDownAt < TAP_MS
+                if (!isTap && touches.isEmpty()) {
+                    // The last finger lifted: a flick keeps the pages moving (F6). Not after a pinch.
+                    view.fastScroll = false
+                    if (!pinched) {
+                        velocity.addPosition(change.uptimeMillis, change.position)
+                        val v = velocity.calculateVelocity()
+                        Fling.start(v.x, v.y, lock.state == AxisLock.State.SIDEWAYS)?.let { (fx, fy) ->
+                            view.fling(motionScope, fx, fy) { snap.strip.clamp(it, viewW, viewH) }
+                        }
+                    }
+                }
                 if (isTap) {
                     if (change.uptimeMillis - lastTapUpAt < DOUBLE_TAP_MS && (change.position - lastTapPos).getDistance() < TAP_SLOP * 3) {
                         val index = snap.strip.pageAt(cam.toWorldX(change.position.x))
-                        onCamera(snap.strip.fit(snap.settings.fitMode, index, viewW, viewH))
+                        view.animateTo(motionScope, snap.strip.fit(snap.settings.fitMode, index, viewW, viewH))
                         lastTapUpAt = 0L
                     } else {
                         lastTapUpAt = change.uptimeMillis
@@ -502,6 +626,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                 continue
             }
             if ((change.position - tapDownPos).getDistance() > TAP_SLOP) tapMoved = true
+            if (touches.size == 1) velocity.addPosition(change.uptimeMillis, change.position)
         }
 
         // ---- Pan and pinch-zoom with the fingers that moved ----
@@ -516,8 +641,13 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     val s0 = spread(before, c0); val s1 = spread(now, c1)
                     if (s0 > 1f) next = snap.strip.zoom(next, s1 / s0, c1.x, c1.y, viewW, viewH)
                 }
-                next = snap.strip.clamp(next.copy(offsetX = next.offsetX + (c1.x - c0.x), offsetY = next.offsetY + (c1.y - c0.y)), viewW, viewH)
+                // One finger sticks to sideways when it starts sideways (F6); a pinch moves freely.
+                val (mx, my) = if (before.size == 1 && !pinched) lock.step(c1.x - c0.x, c1.y - c0.y) else (c1.x - c0.x) to (c1.y - c0.y)
+                next = snap.strip.clamp(next.copy(offsetX = next.offsetX + mx, offsetY = next.offsetY + my), viewW, viewH)
                 onCamera(next)
+                if (before.size == 1 && !pinched) {
+                    view.fastScroll = abs(velocity.calculateVelocity().x) > EditorViewState.FAST_SCROLL_SPEED
+                }
             }
         }
     }

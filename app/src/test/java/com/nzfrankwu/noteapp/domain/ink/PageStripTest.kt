@@ -6,7 +6,8 @@ import org.junit.Test
 
 class PageStripTest {
     // A4 in page units; a landscape tablet screen in pixels.
-    private val strip = PageStrip(595f, 842f, pageCount = 3)
+    // With a gap, so the gap rules are tested too (the app's default is no gap).
+    private val strip = PageStrip(595f, 842f, pageCount = 3, gap = 24f)
     private val w = 2560f
     private val h = 1500f
 
@@ -15,6 +16,15 @@ class PageStripTest {
         assertEquals(0f, strip.pageLeft(0))
         assertEquals(619f, strip.pageLeft(1))
         assertEquals(3 * 595f + 2 * 24f, strip.totalWidth)
+    }
+
+    @Test
+    fun byDefault_pagesTouch() {
+        val touching = PageStrip(595f, 842f, pageCount = 3)
+        assertEquals(595f, touching.pageLeft(1))
+        assertEquals(3 * 595f, touching.totalWidth)
+        assertEquals(0, touching.pageAt(594f))
+        assertEquals(1, touching.pageAt(596f))
     }
 
     @Test
