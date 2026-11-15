@@ -112,6 +112,26 @@ object InkPalette {
  * The stylus side button (PHASE-2.md 2.10): one click switches to the lasso, the next click goes
  * back to the tool you were using. Choosing a tool on the toolbar ends the "lasso by button".
  */
+/**
+ * Which hardware keys are a pen's side button (PHASE-2.md F2). Some pens send their button as a
+ * pen button on the touch events; others, like the OPPO Pencil 2, send a key over Bluetooth
+ * (`KEY_F21`). Android key codes are passed as plain numbers so this stays testable.
+ */
+object PenButtonKeys {
+    const val KEYCODE_F21 = 334
+    const val KEYCODE_STYLUS_BUTTON_PRIMARY = 308
+    const val KEYCODE_STYLUS_BUTTON_SECONDARY = 309
+    const val KEYCODE_STYLUS_BUTTON_TERTIARY = 310
+
+    /** The Linux scan code for F21, for Android versions that don't name the key yet. */
+    const val SCAN_F21 = 191
+
+    fun isPenButton(keyCode: Int, scanCode: Int): Boolean =
+        keyCode == KEYCODE_F21 || keyCode == KEYCODE_STYLUS_BUTTON_PRIMARY ||
+            keyCode == KEYCODE_STYLUS_BUTTON_SECONDARY || keyCode == KEYCODE_STYLUS_BUTTON_TERTIARY ||
+            scanCode == SCAN_F21
+}
+
 class PenButtonToggle {
     private var before: EditorTool? = null
 
@@ -138,9 +158,13 @@ object PressureErase {
     const val MIN_LEVEL = 0.6f
     const val MAX_LEVEL = 0.98f
 
-    /** Pens that don't report pressure send 1.0 or 0; those never trigger erasing. */
+    /**
+     * True when [pressure] counts as a hard press. A full 1.0 counts too: it's what the hardest
+     * presses report. Pens that don't report pressure (a fixed 1.0, so [penReportsPressure] is
+     * false) never trigger erasing.
+     */
     fun isHard(pressure: Float, level: Float, penReportsPressure: Boolean): Boolean =
-        penReportsPressure && pressure < 1.0f && pressure >= level
+        penReportsPressure && pressure >= level
 
     /** True once a pen-down has shown varying pressure (so it's a real pressure pen). */
     fun reportsPressure(pressures: List<Float>): Boolean = pressures.distinct().size > 1

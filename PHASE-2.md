@@ -85,7 +85,31 @@ Work happens on branch `phase-2`; it's merged into `main` at the end, with the u
   - Unit tests for the toggle and the threshold. The user tests both on the OPPO Pencil 2: the emulator can't check pressure levels or the pen button.
 - [x] **2.11 Thumbnails.** Notebook tiles show their first page (a cached picture, refreshed after edits). _(done 15 Nov: `data/Thumbnails` draws the first page to a PNG in the cache folder when that page is saved; `components/ThumbnailImage` loads it for the tile, reloading when the notebook changes. 2 emulator tests.)_
 - [x] **2.12 Performance check on the tablet.** A long notebook (50+ pages of dense writing) stays smooth; fix what's slow. _(done on the emulator, 15 Nov; not yet run on the tablet. Measured with 51 pages of about 900 strokes (editor ⋮ → "Add 50 pages of test writing (debug)"), two full pages on screen, small back-and-forth swipes. Frame time: 150 ms (up to 1.3 s) at the start → about 50 ms with 32-stroke chunk layers (`f24e69a`) → **median 19 ms, p90 32 ms** with page pictures; the render thread went 13 ms → 1 ms, the app's drawing about 1 ms. Also: saving a full page 10× faster (buffered codec), strokes built in the background, scrolling doesn't re-lay-out, and rotating keeps the current page. Left as follow-ups in ISSUES.md: very deep zoom (no page picture there) and pre-drawing the next page.)_
-- [ ] **End of phase:** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
+- [x] **End of phase review** (15 Nov): `/code-review` found 8 things, 7 fixed (see ISSUES.md, Done). Installed on the tablet the same evening (database v4 upgrade checked).
+
+### 2.13 Tablet feedback (15 Nov, from the user's first try)
+
+Decided with the user: the top bar is **dark, like Notein, in both themes**; **Paste** appears from a **finger press-and-hold** on the page (lasso tool); the lasso menu's **Resize** shows handles on all corners and edges.
+
+Batch 1, quick fixes:
+- [x] **F1. Zoomed-in pages cover the top bar** (the buttons still work but can't be seen). Clip the pages to their area.
+- [x] **F2. Pen side button does nothing.** The OPPO Pencil 2 sends its button as a Bluetooth key (`KEY_F21`, Android `KEYCODE_F21` = 334), not as a pen button. Catch that key (plus Android's stylus-button keys) and toggle the lasso. _(Done: `MainActivity.dispatchKeyEvent` → `PenButtonKeyEvents`; checked on the emulator with `input keyevent 334`; found with `adb shell getevent -lt` on the tablet.)_
+- [x] **F3. Press hard to erase misses the hardest presses.** A pressure of exactly 100% was ignored; count it.
+
+Batch 2, the page view:
+- [ ] **F4. Pages touch**, with no gap: just a thin dark line between them.
+- [ ] **F5. Top bar like Notein:** one thin dark bar of round icon buttons, no title. Left: Back. Middle pill: Undo, Redo. Right: Add page, ⋮.
+- [ ] 🔺 **F6. Fling scrolling:** a quick finger flick keeps moving (through many pages), easing to a stop, and sticks to the sideways direction while flicking, even zoomed in.
+- [ ] **F7. Double-tap to fit animates** (smooth, short: about 250 ms).
+- [ ] 🔺 **F8. Faster scrolling through a long, full notebook:** pages far from the current one show a quick, blurry preview first (like Notein) and sharpen when you stop.
+
+Batch 3, pens:
+- [ ] 🔺 **F9. Press hard to erase, held:** erasing starts only when you press hard **and hold roughly still for about 0.5 s** (the time is a setting). Allow a harder "how hard" range.
+- [ ] **F10. Custom pen colours:** a colour wheel with a hex box.
+- [ ] 🔺 **F11. Hold to straighten, live:** after holding still, the line snaps straight right away, and you can keep moving its end; it gently snaps to common angles (horizontal, vertical, 45°).
+- [ ] **F12. Lasso menu:** Resize (handles on all corners and edges), Duplicate, Copy, Cut, Delete; Paste from a finger press-and-hold on the page.
+
+- [ ] **End of phase (again, after 2.13):** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 
 ## Folder screen layout (2.2), draft to confirm
 

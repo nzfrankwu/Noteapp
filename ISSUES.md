@@ -41,6 +41,8 @@ _None known._
 
 ## Done
 
+- **Tablet feedback, batch 1 (Phase 2, F1–F3), 15 Nov.** Zoomed-in pages no longer draw over the top bar. The OPPO Pencil 2's side button now toggles the lasso (the pen sends it as a Bluetooth key, F21, which the app didn't listen for). Press hard to erase now also works on the very hardest presses (a full 100% reading was ignored).
+
 - **End-of-phase review fixes (Phase 2), 15 Nov.** A `/code-review` of the whole phase found 8 things; 7 fixed:
   - a page that fails to save is now tried again a few times, even after you leave the notebook (new emulator test)
   - a database error while noting a save can no longer crash the app

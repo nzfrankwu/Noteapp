@@ -36,7 +36,9 @@ class EditorToolsTest {
 
     @Test
     fun pensWithoutPressure_neverErase() {
-        assertFalse(PressureErase.isHard(1.0f, 0.9f, penReportsPressure = true)) // a fixed "1.0"
+        assertTrue(PressureErase.isHard(1.0f, 0.9f, penReportsPressure = true)) // the hardest press
+        assertTrue(PressureErase.isHard(1.0f, 0.98f, penReportsPressure = true))
+        assertFalse(PressureErase.isHard(1.0f, 0.9f, penReportsPressure = false)) // a fixed "1.0"
         assertFalse(PressureErase.isHard(0.95f, 0.9f, penReportsPressure = false))
         assertFalse(PressureErase.reportsPressure(listOf(1f, 1f, 1f)))
         assertTrue(PressureErase.reportsPressure(listOf(0.2f, 0.4f)))
@@ -113,5 +115,14 @@ class EditorToolsTest {
         assertEquals(red, changed.penStyle(EditorTool.PEN_2))
         assertEquals(settings.penStyle(EditorTool.PEN_1), changed.penStyle(EditorTool.PEN_1))
         assertEquals(null, settings.penStyle(EditorTool.ERASER))
+    }
+
+    @Test
+    fun penButtonKeys_includeTheOppoPencilsF21_andAndroidsStylusButtons() {
+        assertTrue(PenButtonKeys.isPenButton(keyCode = 334, scanCode = 191)) // OPPO Pencil 2
+        assertTrue(PenButtonKeys.isPenButton(keyCode = 0, scanCode = 191)) // F21 without a name
+        assertTrue(PenButtonKeys.isPenButton(keyCode = 308, scanCode = 0))
+        assertFalse(PenButtonKeys.isPenButton(keyCode = 29, scanCode = 30)) // the letter A
+        assertFalse(PenButtonKeys.isPenButton(keyCode = 4, scanCode = 158)) // Back
     }
 }

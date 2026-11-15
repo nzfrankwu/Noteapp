@@ -24,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -89,6 +90,12 @@ fun NotebookScreen(
         if (damaged > 0) snackbar.showSnackbar("A page couldn't be read. Its file is kept safe and won't be changed.")
     }
     LaunchedEffect(settings.tool) { if (settings.tool != EditorTool.LASSO) view.lasso = null }
+    // The pen's side button, when it arrives as a key (the OPPO Pencil 2's does).
+    DisposableEffect(viewModel) {
+        val click: () -> Unit = { viewModel.penButtonClicked() }
+        PenButtonKeyEvents.onClick = click
+        onDispose { if (PenButtonKeyEvents.onClick === click) PenButtonKeyEvents.onClick = null }
+    }
 
     val nb = notebook
     val strip = remember(nb?.pageWidth, nb?.pageHeight, pages.size) {
