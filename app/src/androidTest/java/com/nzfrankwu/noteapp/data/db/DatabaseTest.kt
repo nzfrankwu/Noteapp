@@ -58,7 +58,7 @@ class DatabaseTest {
             targetAt = Instant.parse("2026-11-18T08:00:00Z"), notes = "Ask about Q4",
             source = TaskSource.CANVAS, canvasAssignmentId = 9, canvasSubmissionState = "submitted",
             canvasSubmittedAt = Instant.parse("2026-11-19T09:30:00Z"), removedFromCanvas = true,
-            createdAt = t0, updatedAt = t0.plusSeconds(60),
+            createdAt = t0, updatedAt = t0.plusSeconds(60), availableAt = Instant.parse("2026-11-09T19:00:00Z"),
         )
         db.taskDao().insert(full)
         assertEquals(full, db.taskDao().getById("task-1"))
@@ -155,6 +155,73 @@ class DatabaseTest {
         val second = runCatching { db.courseDao().insert(course(id = "c2", canvasId = 555)) }
         assertTrue(second.exceptionOrNull() is SQLiteConstraintException)
         assertEquals("c1", db.courseDao().getByCanvasId(555)?.id)
+    }
+
+    // ---- Archived courses (database version 3) ----
+
+    @Test
+    fun archivedCourse_isStoredExactly() = runBlocking {
+        val archived = course().copy(archivedAt = t0.plusSeconds(3600))
+        db.courseDao().insert(archived)
+        assertEquals(archived, db.courseDao().getById("course-1"))
+    }
+
+    @Test
+    fun homeLeavesOutArchivedCoursesTasks_butKeepsTasksWithoutACourse() = runBlocking {
+        db.courseDao().insert(course(id = "c1"))
+        db.courseDao().insert(course(id = "old", code = "ENGGEN 115").copy(archivedAt = t0))
+        db.taskDao().insert(task(id = "current", courseId = "c1"))
+        db.taskDao().insert(task(id = "archived", courseId = "old"))
+        db.taskDao().insert(task(id = "no course", courseId = null))
+
+        assertEquals(setOf("current", "no course"), db.taskDao().observeActiveWithCourse().first().map { it.task.id }.toSet())
+        val all = db.taskDao().observeAllWithCourse().first().associateBy { it.task.id }
+        assertEquals(3, all.size)
+        assertTrue(all.getValue("archived").isCourseArchived)
+        assertTrue(!all.getValue("current").isCourseArchived)
+        // The folder still has all of its own tasks.
+        assertEquals(listOf("archived"), db.taskDao().observeForCourse("old").first().map { it.id })
+    }
+
+    @Test
+    fun foldersKnowWhenTheirCourseIsArchived() = runBlocking {
+        db.courseDao().insert(course(id = "c1"))
+        db.courseDao().insert(course(id = "old", code = "ENGGEN 115").copy(archivedAt = t0))
+        db.folderDao().insert(folder(id = "f1", name = "Current", courseId = "c1"))
+        db.folderDao().insert(folder(id = "f2", name = "Old", courseId = "old"))
+        db.folderDao().insert(folder(id = "f3", name = "Personal", courseId = null))
+        val folders = db.folderDao().observeAllWithCourse().first().associateBy { it.folder.id }
+        assertTrue(!folders.getValue("f1").isArchived)
+        assertTrue(folders.getValue("f2").isArchived)
+        assertTrue(!folders.getValue("f3").isArchived)
+        assertTrue(db.folderDao().observeWithCourse("f2").first()!!.isArchived)
+    }
+
+    @Test
+    fun archivedCanvasCourses_areNeverSuggestedForAFolder() = runBlocking {
+        db.courseDao().insert(course(id = "c1", code = "ELECTENG 204", canvasId = 1))
+        db.courseDao().insert(course(id = "c2", code = "ENGGEN 115", canvasId = 2).copy(archivedAt = t0))
+        assertEquals(listOf("c1"), db.courseDao().observeCanvasCoursesWithoutFolder().first().map { it.id })
+    }
+
+    @Test
+    fun folderCourseChoices_areCurrentCoursesWithoutAFolder() = runBlocking {
+        db.courseDao().insert(course(id = "free", code = "ELECTENG 292"))
+        db.courseDao().insert(course(id = "linked", code = "ELECTENG 204"))
+        db.courseDao().insert(course(id = "old", code = "ENGGEN 115").copy(archivedAt = t0))
+        db.folderDao().insert(folder(id = "f1", courseId = "linked"))
+        assertEquals(listOf("free"), db.courseDao().observeCurrentWithoutFolder().first().map { it.id })
+    }
+
+    @Test
+    fun courseList_hasEveryCourse_withItsFolder() = runBlocking {
+        db.courseDao().insert(course(id = "c1", code = "ELECTENG 204"))
+        db.courseDao().insert(course(id = "c2", code = "COMPSYS 201").copy(archivedAt = t0))
+        db.folderDao().insert(folder(id = "f1", name = "Electromagnetics", courseId = "c1"))
+        val list = db.courseDao().observeAllWithFolder().first()
+        assertEquals(listOf("COMPSYS 201", "ELECTENG 204"), list.map { it.course.code })
+        assertEquals(listOf(null, "Electromagnetics"), list.map { it.folderName })
+        assertEquals(listOf(true, false), list.map { it.isArchived })
     }
 
     @Test

@@ -22,9 +22,38 @@ _None right now._
 - **Canvas course codes with extra text** (e.g. "ELECTENG 204 S2 2026") won't auto-link to your own "ELECTENG 204". They appear as separate courses; home then suggests linking them ("New from Canvas: …"), and **Add to a folder** puts one in your existing folder.
 - **The emulator's stylus handwriting is turned off** (emulator only; `settings put secure stylus_handwriting_enabled 0`), because its "Try out your stylus" tutorial swallowed scripted typing. The tablet is unaffected.
 - **Screen tests leave their in-memory databases open** (`TaskScreensTest`, `DueSoonTest`). Closing them while a screen was still reading crashed a run once. Harmless for tests; revisit if test memory ever becomes a problem.
+- **Never install an older build than the one on the tablet.** The database is now version 3 (B.8), and Room can't go back to an older version: the older app would refuse to open (crash at start). Your data stays safe, and installing a current build fixes it, but don't downgrade.
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Code review of phase-1b (15 Nov): 7 of 8 findings fixed.**
+  - The Calendar's day panel slides away again.
+  - Typing an archived course's code in New folder brings that course back.
+  - Switching the picked course updates a name that was filled in automatically.
+  - Swipes always use the latest callbacks.
+  - Short timeline bars stay inside the grid.
+  - A course filter on an archived course is cleared for good.
+  - The course label is shared.
+  - Skipped: Home keeps a tiny course query running (loading it only when the dialog opens would make the dialog flicker).
+
+- **New folder: choose the course from a list (Phase 1b, step B.9), 15 Nov.** New folder and "Link a course" offer your current courses that don't have a folder yet (archived ones left out), plus "Other course code…" for a new one. Picking a course fills in an empty folder name. 3 new emulator tests.
+
+- **Archive courses (Phase 1b, step B.8 🔺), 15 Nov.** Archive a course from its folder's ⋮ menu (on the tile or inside the folder), from "Link your Canvas courses", or from the new Settings → Courses list (which covers courses without a folder too). An archived course's tasks leave Due soon, Calendar, Timeline and the course filters, its reminders stop, and its folder moves to a collapsed "Archived (N)" row under Folders (faded). Its folder still shows everything, with an "Archived" badge. Nothing is deleted, and archived courses are never suggested as "New from Canvas". Updating the app adds an empty column (database version 3); every existing value is kept. Checked with migration tests, a deliberately broken migration (caught), and a real upgrade of the previous app with data on the emulator. 4 unit tests and 15 emulator tests.
+
+- **Course folder views (Phase 1b, step B.7), 15 Nov.** A course folder has Tasks · Calendar · Timeline tabs, the Calendar and Timeline showing only that course. 3 new screen tests.
+
+- **Timeline (Phase 1b, step B.6), 15 Nov.** One row per dated task with a bar from "available from" (or when it was added) to the due date, course colours, status dot, ◆ target date, a red outline when overdue, ◀/▶ when a bar carries on off-screen, edge arrows for tasks outside the visible days (tap to jump there), weekends shaded, a blue line for now, "2 weeks | Month", ◀ ▶ / Today / swipe, the same filters as the calendar, and "N tasks without a due date". 21 unit tests and 4 screen tests.
+
+- **Calendar (Phase 1b, step B.5), 15 Nov.** Month grid Monday–Sunday with each task on its due date (or its target date, marked "Target"), course-colour bars, time and status dot, overdue in red, "+N more", a side sheet per day with "Add task on this day", ◀ ▶ / Today / swipe, "All courses ▾" and "Show finished". 18 unit tests and 4 screen tests.
+
+- **Home tabs (Phase 1b, step B.4), 15 Nov.** Overview · Calendar · Timeline in the top bar; the app reopens on the last tab used. Pull-to-refresh stays on Overview. 2 screen tests and 2 unit tests.
+
+- **Database version 2: "available from" (Phase 1b, step B.3 🔺), 15 Nov.** Tasks now store when Canvas makes an assignment available (Canvas's `unlock_at`), for the timeline. Updating the app adds an empty column; every existing value is kept, and the next Canvas sync fills in the dates. Your own tasks have none (the timeline will use the date you added them). Checked with unit tests, 5 migration tests on the emulator, a deliberately broken migration (caught), and a real upgrade of the previous app with data on the emulator. Nothing visible changes yet.
+
+- **Course colours (Phase 1b, step B.2), 15 Nov.** Each course gets the next free colour in the order Noteapp first saw it (your choice at the check-in, so up to 7 courses never clash; 7 colours, light and dark). Neighbouring colours are very different, so a semester's new courses look distinct. It's used for the course tag (a small colour bar plus the code) on task cards, the task page, folder tiles (the folder icon too), the folder header and Link courses. 18 new unit tests.
+
+- **Days left (Phase 1b, step B.1), 15 Nov.** Task cards and the task page show "Due today", "Due tomorrow", "3 days left" or "2 days overdue", counted in local calendar days to the real due date (daylight saving tested). Amber for today to 2 days, red when overdue. 16 unit tests and 1 screen test.
 
 - **Canvas sign-in go/no-go passed (15 Nov, step 5.1).** Your university login works in Noteapp's in-app browser on the tablet, so the calendar-feed fallback isn't needed. This also answers the https-only question: the login didn't stall.
 

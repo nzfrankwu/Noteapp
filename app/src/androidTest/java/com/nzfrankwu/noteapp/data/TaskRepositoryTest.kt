@@ -49,6 +49,8 @@ class TaskRepositoryTest {
 
     private suspend fun task(id: String) = checkNotNull(db.taskDao().getById(id))
 
+    private val opens = Instant.parse("2026-11-09T19:00:00Z")
+
     private suspend fun insertCanvasTask(id: String = "canvas-1", removed: Boolean = false) {
         db.taskDao().insert(
             Task(
@@ -56,6 +58,7 @@ class TaskRepositoryTest {
                 descriptionHtml = "<p>Do it</p>", status = TaskStatus.NOT_STARTED, targetAt = null, notes = null,
                 source = TaskSource.CANVAS, canvasAssignmentId = 3, canvasSubmissionState = "unsubmitted",
                 canvasSubmittedAt = null, removedFromCanvas = removed, createdAt = now, updatedAt = now,
+                availableAt = opens,
             ),
         )
     }
@@ -75,6 +78,7 @@ class TaskRepositoryTest {
         assertEquals("https://example.com/notes", saved.url)
         assertEquals("ch 3-5", saved.notes)
         assertEquals(now, saved.createdAt)
+        assertNull("Only Canvas sets 'available from'", saved.availableAt)
     }
 
     @Test
@@ -119,6 +123,7 @@ class TaskRepositoryTest {
         assertEquals("https://canvas.example.edu/a/3", saved.url)
         assertEquals(target, saved.targetAt)
         assertEquals("mine", saved.notes)
+        assertEquals("Editing keeps Canvas's 'available from'", opens, saved.availableAt)
     }
 
     @Test

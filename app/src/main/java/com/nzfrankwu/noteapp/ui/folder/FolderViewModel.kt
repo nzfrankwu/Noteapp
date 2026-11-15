@@ -13,6 +13,7 @@ import com.nzfrankwu.noteapp.domain.TaskSection
 import com.nzfrankwu.noteapp.domain.TaskStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import com.nzfrankwu.noteapp.data.db.Course
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,7 +35,12 @@ data class FolderTasks(val sections: List<TaskSection<Task>> = emptyList(), val 
 /** Which dialog is open on the folder screen. */
 sealed interface FolderScreenDialog {
     data class Rename(val name: String, val error: String? = null) : FolderScreenDialog
-    data class LinkCourse(val code: String = "", val error: String? = null) : FolderScreenDialog
+    data class LinkCourse(
+        val code: String = "",
+        val error: String? = null,
+        /** True after "Other course code…": the code box is shown. */
+        val typingOtherCode: Boolean = false,
+    ) : FolderScreenDialog
     data object ConfirmUnlink : FolderScreenDialog
     data object ConfirmDelete : FolderScreenDialog
 }
@@ -83,7 +89,25 @@ class FolderViewModel(
     fun startLinkCourse() { _dialog.value = FolderScreenDialog.LinkCourse() }
     fun startUnlink() { _dialog.value = FolderScreenDialog.ConfirmUnlink }
     fun startDelete() { _dialog.value = FolderScreenDialog.ConfirmDelete }
+
+    /** Archive (or bring back) this folder's course. Its tasks stay here either way. */
+    fun setArchived(archived: Boolean) {
+        val courseId = folder.value?.folder?.courseId ?: return
+        viewModelScope.launch { folders.setCourseArchived(courseId, archived) }
+    }
     fun dismissDialog() { _dialog.value = null }
+
+    /** Current courses without a folder: the choices in Link a course. */
+    val coursesWithoutFolder: StateFlow<List<Course>> = folders.observeCoursesWithoutFolder()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun pickCourse(course: Course?) = _dialog.update {
+        if (it is FolderScreenDialog.LinkCourse) it.copy(code = course?.code.orEmpty(), typingOtherCode = false, error = null) else it
+    }
+
+    fun typeOtherCourse() = _dialog.update {
+        if (it is FolderScreenDialog.LinkCourse) it.copy(code = "", typingOtherCode = true, error = null) else it
+    }
 
     fun onTextChange(text: String) = _dialog.update {
         when (it) {

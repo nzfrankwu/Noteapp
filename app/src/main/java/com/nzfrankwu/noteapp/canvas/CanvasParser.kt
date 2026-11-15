@@ -59,6 +59,7 @@ object CanvasParser {
             descriptionHtml = a.description?.takeIf { it.isNotBlank() },
             htmlUrl = a.htmlUrl,
             submission = a.submission?.let { CanvasSubmission(it.workflowState, parseTime(it.submittedAt)) },
+            unlockAt = parseTime(a.unlockAt),
         )
     }
 
@@ -108,6 +109,7 @@ object CanvasParser {
         @SerialName("course_id") val courseId: Long,
         val name: String? = null,
         @SerialName("due_at") val dueAt: String? = null,
+        @SerialName("unlock_at") val unlockAt: String? = null,
         val description: String? = null,
         @SerialName("html_url") val htmlUrl: String? = null,
         val submission: SubmissionJson? = null,

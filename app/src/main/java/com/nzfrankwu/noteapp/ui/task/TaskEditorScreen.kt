@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.R
 import com.nzfrankwu.noteapp.data.db.Course
+import com.nzfrankwu.noteapp.ui.components.courseLabel
 import com.nzfrankwu.noteapp.domain.DateText
 import com.nzfrankwu.noteapp.domain.TaskDates
 import com.nzfrankwu.noteapp.ui.components.DateTimeField
@@ -206,8 +207,6 @@ private fun CoursePicker(courses: List<Course>?, selectedId: String?, onSelect: 
     }
 }
 
-private fun courseLabel(course: Course): String =
-    if (course.name.isNullOrBlank()) course.code else "${course.code} · ${course.name}"
 
 /** For Canvas tasks: what comes from Canvas, read-only. */
 @Composable

@@ -5,10 +5,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
+import com.nzfrankwu.noteapp.domain.CourseSeen
 import com.nzfrankwu.noteapp.reminders.Notifications
 import com.nzfrankwu.noteapp.ui.NoteAppRoot
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
@@ -39,8 +43,12 @@ class MainActivity : ComponentActivity() {
                 (application as NoteAppApplication).container.canvasSyncRunner.runIfDue()
             }
         }
+        val courseDao = (application as NoteAppApplication).container.database.courseDao()
         setContent {
-            NoteAppTheme {
+            // Course colours follow the order courses were first seen (see CourseColorKey).
+            val courses by courseDao.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
+            val seen = remember(courses) { courses.map { CourseSeen(it.code, it.createdAt) } }
+            NoteAppTheme(courses = seen) {
                 NoteAppRoot(openTaskRequest = openTaskRequest, shareRequest = shareRequest)
             }
         }

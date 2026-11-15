@@ -33,7 +33,12 @@ class ReminderSchedulerTest {
     @After
     fun tearDown() = scheduler.apply(emptyList())
 
-    private fun task(id: String, dueAt: Instant?, status: TaskStatus = TaskStatus.NOT_STARTED) = TaskWithCourse(
+    private fun task(
+        id: String,
+        dueAt: Instant?,
+        status: TaskStatus = TaskStatus.NOT_STARTED,
+        courseArchivedAt: Instant? = null,
+    ) = TaskWithCourse(
         Task(
             id = id, title = "Lab", courseId = null, dueAt = dueAt, url = null, descriptionHtml = null,
             status = status, targetAt = null, notes = null, source = TaskSource.MANUAL, canvasAssignmentId = null,
@@ -41,6 +46,7 @@ class ReminderSchedulerTest {
             createdAt = now, updatedAt = now,
         ),
         courseCode = null,
+        courseArchivedAt = courseArchivedAt,
     )
 
     private val inThreeDays = now.plusSeconds(3 * 24 * 3600)
@@ -50,6 +56,20 @@ class ReminderSchedulerTest {
         scheduler.apply(listOf(task("test-a", inThreeDays)))
         assertTrue(scheduler.isScheduled("test-a/1d"))
         assertTrue(scheduler.isScheduled("test-a/2h"))
+    }
+
+    @Test
+    fun archivingTheCourse_cancelsItsAlarms_andUnarchivingBringsThemBack() {
+        scheduler.apply(listOf(task("test-arch", inThreeDays)))
+        assertTrue(scheduler.isScheduled("test-arch/1d"))
+
+        scheduler.apply(listOf(task("test-arch", inThreeDays, courseArchivedAt = now)))
+        assertFalse(scheduler.isScheduled("test-arch/1d"))
+        assertFalse(scheduler.isScheduled("test-arch/2h"))
+
+        scheduler.apply(listOf(task("test-arch", inThreeDays)))
+        assertTrue(scheduler.isScheduled("test-arch/1d"))
+        assertTrue(scheduler.isScheduled("test-arch/2h"))
     }
 
     @Test

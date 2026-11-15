@@ -1,5 +1,13 @@
 package com.nzfrankwu.noteapp.ui
 
+import com.nzfrankwu.noteapp.ui.navigation.CoursesRoute
+import com.nzfrankwu.noteapp.ui.settings.CoursesScreen
+import com.nzfrankwu.noteapp.ui.settings.CoursesViewModel
+import com.nzfrankwu.noteapp.ui.timeline.TimelineScreen
+import com.nzfrankwu.noteapp.ui.timeline.TimelineViewModel
+import com.nzfrankwu.noteapp.ui.calendar.CalendarScreen
+import com.nzfrankwu.noteapp.ui.calendar.CalendarViewModel
+import java.time.LocalDate
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -139,6 +147,7 @@ fun NoteAppRoot(
                             HomeViewModel(
                                 container.folderRepository, container.taskRepository,
                                 container.canvasSettings, container.canvasSyncRunner,
+                                tabStore = container.viewSettings,
                             )
                         },
                         onOpenSettings = { backStack.add(SettingsRoute) },
@@ -147,6 +156,19 @@ fun NoteAppRoot(
                         onAddTask = { backStack.add(TaskEditRoute()) },
                         onSignInAgain = { backStack.add(CanvasLoginRoute) },
                         onLinkCourses = { backStack.add(LinkCoursesRoute) },
+                        calendar = {
+                            CalendarScreen(
+                                viewModel = viewModel { CalendarViewModel(container.taskRepository) },
+                                onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
+                                onAddTaskOnDay = { day -> backStack.add(TaskEditRoute(dueDate = day.toString())) },
+                            )
+                        },
+                        timeline = {
+                            TimelineScreen(
+                                viewModel = viewModel { TimelineViewModel(container.taskRepository) },
+                                onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
+                            )
+                        },
                         onShowMessage = { message ->
                             scope.launch {
                                 snackbar.currentSnackbarData?.dismiss()
@@ -200,7 +222,10 @@ fun NoteAppRoot(
                 entry<TaskEditRoute> { route ->
                     TaskEditorScreen(
                         viewModel = viewModel {
-                            TaskEditorViewModel(route.taskId, route.courseId, route.title, route.url, container.taskRepository)
+                            TaskEditorViewModel(
+                                route.taskId, route.courseId, route.title, route.url, container.taskRepository,
+                                prefillDueDate = route.dueDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+                            )
                         },
                         onClose = ::back,
                         onSaved = { taskId, hasDate ->
@@ -219,7 +244,29 @@ fun NoteAppRoot(
                         onBack = ::back,
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                         onAddTask = { courseId -> backStack.add(TaskEditRoute(courseId = courseId)) },
+                        calendar = { courseId ->
+                            CalendarScreen(
+                                viewModel = viewModel(key = "folder-calendar-$courseId") {
+                                    CalendarViewModel(container.taskRepository, courseId = courseId)
+                                },
+                                onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
+                                onAddTaskOnDay = { day ->
+                                    backStack.add(TaskEditRoute(courseId = courseId, dueDate = day.toString()))
+                                },
+                            )
+                        },
+                        timeline = { courseId ->
+                            TimelineScreen(
+                                viewModel = viewModel(key = "folder-timeline-$courseId") {
+                                    TimelineViewModel(container.taskRepository, courseId = courseId)
+                                },
+                                onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
+                            )
+                        },
                     )
+                }
+                entry<CoursesRoute> {
+                    CoursesScreen(viewModel = viewModel { CoursesViewModel(container.folderRepository) }, onBack = ::back)
                 }
                 entry<SettingsRoute> {
                     SettingsScreen(
@@ -228,6 +275,7 @@ fun NoteAppRoot(
                         CanvasSettingsViewModel(container.canvasSettings, container.canvasAccount, container.canvasSyncRunner)
                     },
                     onOpenCanvasBrowser = { backStack.add(CanvasLoginRoute) },
+                    onOpenCourses = { backStack.add(CoursesRoute) },
                     onTestReminder = if (BuildConfig.DEBUG) {
                         {
                             scope.launch {

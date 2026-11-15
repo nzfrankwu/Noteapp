@@ -42,6 +42,7 @@ import com.nzfrankwu.noteapp.data.FolderRepository
 import com.nzfrankwu.noteapp.data.FolderResult
 import com.nzfrankwu.noteapp.data.db.Course
 import com.nzfrankwu.noteapp.data.db.FolderListItem
+import com.nzfrankwu.noteapp.ui.components.CourseTag
 import com.nzfrankwu.noteapp.ui.components.EmptyState
 import com.nzfrankwu.noteapp.ui.message
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
@@ -77,6 +78,14 @@ class LinkCoursesViewModel(
 
     fun addToFolder(course: Course, folderId: String) {
         viewModelScope.launch { report(folders.linkCourseById(folderId, course.id)) }
+    }
+
+    /** Archive a course you don't need (e.g. an old or non-teaching one): it leaves this list and Home. */
+    fun archive(course: Course) {
+        viewModelScope.launch {
+            folders.setCourseArchived(course.id, true)
+            _message.value = "${course.code} archived. Its tasks are hidden from Home; bring it back in Settings → Courses."
+        }
     }
 
     /** "Not now": the home screen stops suggesting this course. It stays listed here. */
@@ -153,7 +162,7 @@ private fun CourseRow(course: Course, freeFolders: List<FolderListItem>, viewMod
     var pickFolder by remember { mutableStateOf(false) }
     Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(Dimens.TilePadding), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(course.code, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            CourseTag(course.code, style = MaterialTheme.typography.titleMedium)
             course.name?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
                 FilledTonalButton(onClick = { viewModel.createFolder(course) }, modifier = Modifier.testTag("create-folder-${course.code}")) {
@@ -173,6 +182,9 @@ private fun CourseRow(course: Course, freeFolders: List<FolderListItem>, viewMod
                     }
                 }
                 TextButton(onClick = { viewModel.notNow(course) }) { Text("Not now") }
+                TextButton(onClick = { viewModel.archive(course) }, modifier = Modifier.testTag("archive-${course.code}")) {
+                    Text("Archive")
+                }
             }
         }
     }

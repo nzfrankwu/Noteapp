@@ -6,7 +6,10 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import com.nzfrankwu.noteapp.domain.CourseColorKey
+import com.nzfrankwu.noteapp.domain.CourseSeen
 
 private val LightColors = lightColorScheme(
     primary = Blue40,
@@ -68,9 +71,18 @@ private val DarkColors = darkColorScheme(
 @Composable
 fun NoteAppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    /** Every saved course, so each gets the next free colour in the order it was first seen. */
+    courses: List<CourseSeen> = emptyList(),
     content: @Composable () -> Unit,
 ) {
-    CompositionLocalProvider(LocalStatusColors provides if (darkTheme) DarkStatusColors else LightStatusColors) {
+    val basePalette = if (darkTheme) DarkCourseColors else LightCourseColors
+    val courseColors = remember(basePalette, courses) {
+        basePalette.copy(slots = CourseColorKey.slotsInOrder(courses, basePalette.palette.size))
+    }
+    CompositionLocalProvider(
+        LocalStatusColors provides if (darkTheme) DarkStatusColors else LightStatusColors,
+        LocalCourseColors provides courseColors,
+    ) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkColors else LightColors,
             typography = Typography,

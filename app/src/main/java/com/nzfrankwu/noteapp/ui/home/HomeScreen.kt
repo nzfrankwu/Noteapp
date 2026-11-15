@@ -1,6 +1,9 @@
 package com.nzfrankwu.noteapp.ui.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.ButtonDefaults
@@ -34,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -43,9 +48,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.R
 import com.nzfrankwu.noteapp.data.db.Folder
 import com.nzfrankwu.noteapp.data.db.FolderListItem
+import com.nzfrankwu.noteapp.domain.HomeTab
 import com.nzfrankwu.noteapp.ui.components.EmptyState
 import com.nzfrankwu.noteapp.ui.components.FolderTile
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
+import com.nzfrankwu.noteapp.ui.components.SegmentedTabs
 import com.nzfrankwu.noteapp.ui.theme.Dimens
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
 import java.time.Instant
@@ -73,8 +80,15 @@ fun HomeScreen(
     onLinkCourses: () -> Unit = {},
     /** Shows a message in the app's snackbar. */
     onShowMessage: (String) -> Unit = {},
+    /** The Calendar tab's content (B.5). */
+    calendar: @Composable () -> Unit = { ComingSoon("Calendar") },
+    /** The Timeline tab's content (B.6). */
+    timeline: @Composable () -> Unit = { ComingSoon("Timeline") },
 ) {
+    val tab by viewModel.tab.collectAsStateWithLifecycle()
     val folders by viewModel.folders.collectAsStateWithLifecycle()
+    val archivedExpanded by viewModel.archivedExpanded.collectAsStateWithLifecycle()
+    val coursesWithoutFolder by viewModel.coursesWithoutFolder.collectAsStateWithLifecycle()
     val dueSoon by viewModel.dueSoon.collectAsStateWithLifecycle()
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
     val banners by viewModel.banners.collectAsStateWithLifecycle()
@@ -88,6 +102,10 @@ fun HomeScreen(
     }
 
     HomeContent(
+        tab = tab,
+        onSelectTab = viewModel::selectTab,
+        calendar = calendar,
+        timeline = timeline,
         folders = folders,
         banners = banners,
         bannerActions = BannerActions(onSignInAgain, onLinkCourses, viewModel::hideNewCourses),
@@ -107,6 +125,9 @@ fun HomeScreen(
         onRenameFolder = viewModel::startRename,
         onDeleteFolder = viewModel::startDelete,
         modifier = modifier,
+        archivedExpanded = archivedExpanded,
+        onToggleArchived = viewModel::toggleArchived,
+        onSetArchived = viewModel::setArchived,
     )
 
     when (val d = dialog) {
@@ -116,6 +137,10 @@ fun HomeScreen(
             onNameChange = viewModel::onNameChange,
             courseCode = d.courseCode,
             onCourseCodeChange = viewModel::onCourseCodeChange,
+            courseChoices = coursesWithoutFolder,
+            typingOtherCode = d.typingOtherCode,
+            onPickCourse = viewModel::pickCourse,
+            onTypeOtherCourse = viewModel::typeOtherCourse,
             error = d.error,
             confirmLabel = "Create",
             onConfirm = viewModel::confirmDialog,
@@ -159,13 +184,35 @@ fun HomeContent(
     bannerActions: BannerActions = BannerActions(),
     refreshing: Boolean = false,
     onRefresh: () -> Unit = {},
+    /** The open tab; null while the remembered tab is still loading (shows no content yet). */
+    tab: HomeTab? = HomeTab.OVERVIEW,
+    onSelectTab: (HomeTab) -> Unit = {},
+    calendar: @Composable () -> Unit = {},
+    timeline: @Composable () -> Unit = {},
+    /** Whether archived courses' folders are shown (the "Archived (N)" row is open). */
+    archivedExpanded: Boolean = false,
+    onToggleArchived: () -> Unit = {},
+    /** Archive or unarchive a folder's course. */
+    onSetArchived: (FolderListItem, Boolean) -> Unit = { _, _ -> },
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
+                title = {
+                    BoxWithConstraints {
+                        // On a very narrow window the tabs need the room more than the name.
+                        val showName = maxWidth >= Dimens.HomeTitleMinWidth
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (showName) {
+                                Text(stringResource(R.string.app_name))
+                                Spacer(Modifier.width(Dimens.PaneGap))
+                            }
+                            HomeTabs(selected = tab, onSelect = onSelectTab)
+                        }
+                    }
+                },
                 actions = {
                     RoundIconButton(
                         icon = R.drawable.ic_settings,
@@ -178,25 +225,56 @@ fun HomeContent(
             )
         },
     ) { innerPadding ->
-        val folderActions = FolderActions(onNewFolder, onOpenFolder, onRenameFolder, onDeleteFolder)
-        // Pull down on Due soon or the folders to sync with Canvas now.
-        PullToRefreshBox(
-            isRefreshing = refreshing,
-            onRefresh = onRefresh,
-            modifier = Modifier.padding(innerPadding).fillMaxSize(),
-        ) {
-            Column(Modifier.fillMaxSize()) {
-                HomeBannerStrips(banners, bannerActions)
-                BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-                    if (maxWidth >= WideLayoutMinWidth) {
-                        WideHome(folders, folderActions, dueSoon, dueSoonActions)
-                    } else {
-                        NarrowHome(folders, folderActions, dueSoon, dueSoonActions)
+        val folderActions = FolderActions(
+            onNewFolder, onOpenFolder, onRenameFolder, onDeleteFolder,
+            onSetArchived = onSetArchived,
+            archivedExpanded = archivedExpanded,
+            onToggleArchived = onToggleArchived,
+        )
+        Column(Modifier.padding(innerPadding).fillMaxSize()) {
+            HomeBannerStrips(banners, bannerActions)
+            Box(Modifier.fillMaxWidth().weight(1f)) {
+                when (tab) {
+                    // Pull down on Due soon or the folders to sync with Canvas now.
+                    HomeTab.OVERVIEW -> PullToRefreshBox(
+                        isRefreshing = refreshing,
+                        onRefresh = onRefresh,
+                        modifier = Modifier.fillMaxSize().testTag("home-overview"),
+                    ) {
+                        BoxWithConstraints(Modifier.fillMaxSize()) {
+                            if (maxWidth >= WideLayoutMinWidth) {
+                                WideHome(folders, folderActions, dueSoon, dueSoonActions)
+                            } else {
+                                NarrowHome(folders, folderActions, dueSoon, dueSoonActions)
+                            }
+                        }
                     }
+                    HomeTab.CALENDAR -> calendar()
+                    HomeTab.TIMELINE -> timeline()
+                    null -> Unit
                 }
             }
         }
     }
+}
+
+/** Overview · Calendar · Timeline, as one segmented button. */
+@Composable
+private fun HomeTabs(selected: HomeTab?, onSelect: (HomeTab) -> Unit) {
+    SegmentedTabs(
+        options = HomeTab.entries,
+        selected = selected,
+        label = { it.label },
+        testTag = { "home-tab-${it.key}" },
+        onSelect = onSelect,
+        modifier = Modifier.testTag("home-tabs"),
+    )
+}
+
+/** Placeholder for a tab that isn't built yet. */
+@Composable
+private fun ComingSoon(name: String) {
+    EmptyState(title = name, message = "$name is on its way in the next update.", modifier = Modifier.fillMaxSize())
 }
 
 private class FolderActions(
@@ -204,7 +282,49 @@ private class FolderActions(
     val onOpen: (String) -> Unit,
     val onRename: (FolderListItem) -> Unit,
     val onDelete: (FolderListItem) -> Unit,
+    val onSetArchived: (FolderListItem, Boolean) -> Unit,
+    val archivedExpanded: Boolean,
+    val onToggleArchived: () -> Unit,
 )
+
+/**
+ * The folder tiles: current courses' folders first, then (if any) the "Archived (N)" row, and,
+ * when it's open, the archived courses' folders (faded).
+ */
+private fun LazyGridScope.folderTiles(folders: List<FolderListItem>, actions: FolderActions) {
+    val (archived, current) = folders.partition { it.isArchived }
+    items(current, key = { it.folder.id }) { item -> FolderTileFor(item, actions) }
+    if (archived.isNotEmpty()) {
+        item(key = "archived-row", span = { GridItemSpan(maxLineSpan) }) {
+            ArchivedRow(archived.size, actions.archivedExpanded, actions.onToggleArchived)
+        }
+        if (actions.archivedExpanded) {
+            items(archived, key = { it.folder.id }) { item -> FolderTileFor(item, actions) }
+        }
+    }
+}
+
+/** "Archived (4) ▾": opens or closes the archived courses' folders. */
+@Composable
+private fun ArchivedRow(count: Int, expanded: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 4.dp, vertical = 10.dp)
+            .testTag("archived-toggle"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Archived ($count)", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(4.dp))
+        Icon(
+            painterResource(if (expanded) R.drawable.ic_expand_less else R.drawable.ic_expand_more),
+            contentDescription = if (expanded) "Hide archived folders" else "Show archived folders",
+            tint = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
 
 /** Side by side: Due soon panel on the left, folders on the right. */
 @Composable
@@ -233,7 +353,7 @@ private fun WideHome(folders: List<FolderListItem>?, actions: FolderActions, due
                     verticalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(folders, key = { it.folder.id }) { item -> FolderTileFor(item, actions) }
+                    folderTiles(folders, actions)
                 }
             }
         }
@@ -264,7 +384,7 @@ private fun NarrowHome(folders: List<FolderListItem>?, actions: FolderActions, d
         if (folders != null && folders.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) { NoFolders(Modifier.fillMaxWidth()) }
         }
-        items(folders.orEmpty(), key = { it.folder.id }) { item -> FolderTileFor(item, actions) }
+        folderTiles(folders.orEmpty(), actions)
     }
 }
 
@@ -276,6 +396,12 @@ private fun FolderTileFor(item: FolderListItem, actions: FolderActions) {
         onOpen = { actions.onOpen(item.folder.id) },
         onRename = { actions.onRename(item) },
         onDelete = { actions.onDelete(item) },
+        archived = item.isArchived,
+        onToggleArchive = if (item.folder.courseId != null) {
+            { actions.onSetArchived(item, !item.isArchived) }
+        } else {
+            null
+        },
     )
 }
 

@@ -5,6 +5,8 @@ while(1);[
     "name": "Assignment 3",
     "description": "<p>Answer <strong>all</strong> questions.</p>",
     "due_at": "2026-11-20T10:59:00Z",
+    "unlock_at": "2026-11-09T19:00:00Z",
+    "lock_at": "2026-11-21T10:59:00Z",
     "html_url": "https://canvas.example.edu/courses/555/assignments/3",
     "submission_types": ["online_upload"],
     "points_possible": 10.0,
@@ -17,6 +19,7 @@ while(1);[
     "name": "Reading log",
     "description": null,
     "due_at": null,
+    "unlock_at": null,
     "html_url": "https://canvas.example.edu/courses/555/assignments/4",
     "submission_types": ["none"]
   },
@@ -26,6 +29,7 @@ while(1);[
     "name": "Quiz 2",
     "description": "",
     "due_at": "2026-11-27T23:59:00+13:00",
+    "unlock_at": "2026-11-20T09:00:00+13:00",
     "html_url": "https://canvas.example.edu/courses/555/assignments/5",
     "submission_types": ["online_quiz"],
     "quiz_id": 42,
@@ -36,6 +40,7 @@ while(1);[
     "course_id": 555,
     "name": "  ",
     "due_at": "not-a-date",
+    "unlock_at": "soon",
     "html_url": "https://canvas.example.edu/courses/555/assignments/6",
     "submission": {"workflow_state": "graded", "submitted_at": null}
   }

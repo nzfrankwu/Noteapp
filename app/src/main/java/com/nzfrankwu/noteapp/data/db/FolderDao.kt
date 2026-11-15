@@ -39,7 +39,7 @@ interface FolderDao {
     /** All folders A–Z, each with its linked course's code (if any). Updates live. */
     @Query(
         """
-        SELECT folders.*, courses.code AS course_code
+        SELECT folders.*, courses.code AS course_code, courses.archived_at AS course_archived_at
         FROM folders LEFT JOIN courses ON courses.id = folders.course_id
         ORDER BY folders.name COLLATE NOCASE
         """,
@@ -49,7 +49,7 @@ interface FolderDao {
     /** One folder with its course code, updating live (null once deleted). */
     @Query(
         """
-        SELECT folders.*, courses.code AS course_code
+        SELECT folders.*, courses.code AS course_code, courses.archived_at AS course_archived_at
         FROM folders LEFT JOIN courses ON courses.id = folders.course_id
         WHERE folders.id = :id
         """,

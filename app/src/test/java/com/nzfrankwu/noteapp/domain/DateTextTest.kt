@@ -28,4 +28,16 @@ class DateTextTest {
         val instant = Instant.parse("2026-11-20T10:59:00Z") // 11:59 pm NZDT
         assertEquals("Fri 20 Nov, 11:59 pm", DateText.dateTime(instant, nz, now = instant))
     }
+
+    @Test
+    fun time_in24HourStyle_whenTheTabletUsesIt() {
+        assertEquals("23:59", DateText.time(java.time.LocalTime.of(23, 59), use24Hour = true))
+        assertEquals("09:05", DateText.time(java.time.LocalTime.of(9, 5), use24Hour = true))
+        assertEquals("9:05 am", DateText.time(java.time.LocalTime.of(9, 5)))
+    }
+
+    @Test
+    fun month_isWrittenInFull() {
+        assertEquals("November 2026", DateText.month(java.time.YearMonth.of(2026, 11)))
+    }
 }

@@ -23,6 +23,8 @@ data class StatusColors(
     val submitted: TagColors,
     val done: TagColors,
     val overdue: TagColors,
+    /** The text colour of "Due today" / "Due tomorrow" / "2 days left" (overdue uses the error colour). */
+    val dueSoonText: Color,
 ) {
     fun of(status: TaskStatus): TagColors = when (status) {
         TaskStatus.NOT_STARTED -> notStarted
@@ -42,6 +44,7 @@ val LightStatusColors = StatusColors(
     submitted = TagColors(TealContainerLight, TealOnLight),
     done = TagColors(GreenContainerLight, GreenOnLight),
     overdue = TagColors(RedContainerLight, RedOnLight),
+    dueSoonText = AmberTextLight,
 )
 
 val DarkStatusColors = StatusColors(
@@ -52,6 +55,7 @@ val DarkStatusColors = StatusColors(
     submitted = TagColors(TealContainerDark, TealOnDark),
     done = TagColors(GreenContainerDark, GreenOnDark),
     overdue = TagColors(RedContainerDark, RedOnDark),
+    dueSoonText = AmberTextDark,
 )
 
 val LocalStatusColors = staticCompositionLocalOf { LightStatusColors }

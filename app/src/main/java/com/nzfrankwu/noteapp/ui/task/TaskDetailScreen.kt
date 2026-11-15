@@ -53,6 +53,8 @@ import com.nzfrankwu.noteapp.domain.Links
 import com.nzfrankwu.noteapp.domain.TaskRules
 import com.nzfrankwu.noteapp.domain.TaskSource
 import com.nzfrankwu.noteapp.domain.TaskStatus
+import com.nzfrankwu.noteapp.ui.components.CourseTag
+import com.nzfrankwu.noteapp.ui.components.DaysLeftText
 import com.nzfrankwu.noteapp.ui.components.InfoBadge
 import com.nzfrankwu.noteapp.ui.components.OverdueBadge
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
@@ -138,11 +140,14 @@ private fun TaskDetails(item: TaskWithCourse, now: Instant, zone: ZoneId, onStat
         verticalArrangement = Arrangement.spacedBy(Dimens.FieldGap),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = listOf(item.courseCode ?: "No course", if (isCanvas) "Canvas assignment" else "Your task").joinToString(" · "),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CourseTag(item.courseCode, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    text = " · " + if (isCanvas) "Canvas assignment" else "Your task",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             SelectionContainer {
                 Text(task.title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag("task-title"))
             }
@@ -161,7 +166,9 @@ private fun TaskDetails(item: TaskWithCourse, now: Instant, zone: ZoneId, onStat
 
         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(Dimens.TilePadding), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoRow("Due", task.dueAt?.let { DateText.dateTime(it, zone, now) } ?: "No due date")
+                InfoRow("Due", task.dueAt?.let { DateText.dateTime(it, zone, now) } ?: "No due date") {
+                    DaysLeftText(task, now, zone, style = MaterialTheme.typography.bodyMedium)
+                }
                 InfoRow("My target date", task.targetAt?.let { DateText.dateTime(it, zone, now) } ?: "Not set")
                 if (isCanvas) InfoRow("On Canvas", submissionText(task, zone, now))
             }
@@ -198,7 +205,7 @@ private fun TaskDetails(item: TaskWithCourse, now: Instant, zone: ZoneId, onStat
 }
 
 @Composable
-private fun InfoRow(label: String, value: String) {
+private fun InfoRow(label: String, value: String, trailing: (@Composable () -> Unit)? = null) {
     Row {
         Text(
             label,
@@ -207,6 +214,10 @@ private fun InfoRow(label: String, value: String) {
             modifier = Modifier.width(130.dp),
         )
         Text(value, style = MaterialTheme.typography.bodyMedium)
+        if (trailing != null) {
+            Spacer(Modifier.width(12.dp))
+            trailing()
+        }
     }
 }
 

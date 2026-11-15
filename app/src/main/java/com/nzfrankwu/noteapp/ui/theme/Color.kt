@@ -42,6 +42,10 @@ val AmberOnLight = Color(0xFF6B3F00)
 val AmberContainerDark = Color(0xFF55380A)
 val AmberOnDark = Color(0xFFFFDDB0)
 
+// "Due soon" text (e.g. "Due tomorrow") straight on a card, without a tag background.
+val AmberTextLight = Color(0xFF8A5300)
+val AmberTextDark = Color(0xFFFFC27A)
+
 val PurpleContainerLight = Color(0xFFEBDFFF)
 val PurpleOnLight = Color(0xFF3F2178)
 val PurpleContainerDark = Color(0xFF45307A)

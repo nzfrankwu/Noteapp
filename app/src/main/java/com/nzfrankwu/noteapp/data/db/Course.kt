@@ -12,6 +12,8 @@ import java.time.Instant
  * A course is either created by you (typing a course code on a folder) or imported from Canvas.
  * If you made "ELECTENG 204" yourself and Canvas later finds the same code, Canvas sync fills in
  * [canvasCourseId] on this same row, so your tasks and Canvas's end up in one course.
+ *
+ * Fields added in later database versions go at the END (see Migrations.kt).
  */
 @Entity(
     tableName = "courses",
@@ -32,4 +34,12 @@ data class Course(
     @ColumnInfo(name = "created_at") val createdAt: Instant,
     /** Last time anything in this row changed (used by Phase 6 backup to upload only changes). */
     @ColumnInfo(name = "updated_at") val updatedAt: Instant,
+
+    // ---- Added in database version 3 ----
+    /**
+     * When you archived this course (e.g. last semester's), or null while it's current. An archived
+     * course's tasks are hidden from Home (Due soon, Calendar, Timeline) and get no reminders; its
+     * folder still shows everything. Nothing is deleted. Canvas sync never changes this.
+     */
+    @ColumnInfo(name = "archived_at") val archivedAt: Instant? = null,
 )

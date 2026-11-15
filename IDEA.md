@@ -20,10 +20,26 @@
 - Folders for organising notebooks; a folder can be **linked to a course** (e.g. `ELECTENG 204`).
 - Opening a course folder shows **two sections**: my **notebooks/files**, and **upcoming tasks** for that course.
 - When tasks are imported, the app detects the course code and offers to link it to an existing folder or create one.
+- **Tabs in a course folder:** Tasks · Calendar · Timeline (added Nov 2026). Calendar and Timeline are the Home views showing only that course.
+- **Subfolders** (added Nov 2026):
+  - Folders can hold other folders, e.g. ELECTENG 292 → tutorials, practice, slides, as I do in Notein.
+  - Inside a folder, like Notein: a filter row (All · PDF · Note · Folder) and a grid of thumbnails for subfolders, notebooks and PDFs.
+  - See `design-reference/notein-inside-course-folder.jpg` and `inside folder docs and other sub folders.jpg`.
+- **New folder picks the course from a list:** a drop-down of my current (not archived) courses, instead of typing the course code (added Nov 2026).
+- **Archiving courses** (added Nov 2026; about 4 new courses each semester):
+  - Archive a course from its folder's ⋮ menu, from "Link your Canvas courses", or from Settings → Courses (which also covers courses without a folder).
+  - An archived course's tasks disappear from Due soon, Calendar and Timeline, and its reminders stop. Nothing is deleted, and its folder still shows everything.
+  - Archived folders sit in a collapsed "Archived (N)" row under Folders, and archived courses are never suggested again.
 
 ### 2.2 Home screen
 - Split layout: **"Due soon"** list (all courses, sorted by due date) on one side, **course folders** on the other.
 - Overdue items clearly flagged.
+- **Tabs at the top: Overview · Calendar · Timeline** (added Nov 2026, inspired by my old Notion Canvas tracker):
+  - **Overview:** the split layout above.
+  - **Calendar:** a month grid with each task on its due date (time, course tag, status), plus Today and previous/next month.
+  - **Timeline:** one row per task, with a bar from when Canvas makes the assignment available (or when I added the task) to its due date. My target date is marked on the bar, and there's a line for today.
+- **Days left:** every dated task shows how long is left until the real due date ("Due today", "Due tomorrow", "3 days left", "2 days overdue").
+- **Course colours:** each course gets a steady colour, used for its tags everywhere. Choosing my own colours comes later.
 
 ### 2.3 Tasks (Canvas items + my own)
 - **Canvas items** are imported automatically by **signing in to Canvas inside the app** (see §3) — this includes undated assignments and descriptions.
@@ -187,7 +203,8 @@ Build one phase at a time; each phase should leave a working app. Commit after e
 | Phase | What gets built |
 |---|---|
 | **1. Courses & tasks** | Folders, manual tasks, status tags, home screen (Due soon + No due date + folders), task detail, reminders → then **Canvas sign-in + sync** (test the in-app login first), course linking, auto-status, quick-add from a link |
-| **2. Handwriting notebooks** | Notebook/page model, ink canvas with pen/highlighter/eraser, undo/redo, page templates (lined default), floating movable toolbar, zoom/scroll, palm rejection, autosave |
+| **1b. Task views** | Days left on tasks, automatic course colours, Canvas "available from" date (database v2), home tabs, Calendar (month), Timeline |
+| **2. Handwriting notebooks** | **Subfolders** (folder-in-folder, done together with the notebook storage changes), notebook/page model, ink canvas with pen/highlighter/eraser, undo/redo, page templates (lined default), floating movable toolbar, zoom/scroll, palm rejection, autosave |
 | **3. Images & PDFs** | Insert images, import PDFs and annotate, export annotated PDF, "Share to NoteApp" |
 | **4. Linking** | Link notebooks/files ↔ tasks; course folder view showing notes + tasks together |
 | **5. Productivity extras** | Lasso select, text boxes, in-app split view of two notebooks, screen capture/snip (whole screen incl. other apps → crop → insert; snip between split notebooks) |

@@ -45,6 +45,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     return@launch
                 }
                 if (item.task.status.isFinished || item.task.let { it.targetAt ?: it.dueAt } == null) return@launch
+                if (item.isCourseArchived) return@launch // archived since the alarm was set
                 val text = ReminderPlanner.message(item.task, offset, item.courseCode, ZoneId.systemDefault())
                 Notifications.showReminder(context, reminderId, taskId, item.task.title, text)
             } finally {

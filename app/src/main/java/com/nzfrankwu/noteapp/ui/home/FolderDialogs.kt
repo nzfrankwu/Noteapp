@@ -19,10 +19,15 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import com.nzfrankwu.noteapp.data.db.Course
+import com.nzfrankwu.noteapp.ui.components.CourseChoiceField
 
 /**
- * "New folder" (name + optional course code) or "Rename folder" (name only, when
- * [onCourseCodeChange] is null). [error] shows in red under the fields.
+ * "New folder" (name + optional course) or "Rename folder" (name only, when [onCourseCodeChange]
+ * is null). [error] shows in red under the fields.
+ *
+ * The course is picked from [courseChoices] (current courses without a folder; B.9), or typed
+ * after "Other course code…". With no courses to pick from, the code box shows straight away.
  */
 @Composable
 fun FolderEditDialog(
@@ -35,6 +40,10 @@ fun FolderEditDialog(
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    courseChoices: List<Course> = emptyList(),
+    typingOtherCode: Boolean = false,
+    onPickCourse: (Course?) -> Unit = {},
+    onTypeOtherCourse: () -> Unit = {},
 ) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -55,7 +64,16 @@ fun FolderEditDialog(
                         .focusRequester(focus)
                         .testTag("folder-name-field"),
                 )
-                if (onCourseCodeChange != null) {
+                if (onCourseCodeChange != null && courseChoices.isNotEmpty()) {
+                    CourseChoiceField(
+                        courses = courseChoices,
+                        selectedCode = courseCode,
+                        typingOther = typingOtherCode,
+                        onPick = onPickCourse,
+                        onTypeOther = onTypeOtherCourse,
+                    )
+                }
+                if (onCourseCodeChange != null && (courseChoices.isEmpty() || typingOtherCode)) {
                     OutlinedTextField(
                         value = courseCode,
                         onValueChange = onCourseCodeChange,

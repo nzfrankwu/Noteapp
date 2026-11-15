@@ -9,7 +9,7 @@ import java.time.Instant
  * How Canvas data is merged into your tasks (IDEA.md §3.3). Pure rules, no database or network,
  * so every case is unit-tested.
  *
- * - Canvas-owned fields (title, course, due date, description, link) follow Canvas.
+ * - Canvas-owned fields (title, course, due date, description, link, "available from") follow Canvas.
  * - Your fields (status, target date, notes) are never overwritten, except auto-status:
  *   when Canvas shows a NEW submission, the task moves forward to Submitted (never backwards,
  *   never over Done). Moving it back yourself afterwards sticks, because the same submission
@@ -37,6 +37,7 @@ object CanvasMerge {
         removedFromCanvas = false,
         createdAt = now,
         updatedAt = now,
+        availableAt = assignment.unlockAt,
     )
 
     /**
@@ -52,6 +53,7 @@ object CanvasMerge {
             dueAt = assignment.dueAt,
             url = assignment.htmlUrl,
             descriptionHtml = assignment.descriptionHtml,
+            availableAt = assignment.unlockAt,
             // Yours, except auto-status moving forward on a new submission
             status = autoStatus(existing, submission),
             // Bookkeeping: remember the latest submission seen. If Canvas leaves the submission
