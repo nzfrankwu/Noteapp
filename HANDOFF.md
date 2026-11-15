@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, evening (handover; usage limit reached mid-step 2.12). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, late (2.12 done; next is the end-of-phase review). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -9,26 +9,14 @@ _Last updated: 15 Nov 2026, evening (handover; usage limit reached mid-step 2.12
 - **Branch:** `phase-2` (pushed; the working tree is clean).
 - **Mode: "Hands-off"** since 15 Nov (the user said to spend the remaining budget on Phase 2, push when it matters, and update docs often). `REPORT.md` (local, git-ignored) has the report so far; update it when stopping, listing every 🔺 step done.
 - **The tablet runs the merged `main` build** (database version 3). **Don't install Phase 2 builds on the tablet without asking:** they upgrade its database to version 4.
-- **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor: Jetpack Ink, page files and autosave, toolbar, undo/redo, lasso, pen button, press-hard-to-erase), 2.11 (thumbnails).
-- **In progress: 2.12 performance.** The last session ended on 15 Nov (evening) when the usage limit ran out, mid-step.
+- **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor), 2.11 (thumbnails), **2.12 (performance; verified on the emulator, 15 Nov)**: two full pages scroll at a median 19 ms a frame (was 150 ms), render thread about 1 ms. Rotating now keeps the current page (`rememberSaveable` in `NotebookScreen`).
+- Full emulator suite: **181 tests pass** (after 2.12).
 
 ## Next steps (in order)
 
-1. **Verify the newest commit ("page pictures") before anything else. It builds and unit tests pass, but it has NEVER been run:** the emulator had been closed. It changed only `ui/notebook/PageInkLayers.kt`: each page's settled chunks now sit in one layer with `CompositingStrategy.Offscreen` (the graphics card keeps the page as a picture, drawn at `EditorViewState.inkScale`), and the last pen chunk plus the lasso selection sit in a second layer on top.
-   - Start the `Pixel_Tablet` emulator, run the scratchpad-style setup (see Gotchas: fake Canvas, a folder, a notebook, then editor ⋮ → "Add 50 pages of test writing (debug)").
-   - Check by eye: ink shows, is sharp, is in the right place after scrolling, pinching and double-tapping; writing, erasing, lasso move/resize and undo still look right; rotating works.
-   - Measure: `adb shell dumpsys gfxinfo com.nzfrankwu.noteapp reset`, do small back-and-forth swipes on full pages, then read `dumpsys gfxinfo … framestats` per stage.
-   - **Numbers to beat** (emulator, 2 full pages on screen, about 1,800 strokes):
-     - drawing every stroke every frame (first editor commit): about 150 ms a frame, up to 1.3 s
-     - chunk layers without page pictures (commit `f24e69a`): app thread about 5 ms, render thread about 13 ms, but about 50 ms a frame in total (the GPU replays every stroke)
-   - If page pictures misbehave and can't be fixed quickly: `git revert` that one commit to get back to `f24e69a`'s chunk layers (measured, and seen working on screen).
-2. **Run the whole emulator suite** (`connectedDebugAndroidTest`): it has NOT been run since the 2.12 changes (last full pass: 180 tests, before them). Fix what breaks.
-3. **Finish 2.12:** tick it in `PHASE-2.md` with the numbers, update `ISSUES.md`. Ideas not done yet:
-   - skip chunks that are off screen when zoomed in beyond the page-picture size limit
-   - pre-draw the next page before it scrolls in
-   - a lasso move of many strokes rebuilds them on release (a short pause)
-4. **End of phase:** run `/code-review` on the branch, fix what it finds, rebuild and retest, update `REPORT.md`, then ask the user to approve merging into `main`.
-5. Waiting on the user: tablet checks (see "Waiting on the user" below and ISSUES.md, Open questions).
+1. **End of phase:** run `/code-review` on the branch (`git diff main...phase-2`), fix what it finds, rebuild, run unit + emulator tests, re-check the editor on the emulator (`screenshots/perf_setup.sh`), update `REPORT.md` (list every 🔺 step), then **ask the user to approve merging into `main`**.
+2. Waiting on the user: tablet checks (see "Waiting on the user" below and ISSUES.md, Open questions).
+3. 2.12 follow-ups (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release.
 
 ## Tablet database safety copy
 
@@ -151,6 +139,7 @@ _Last updated: 15 Nov 2026, evening (handover; usage limit reached mid-step 2.12
   - Ink's own `encode`/`decode` use native code, which JVM unit tests can't load; we save with our own `PageInkCodec`.
   - Emulator stylus input: `adb shell input stylus swipe x1 y1 x2 y2 ms`, or `input stylus motionevent DOWN/MOVE/UP x y` (pressure is always 1.0 there).
   - Screen tests draw with "Draw with finger" on (`InkToolSettings(drawWithFinger = true)`), since test touches are fingers.
+- **Rotating the emulator from a script:** `settings put system accelerometer_rotation 0` first (it can switch itself back on), then `settings put system user_rotation 1` (portrait) or `0` (landscape); wait about 5 s.
 - **`InkPerformanceProbe`** (androidTest) only logs timings (`adb logcat -s InkPerf`); like every connected test run it uninstalls the app from the emulator afterwards.
 - **Every `connectedDebugAndroidTest` run wipes the emulator app's data.** Take screenshots before running the suite, or recreate data with the scratchpad `setup2.sh` (fake Canvas, 3 course folders, and in "Electronics Design 2": 2 subfolders and 2 notebooks).
 - **Emulator UI scripting:** a `ui.py` helper (tap by exact text / content description via `uiautomator dump`) lived in the scratchpad; rewrite it if gone. Set `PYTHONIOENCODING=utf-8` (screen text has "＋" etc.).

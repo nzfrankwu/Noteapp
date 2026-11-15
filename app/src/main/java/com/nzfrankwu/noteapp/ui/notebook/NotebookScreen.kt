@@ -28,10 +28,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -92,13 +95,21 @@ fun NotebookScreen(
         nb?.let { PageStrip(it.pageWidth, it.pageHeight, pages.size) }
     }
     // Fit the page once the screen size is known, and refit the same page after rotating.
+    // Rotating rebuilds the screen, so the page being viewed is kept in saved state.
     val viewSize = view.viewSize
     var fittedFor by remember { mutableStateOf(IntSize.Zero) }
+    var savedPage by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(viewSize, strip != null && pages.isNotEmpty()) {
         if (strip == null || pages.isEmpty() || viewSize.width == 0 || fittedFor == viewSize) return@LaunchedEffect
-        val page = view.camera?.let { strip.currentPage(it, fittedFor.width.toFloat()) } ?: 0
+        val page = (view.camera?.let { strip.currentPage(it, fittedFor.width.toFloat()) } ?: savedPage)
+            .coerceIn(0, pages.size - 1)
         view.camera = strip.fit(settings.fitMode, page, viewSize.width.toFloat(), viewSize.height.toFloat())
         fittedFor = viewSize
+    }
+    LaunchedEffect(strip) {
+        if (strip == null) return@LaunchedEffect
+        snapshotFlow { view.camera?.let { strip.currentPage(it, view.viewSize.width.toFloat()) } }
+            .collect { if (it != null) savedPage = it }
     }
 
     /** The page in the middle of the screen right now (read when a button is tapped). */

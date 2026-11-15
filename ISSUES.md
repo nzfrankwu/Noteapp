@@ -4,7 +4,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Known bugs
 
-- **Scrolling a notebook with very full pages is not smooth yet (Phase 2, step 2.12, in progress).** On the emulator, two full pages on screen (about 1,800 strokes) scroll at roughly 50 ms a frame, down from 150 ms. A further fix (keeping each page as a ready-made picture) is committed but not yet checked on screen. Lightly written pages are fine. Not yet tried on the tablet.
+_None known._
 
 ## Open questions
 
@@ -20,6 +20,8 @@ Running list of the project's current state. Updated with every step (see `CLAUD
   - Moving a large lasso selection pauses briefly when you let go (the moved strokes are rebuilt).
   - Every page of a notebook is loaded into memory when it opens (fine for 50 pages; revisit for very long notebooks).
   - A full page appears in a few quick steps the first time it scrolls into view.
+  - Zoomed in very far (a page bigger than about 4,000 pixels on screen), pages are no longer kept as a ready-made picture, so scrolling there is slower (about the 50 ms a frame of before). Not measured, because the emulator can't pinch from a script. Ideas: skip ink that's off screen, or keep only the visible part as a picture.
+  - The next page isn't drawn ahead of time; it appears as it scrolls in.
   - Jetpack Ink adds about 7 MB to the app (its drawing code for every kind of processor). A release build for one device type would be smaller; not worth doing now.
 
 - Build warning: `libandroidx.graphics.path.so` can't be stripped of debug symbols, so it's packaged as is. This is harmless and comes from AndroidX. No action needed unless APK size matters.
@@ -36,6 +38,8 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **A long notebook scrolls smoothly (Phase 2, step 2.12), 15 Nov.** On the emulator, with two full pages on screen (about 1,800 strokes), a frame went from about 150 ms (up to 1.3 s) to a median of 19 ms, with the graphics work down from 13 ms to 1 ms. How: saving a full page is 10× faster, strokes are prepared in the background, the ink is drawn in reusable groups of 32 strokes, and each page is kept on the graphics card as a ready-made picture that scrolling just moves. Writing, erasing, the lasso, undo and rotating still look right. Also fixed: **rotating the tablet sent the editor back to page 1**; it now stays on the same page. Not yet tried on the tablet.
 
 - **Handwriting in notebooks (Phase 2, steps 2.4–2.10), 15 Nov.** Notebooks open on a desk with pages side by side; a double-tap fits the page (fit height, or fit width / whole page in Settings → Notebooks). The pen writes with low lag (Google's Jetpack Ink library); a finger never writes but scrolls, pinches to zoom and double-taps. The thin floating toolbar has 3 pens, a see-through highlighter (drawn under the writing), an eraser (whole strokes), the lasso (circle, move, resize, delete), 8 colours plus more, 3 sizes plus a slider, Stability, hold-to-straighten and press-hard-to-erase; drag it by its handle or tuck it away. Undo and redo cover drawing, erasing, the lasso and adding or deleting pages. Pages save themselves within half a second, when you leave and when the app goes to the background; each page is its own file, written so a crash can't leave half a page. 63 new unit tests and 6 editor tests on the emulator.
 
