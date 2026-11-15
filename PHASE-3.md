@@ -92,7 +92,7 @@ The goal is to let the user import lecture PDFs, write on them, drop images onto
    - `domain/ink`: `InkImage`, `PageInkCodec` v2 (still reads v1), and `NotebookInk` holding strokes and images per page with undoable edits (add, remove, replace images).
    - `NotebookFiles` stores image assets.
    - Unit tests: v1 ↔ v2 round trips, a newer version refused, undo/redo of image edits.
-- [ ] **3.5 Insert image and the image menu** (`insert image menu.jpg`). ★
+- [x] **3.5 Insert image and the image menu** (`insert image menu.jpg`). ★ _Done 16 Nov (hands-off; check-in in REPORT.md): Image button in the middle pill; `ImageMenu` panel (✓ pick several → Insert N, Recent Images grid paged 60 at a time, hold a photo → "Insert as a new page", Photo Library, Take Photo via FileProvider `camera/`); `data/ImageImport` (ImageDecoder/EXIF, ≤ 2560 px, JPEG 90 or PNG if see-through, atomic save); `data/RecentImages` (MediaStore, access ALL/SELECTED/NONE); pictures drawn in layer 1 under the ink, in previews and tile pictures. Not yet: inserted pictures come in unselected (selection needs 3.6)._
    - The panel under the Image button.
    - **Recent Images** grid: `MediaStore` images newest first, small thumbnails loaded on a background thread, paged as you scroll.
    - Permissions: `READ_MEDIA_IMAGES` and `READ_MEDIA_VISUAL_USER_SELECTED` (Android 13/14+), `READ_EXTERNAL_STORAGE` up to Android 12. Handle "allow all", "selected photos" and "don't allow".

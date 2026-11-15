@@ -311,6 +311,11 @@ fun NotebookCanvas(
             .mapNotNull { pages.getOrNull(it) }
         viewModel.preparePdf(order, view.inkScale)
     }
+    // Pictures on the pages near the screen.
+    LaunchedEffect(visible, pages, viewModel.version) {
+        if (visible.isEmpty()) return@LaunchedEffect
+        viewModel.prepareImages(((visible.first - 1)..(visible.last + 1)).mapNotNull { pages.getOrNull(it) })
+    }
     // Zoomed in very far on a PDF page: once the view rests, draw just the part on screen, sharp.
     LaunchedEffect(view, strip, pages) {
         snapshotFlow { view.camera }.collectLatest { cam ->
@@ -387,6 +392,9 @@ fun NotebookCanvas(
                 } else {
                     drawPaperPattern(page.template ?: notebook.template, pw, ph, PaperLine, left, top, s)
                 }
+                // Pictures, under the ink (read version so they redraw when they change).
+                @Suppress("UNUSED_VARIABLE") val edits = viewModel.version
+                for (image in viewModel.ink.images(page.id)) drawPicture(image, viewModel.imageBitmaps[image.asset], left, top, s)
                 // Until the page's ink is drawn in full, its quick preview stands in (soft, F8).
                 if (view.fullyDrawn[page.id] != true) {
                     viewModel.previews[page.id]?.let { img ->
@@ -1000,6 +1008,33 @@ private fun handleAt(p: Offset, sel: LassoState.Selected, snap: Snapshot, cam: C
 }
 
 private fun androidx.compose.ui.input.pointer.PointerInputChange.changedToDownIgnoreConsumed() = !previousPressed && pressed
+
+/**
+ * Draws a picture on a page whose top-left corner is at ([pageLeft], [pageTop]) px, at [scale]
+ * px per page unit, turned about its centre. Until its [bitmap] has loaded, a pale box stands in.
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPicture(
+    image: com.nzfrankwu.noteapp.domain.ink.InkImage,
+    bitmap: androidx.compose.ui.graphics.ImageBitmap?,
+    pageLeft: Float, pageTop: Float, scale: Float,
+) {
+    val x = pageLeft + image.left * scale
+    val y = pageTop + image.top * scale
+    val w = image.width * scale
+    val h = image.height * scale
+    rotate(Math.toDegrees(image.rotation.toDouble()).toFloat(), pivot = Offset(x + w / 2, y + h / 2)) {
+        if (bitmap == null) {
+            drawRect(Color(0x1F000000), Offset(x, y), Size(w, h))
+        } else {
+            drawImage(
+                bitmap,
+                dstOffset = IntOffset(x.roundToInt(), y.roundToInt()),
+                dstSize = IntSize(w.roundToInt().coerceAtLeast(1), h.roundToInt().coerceAtLeast(1)),
+                filterQuality = FilterQuality.Medium,
+            )
+        }
+    }
+}
 
 /** How long the view must rest before a sharp part of a deeply zoomed PDF page is drawn. */
 private const val PDF_DETAIL_DELAY_MS = 180L

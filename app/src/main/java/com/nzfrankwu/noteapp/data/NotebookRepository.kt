@@ -159,9 +159,10 @@ class NotebookRepository(
      * after it move along by one.
      *
      * The new page is the same size as the page before it (or, at the front, the page after it),
-     * so a blank page among a PDF's pages matches them. It's always a plain page, never a PDF page.
+     * so a blank page among a PDF's pages matches them, unless [size] is given (e.g. a page shaped
+     * like a picture). It's always a plain page, never a PDF page.
      */
-    suspend fun addPage(notebookId: String, index: Int): NotebookResult = db.withTransaction {
+    suspend fun addPage(notebookId: String, index: Int, size: PageSize? = null): NotebookResult = db.withTransaction {
         val notebook = dao.getNotebook(notebookId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
         val now = clock.instant()
         val pages = dao.getPages(notebookId)
@@ -169,7 +170,7 @@ class NotebookRepository(
         val neighbour = pages.getOrNull(at - 1) ?: pages.getOrNull(at)
         val page = Page(
             id = newId(), notebookId = notebookId, position = at, createdAt = now, updatedAt = now,
-            width = neighbour?.width, height = neighbour?.height,
+            width = size?.width ?: neighbour?.width, height = size?.height ?: neighbour?.height,
         )
         val renumbered = pages.toMutableList().apply { add(at, page) }
         dao.insertPage(page)

@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.Bitmap
 import com.nzfrankwu.noteapp.data.InkSketch
@@ -199,8 +200,9 @@ class NotebookViewModel(
                     ?: com.nzfrankwu.noteapp.domain.PageSize(nb.pageWidth, nb.pageHeight)
                 val page = pages.value.firstOrNull { it.id == pageId }
                 val pdfBack = page?.let { p -> pdfFileOf(p)?.let { f -> pdf.wholePage(f, p.pdfPage ?: 0, size, PREVIEW_WIDTH_PX / size.width) } }
-                val picture = if (strokes.isEmpty() && pdfBack == null) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
-                    renderPreview(strokes, size.width, size.height, pdfBack?.bitmap)
+                val pictures = ink.images(pageId).mapNotNull { img -> imageBitmaps[img.asset]?.let { img to it.asAndroidBitmap() } }
+                val picture = if (strokes.isEmpty() && pdfBack == null && pictures.isEmpty()) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
+                    renderPreview(strokes, size.width, size.height, pdfBack?.bitmap, pictures)
                 }
                 // Changed while it was drawn: draw it again (the loop comes back to it).
                 if ((pageEdits[pageId] ?: 0) == edits) previews[pageId] = picture
@@ -208,15 +210,103 @@ class NotebookViewModel(
         }
     }
 
-    private fun renderPreview(strokes: List<InkStroke>, pageWidth: Float, pageHeight: Float, pdfPage: Bitmap? = null): ImageBitmap {
+    private fun renderPreview(
+        strokes: List<InkStroke>, pageWidth: Float, pageHeight: Float, pdfPage: Bitmap? = null,
+        pictures: List<Pair<com.nzfrankwu.noteapp.domain.ink.InkImage, Bitmap>> = emptyList(),
+    ): ImageBitmap {
         val scale = PREVIEW_WIDTH_PX / pageWidth
         val bitmap = Bitmap.createBitmap(PREVIEW_WIDTH_PX.toInt(), (pageHeight * scale).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bitmap)
         if (pdfPage != null && !pdfPage.isRecycled) {
             canvas.drawBitmap(pdfPage, null, android.graphics.Rect(0, 0, bitmap.width, bitmap.height), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
         }
+        InkSketch.drawImages(canvas, pictures, scale)
         InkSketch.draw(canvas, strokes, scale, widthFactor = PREVIEW_LINE_FACTOR, minWidth = 0.7f)
         return bitmap.asImageBitmap()
+    }
+
+    // ---- Pictures (Phase 3) ----
+
+    private val imageImport = com.nzfrankwu.noteapp.data.ImageImport(files, io)
+
+    /** Pictures ready for the screen, by file name (shrunk to about the screen's size). */
+    val imageBitmaps = mutableStateMapOf<String, ImageBitmap>()
+    private val imageLoads = HashSet<String>()
+
+    /** True while pictures are being brought in (the screen shows it). */
+    var insertingImages by mutableStateOf(false)
+        private set
+
+    /** Loads the pictures on the pages [near] for the screen, and forgets the others. */
+    fun prepareImages(near: List<Page>) {
+        val wanted = near.flatMap { ink.images(it.id) }.mapTo(HashSet()) { it.asset }
+        imageBitmaps.keys.filter { it !in wanted }.forEach { imageBitmaps.remove(it) }
+        for (asset in wanted) {
+            if (asset in imageBitmaps || !imageLoads.add(asset)) continue
+            viewModelScope.launch {
+                try {
+                    val file = runCatching { files.assetFile(notebookId, asset) }.getOrNull()
+                    val bitmap = file?.let { withContext(io) { com.nzfrankwu.noteapp.data.ImageImport.loadForScreen(it, IMAGE_SCREEN_PX) } }
+                    if (bitmap != null) imageBitmaps[asset] = bitmap.asImageBitmap()
+                } finally {
+                    imageLoads.remove(asset)
+                }
+            }
+        }
+    }
+
+    /**
+     * Inserts pictures on page [pageIndex]: in its middle, about 60% of the page wide, each a
+     * little lower-right of the one before. One undo step. Returns how many could be read.
+     */
+    suspend fun insertImages(pageIndex: Int, sources: List<() -> java.io.InputStream?>): Int {
+        val nb = notebook.value ?: return 0
+        val page = pages.value.getOrNull(pageIndex) ?: return 0
+        if (!isEditable(page.id) || sources.isEmpty()) return 0
+        insertingImages = true
+        try {
+            val size = page.size(nb)
+            val placed = ArrayList<com.nzfrankwu.noteapp.domain.ink.InkImage>()
+            for (open in sources) {
+                val imported = imageImport.import(notebookId, open) ?: continue
+                val image = com.nzfrankwu.noteapp.domain.ink.InkImage.centred(
+                    java.util.UUID.randomUUID().toString(), imported.asset, imported.widthPx, imported.heightPx, size.width, size.height,
+                )
+                val shift = placed.size * CASCADE_STEP
+                placed += image.copy(left = image.left + shift, top = image.top + shift)
+            }
+            if (placed.isNotEmpty() && isEditable(page.id)) {
+                ink.addImages(page.id, placed)
+                changed(page.id)
+            }
+            return placed.size
+        } finally {
+            insertingImages = false
+        }
+    }
+
+    /**
+     * Inserts a picture as a page of its own after page [afterIndex]: the page takes the
+     * picture's shape (its longer side as long as an A4 page's) and the picture fills it.
+     */
+    suspend fun insertImageAsPage(afterIndex: Int, open: () -> java.io.InputStream?): String? {
+        insertingImages = true
+        try {
+            val imported = imageImport.import(notebookId, open) ?: return null
+            val longSide = com.nzfrankwu.noteapp.data.db.Notebook.A4_HEIGHT
+            val aspect = imported.heightPx.toFloat() / imported.widthPx.coerceAtLeast(1)
+            val size = if (aspect >= 1f) com.nzfrankwu.noteapp.domain.PageSize(longSide / aspect, longSide)
+            else com.nzfrankwu.noteapp.domain.PageSize(longSide, longSide * aspect)
+            val pageId = addPage(afterIndex + 1, size = size) ?: return null
+            ink.addImages(
+                pageId,
+                listOf(com.nzfrankwu.noteapp.domain.ink.InkImage(java.util.UUID.randomUUID().toString(), imported.asset, 0f, 0f, size.width, size.height)),
+            )
+            changed(pageId)
+            return pageId
+        } finally {
+            insertingImages = false
+        }
     }
 
     // ---- PDF pages (Phase 3) ----
@@ -416,8 +506,8 @@ class NotebookViewModel(
      * Adds an empty page at [index] and returns its ID (null if it failed). [recordUndo] makes it
      * an undo step (the Add page button); a page added by itself after writing isn't one.
      */
-    suspend fun addPage(index: Int, recordUndo: Boolean = true): String? {
-        val result = notebooks.addPage(notebookId, index)
+    suspend fun addPage(index: Int, recordUndo: Boolean = true, size: com.nzfrankwu.noteapp.domain.PageSize? = null): String? {
+        val result = notebooks.addPage(notebookId, index, size)
         if (result !is NotebookResult.Success) return null
         // The page list may already have shown (and readied) the new page; keep anything on it.
         if (!ink.isLoaded(result.id)) ink.load(result.id, emptyList())
@@ -572,7 +662,8 @@ class NotebookViewModel(
         val size = first.size(nb)
         val pdfFile = pdfFileOf(first)
         val pdfPage = first.pdfPage ?: 0
-        return { t.render(notebookId, paper, size.width, size.height, strokes, pdfFile, pdfPage) }
+        val images = ink.images(first.id).mapNotNull { img -> runCatching { img to files.assetFile(notebookId, img.asset) }.getOrNull() }
+        return { t.render(notebookId, paper, size.width, size.height, strokes, pdfFile, pdfPage, images) }
     }
 
     /** Redraws the tile picture (e.g. after the first page changed). */
@@ -588,6 +679,12 @@ class NotebookViewModel(
     }
 
     companion object {
+        /** Pictures are shown shrunk to about this many pixels on their longest side. */
+        const val IMAGE_SCREEN_PX = 2048
+
+        /** Each further picture inserted at once sits this much (page units) lower-right. */
+        private const val CASCADE_STEP = 24f
+
         /** Preview width in pixels: small, so it's quick to draw and looks soft when stretched (F8). */
         const val PREVIEW_WIDTH_PX = 320f
 

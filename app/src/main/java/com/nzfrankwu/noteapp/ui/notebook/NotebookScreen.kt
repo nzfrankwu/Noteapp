@@ -115,6 +115,8 @@ fun NotebookScreen(
         snapshotFlow { view.pageTouches }.collect { if (it != seen) { seen = it; showSettings = false } }
     }
     var menuOpen by remember { mutableStateOf(false) }
+    var imageMenuOpen by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveNow() }
     LaunchedEffect(message) {
@@ -220,6 +222,8 @@ fun NotebookScreen(
                 onBack = ::leave,
                 onUndo = { view.lasso = null; viewModel.undo() },
                 onRedo = { view.lasso = null; viewModel.redo() },
+                onImage = { imageMenuOpen = !imageMenuOpen; menuOpen = false },
+                imageMenuOpen = imageMenuOpen,
                 onAddPage = {
                     view.lasso = null // a selection remembers its page's place, which moves
                     scope.launch {
@@ -265,10 +269,46 @@ fun NotebookScreen(
                     )
                 }
             }
+            if (imageMenuOpen) {
+                // Under the Image button, at the right (like Notein): picking a picture inserts it.
+                ImageMenu(
+                    onInsert = { uris, asNewPage ->
+                        imageMenuOpen = false
+                        val resolver = context.contentResolver
+                        val at = pageNow()
+                        scope.launch {
+                            val sources = uris.map { uri -> { openPicture(resolver, uri) } }
+                            if (asNewPage) {
+                                val pageId = viewModel.insertImageAsPage(at, sources.first())
+                                if (pageId == null) snackbar.showSnackbar("That picture couldn't be read.")
+                                else if (strip != null) {
+                                    val grown = strip.withPageAdded(at + 1)
+                                    view.animateTo(scope, grown.fit(settings.fitMode, at + 1, view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
+                                }
+                            } else {
+                                val added = viewModel.insertImages(at, sources)
+                                if (added < uris.size) {
+                                    snackbar.showSnackbar(if (added == 0) "That picture couldn't be read." else "${uris.size - added} pictures couldn't be read.")
+                                }
+                            }
+                            uris.filter { it.scheme == "file" }.forEach { runCatching { java.io.File(it.path!!).delete() } }
+                        }
+                    },
+                    onDismiss = { imageMenuOpen = false },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp),
+                )
+            }
+            if (viewModel.insertingImages) {
+                androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter).testTag("inserting-images"))
+            }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
         }
     }
 }
+
+/** Opens a chosen picture: from another app (content://) or our own camera file (file://, cache only). */
+private fun openPicture(resolver: android.content.ContentResolver, uri: android.net.Uri): java.io.InputStream? =
+    if (uri.scheme == "file") uri.path?.let { java.io.File(it).inputStream() } else resolver.openInputStream(uri)
 
 /** The floating toolbar (or its tucked-away button), where it was left; its settings panel beside it. */
 @Composable

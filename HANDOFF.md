@@ -1,11 +1,11 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.4 done and pushed; next 3.5). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.5 done and pushed; next 3.6). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
-- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF) and 3.4 (pictures in the page model) are done**; next is 3.5 (Insert image and the image menu).
+- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model) and 3.5 (the image menu) are done**; next is 3.6 (lasso with pictures).
 - **Branch:** `phase-3` (from `main`), pushed after each step.
 - **Mode: hands-off** (the user said so on 16 Nov, 3.2 onwards): commit and push after each passing step; write `REPORT.md` when stopping; list every 🔺 step there.
 - **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
@@ -15,7 +15,8 @@ _Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.4 done and pushed; nex
 
 ## Next steps (in order)
 
-1. **Step 3.5 (Insert image and the image menu)**: pictures aren't drawn or insertable yet. Needed: decode/downscale/EXIF/save into `notebooks/<id>/images/` (`NotebookFiles.newImageName` + `writeAsset`), `NotebookInk.addImages`, draw pictures under the ink in `PageInkLayer` (and previews, thumbnails), the image menu panel (Recent grid via MediaStore + permissions, Photo Library, Take Photo via FileProvider). Then 3.6 (lasso with images), 3.7 (PDF export).
+1. **Step 3.6 (lasso with pictures)** 🔺: `LassoState.Selected` holds strokes only. Add pictures to it (loop touching/crossing a picture's box, or a lasso tap on a picture: `InkImage.contains`, `corners`), move/resize/rotate them with the strokes (`LassoBox.map`), and use `NotebookInk.replace/remove/add(pageId, strokes, images)` (one undo step each). Hide selected pictures from layer 1 while dragging (draw them in the selection layer). Duplicate/copy/cut/paste must copy pictures too (the clipboard holds strokes only now). Then make a newly inserted picture come in selected. Then 3.7 (PDF export).
+   - 3.5 left: `ImageMenu.kt`, `data/ImageImport` (+ `loadForScreen`), `data/RecentImages`, `NotebookViewModel.insertImages / insertImageAsPage / prepareImages / imageBitmaps`, `drawPicture` in `NotebookCanvas`, `InkSketch.drawImages`, FileProvider `${applicationId}.files` (`res/xml/file_paths.xml`: cache `camera/`, `exports/`).
    - 3.4 left: `InkImage`, `PageContent`, `PageInkCodec.decodePage`, `NotebookInk.images/addImages/remove/replace/add(strokes, images)`, `InkEdit.Group`, `changedPages`.
    - 3.3 left: `PdfImport` (ID → copy into `notebooks/<id>/pdf-<uuid>.pdf` → `PdfPages.readInfo` → `createPdfNotebook`), `PdfPages` (whole-page pictures + `region` for deep zoom), `NotebookViewModel.preparePdf` / `preparePdfDetail` → `pdfPictures` / `pdfDetail` state drawn in `NotebookCanvas` layer 1, `NotebookListItem.isPdf`, `LibraryFilter.PDFS`.
    - 3.2 left: `PageStrip(sizes)`, `pageTop(i)` (pages centred in a band as tall as the tallest), `withPageAdded`, `Page.size(notebook)`.
@@ -137,6 +138,7 @@ _Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.4 done and pushed; nex
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
 - **Real upgrade test, scripted (3.1):** `screenshots/upgrade_v5.sh <old APK as a Windows path>` installs the old build, makes sample data and a 51-page notebook, snapshots, installs the new build, snapshots again; then `python compare_dbs.py upgrade-v5/before upgrade-v5/after` compares every row and the page files' md5s. Pass the APK as `C:\...`: the script sets `MSYS_NO_PATHCONV=1`, so adb can't read `/c/...` paths.
 - **`folders.course_id` is unique:** subfolders store NULL there (they inherit the course through `parent_id`). Test data with a subfolder must use NULL.
+- **Test pictures:** `screenshots/make_test_png.py out.png W H [--alpha]`; push to `/sdcard/Pictures/` and send `MEDIA_SCANNER_SCAN_FILE` so the Recent grid sees them. The emulator's photo permission dialog offers "Allow limited access / Allow all / Don't allow".
 - **Test PDFs:** `screenshots/make_test_pdf.py out.pdf 100` writes a slide PDF with no libraries; push it to `/sdcard/Download/` and it shows in the system picker's Recent. Emulator tests make PDFs on the device with `android.graphics.pdf.PdfDocument` (`PdfImportTest`).
 - **Heredocs:** a Python heredoc in the Bash tool failed with "unexpected EOF" twice for no clear reason; writing the script to a file with the Write tool always works.
 - **Both the tablet and the emulator are often plugged in:** always set `ANDROID_SERIAL=emulator-5554` / `adb -s emulator-5554`.

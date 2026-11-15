@@ -50,6 +50,9 @@ fun EditorTopBar(
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onAddPage: () -> Unit,
+    /** Opens or closes the image menu. */
+    onImage: () -> Unit,
+    imageMenuOpen: Boolean,
     menuOpen: Boolean,
     onMenuOpen: (Boolean) -> Unit,
     menu: @Composable ColumnScope.() -> Unit,
@@ -75,6 +78,11 @@ fun EditorTopBar(
         ) {
             BarButton(R.drawable.ic_undo, "Undo", onUndo, Modifier.testTag("undo"), enabled = canUndo, filled = false)
             BarButton(R.drawable.ic_redo, "Redo", onRedo, Modifier.testTag("redo"), enabled = canRedo, filled = false)
+            Box(Modifier.size(width = 1.dp, height = 24.dp).background(ButtonRim))
+            BarButton(
+                R.drawable.ic_image, if (imageMenuOpen) "Close the image menu" else "Insert an image", onImage,
+                Modifier.testTag("image-button"), filled = false,
+            )
         }
 
         Row(

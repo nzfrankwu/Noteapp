@@ -12,6 +12,7 @@ _None known._
 
 ## Follow-ups / tech debt
 
+- **Image menu, not checked yet (Phase 3.5):** Take Photo with the emulator's camera; "Allow limited access" (only some photos) and "Don't allow" paths; HEIC photos (the emulator has none). Inserted pictures come in unselected until step 3.6.
 - **PDF pages, things not checked yet (Phase 3.3):** the sharp deep-zoom part (`pdfDetail`) needs a two-finger pinch, which the emulator scripts can't do; check on the tablet. Jumping far with the page scroller shows the page white for a moment before its picture arrives (plain notebooks also have no preview that far away). PDFs with rotated pages (`/Rotate`) aren't tested. Android 15+ can open password-protected PDFs with a password; we just refuse them for now.
 - **Imported PDFs and images are never deleted (Phase 3 decision):** a notebook's `pdf-*.pdf` and `images/*` files stay even when their pages or images are deleted, so Undo and Phase 6's "Recently deleted" can bring them back. Clean-up of files nothing uses is a Phase 6/7 job.
 - **Steady pen width vs the pressure pen (F22):** at the same Thickness, the Off/Low/Medium pens may look thinner or thicker than the Full pen at your usual pressure (the emulator only has full pressure). Tune the multipliers in `InkBrushes.roundPen` after trying it on the tablet; changing them changes how existing strokes of those kinds look, so give a new key if notes already use them.
@@ -48,6 +49,7 @@ _None known._
 
 ## Done
 
+- **Phase 3 step 3.5 (16 Nov):** Insert image: the image menu (Recent Images, Photo Library, Take Photo); pictures sit under the ink and are saved with the page.
 - **Phase 3 steps 3.2–3.4 (16 Nov):** page files can hold pictures (format 2, only when a page has one).
 - **Phase 3 steps 3.2–3.3 (16 Nov):** pages of different sizes; Import PDF (folder ＋ → Import PDF), drawn with Android's PdfRenderer, with a "PDF" tag and a PDFs filter.
 - **Phase 3 step 3.1, database version 5 (16 Nov):** pages got their own size and PDF page columns (empty for every existing page). Real v4 → v5 upgrade on the emulator: every row unchanged, all page files byte-identical; a deliberately broken migration is caught by `MigrationTest`.
