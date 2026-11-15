@@ -1,23 +1,23 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (feedback F1–F29 done; second end-of-phase review done; waiting for the user's OK to merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 2 merged into `main`; next is planning Phase 3). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phase 1 (Courses & tasks)** and **Phase 1b (Task views): both done and merged into `main`.** Their history is in `PHASE-1.md`, `PHASE-1B.md` and `ISSUES.md`.
-- **Current phase: Phase 2, Handwriting notebooks.** The plan is **`PHASE-2.md`** (decisions, design, checklist 2.1–2.12, layout drafts).
-- **Branch:** `phase-2` (pushed; the working tree is clean).
-- **Mode: "Hands-off"** since 15 Nov (the user said to spend the remaining budget on Phase 2, push when it matters, and update docs often). `REPORT.md` (local, git-ignored) has the report so far; update it when stopping, listing every 🔺 step done.
-- **The tablet runs the `phase-2` build (`d94ea61`) since 15 Nov, late**, with the user's OK. Its database upgraded to **version 4** cleanly (10 courses, 4 folders, 124 tasks kept; integrity OK). **Never install a `main` build (v3) on it again** until Phase 2 is merged: Room can't downgrade.
+- **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
+- **Current phase: none started.** Next is Phase 3 (see IDEA.md §5): plan it with the user first (a new `PHASE-3.md`, then a `phase-3` branch).
+- **Branch:** `main` (pushed; the working tree is clean). `phase-2` is merged and can be kept or deleted.
+- **Mode:** "Working together" (the default) unless the user says otherwise; they gave Phase 2 feedback live on 16 Nov.
+- **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
 - **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor), 2.11 (thumbnails), **2.12 (performance; verified on the emulator, 15 Nov)**: two full pages scroll at a median 19 ms a frame (was 150 ms), render thread about 1 ms. Rotating now keeps the current page (`rememberSaveable` in `NotebookScreen`).
 - **End-of-phase `/code-review` done (15 Nov):** 8 findings, 7 fixed (save retries even after leaving, no crash from a DB error after saving, lasso cleared by the eraser end / add page / delete page, newest highlighter chunk in its own layer under the page picture, add-page race, garbled `Migrations.kt` comments). The 8th (deleted notebooks left without a folder when their folder is deleted) is a Phase 6 follow-up in ISSUES.md.
 - Unit tests and the full emulator suite (**182 tests**) pass after the fixes.
 
 ## Next steps (in order)
 
-1. **The user's tablet feedback (`PHASE-2.md` 2.13, F1–F29) is all built** (16 Nov) and on the tablet; waiting for their check and more feedback. **The second `/code-review` is done (16 Nov): 6 of 7 fixed, 183 emulator tests pass.** Batch 4: a page is added after the last one when you write on it, lasso rotate handle, tap outside to deselect (no Done), fix for pages staying blurry after a fast scroll. Batch 5: floating buttons instead of a top bar (pages reach the status bar), flat/round highlighter tips, lasso picks partly-circled strokes. F20: the page number is a draggable page scroller that fades. Batch 6 (F21–F25): highlighter opacity, pen pressure levels, editable toolbar colours, darker desk. Batch 7 (F26–F28): hard press held still erases, panel closes on any page touch (pen or finger), delete colour-wheel colours. Next: the user approves merging `phase-2` into `main` (never merge without it).
-2. **Waiting on the user: approve merging `phase-2` into `main`** (CLAUDE.md: never merge without approval). `REPORT.md` (local) has the full report. After merging, Phase 3 is next (see IDEA.md §5).
-3. 2.12 follow-ups (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release.
+1. **Plan Phase 3** with the user (IDEA.md §5): write `PHASE-3.md`, mark 🔺 steps, then branch `phase-3`.
+2. Follow-ups from Phase 2 (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release; tune the steady/low/medium pen widths after real use (F22); deleted notebooks left without a folder (Phase 6).
+3. Still unreported tablet checks: a reminder arriving with the app swiped away (ColorOS); "Last synced" moving on its own (background sync).
 
 ## Tablet database safety copy
 
