@@ -132,6 +132,7 @@ Batch 6 (16 Nov):
 Batch 7 (16 Nov):
 - [x] **F26. Press hard without moving erases:** the pen-down sample now counts (where the pen is, how hard), and a pen whose first reading is already below 1.0 counts as a pressure pen. Before, a hard press that never moved sent no more samples, so it never erased and the ring had nowhere to show.
 - [x] **F27. The pen's settings panel closes** when the pen touches the page.
+- [x] **F29. A finger touch on the page closes the settings panel too.**
 - [x] **F28. Delete colour-wheel colours:** hold one in the panel for Add to toolbar / Delete.
 
 - [ ] **End of phase (again, after 2.13):** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.

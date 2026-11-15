@@ -144,8 +144,8 @@ class EditorViewState {
      */
     var fastScroll by mutableStateOf(false)
 
-    /** Counts pen touches on the page; the pen's settings panel closes on the next one (F27). */
-    var penDowns by mutableIntStateOf(0)
+    /** Counts touches on the page (pen or finger); the tool's settings panel closes on the next one (F27, F29). */
+    var pageTouches by mutableIntStateOf(0)
 
     /** Where a finger was held to paste (screen pixels): shows the Paste bubble (F12). */
     var pasteAt by mutableStateOf<Offset?>(null)
@@ -553,6 +553,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
             view.stopMotion()
             view.pasteAt = null
             longPress?.cancel()
+            view.pageTouches++ // closes the tool's settings panel (pen F27, finger F29)
         }
 
         // ---- Stylus side button: a click toggles lasso (hovering or touching). ----
@@ -593,7 +594,6 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         lastHard = PressureErase.isHard(change.pressure, level, pressureVaries)
                         hardAtOnce = pressHold.feed(change.pressure, level, pressureVaries, lastWorld.x, lastWorld.y, change.uptimeMillis)
                     }
-                    view.penDowns++ // closes the pen's settings panel (F27)
                     holdWatch?.cancel()
                     val watchedPen = change.id
                     holdWatch = motionScope.launch {
