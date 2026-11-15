@@ -18,6 +18,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.dp
@@ -74,6 +75,27 @@ class FolderFlowTest {
             compose.onNodeWithTag("folder-code-field").performTextInput(code)
         }
         compose.onNodeWithTag("dialog-confirm").performClick()
+    }
+
+    @Test
+    fun pickingAnotherCourse_replacesTheAutoFilledName_butNotATypedOne() {
+        runBlocking {
+            db.courseDao().insert(Course("c1", "ELECTENG 292", "Electronics Design 2", 556, Instant.EPOCH, Instant.EPOCH))
+            db.courseDao().insert(Course("c2", "COMPSYS 201", "Computer Systems", 557, Instant.EPOCH, Instant.EPOCH))
+        }
+        compose.onNodeWithText("New folder").performClick()
+        compose.onNodeWithTag("course-choice").performClick()
+        compose.onNodeWithTag("course-choice-ELECTENG 292").performClick()
+        compose.onNodeWithTag("folder-name-field").assertTextContains("Electronics Design 2")
+        compose.onNodeWithTag("course-choice").performClick()
+        compose.onNodeWithTag("course-choice-COMPSYS 201").performClick()
+        compose.onNodeWithTag("folder-name-field").assertTextContains("Computer Systems")
+
+        compose.onNodeWithTag("folder-name-field").performTextClearance()
+        compose.onNodeWithTag("folder-name-field").performTextInput("My own name")
+        compose.onNodeWithTag("course-choice").performClick()
+        compose.onNodeWithTag("course-choice-ELECTENG 292").performClick()
+        compose.onNodeWithTag("folder-name-field").assertTextContains("My own name")
     }
 
     @Test

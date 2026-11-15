@@ -39,6 +39,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -133,7 +135,7 @@ fun TimelineContent(state: TimelineState, use24Hour: Boolean, actions: TimelineA
                         .fillMaxWidth()
                         .weight(1f)
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
-                        .swipeToMove(actions),
+                        .swipeToMove(rememberUpdatedState(actions)),
                 ) {
                     DayBackground(state, dayWidth)
                     // Behind the bars, so it never crosses a title; it shows in the gaps between them.
@@ -250,7 +252,8 @@ private fun NowLine(state: TimelineState, dayWidth: Dp) {
     }
 }
 
-private fun Modifier.swipeToMove(actions: TimelineActions): Modifier = this.then(
+/** Swipe sideways to move in time. [actions] is read when a swipe ends, so it's always the latest. */
+private fun Modifier.swipeToMove(actions: State<TimelineActions>): Modifier = this.then(
     Modifier.pointerInput(Unit) {
         val distance = 80.dp.toPx()
         var dragged = 0f
@@ -258,8 +261,8 @@ private fun Modifier.swipeToMove(actions: TimelineActions): Modifier = this.then
             onDragStart = { dragged = 0f },
             onDragEnd = {
                 when {
-                    dragged <= -distance -> actions.onNext()
-                    dragged >= distance -> actions.onPrevious()
+                    dragged <= -distance -> actions.value.onNext()
+                    dragged >= distance -> actions.value.onPrevious()
                 }
             },
         ) { _, amount -> dragged += amount }
@@ -267,6 +270,9 @@ private fun Modifier.swipeToMove(actions: TimelineActions): Modifier = this.then
 )
 
 private val RowHeight = 44.dp
+
+/** Narrowest bar drawn, so a very short task can still be seen and tapped. */
+private val MinBarWidth = 12.dp
 private val BarHeight = 32.dp
 
 /** Bars narrower than this put their label beside the bar instead of on it. */
@@ -299,9 +305,10 @@ private fun BoxScope.Bar(row: TimelineRow, p: TimelinePlacement.Visible, state: 
     val task = row.task
     val overdue = TaskRules.isOverdue(task, state.now)
     val course = LocalCourseColors.current.of(task.item.courseCode)
-    val x = dayWidth * p.start.toFloat()
-    val width = (dayWidth * (p.end - p.start).toFloat()).coerceAtLeast(12.dp)
     val total = dayWidth * state.days.size
+    val width = (dayWidth * (p.end - p.start).toFloat()).coerceAtLeast(MinBarWidth)
+    // A short bar near the right edge moves left rather than sticking out of the grid.
+    val x = (dayWidth * p.start.toFloat()).coerceAtMost(total - width)
     val due = task.dueAt!!.atZone(state.zone)
     val dueText = "${DateText.time(due.toLocalTime(), use24Hour)} ${due.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)}"
     val description = "${task.title}, ${task.item.courseCode ?: "no course"}, due ${DateText.dateTime(task.dueAt!!, state.zone, state.now)}" +

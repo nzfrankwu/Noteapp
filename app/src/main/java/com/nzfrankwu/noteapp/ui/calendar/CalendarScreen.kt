@@ -42,7 +42,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -196,6 +199,7 @@ private fun WeekdayHeader() {
 @Composable
 private fun MonthGrid(state: CalendarState, use24Hour: Boolean, actions: CalendarActions, modifier: Modifier = Modifier) {
     val swipeDistance = with(LocalDensity.current) { 80.dp.toPx() }
+    val currentActions by rememberUpdatedState(actions) // the gesture outlives recompositions
     Column(
         modifier
             .fillMaxWidth()
@@ -206,8 +210,8 @@ private fun MonthGrid(state: CalendarState, use24Hour: Boolean, actions: Calenda
                     onDragStart = { dragged = 0f },
                     onDragEnd = {
                         when {
-                            dragged <= -swipeDistance -> actions.onNextMonth()
-                            dragged >= swipeDistance -> actions.onPreviousMonth()
+                            dragged <= -swipeDistance -> currentActions.onNextMonth()
+                            dragged >= swipeDistance -> currentActions.onPreviousMonth()
                         }
                     },
                 ) { _, amount -> dragged += amount }
@@ -378,6 +382,9 @@ private fun DaySheet(state: CalendarState, openDay: LocalDate?, actions: Calenda
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.onCloseDay() },
         )
     }
+    // The last day opened, kept while the sheet slides away (openDay is already null by then).
+    var shownDay by remember { mutableStateOf(openDay) }
+    if (openDay != null) shownDay = openDay
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
         val width = min(maxWidth, 440.dp)
         AnimatedVisibility(
@@ -385,8 +392,7 @@ private fun DaySheet(state: CalendarState, openDay: LocalDate?, actions: Calenda
             enter = slideInHorizontally { it },
             exit = slideOutHorizontally { it },
         ) {
-            // Keep showing the last day while the sheet slides away.
-            val date = openDay ?: return@AnimatedVisibility
+            val date = shownDay ?: return@AnimatedVisibility
             val entries = state.day(date)?.entries.orEmpty()
             Surface(
                 modifier = Modifier.width(width).fillMaxHeight().testTag("day-sheet"),

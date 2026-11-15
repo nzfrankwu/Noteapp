@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, 12:05 pm. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, 12:25 pm. Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -21,7 +21,7 @@ _Last updated: 15 Nov 2026, 12:05 pm. Keep this file current (see CLAUDE.md, "Se
 
 ## Next steps (in order)
 
-1. End of phase (all of B.1–B.9 is done): `/code-review`, fix, retest, then ask to merge into `main`.
+1. **Ask the user to approve merging `phase-1b` into `main`** (never merge without their OK). The end-of-phase `/code-review` is done and 7 of 8 findings are fixed (see ISSUES.md), with all tests passing. The review fixes are pushed but not on the tablet yet.
 2. **Later, in Phase 2: subfolders** (the user asked for them on 15 Nov). IDEA.md §2.1 and the §5 Phase 2 row now include them.
    - Planned for the start of Phase 2, so the folder database change goes in with the notebook storage change.
    - Layout reference: `design-reference/notein-inside-course-folder.jpg` (a filter row All · PDF · Note · Folder, then a thumbnail grid).

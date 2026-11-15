@@ -40,7 +40,7 @@ Decided with the user (15 Nov 2026):
   - Archived folders move to a collapsed **"Archived (N) ▾"** row at the bottom of Folders, shown faded when opened.
   - Archived courses are never suggested by "New from Canvas".
 - [x] **B.9 New folder: choose the course from a list.** _(done 15 Nov: `components/CourseChoiceField`, `CourseDao.observeCurrentWithoutFolder`. The list shows current courses without a folder, plus "Other course code…" for a course Noteapp doesn't know yet; with no courses to pick, the code box shows straight away. Picking a course fills in an empty folder name.)_ (Added 15 Nov at the user's request.) The New folder dialog swaps the typed course code for a drop-down of current courses (archived ones are left out), plus "No course". The folder's "Link a course" dialog uses the same list. Do this **after B.8**, since it needs the archived flag.
-- [ ] **End of phase:** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
+- [x] **End of phase:** _(15 Nov: `/code-review` (high) of the whole branch found 8 issues. 7 were fixed: the day sheet slide-out, typing an archived course's code now brings the course back, the auto-filled name follows the picked course, swipes use the latest callbacks, short timeline bars stay inside the grid, a stale course filter is cleared, and the course label is shared. 1 was skipped: a tiny always-on query, to avoid the dialog flickering. All 231 unit and 149 emulator tests pass. Waiting for the user's approval to merge.)_ run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 
 ## Calendar layout (B.5)
 

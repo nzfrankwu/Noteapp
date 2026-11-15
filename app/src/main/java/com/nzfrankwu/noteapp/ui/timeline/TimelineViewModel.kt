@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import java.time.Clock
@@ -122,7 +123,11 @@ class TimelineViewModel(
         filters,
     ) { all, courses, now, (start, zoom), filters ->
         TimelineState.build(all, courses, start, zoom, filters, now, zone)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimelineState())
+    }
+        // A course filter whose course was archived meanwhile is cleared for good, so it doesn't
+        // quietly come back if the course is brought back later.
+        .onEach { built -> if (built.filters.courseId == null) filters.update { f -> if (f.courseFixed) f else f.copy(courseId = null) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimelineState())
 
     fun previous() = start.update { TimelineRules.shift(it, zoom.value, -1) }
     fun next() = start.update { TimelineRules.shift(it, zoom.value, +1) }

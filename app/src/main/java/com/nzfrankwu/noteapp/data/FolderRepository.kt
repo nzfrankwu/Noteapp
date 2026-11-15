@@ -159,9 +159,18 @@ class FolderRepository(
         folderDao.getById(folderId)?.let { folderDao.delete(it) }
     }
 
+    /**
+     * The course with this code (ignoring spaces and case), or a new one. Typing the code of an
+     * archived course brings it back: you're making a folder for it, so it's current again (B.8).
+     */
     private suspend fun findOrCreateCourse(tidyCode: String, now: Instant): Course {
         val key = CourseCodes.matchKey(tidyCode)
-        courseDao.getAll().firstOrNull { CourseCodes.matchKey(it.code) == key }?.let { return it }
+        courseDao.getAll().firstOrNull { CourseCodes.matchKey(it.code) == key }?.let { found ->
+            if (found.archivedAt == null) return found
+            val current = found.copy(archivedAt = null, updatedAt = now)
+            courseDao.update(current)
+            return current
+        }
 
         val course = Course(id = newId(), code = tidyCode, name = null, canvasCourseId = null, createdAt = now, updatedAt = now)
         courseDao.insert(course)

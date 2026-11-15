@@ -219,4 +219,16 @@ class FolderRepositoryTest {
     fun archivingAMissingCourse_saysSo() = runBlocking {
         assertTrue(!repo.setCourseArchived("no-such-course", true))
     }
+
+    @Test
+    fun newFolderForAnArchivedCoursesCode_bringsTheCourseBack() = runBlocking {
+        val first = (repo.createFolder("EE 204", "ELECTENG 204") as FolderResult.Success).folderId
+        val courseId = db.folderDao().getById(first)!!.courseId!!
+        repo.setCourseArchived(courseId, true)
+        repo.deleteFolder(first) // archived course, no folder
+
+        val second = (repo.createFolder("Electromagnetics", "electeng 204") as FolderResult.Success).folderId
+        assertEquals(courseId, db.folderDao().getById(second)!!.courseId) // same course, not a new one
+        assertNull(db.courseDao().getById(courseId)!!.archivedAt) // and it's current again
+    }
 }

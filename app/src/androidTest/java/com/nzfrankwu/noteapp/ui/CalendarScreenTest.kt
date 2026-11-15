@@ -46,13 +46,14 @@ class CalendarScreenTest {
     private var opened: String? = null
     private var addedOn: LocalDate? = null
     private lateinit var tasks: TaskRepository
+    private lateinit var folders: FolderRepository
     private lateinit var courses: Map<String, String>
 
     @Before
     fun setUp() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val db = Room.inMemoryDatabaseBuilder(context, NoteAppDatabase::class.java).build()
-        val folders = FolderRepository(db)
+        folders = FolderRepository(db)
         tasks = TaskRepository(db)
         runBlocking {
             folders.createFolder("Electromagnetics", "ELECTENG 204")
@@ -118,6 +119,20 @@ class CalendarScreenTest {
         compose.onNodeWithText("Quiz 4").assertDoesNotExist()
         compose.onNodeWithTag("calendar-today").performClick()
         compose.onNodeWithTag("calendar-month").assertTextEquals("November 2026")
+    }
+
+    @Test
+    fun aFilterOnACourseThatIsArchived_isCleared_andStaysClearedWhenItComesBack() {
+        showAll()
+        compose.onNodeWithTag("course-filter").performClick()
+        compose.onNodeWithTag("course-filter-COMPSYS 201").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("calendar-more-2026-11-20").fetchSemanticsNodes().isEmpty() }
+
+        runBlocking { folders.setCourseArchived(courses.getValue("COMPSYS 201"), true) }
+        compose.waitUntilAtLeastOneExists(hasTestTag("calendar-more-2026-11-20"), 5_000) // all courses again
+        runBlocking { folders.setCourseArchived(courses.getValue("COMPSYS 201"), false) }
+        compose.waitUntilAtLeastOneExists(hasText("Quiz 4"), 5_000)
+        compose.onNodeWithTag("calendar-more-2026-11-20").assertExists() // still all courses
     }
 
     @Test

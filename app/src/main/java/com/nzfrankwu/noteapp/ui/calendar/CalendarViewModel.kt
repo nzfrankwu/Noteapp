@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -127,7 +128,11 @@ class CalendarViewModel(
         filters,
     ) { all, courses, now, month, filters ->
         CalendarState.build(all, courses, month, filters, now, zone)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CalendarState())
+    }
+        // A course filter whose course was archived meanwhile is cleared for good, so it doesn't
+        // quietly come back if the course is brought back later.
+        .onEach { built -> if (built.filters.courseId == null) filters.update { f -> if (f.courseFixed) f else f.copy(courseId = null) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CalendarState())
 
     fun previousMonth() = changeMonth { it.minusMonths(1) }
     fun nextMonth() = changeMonth { it.plusMonths(1) }

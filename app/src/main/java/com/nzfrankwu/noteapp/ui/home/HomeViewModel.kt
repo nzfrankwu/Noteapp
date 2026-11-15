@@ -43,6 +43,8 @@ sealed interface FolderDialog {
         val error: String? = null,
         /** True after "Other course code…": the code box is shown. */
         val typingOtherCode: Boolean = false,
+        /** The name filled in from a picked course, so picking another course can replace it. */
+        val autoName: String? = null,
     ) : FolderDialog
     data class Rename(val folderId: String, val name: String, val error: String? = null) : FolderDialog
     data class ConfirmDelete(val folderId: String, val name: String, val courseCode: String?) : FolderDialog
@@ -190,11 +192,20 @@ class HomeViewModel(
     val coursesWithoutFolder: StateFlow<List<Course>> = folderRepository.observeCoursesWithoutFolder()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** A course from the list (or null for "No course"). An empty name becomes the course's name. */
+    /**
+     * A course from the list (or null for "No course"). An empty name, or one filled in from the
+     * previously picked course, becomes the new course's name; a name you typed is kept.
+     */
     fun pickCourse(course: Course?) = _dialog.update {
         if (it !is FolderDialog.New) return@update it
-        val name = if (it.name.isBlank() && course != null) course.name?.takeIf(String::isNotBlank) ?: course.code else it.name
-        it.copy(name = name, courseCode = course?.code.orEmpty(), typingOtherCode = false, error = null)
+        val nameWasAuto = it.name.isBlank() || it.name == it.autoName
+        val courseName = course?.let { c -> c.name?.takeIf(String::isNotBlank) ?: c.code }
+        val (name, autoName) = when {
+            nameWasAuto && courseName != null -> courseName to courseName
+            nameWasAuto -> "" to null // "No course" clears a name that came from a course
+            else -> it.name to null
+        }
+        it.copy(name = name, autoName = autoName, courseCode = course?.code.orEmpty(), typingOtherCode = false, error = null)
     }
 
     /** "Other course code…": type a course Noteapp doesn't know yet. */

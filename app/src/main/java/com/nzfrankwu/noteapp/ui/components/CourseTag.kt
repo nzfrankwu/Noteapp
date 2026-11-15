@@ -15,7 +15,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.nzfrankwu.noteapp.data.db.Course
 import com.nzfrankwu.noteapp.ui.theme.LocalCourseColors
+
+/** How a course is named in lists: "ELECTENG 204 · Engineering Electromagnetics", or just the code. */
+fun courseLabel(course: Course): String =
+    if (course.name.isNullOrBlank() || course.name == course.code) course.code else "${course.code} · ${course.name}"
 
 /**
  * A course code in its course's colour, with a small colour bar in front: "▌ELECTENG 204".

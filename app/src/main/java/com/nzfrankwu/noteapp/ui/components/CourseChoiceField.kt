@@ -84,6 +84,3 @@ fun CourseChoiceField(
         }
     }
 }
-
-private fun courseLabel(course: Course): String =
-    if (course.name.isNullOrBlank() || course.name == course.code) course.code else "${course.code} · ${course.name}"
