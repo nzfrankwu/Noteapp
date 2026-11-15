@@ -1,6 +1,11 @@
 package com.nzfrankwu.noteapp.domain.ink
 
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 /** The lasso selection box's drag handles (PHASE-2.md F12). */
@@ -56,24 +61,66 @@ object LassoBox {
         return floatArrayOf(l, t, r, b)
     }
 
-    /** [stroke] (inside [from]) placed into [to]: moved and stretched to match. */
-    fun map(stroke: InkStroke, from: FloatArray, to: FloatArray): InkStroke {
+    /**
+     * [stroke] (inside [from]) placed into [to]: moved and stretched to match, then turned by
+     * [angle] (radians, clockwise on screen) around [to]'s centre (F14).
+     */
+    fun map(stroke: InkStroke, from: FloatArray, to: FloatArray, angle: Float = 0f): InkStroke {
         val sx = scaleX(from, to)
         val sy = scaleY(from, to)
+        val fcx = (from[0] + from[2]) / 2; val fcy = (from[1] + from[3]) / 2
+        val tcx = (to[0] + to[2]) / 2; val tcy = (to[1] + to[3]) / 2
+        val cos = cos(angle); val sin = sin(angle)
         val n = stroke.pointCount
-        val xs = FloatArray(n) { to[0] + (stroke.xs[it] - from[0]) * sx }
-        val ys = FloatArray(n) { to[1] + (stroke.ys[it] - from[1]) * sy }
+        val xs = FloatArray(n)
+        val ys = FloatArray(n)
+        for (i in 0 until n) {
+            val dx = (stroke.xs[i] - fcx) * sx
+            val dy = (stroke.ys[i] - fcy) * sy
+            xs[i] = tcx + dx * cos - dy * sin
+            ys[i] = tcy + dx * sin + dy * cos
+        }
+        // The pen's direction turns with the writing (it's saved in radians, or NONE).
+        val orientation = if (angle == 0f) stroke.orientation.copyOf() else FloatArray(n) {
+            val o = stroke.orientation[it]
+            if (o < 0f) o else ((o + angle) % TWO_PI + TWO_PI) % TWO_PI
+        }
         return InkStroke(
             stroke.id, stroke.tool, stroke.colorArgb, stroke.size * sqrt(sx * sy), xs, ys,
-            stroke.times.copyOf(), stroke.pressure.copyOf(), stroke.tilt.copyOf(), stroke.orientation.copyOf(), stroke.inputTool,
+            stroke.times.copyOf(), stroke.pressure.copyOf(), stroke.tilt.copyOf(), orientation, stroke.inputTool,
         )
+    }
+
+    /**
+     * The angle to turn a selection by when the rotate handle is dragged from ([sx], [sy]) to
+     * ([x], [y]) around ([cx], [cy]): radians, snapped to the nearest quarter turn when within
+     * [SNAP_RADIANS] of it, so straightening writing back up is easy.
+     */
+    fun rotation(cx: Float, cy: Float, sx: Float, sy: Float, x: Float, y: Float): Float {
+        val raw = atan2(y - cy, x - cx) - atan2(sy - cy, sx - cx)
+        var a = ((raw % TWO_PI) + TWO_PI) % TWO_PI // 0..2π
+        if (a > PI.toFloat()) a -= TWO_PI // -π..π
+        val quarter = (PI / 2).toFloat()
+        val nearest = kotlin.math.round(a / quarter) * quarter
+        return if (abs(a - nearest) <= SNAP_RADIANS) nearest else a
+    }
+
+    /** ([x], [y]) turned by [angle] around ([cx], [cy]). */
+    fun rotatePoint(x: Float, y: Float, cx: Float, cy: Float, angle: Float): Pair<Float, Float> {
+        val c = cos(angle); val s = sin(angle)
+        val dx = x - cx; val dy = y - cy
+        return (cx + dx * c - dy * s) to (cy + dx * s + dy * c)
     }
 
     fun scaleX(from: FloatArray, to: FloatArray): Float = (to[2] - to[0]) / max(from[2] - from[0], 1e-3f)
     fun scaleY(from: FloatArray, to: FloatArray): Float = (to[3] - to[1]) / max(from[3] - from[1], 1e-3f)
 
-    fun same(a: FloatArray, b: FloatArray): Boolean = a.indices.all { kotlin.math.abs(a[it] - b[it]) < 0.01f }
+    fun same(a: FloatArray, b: FloatArray): Boolean = a.indices.all { abs(a[it] - b[it]) < 0.01f }
 
+    /** Within this of a quarter turn (about 4°), rotating snaps to it. */
+    const val SNAP_RADIANS = 0.07f
+
+    private const val TWO_PI = (2 * PI).toFloat()
     private const val MIN_SCALE = 0.1f
     private const val MAX_SCALE = 10f
 }

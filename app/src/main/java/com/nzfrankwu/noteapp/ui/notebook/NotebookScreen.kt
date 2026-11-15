@@ -293,7 +293,10 @@ private fun FloatingToolbar(
     }
 }
 
-/** The menu under the lasso's selection (F12): Resize, Duplicate, Copy, Cut, Delete, Done. */
+/**
+ * The menu under the lasso's selection (F12): Resize, Duplicate, Copy, Cut, Delete. There's no
+ * Done: touching the page outside the selection lets it go (F15).
+ */
 @Composable
 private fun LassoMenu(
     view: EditorViewState,
@@ -327,7 +330,6 @@ private fun LassoMenu(
             TextButton(onClick = { onCopy(sel) }) { Text("Copy") }
             TextButton(onClick = { onCut(sel) }) { Text("Cut") }
             TextButton(onClick = { onDelete(sel) }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-            TextButton(onClick = { view.lasso = null }) { Text("Done") }
         }
     }
 }

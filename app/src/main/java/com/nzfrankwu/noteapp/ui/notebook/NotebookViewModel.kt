@@ -38,11 +38,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Whether a page's strokes are ready to show and edit. */
 sealed interface PageStatus {
@@ -220,6 +222,28 @@ class NotebookViewModel(
         val finished = strokes.map { Smoothing.smoothed(it, stability) }
         ink.add(pageId, finished)
         changed(pageId)
+        addPageAfterIfLast(pageId)
+    }
+
+    private var addingNextPage = false
+
+    /**
+     * Writing on the last page adds an empty page after it (PHASE-2.md F13), so there's always a
+     * fresh page to the right. It isn't an undo step: undoing the writing leaves the empty page.
+     */
+    private fun addPageAfterIfLast(pageId: String) {
+        val list = pages.value
+        if (addingNextPage || list.lastOrNull()?.id != pageId) return
+        addingNextPage = true
+        viewModelScope.launch {
+            try {
+                val id = addPage(list.size, recordUndo = false)
+                // Wait for the page list to show it, so more writing meanwhile doesn't add another.
+                if (id != null) withTimeoutOrNull(2_000) { pages.first { now -> now.any { it.id == id } } }
+            } finally {
+                addingNextPage = false
+            }
+        }
     }
 
     /** Erases whatever the eraser touches moving from (ax, ay) to (bx, by) on the page (page units). */
@@ -312,15 +336,20 @@ class NotebookViewModel(
 
     // ---- Pages ----
 
-    /** Adds an empty page at [index] and returns its ID (null if it failed). */
-    suspend fun addPage(index: Int): String? {
+    /**
+     * Adds an empty page at [index] and returns its ID (null if it failed). [recordUndo] makes it
+     * an undo step (the Add page button); a page added by itself after writing isn't one.
+     */
+    suspend fun addPage(index: Int, recordUndo: Boolean = true): String? {
         val result = notebooks.addPage(notebookId, index)
         if (result !is NotebookResult.Success) return null
         // The page list may already have shown (and readied) the new page; keep anything on it.
         if (!ink.isLoaded(result.id)) ink.load(result.id, emptyList())
         pageStatus[result.id] = PageStatus.Ready
-        ink.recordPageEdit(InkEdit.AddPage(result.id, index))
-        refreshUndo()
+        if (recordUndo) {
+            ink.recordPageEdit(InkEdit.AddPage(result.id, index))
+            refreshUndo()
+        }
         version++
         return result.id
     }

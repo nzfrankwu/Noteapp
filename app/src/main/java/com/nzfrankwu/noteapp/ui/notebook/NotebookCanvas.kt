@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerId
@@ -86,7 +87,9 @@ import kotlin.math.max
  * What the lasso has: the loop being drawn, or the strokes it picked on one page. A selection
  * keeps the box its strokes were picked in ([bounds]) and the box they're being moved or
  * stretched to ([target]), both [left, top, right, bottom] in page units (see [LassoBox]).
- * [handles] shows the handles on every corner and edge (the menu's Resize, F12).
+ * [handles] shows the handles on every corner and edge, plus the rotate handle above the box
+ * (the menu's Resize: F12, F14). [angle] is how far the rotate handle has turned the selection so
+ * far (radians, around the box's centre); it's applied to the strokes when the pen lifts.
  */
 sealed interface LassoState {
     data class Drawing(val pageIndex: Int, val xs: List<Float>, val ys: List<Float>) : LassoState
@@ -97,13 +100,14 @@ sealed interface LassoState {
         val bounds: FloatArray,
         val target: FloatArray = bounds,
         val handles: Boolean = false,
+        val angle: Float = 0f,
     ) : LassoState {
-        /** The selection box after the move/resize so far (page units). */
+        /** The selection box after the move/resize so far (page units), before any [angle]. */
         fun box(): FloatArray = target
 
-        val changed: Boolean get() = !LassoBox.same(bounds, target)
+        val changed: Boolean get() = !LassoBox.same(bounds, target) || angle != 0f
 
-        fun transformed(): List<InkStroke> = strokes.map { LassoBox.map(it, bounds, target) }
+        fun transformed(): List<InkStroke> = strokes.map { LassoBox.map(it, bounds, target, angle) }
 
         /** The handles shown: just the bottom-right corner, or all eight after Resize. */
         fun shownHandles(): List<BoxHandle> = if (handles) BoxHandle.entries else listOf(BoxHandle.BOTTOM_RIGHT)
@@ -392,12 +396,29 @@ fun NotebookCanvas(
                     val pl = strip.pageLeft(lasso.pageIndex)
                     val l = cam.toScreenX(pl + box[0]) - 6f; val t = cam.toScreenY(box[1]) - 6f
                     val r = cam.toScreenX(pl + box[2]) + 6f; val b = cam.toScreenY(box[3]) + 6f
-                    drawRect(Color(0xFF2F6BDB), Offset(l, t), Size(r - l, b - t), style = DrawStroke(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))))
-                    val padded = floatArrayOf(l, t, r, b)
-                    for (handle in lasso.shownHandles()) {
-                        val (hx, hy) = handle.at(padded)
-                        drawCircle(Color.White, HANDLE_RADIUS, Offset(hx, hy))
-                        drawCircle(Color(0xFF2F6BDB), HANDLE_RADIUS, Offset(hx, hy), style = DrawStroke(width = 3f))
+                    // While the rotate handle is dragged, the box turns with the writing (F14).
+                    rotate(Math.toDegrees(lasso.angle.toDouble()).toFloat(), pivot = Offset((l + r) / 2, (t + b) / 2)) {
+                        drawRect(SelectionBlue, Offset(l, t), Size(r - l, b - t), style = DrawStroke(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))))
+                        val padded = floatArrayOf(l, t, r, b)
+                        if (lasso.handles) {
+                            val (rx, ry) = rotateHandleAt(padded)
+                            drawLine(SelectionBlue, Offset(rx, t), Offset(rx, ry), strokeWidth = 2f)
+                            drawCircle(SelectionBlue, HANDLE_RADIUS, Offset(rx, ry))
+                            // A small turning arrow on it.
+                            drawArc(
+                                Color.White, -60f, 270f, useCenter = false,
+                                topLeft = Offset(rx - HANDLE_RADIUS * 0.55f, ry - HANDLE_RADIUS * 0.55f),
+                                size = Size(HANDLE_RADIUS * 1.1f, HANDLE_RADIUS * 1.1f),
+                                style = DrawStroke(width = 2.5f, cap = StrokeCap.Round),
+                            )
+                        }
+                        if (lasso.angle == 0f) {
+                            for (handle in lasso.shownHandles()) {
+                                val (hx, hy) = handle.at(padded)
+                                drawCircle(Color.White, HANDLE_RADIUS, Offset(hx, hy))
+                                drawCircle(SelectionBlue, HANDLE_RADIUS, Offset(hx, hy), style = DrawStroke(width = 3f))
+                            }
+                        }
                     }
                 }
                 null -> Unit
@@ -444,6 +465,14 @@ private data class Snapshot(
 
 private const val HANDLE_RADIUS = 14f
 
+/** How far above the box the rotate handle sits (screen pixels, F14). */
+private const val ROTATE_HANDLE_GAP = 56f
+
+private val SelectionBlue = Color(0xFF2F6BDB)
+
+/** Where the rotate handle sits for a (padded, screen) box: above its top middle. */
+private fun rotateHandleAt(box: FloatArray): Pair<Float, Float> = (box[0] + box[2]) / 2 to box[1] - ROTATE_HANDLE_GAP
+
 /** Hold a finger this long to paste (ms). */
 private const val LONG_PRESS_MS = 500L
 
@@ -458,7 +487,7 @@ private const val TAP_MS = 300L
 private const val DOUBLE_TAP_MS = 320L
 
 /** What a stylus (or the debug finger) is doing between down and up. */
-private enum class PenMode { INK, STRAIGHT, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, BLOCKED }
+private enum class PenMode { INK, STRAIGHT, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, LASSO_ROTATE, BLOCKED }
 
 private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGestures(
     snapshot: () -> Snapshot,
@@ -578,6 +607,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     penMode = when {
                         page == null || !viewModel.isEditable(page.id) -> PenMode.BLOCKED
                         change.type == PointerType.Eraser || tool == EditorTool.ERASER -> PenMode.ERASE
+                        tool == EditorTool.LASSO && selected != null && onRotateHandle(change.position, selected, snap, cam) -> PenMode.LASSO_ROTATE
                         tool == EditorTool.LASSO && selected != null && handleAt(change.position, selected, snap, cam)?.also { grabbed = it } != null -> PenMode.LASSO_RESIZE
                         tool == EditorTool.LASSO && selected != null && insideSelection(change.position, selected, snap, cam) -> PenMode.LASSO_MOVE
                         tool == EditorTool.LASSO -> {
@@ -666,6 +696,14 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                                 onLasso(sel.copy(target = LassoBox.dragged(sel.target, grabbed, x, y, keepShape = !sel.handles)))
                             }
                         }
+                        PenMode.LASSO_ROTATE -> {
+                            change.consume()
+                            (view.lasso as? LassoState.Selected)?.let { sel ->
+                                val b = selectionScreenBox(sel, snap, cam)
+                                val angle = LassoBox.rotation((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, penStart.x, penStart.y, change.position.x, change.position.y)
+                                onLasso(sel.copy(angle = angle))
+                            }
+                        }
                         PenMode.BLOCKED -> change.consume()
                     }
                     penLast = change.position
@@ -693,7 +731,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                                 onLasso(null)
                             }
                         }
-                        PenMode.LASSO_MOVE, PenMode.LASSO_RESIZE -> {
+                        PenMode.LASSO_MOVE, PenMode.LASSO_RESIZE, PenMode.LASSO_ROTATE -> {
                             (view.lasso as? LassoState.Selected)?.let { sel ->
                                 if (sel.changed) {
                                     val moved = sel.transformed()
@@ -772,6 +810,12 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     }
                 }
                 if (isTap) {
+                    // A tap outside the lasso's selection lets it go (F15; the pen does too).
+                    (view.lasso as? LassoState.Selected)?.let { sel ->
+                        if (!insideSelection(change.position, sel, snap, cam) && handleAt(change.position, sel, snap, cam) == null &&
+                            !onRotateHandle(change.position, sel, snap, cam)
+                        ) onLasso(null)
+                    }
                     if (change.uptimeMillis - lastTapUpAt < DOUBLE_TAP_MS && (change.position - lastTapPos).getDistance() < TAP_SLOP * 3) {
                         val index = snap.strip.pageAt(cam.toWorldX(change.position.x))
                         view.animateTo(motionScope, snap.strip.fit(snap.settings.fitMode, index, viewW, viewH))
@@ -869,6 +913,14 @@ private fun insideSelection(p: Offset, sel: LassoState.Selected, snap: Snapshot,
     val b = selectionScreenBox(sel, snap, cam)
     val pad = 16f
     return p.x >= b[0] - pad && p.x <= b[2] + pad && p.y >= b[1] - pad && p.y <= b[3] + pad
+}
+
+/** True when [p] (screen pixels) is on the rotate handle, shown after Resize (F14). */
+private fun onRotateHandle(p: Offset, sel: LassoState.Selected, snap: Snapshot, cam: Camera): Boolean {
+    if (!sel.handles) return false
+    val b = selectionScreenBox(sel, snap, cam)
+    val (rx, ry) = rotateHandleAt(floatArrayOf(b[0] - 6f, b[1] - 6f, b[2] + 6f, b[3] + 6f))
+    return hypot(p.x - rx, p.y - ry) <= HANDLE_RADIUS * 2.5f
 }
 
 /** The selection handle under [p] (screen pixels), if any. */

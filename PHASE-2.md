@@ -109,6 +109,12 @@ Batch 3, pens:
 - [x] 🔺 **F11. Hold to straighten, live:** after holding still, the line snaps straight right away, and you can keep moving its end; it gently snaps to common angles (horizontal, vertical, 45°). _(A pen held perfectly still may send no samples, so a 40 ms watcher also checks both holds. The emulator can't test F9: its pen pressure is always 1.0.)_
 - [x] **F12. Lasso menu:** Resize (handles on all corners and edges), Duplicate, Copy, Cut, Delete; Paste from a finger press-and-hold on the page.
 
+Batch 4 (16 Nov, after trying F1–F12):
+- [x] **F13. Writing on the last page adds a page** after it, so there's always a fresh page to the right. Not an undo step (undoing the writing leaves the empty page).
+- [x] 🔺 **F14. Rotate in the lasso's Resize mode:** a round handle above the box turns the selection around its centre, snapping to quarter turns within about 4°. When the pen lifts, the strokes are saved turned and the box fits them again.
+- [x] **F15. No Done button:** a finger tap outside the selection lets it go (a finger drag still scrolls and keeps it); the pen outside it already did.
+- [x] 🔺 **F16. Pages stayed blurry after a fast scroll** (notebooks of a few short pages) until zoomed or touched. Cause: a page with little writing was marked ready to draw without telling the screen, so its layer never redrew. Readiness is now Compose state (`StrokeDrawables`).
+
 - [ ] **End of phase (again, after 2.13):** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 
 ## Folder screen layout (2.2), draft to confirm

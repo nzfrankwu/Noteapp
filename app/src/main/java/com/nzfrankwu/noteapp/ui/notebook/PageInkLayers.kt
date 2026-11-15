@@ -154,12 +154,16 @@ fun PageInkLayer(
                     Modifier.fillMaxSize()
                         .graphicsLayer {
                             val sel = view.lasso as? LassoState.Selected ?: return@graphicsLayer
-                            // Stretch around the box's top-left corner, then move (F12: free stretching).
-                            transformOrigin = TransformOrigin(sel.bounds[0] * raster / size.width, sel.bounds[1] * raster / size.height)
+                            // Stretch and turn around the box's centre, then move its centre to the
+                            // target's: the same as LassoBox.map (F12 stretching, F14 rotating).
+                            val fcx = (sel.bounds[0] + sel.bounds[2]) / 2; val fcy = (sel.bounds[1] + sel.bounds[3]) / 2
+                            val tcx = (sel.target[0] + sel.target[2]) / 2; val tcy = (sel.target[1] + sel.target[3]) / 2
+                            transformOrigin = TransformOrigin(fcx * raster / size.width, fcy * raster / size.height)
                             scaleX = LassoBox.scaleX(sel.bounds, sel.target)
                             scaleY = LassoBox.scaleY(sel.bounds, sel.target)
-                            translationX = (sel.target[0] - sel.bounds[0]) * raster
-                            translationY = (sel.target[1] - sel.bounds[1]) * raster
+                            rotationZ = Math.toDegrees(sel.angle.toDouble()).toFloat()
+                            translationX = (tcx - fcx) * raster
+                            translationY = (tcy - fcy) * raster
                         }
                         .drawBehind { drawStrokes(strokes, pageId, raster, viewModel.drawables, renderer) },
                 )
