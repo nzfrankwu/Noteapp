@@ -98,6 +98,9 @@ class FolderRepository(
     /** Current Canvas courses with no folder yet (for the "Link your courses" prompt). */
     fun observeCanvasCoursesWithoutFolder(): Flow<List<Course>> = courseDao.observeCanvasCoursesWithoutFolder()
 
+    /** Current courses without a folder, A–Z: the choices in New folder and Link a course. */
+    fun observeCoursesWithoutFolder(): Flow<List<Course>> = courseDao.observeCurrentWithoutFolder()
+
     /** Every course with its folder (if any), A–Z, for Settings → Courses. */
     fun observeCoursesWithFolders(): Flow<List<CourseListItem>> = courseDao.observeAllWithFolder()
 

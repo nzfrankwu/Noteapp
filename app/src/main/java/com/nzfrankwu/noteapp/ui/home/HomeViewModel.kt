@@ -37,7 +37,13 @@ data class HomeBanners(
 
 /** Which folder dialog is open on the home screen, with what's typed in it. */
 sealed interface FolderDialog {
-    data class New(val name: String = "", val courseCode: String = "", val error: String? = null) : FolderDialog
+    data class New(
+        val name: String = "",
+        val courseCode: String = "",
+        val error: String? = null,
+        /** True after "Other course code…": the code box is shown. */
+        val typingOtherCode: Boolean = false,
+    ) : FolderDialog
     data class Rename(val folderId: String, val name: String, val error: String? = null) : FolderDialog
     data class ConfirmDelete(val folderId: String, val name: String, val courseCode: String?) : FolderDialog
 }
@@ -178,6 +184,22 @@ class HomeViewModel(
 
     fun onCourseCodeChange(code: String) = _dialog.update {
         if (it is FolderDialog.New) it.copy(courseCode = code, error = null) else it
+    }
+
+    /** Current courses without a folder: the choices in New folder. */
+    val coursesWithoutFolder: StateFlow<List<Course>> = folderRepository.observeCoursesWithoutFolder()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** A course from the list (or null for "No course"). An empty name becomes the course's name. */
+    fun pickCourse(course: Course?) = _dialog.update {
+        if (it !is FolderDialog.New) return@update it
+        val name = if (it.name.isBlank() && course != null) course.name?.takeIf(String::isNotBlank) ?: course.code else it.name
+        it.copy(name = name, courseCode = course?.code.orEmpty(), typingOtherCode = false, error = null)
+    }
+
+    /** "Other course code…": type a course Noteapp doesn't know yet. */
+    fun typeOtherCourse() = _dialog.update {
+        if (it is FolderDialog.New) it.copy(courseCode = "", typingOtherCode = true, error = null) else it
     }
 
     /** The dialog's main button: Create, Save or Delete. */

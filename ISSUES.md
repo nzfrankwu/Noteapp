@@ -27,6 +27,8 @@ _None right now._
 
 ## Done
 
+- **New folder: choose the course from a list (Phase 1b, step B.9), 15 Nov.** New folder and "Link a course" offer your current courses that don't have a folder yet (archived ones left out), plus "Other course code…" for a new one. Picking a course fills in an empty folder name. 3 new emulator tests.
+
 - **Archive courses (Phase 1b, step B.8 🔺), 15 Nov.** Archive a course from its folder's ⋮ menu (on the tile or inside the folder), from "Link your Canvas courses", or from the new Settings → Courses list (which covers courses without a folder too). An archived course's tasks leave Due soon, Calendar, Timeline and the course filters, its reminders stop, and its folder moves to a collapsed "Archived (N)" row under Folders (faded). Its folder still shows everything, with an "Archived" badge. Nothing is deleted, and archived courses are never suggested as "New from Canvas". Updating the app adds an empty column (database version 3); every existing value is kept. Checked with migration tests, a deliberately broken migration (caught), and a real upgrade of the previous app with data on the emulator. 4 unit tests and 15 emulator tests.
 
 - **Course folder views (Phase 1b, step B.7), 15 Nov.** A course folder has Tasks · Calendar · Timeline tabs, the Calendar and Timeline showing only that course. 3 new screen tests.

@@ -1,5 +1,11 @@
 package com.nzfrankwu.noteapp.ui
 
+import org.junit.Assert.assertEquals
+import java.time.Instant
+import kotlinx.coroutines.runBlocking
+import com.nzfrankwu.noteapp.data.db.Course
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
@@ -59,8 +65,34 @@ class FolderFlowTest {
     private fun createFolder(name: String, code: String = "") {
         compose.onNodeWithText("New folder").performClick()
         compose.onNodeWithTag("folder-name-field").performTextInput(name)
-        if (code.isNotEmpty()) compose.onNodeWithTag("folder-code-field").performTextInput(code)
+        if (code.isNotEmpty()) {
+            // With courses to pick from, typing a code is behind "Other course code…" (B.9).
+            if (compose.onAllNodesWithTag("folder-code-field").fetchSemanticsNodes().isEmpty()) {
+                compose.onNodeWithTag("course-choice").performClick()
+                compose.onNodeWithTag("course-choice-other").performClick()
+            }
+            compose.onNodeWithTag("folder-code-field").performTextInput(code)
+        }
         compose.onNodeWithTag("dialog-confirm").performClick()
+    }
+
+    @Test
+    fun newFolder_picksACourseFromTheList_andTakesItsName() {
+        runBlocking {
+            db.courseDao().insert(Course("c1", "ELECTENG 292", "Electronics Design 2", 556, Instant.EPOCH, Instant.EPOCH))
+            db.courseDao().insert(Course("c2", "ENGGEN 115", "Old course", 557, Instant.EPOCH, Instant.EPOCH, archivedAt = Instant.EPOCH))
+        }
+        compose.onNodeWithText("New folder").performClick()
+        compose.onNodeWithTag("course-choice").performClick()
+        compose.onNodeWithTag("course-choice-ENGGEN 115").assertDoesNotExist() // archived: not offered
+        compose.onNodeWithTag("course-choice-ELECTENG 292").performClick()
+        compose.onNodeWithTag("folder-name-field").assertTextContains("Electronics Design 2")
+        compose.onNodeWithTag("dialog-confirm").performClick()
+
+        waitForText("Electronics Design 2")
+        compose.onNodeWithText("ELECTENG 292").assertIsDisplayed()
+        // It reused the existing course rather than making a second one.
+        assertEquals("c1", runBlocking { db.folderDao().getAll().single().courseId })
     }
 
     private fun waitForText(text: String) = compose.waitUntilAtLeastOneExists(hasText(text), 5_000)

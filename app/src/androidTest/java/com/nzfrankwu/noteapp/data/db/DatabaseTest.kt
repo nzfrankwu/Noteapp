@@ -205,6 +205,15 @@ class DatabaseTest {
     }
 
     @Test
+    fun folderCourseChoices_areCurrentCoursesWithoutAFolder() = runBlocking {
+        db.courseDao().insert(course(id = "free", code = "ELECTENG 292"))
+        db.courseDao().insert(course(id = "linked", code = "ELECTENG 204"))
+        db.courseDao().insert(course(id = "old", code = "ENGGEN 115").copy(archivedAt = t0))
+        db.folderDao().insert(folder(id = "f1", courseId = "linked"))
+        assertEquals(listOf("free"), db.courseDao().observeCurrentWithoutFolder().first().map { it.id })
+    }
+
+    @Test
     fun courseList_hasEveryCourse_withItsFolder() = runBlocking {
         db.courseDao().insert(course(id = "c1", code = "ELECTENG 204"))
         db.courseDao().insert(course(id = "c2", code = "COMPSYS 201").copy(archivedAt = t0))

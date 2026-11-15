@@ -51,6 +51,16 @@ interface CourseDao {
     )
     fun observeCanvasCoursesWithoutFolder(): Flow<List<Course>>
 
+    /**
+     * Current (not archived) courses with no folder yet, A–Z by code: the choices when making a
+     * folder or linking one to a course (a course can only have one folder).
+     */
+    @Query(
+        "SELECT * FROM courses WHERE archived_at IS NULL " +
+            "AND id NOT IN (SELECT course_id FROM folders WHERE course_id IS NOT NULL) ORDER BY code COLLATE NOCASE",
+    )
+    fun observeCurrentWithoutFolder(): Flow<List<Course>>
+
     /** Every course with its folder (if any), A–Z by code, for Settings → Courses. Updates live. */
     @Query(
         "SELECT courses.*, folders.id AS folder_id, folders.name AS folder_name " +

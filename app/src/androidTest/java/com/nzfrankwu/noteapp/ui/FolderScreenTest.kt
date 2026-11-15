@@ -32,7 +32,9 @@ import com.nzfrankwu.noteapp.ui.folder.FolderViewModel
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import com.nzfrankwu.noteapp.data.db.Course
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -131,6 +133,24 @@ class FolderScreenTest {
         compose.onNodeWithContentDescription("Folder options").performClick()
         compose.onNodeWithText("Unarchive course").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("archived-badge").fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test
+    fun linkACourse_fromTheList() {
+        val id = runBlocking {
+            db.courseDao().insert(Course("c9", "COMPSYS 201", "Computer Systems", 557, java.time.Instant.EPOCH, java.time.Instant.EPOCH))
+            (folders.createFolder("Personal", null) as FolderResult.Success).folderId
+        }
+        show(id)
+        waitFor("Link a course to add tasks here")
+        compose.onNodeWithText("Link a course").performClick()
+        compose.onNodeWithTag("course-code-field").assertDoesNotExist() // the list comes first
+        compose.onNodeWithTag("course-choice").performClick()
+        compose.onNodeWithTag("course-choice-COMPSYS 201").performClick()
+        compose.onNodeWithTag("dialog-confirm").performClick()
+
+        waitFor("No tasks yet")
+        assertEquals("c9", runBlocking { db.folderDao().getById(id)!!.courseId })
     }
 
     @Test

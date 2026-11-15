@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.R
+import com.nzfrankwu.noteapp.ui.components.CourseChoiceField
 import com.nzfrankwu.noteapp.ui.components.CourseTag
 import com.nzfrankwu.noteapp.ui.components.EmptyState
 import com.nzfrankwu.noteapp.ui.components.InfoBadge
@@ -86,6 +87,7 @@ fun FolderScreen(
     val sections = tasksNow.sections
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
     val deleted by viewModel.deleted.collectAsStateWithLifecycle()
+    val coursesWithoutFolder by viewModel.coursesWithoutFolder.collectAsStateWithLifecycle()
     LaunchedEffect(deleted) { if (deleted) onBack() }
 
     val courseCode = item?.courseCode
@@ -244,14 +246,26 @@ fun FolderScreen(
             title = { Text("Link a course") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = d.code,
-                        onValueChange = viewModel::onTextChange,
-                        label = { Text("Course code") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                        modifier = Modifier.fillMaxWidth().testTag("course-code-field"),
-                    )
+                    if (coursesWithoutFolder.isNotEmpty()) {
+                        CourseChoiceField(
+                            courses = coursesWithoutFolder,
+                            selectedCode = d.code,
+                            typingOther = d.typingOtherCode,
+                            onPick = viewModel::pickCourse,
+                            onTypeOther = viewModel::typeOtherCourse,
+                            noneLabel = null,
+                        )
+                    }
+                    if (coursesWithoutFolder.isEmpty() || d.typingOtherCode) {
+                        OutlinedTextField(
+                            value = d.code,
+                            onValueChange = viewModel::onTextChange,
+                            label = { Text("Course code") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                            modifier = Modifier.fillMaxWidth().testTag("course-code-field"),
+                        )
+                    }
                     if (d.error != null) Text(d.error, color = MaterialTheme.colorScheme.error)
                 }
             },

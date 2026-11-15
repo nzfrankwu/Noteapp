@@ -88,6 +88,7 @@ fun HomeScreen(
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val folders by viewModel.folders.collectAsStateWithLifecycle()
     val archivedExpanded by viewModel.archivedExpanded.collectAsStateWithLifecycle()
+    val coursesWithoutFolder by viewModel.coursesWithoutFolder.collectAsStateWithLifecycle()
     val dueSoon by viewModel.dueSoon.collectAsStateWithLifecycle()
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
     val banners by viewModel.banners.collectAsStateWithLifecycle()
@@ -136,6 +137,10 @@ fun HomeScreen(
             onNameChange = viewModel::onNameChange,
             courseCode = d.courseCode,
             onCourseCodeChange = viewModel::onCourseCodeChange,
+            courseChoices = coursesWithoutFolder,
+            typingOtherCode = d.typingOtherCode,
+            onPickCourse = viewModel::pickCourse,
+            onTypeOtherCourse = viewModel::typeOtherCourse,
             error = d.error,
             confirmLabel = "Create",
             onConfirm = viewModel::confirmDialog,
