@@ -233,7 +233,8 @@ class NotebookViewModel(
     suspend fun addPage(index: Int): String? {
         val result = notebooks.addPage(notebookId, index)
         if (result !is NotebookResult.Success) return null
-        ink.load(result.id, emptyList())
+        // The page list may already have shown (and readied) the new page; keep anything on it.
+        if (!ink.isLoaded(result.id)) ink.load(result.id, emptyList())
         pageStatus[result.id] = PageStatus.Ready
         ink.recordPageEdit(InkEdit.AddPage(result.id, index))
         refreshUndo()
@@ -334,21 +335,39 @@ class NotebookViewModel(
             saveLock.withLock {
                 val saved = ArrayList<String>()
                 for ((pageId, strokes) in toSave) {
-                    try {
-                        withContext(io) { files.write(notebookId, pageId, strokes) }
+                    // A failed write is retried here, in the scope that outlives the screen, so a
+                    // save made while leaving the notebook still gets its retries.
+                    if (writeWithRetries(pageId, strokes)) {
                         saved += pageId
-                    } catch (e: Exception) {
+                    } else {
                         withContext(Dispatchers.Main) {
                             dirty.add(pageId) // try again with the next change or when leaving
                             _message.value = "Couldn't save a page. Noteapp will try again."
                         }
                     }
                 }
-                // The picture first, then the "changed" time that makes tiles reload it.
+                // The picture first, then the "changed" time that makes tiles reload it. Neither
+                // may crash the app: the strokes themselves are already safely on disk.
                 thumbnail?.let { withContext(io) { runCatching { it() } } }
-                saved.forEach { notebooks.markPageEdited(it) }
+                saved.forEach { runCatching { notebooks.markPageEdited(it) } }
             }
         }
+    }
+
+    /** Writes a page's file, trying again after short pauses if it fails. True once it's saved. */
+    private suspend fun writeWithRetries(pageId: String, strokes: List<InkStroke>): Boolean {
+        for (pause in SAVE_RETRY_PAUSES_MS) {
+            delay(pause)
+            try {
+                withContext(io) { files.write(notebookId, pageId, strokes) }
+                return true
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // try again after the next pause
+            }
+        }
+        return false
     }
 
     /** Draws the tile picture from the first page as it is now (null if it can't yet). */
@@ -379,6 +398,9 @@ class NotebookViewModel(
 
         /** A changed page is saved this long after the last change. */
         const val SAVE_DELAY_MS = 400L
+
+        /** Pauses before each try at writing a page (the first try is immediate). */
+        private val SAVE_RETRY_PAUSES_MS = longArrayOf(0L, 500L, 2_000L, 5_000L)
 
         /** One save at a time across every open notebook. */
         private val saveLock = Mutex()

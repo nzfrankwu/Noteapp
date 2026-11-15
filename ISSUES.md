@@ -22,6 +22,7 @@ _None known._
   - A full page appears in a few quick steps the first time it scrolls into view.
   - Zoomed in very far (a page bigger than about 4,000 pixels on screen), pages are no longer kept as a ready-made picture, so scrolling there is slower (about the 50 ms a frame of before). Not measured, because the emulator can't pinch from a script. Ideas: skip ink that's off screen, or keep only the visible part as a picture.
   - The next page isn't drawn ahead of time; it appears as it scrolls in.
+  - If a page can't be saved at all (e.g. storage full), Noteapp tries 4 times over about 8 seconds, then keeps the page marked unsaved and says so. If that happens just as you leave the notebook, the last changes can still be lost once the notebook is closed. A fuller fix would keep unsaved pages app-wide and retry later; revisit with Phase 6 backup.
   - Jetpack Ink adds about 7 MB to the app (its drawing code for every kind of processor). A release build for one device type would be smaller; not worth doing now.
 
 - Build warning: `libandroidx.graphics.path.so` can't be stripped of debug symbols, so it's packaged as is. This is harmless and comes from AndroidX. No action needed unless APK size matters.
@@ -35,9 +36,20 @@ _None known._
 - **The emulator's stylus handwriting is turned off** (emulator only; `settings put secure stylus_handwriting_enabled 0`), because its "Try out your stylus" tutorial swallowed scripted typing. The tablet is unaffected.
 - **Screen tests leave their in-memory databases open** (`TaskScreensTest`, `DueSoonTest`). Closing them while a screen was still reading crashed a run once. Harmless for tests; revisit if test memory ever becomes a problem.
 - **Never install an older build than the one on the tablet.** The database is now version 3 (B.8), and Room can't go back to an older version: the older app would refuse to open (crash at start). Your data stays safe, and installing a current build fixes it, but don't downgrade.
+- **For Phase 6 "Recently deleted":** deleting a folder only checks for notebooks that aren't deleted, so notebooks deleted earlier stay in the database with no folder (their pages and files are kept). "Recently deleted" must list these and offer somewhere to restore them.
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **End-of-phase review fixes (Phase 2), 15 Nov.** A `/code-review` of the whole phase found 8 things; 7 fixed:
+  - a page that fails to save is now tried again a few times, even after you leave the notebook (new emulator test)
+  - a database error while noting a save can no longer crash the app
+  - the pen's eraser end, adding a page and deleting a page now end a lasso selection (before, erased strokes could stay visible in the selection, or its box showed over the wrong page)
+  - highlighting no longer redraws the whole page picture on every stroke
+  - a newly added page can't lose a stroke written on it in the first instant
+  - garbled characters in the database-upgrade notes (`Migrations.kt`) repaired
+
+  The 8th (deleted notebooks left without a folder) is kept for Phase 6; see Follow-ups.
 
 - **A long notebook scrolls smoothly (Phase 2, step 2.12), 15 Nov.** On the emulator, with two full pages on screen (about 1,800 strokes), a frame went from about 150 ms (up to 1.3 s) to a median of 19 ms, with the graphics work down from 13 ms to 1 ms. How: saving a full page is 10× faster, strokes are prepared in the background, the ink is drawn in reusable groups of 32 strokes, and each page is kept on the graphics card as a ready-made picture that scrolling just moves. Writing, erasing, the lasso, undo and rotating still look right. Also fixed: **rotating the tablet sent the editor back to page 1**; it now stays on the same page. Not yet tried on the tablet.
 

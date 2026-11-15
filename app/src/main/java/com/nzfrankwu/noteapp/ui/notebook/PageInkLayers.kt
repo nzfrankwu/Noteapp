@@ -59,8 +59,9 @@ private class PageChunks {
  *  - The settled chunks sit in one page layer that the graphics card keeps as a ready-made
  *    picture, so scrolling and pinching just move that picture: nothing is redrawn. The picture
  *    is made at the zoom the view last settled at ([raster]) and remade when that changes.
- *  - The chunk being written into (the last one) and the lasso's selection sit in a second layer
- *    on top, so writing a stroke doesn't remake the page's picture.
+ *  - The chunk being written into (the last one) and the lasso's selection sit in a layer on
+ *    top, so writing a stroke doesn't remake the page's picture. The newest highlighter chunk
+ *    likewise sits in its own layer, under the picture (highlighter is always under the pen).
  *  - Highlighter chunks are under pen chunks, like on paper.
  *  - A full page appears a few chunks per frame when it first shows, so it never freezes.
  */
@@ -90,8 +91,9 @@ fun PageInkLayer(
 
     val chunks = remember(pageId) { PageChunks() }
     chunks.update(viewModel.ink.strokes(pageId), hidden)
-    val settled = chunks.highlights + chunks.pens.dropLast(1)
+    val settled = chunks.highlights.dropLast(1) + chunks.pens.dropLast(1)
     val tail = chunks.pens.lastOrNull()
+    val highlightTail = chunks.highlights.lastOrNull()
 
     // A page showing for the first time reveals its chunks a few per frame.
     var revealed by remember(pageId) { mutableIntStateOf(REVEAL_PER_FRAME) }
@@ -122,6 +124,10 @@ fun PageInkLayer(
         }
     }
 
+    // The newest highlighter chunk, under the page picture (so highlighting doesn't remake it).
+    PageSizedLayer(widthPx, heightPx, Modifier.graphicsLayer { place() }) {
+        if (highlightTail != null) key(highlightTail.key) { ChunkLayer(highlightTail.strokes, pageId, raster, viewModel.drawables, renderer) }
+    }
     PageSizedLayer(
         widthPx, heightPx,
         Modifier.graphicsLayer {

@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026, late (2.12 done; next is the end-of-phase review). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, late (Phase 2 finished and reviewed; waiting for the user's OK to merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -10,12 +10,13 @@ _Last updated: 15 Nov 2026, late (2.12 done; next is the end-of-phase review). K
 - **Mode: "Hands-off"** since 15 Nov (the user said to spend the remaining budget on Phase 2, push when it matters, and update docs often). `REPORT.md` (local, git-ignored) has the report so far; update it when stopping, listing every 🔺 step done.
 - **The tablet runs the merged `main` build** (database version 3). **Don't install Phase 2 builds on the tablet without asking:** they upgrade its database to version 4.
 - **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor), 2.11 (thumbnails), **2.12 (performance; verified on the emulator, 15 Nov)**: two full pages scroll at a median 19 ms a frame (was 150 ms), render thread about 1 ms. Rotating now keeps the current page (`rememberSaveable` in `NotebookScreen`).
-- Full emulator suite: **181 tests pass** (after 2.12).
+- **End-of-phase `/code-review` done (15 Nov):** 8 findings, 7 fixed (save retries even after leaving, no crash from a DB error after saving, lasso cleared by the eraser end / add page / delete page, newest highlighter chunk in its own layer under the page picture, add-page race, garbled `Migrations.kt` comments). The 8th (deleted notebooks left without a folder when their folder is deleted) is a Phase 6 follow-up in ISSUES.md.
+- Unit tests and the full emulator suite (**182 tests**) pass after the fixes.
 
 ## Next steps (in order)
 
-1. **End of phase:** run `/code-review` on the branch (`git diff main...phase-2`), fix what it finds, rebuild, run unit + emulator tests, re-check the editor on the emulator (`screenshots/perf_setup.sh`), update `REPORT.md` (list every 🔺 step), then **ask the user to approve merging into `main`**.
-2. Waiting on the user: tablet checks (see "Waiting on the user" below and ISSUES.md, Open questions).
+1. **Waiting on the user: approve merging `phase-2` into `main`** (CLAUDE.md: never merge without approval). `REPORT.md` (local) has the full report. After merging, Phase 3 is next (see IDEA.md §5).
+2. Waiting on the user: their OK to install a Phase 2 build on the tablet (database v4 upgrade), then the tablet checks below.
 3. 2.12 follow-ups (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release.
 
 ## Tablet database safety copy

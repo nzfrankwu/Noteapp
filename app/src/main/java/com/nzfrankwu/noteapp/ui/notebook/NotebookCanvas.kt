@@ -371,7 +371,9 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     }
                     if (penMode != PenMode.INK) change.consume()
                     if (penMode == PenMode.ERASE) eraseStep(viewModel, snap, cam, change.position, change.position, onEraser)
-                    if (tool != EditorTool.LASSO && view.lasso != null) onLasso(null)
+                    // Any other tool, or the pen's eraser end, ends the lasso's selection (it would
+                    // otherwise keep showing strokes that were just erased).
+                    if ((tool != EditorTool.LASSO || penMode == PenMode.ERASE) && view.lasso != null) onLasso(null)
                     continue
                 }
                 if (change.id != penId) { change.consume(); continue }

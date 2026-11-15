@@ -117,6 +117,26 @@ class NotebookEditorTest {
     }
 
     @Test
+    fun aSaveThatFails_isTriedAgain_andTheStrokeStillReachesItsFile() {
+        show(InkToolSettings(drawWithFinger = true))
+        // A plain file where the notebooks folder should be makes the first tries fail.
+        val blocker = java.io.File(tmp.root, NotebookFiles.DIR)
+        blocker.deleteRecursively()
+        assertTrue(blocker.createNewFile())
+
+        drawLine(300f)
+        compose.waitUntil(5_000) { strokeCount() == 1 }
+        Thread.sleep(1_500) // the autosave has run and failed at least once
+        assertTrue(files.read(notebookId, pageId()) is PageRead.Missing)
+        assertTrue(blocker.delete()) // the disk "recovers" before the retries run out
+
+        compose.waitUntil(10_000) {
+            val read = files.read(notebookId, pageId())
+            read is PageRead.Ok && read.strokes.size == 1
+        }
+    }
+
+    @Test
     fun aFinger_neverDraws_whenDrawWithFingerIsOff() {
         show(InkToolSettings(drawWithFinger = false))
         drawLine(300f)

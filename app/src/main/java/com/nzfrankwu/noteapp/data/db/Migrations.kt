@@ -3,10 +3,10 @@ package com.nzfrankwu.noteapp.data.db
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-// Database migrations. IDEA.md Â§5a: an app update must never lose data.
+// Database migrations. IDEA.md §5a: an app update must never lose data.
 //
 // How to change a table (add a column, a new table, ...):
-//  1. Change the entity class and bump NoteAppDatabase.VERSION (e.g. 2 â†’ 3).
+//  1. Change the entity class and bump NoteAppDatabase.VERSION (e.g. 2 → 3).
 //  2. Build. Room writes the new schema to app/schemas/.../3.json. Commit that file.
 //  3. Add a Migration below (e.g. MIGRATION_2_3) that turns the old tables into the new ones
 //     WITHOUT losing rows: "ALTER TABLE ... ADD COLUMN ...", or create-new / copy / drop / rename.
@@ -25,7 +25,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 // Never "fix" a missing migration by letting Room delete and recreate the database.
 
 /**
- * Version 1 â†’ 2 (Phase 1b, step B.3): tasks get `available_at`, Canvas's "available from" time
+ * Version 1 → 2 (Phase 1b, step B.3): tasks get `available_at`, Canvas's "available from" time
  * (`unlock_at`), for the timeline.
  *
  * It only adds an empty (null) column, so every existing row and value stays exactly as it was.
@@ -38,7 +38,7 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
 }
 
 /**
- * Version 2 â†’ 3 (Phase 1b, step B.8): courses get `archived_at`, for archiving last semester's
+ * Version 2 → 3 (Phase 1b, step B.8): courses get `archived_at`, for archiving last semester's
  * courses.
  *
  * It only adds an empty (null) column, so every existing row and value stays exactly as it was,
@@ -51,7 +51,7 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
 }
 
 /**
- * Version 3 â†’ 4 (Phase 2, step 2.1): subfolders and notebooks.
+ * Version 3 → 4 (Phase 2, step 2.1): subfolders and notebooks.
  *  - folders get `parent_id` (null = a top-level folder, which every existing folder stays).
  *  - new, empty `notebooks` and `pages` tables. (The handwriting itself goes in per-page files.)
  *

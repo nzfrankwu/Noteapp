@@ -144,6 +144,7 @@ fun NotebookScreen(
                 }
                 IconButton(
                     onClick = {
+                        view.lasso = null // a selection remembers its page's place, which moves
                         scope.launch {
                             val at = pageNow() + 1
                             if (viewModel.addPage(at) != null && strip != null) {
@@ -175,6 +176,7 @@ fun NotebookScreen(
                             enabled = pages.size > 1,
                             onClick = {
                                 menuOpen = false
+                                view.lasso = null
                                 pages.getOrNull(pageNow())?.let { viewModel.deletePage(it.id) }
                                 scope.launch { snackbar.showSnackbar("Page deleted. Tap Undo to bring it back.") }
                             },
