@@ -8,20 +8,20 @@ _Last updated: 15 Nov 2026, late (Phase 2 finished and reviewed; waiting for the
 - **Current phase: Phase 2, Handwriting notebooks.** The plan is **`PHASE-2.md`** (decisions, design, checklist 2.1–2.12, layout drafts).
 - **Branch:** `phase-2` (pushed; the working tree is clean).
 - **Mode: "Hands-off"** since 15 Nov (the user said to spend the remaining budget on Phase 2, push when it matters, and update docs often). `REPORT.md` (local, git-ignored) has the report so far; update it when stopping, listing every 🔺 step done.
-- **The tablet runs the merged `main` build** (database version 3). **Don't install Phase 2 builds on the tablet without asking:** they upgrade its database to version 4.
+- **The tablet runs the `phase-2` build (`d94ea61`) since 15 Nov, late**, with the user's OK. Its database upgraded to **version 4** cleanly (10 courses, 4 folders, 124 tasks kept; integrity OK). **Never install a `main` build (v3) on it again** until Phase 2 is merged: Room can't downgrade.
 - **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor), 2.11 (thumbnails), **2.12 (performance; verified on the emulator, 15 Nov)**: two full pages scroll at a median 19 ms a frame (was 150 ms), render thread about 1 ms. Rotating now keeps the current page (`rememberSaveable` in `NotebookScreen`).
 - **End-of-phase `/code-review` done (15 Nov):** 8 findings, 7 fixed (save retries even after leaving, no crash from a DB error after saving, lasso cleared by the eraser end / add page / delete page, newest highlighter chunk in its own layer under the page picture, add-page race, garbled `Migrations.kt` comments). The 8th (deleted notebooks left without a folder when their folder is deleted) is a Phase 6 follow-up in ISSUES.md.
 - Unit tests and the full emulator suite (**182 tests**) pass after the fixes.
 
 ## Next steps (in order)
 
-1. **Waiting on the user: approve merging `phase-2` into `main`** (CLAUDE.md: never merge without approval). `REPORT.md` (local) has the full report. After merging, Phase 3 is next (see IDEA.md §5).
-2. Waiting on the user: their OK to install a Phase 2 build on the tablet (database v4 upgrade), then the tablet checks below.
+1. **The user is testing Phase 2 on the tablet and will give UX feedback.** Work through it on `phase-2` (working-together mode: one change at a time, check-in after each), then ask again about merging.
+2. **Waiting on the user: approve merging `phase-2` into `main`** (CLAUDE.md: never merge without approval). `REPORT.md` (local) has the full report. After merging, Phase 3 is next (see IDEA.md §5).
 3. 2.12 follow-ups (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release.
 
 ## Tablet database safety copy
 
-- **`backups/tablet-db-2026-11-15-before-v2/`** and **`…-before-v3/`** (git-ignored, local only) hold the tablet's database from just before the B.3 and B.8 upgrades. It contains personal Canvas names but no secrets. Keep it until Phase 1b is merged and the user is happy; never commit it.
+- **`backups/tablet-db-2026-11-15-before-v2/`**, **`…-before-v3/`** and **`…-before-v4/`** (git-ignored, local only) hold the tablet's database from just before the B.3 and B.8 upgrades. It contains personal Canvas names but no secrets. Keep it until Phase 1b is merged and the user is happy; never commit it.
 - How it was made, for next time (ask the user first):
   - force-stop the app
   - `adb -s <tablet> exec-out run-as com.nzfrankwu.noteapp cat databases/<f>` for `noteapp.db`, `-wal` and `-shm`
@@ -30,7 +30,7 @@ _Last updated: 15 Nov 2026, late (Phase 2 finished and reviewed; waiting for the
 
 ## Waiting on the user
 
-- **Phase 2 on the tablet** (needs their OK to install: it upgrades the database to version 4):
+- **Phase 2 on the tablet** (installed 15 Nov; the user is checking it):
   - writing with the OPPO Pencil 2: lag, pressure, palm rejection
   - the pen's side button: does one click switch to the lasso and back?
   - press hard to erase: is 90% the right level?
