@@ -53,6 +53,8 @@ fun EditorTopBar(
     /** Opens or closes the image menu. */
     onImage: () -> Unit,
     imageMenuOpen: Boolean,
+    /** Starts the screenshot tool. */
+    onScreenshot: () -> Unit,
     menuOpen: Boolean,
     onMenuOpen: (Boolean) -> Unit,
     menu: @Composable ColumnScope.() -> Unit,
@@ -83,6 +85,7 @@ fun EditorTopBar(
                 R.drawable.ic_image, if (imageMenuOpen) "Close the image menu" else "Insert an image", onImage,
                 Modifier.testTag("image-button"), filled = false,
             )
+            BarButton(R.drawable.ic_crop, "Take a screenshot", onScreenshot, Modifier.testTag("screenshot-button"), filled = false)
         }
 
         Row(

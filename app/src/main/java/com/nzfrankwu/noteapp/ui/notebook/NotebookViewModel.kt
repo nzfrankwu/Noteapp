@@ -335,6 +335,27 @@ class NotebookViewModel(
         }
     }
 
+    /** Inserts a screenshot snip in the middle of page [pageIndex] (one undo step); returns it placed. */
+    suspend fun insertSnip(pageIndex: Int, bitmap: Bitmap): List<com.nzfrankwu.noteapp.domain.ink.InkImage> {
+        val nb = notebook.value ?: return emptyList()
+        val page = pages.value.getOrNull(pageIndex) ?: return emptyList()
+        if (!isEditable(page.id)) return emptyList()
+        insertingImages = true
+        try {
+            val imported = imageImport.importBitmap(notebookId, bitmap) ?: return emptyList()
+            val size = page.size(nb)
+            val image = com.nzfrankwu.noteapp.domain.ink.InkImage.centred(
+                java.util.UUID.randomUUID().toString(), imported.asset, imported.widthPx, imported.heightPx, size.width, size.height,
+            )
+            if (!isEditable(page.id)) return emptyList()
+            ink.addImages(page.id, listOf(image))
+            changed(page.id)
+            return listOf(image)
+        } finally {
+            insertingImages = false
+        }
+    }
+
     /**
      * Inserts a picture as a page of its own after page [afterIndex]: the page takes the
      * picture's shape (its longer side as long as an A4 page's) and the picture fills it.

@@ -1,11 +1,11 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.7 done and pushed; 3.8's groundwork done, its sheet waits on the user; next 3.9). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (hands-off mode stopped; 3.1–3.7 and 3.9 done and pushed; 3.8's sheet and the IDEA.md edit wait on the user; then 3.10). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
-- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu), 3.6 (lasso with pictures) and 3.7 (Export as PDF) are done**. 3.8 (Share to Noteapp): the data side is done; the destination sheet waits for the user's OK on its layout. Next: 3.9 (screenshot tool).
+- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu), 3.6 (lasso with pictures) and 3.7 (Export as PDF) are done**. 3.8 (Share to Noteapp): the data side is done; the destination sheet waits for the user's OK on its layout. 3.9 (screenshot tool) is done. Next: 3.8's sheet (after the user's OK), then 3.10 (tablet, ask first), then the end-of-phase review.
 - **Branch:** `phase-3` (from `main`), pushed after each step.
 - **Mode: hands-off** (the user said so on 16 Nov, 3.2 onwards): commit and push after each passing step; write `REPORT.md` when stopping; list every 🔺 step there.
 - **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
@@ -15,7 +15,8 @@ _Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.7 done and pushed; 3.8
 
 ## Next steps (in order)
 
-1. **Step 3.9 (screenshot tool)** 🔺 ★ (`design-reference/screenshot selection.jpg`): update IDEA.md §2.7 and §5 (snip moved to Phase 3; the user chose this on 16 Nov). Noteapp alone: capture the editor with Compose `GraphicsLayer.toImageBitmap()`; in split screen: MediaProjection + a short foreground service of type `mediaProjection`. Overlay with an 8-handle crop box (reuse `BoxHandle` / `LassoBox.dragged`), Cancel / Confirm; Confirm → `ImageImport.importBitmap` → `NotebookInk.addImages` on the current page, selected. All-black capture → "That app doesn't allow screenshots".
+1. **Ask the user** about the two waiting items (3.8's sheet layout, the IDEA.md §2.7/§5 edit). Both are in REPORT.md and ISSUES.md.
+   - 3.9 left: `capture/ScreenCaptureService` + `ScreenCapture` (capture, `readable`, `isAllBlack`), `ui/notebook/SnipOverlay`, `NotebookViewModel.insertSnip`, the `pagesLayer` / `capturing` capture in `NotebookScreen`.
 2. **Step 3.8's sheet, once the user OKs a layout** (proposal in ISSUES.md "Open questions"): then add manifest `SEND`/`SEND_MULTIPLE` (`application/pdf`, `image/*`) and `VIEW` (`application/pdf`), and in `MainActivity.takeRequests` copy each shared URI with `SharedImport.copyToInbox(filesDir/shared-inbox)` straight away, then show the sheet from `NoteAppRoot`, call `SharedImport`, open the notebook, and delete the inbox copies.
    - 3.8 groundwork: `data/SharedImport`, `NotebookRepository.newPageId / addPage(pageId) / createNotebookOfPages`, `PageSize.forPicture`.
    - 3.7 left: `data/PdfExport`, `StrokeShape`, `InkBrushes.exportShape`, `NotebookViewModel.exportPdf / ExportState`, `ExportDialogs` in `NotebookScreen`.
@@ -45,6 +46,7 @@ _Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.7 done and pushed; 3.8
 
 ## Waiting on the user
 
+- **IDEA.md §2.7 and §5 (snip moved to Phase 3):** the plan said to update them at 3.9, but the tool refused to edit IDEA.md (CLAUDE.md: never change it without asking). Ask the user to OK the edit (text in REPORT.md), or make it themselves.
 - **Phase 3, step 3.8: the "Share to Noteapp" sheet's layout** (no Notein screenshot of it; CLAUDE.md says to describe a new screen first). The proposal is in ISSUES.md → Open questions.
 
 - **Phase 2 on the tablet** (installed 15 Nov; the user is checking it):
@@ -144,6 +146,8 @@ _Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.7 done and pushed; 3.8
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
 - **Real upgrade test, scripted (3.1):** `screenshots/upgrade_v5.sh <old APK as a Windows path>` installs the old build, makes sample data and a 51-page notebook, snapshots, installs the new build, snapshots again; then `python compare_dbs.py upgrade-v5/before upgrade-v5/after` compares every row and the page files' md5s. Pass the APK as `C:\...`: the script sets `MSYS_NO_PATHCONV=1`, so adb can't read `/c/...` paths.
 - **`folders.course_id` is unique:** subfolders store NULL there (they inherit the course through `parent_id`). Test data with a subfolder must use NULL.
+- **Multi-window on the emulator:** `adb shell am start --windowingMode 6 -n com.nzfrankwu.noteapp/.MainActivity` puts Noteapp's task in multi-window mode (not a neat split, but `isInMultiWindowMode` is true), which is enough to test the MediaProjection path. Android 16's prompt shows "Share entire screen" because we pass `createConfigForDefaultDisplay()`.
+- **Compose `GraphicsLayer.toImageBitmap()` gives a HARDWARE bitmap:** `getPixel` crashes on it; copy it (`ScreenCapture.readable`).
 - **Test pictures:** `screenshots/make_test_png.py out.png W H [--alpha]`; push to `/sdcard/Pictures/` and send `MEDIA_SCANNER_SCAN_FILE` so the Recent grid sees them. The emulator's photo permission dialog offers "Allow limited access / Allow all / Don't allow".
 - **Test PDFs:** `screenshots/make_test_pdf.py out.pdf 100` writes a slide PDF with no libraries; push it to `/sdcard/Download/` and it shows in the system picker's Recent. Emulator tests make PDFs on the device with `android.graphics.pdf.PdfDocument` (`PdfImportTest`).
 - **Heredocs:** a Python heredoc in the Bash tool failed with "unexpected EOF" twice for no clear reason; writing the script to a file with the Write tool always works.

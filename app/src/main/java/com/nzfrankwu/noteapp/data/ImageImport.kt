@@ -48,7 +48,13 @@ class ImageImport(
     }
 
     /** Saves an already-made picture (e.g. a screenshot snip) into the notebook. */
-    suspend fun importBitmap(notebookId: String, bitmap: Bitmap): ImportedImage? = withContext(io) {
+    suspend fun importBitmap(notebookId: String, picture: Bitmap): ImportedImage? = withContext(io) {
+        // A GPU ("hardware") bitmap can't be read pixel by pixel: work on an ordinary copy.
+        val bitmap = if (android.os.Build.VERSION.SDK_INT >= 26 && picture.config == Bitmap.Config.HARDWARE) {
+            picture.copy(Bitmap.Config.ARGB_8888, false)
+        } else {
+            picture
+        }
         val scaled = shrink(bitmap)
         try {
             save(notebookId, scaled)

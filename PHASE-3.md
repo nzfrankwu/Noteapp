@@ -116,7 +116,7 @@ The goal is to let the user import lecture PDFs, write on them, drop images onto
    - Manifest: `SEND`/`SEND_MULTIPLE` for `application/pdf` and `image/*`, plus `VIEW` for PDFs ("Open with").
    - `MainActivity.takeRequests` copies the shared files into a private import folder at once (the read permission on a shared file can lapse), then `NoteAppRoot` shows the destination sheet (layout above).
    - Several images: one page each.
-- [ ] 🔺 **3.9 Screenshot tool** (`screenshot selection.jpg`; update IDEA.md §2.7 and §5 to say snip moved to Phase 3). ★
+- [x] 🔺 **3.9 Screenshot tool** (`screenshot selection.jpg`; update IDEA.md §2.7 and §5 to say snip moved to Phase 3). ★ _Done 16 Nov: crop button in the middle pill; alone → the pages recorded into a Compose `GraphicsLayer` (no prompt; hardware bitmap copied to a readable one); multi-window → `MediaProjectionManager.createScreenCaptureIntent(createConfigForDefaultDisplay())` (Android 14+ asks for the entire screen) → `capture/ScreenCaptureService` (FGS type mediaProjection, one frame via VirtualDisplay + ImageReader, then stops) → `SnipOverlay` (8 handles, move, Cancel / Confirm) → `ImageImport.importBitmap` → inserted selected; all-black crop → message. **IDEA.md §2.7/§5 not updated**: the tool refused the edit; waiting on the user to make or OK it._
    - **Noteapp on its own:** capture the editor area with Compose's `GraphicsLayer.toImageBitmap()`.
    - **In split screen / multi-window** (`Activity.isInMultiWindowMode`): `MediaProjection`. This needs:
      - the consent prompt each time

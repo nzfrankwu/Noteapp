@@ -6,7 +6,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -116,7 +120,23 @@ fun NotebookScreen(
     }
     var menuOpen by remember { mutableStateOf(false) }
     var imageMenuOpen by remember { mutableStateOf(false) }
+    // The screenshot tool (PHASE-3.md 3.9): the still picture being cropped, and a capture of the pages.
+    var snip by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var capturing by remember { mutableStateOf(false) }
+    val pagesLayer = androidx.compose.ui.graphics.rememberGraphicsLayer()
     val context = androidx.compose.ui.platform.LocalContext.current
+    // Android's screen-capture prompt (split screen); then the capture service takes one frame.
+    val askToCapture = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val data = result.data
+        if (result.resultCode == android.app.Activity.RESULT_OK && data != null) {
+            scope.launch {
+                snip = com.nzfrankwu.noteapp.capture.ScreenCapture.capture(context, result.resultCode, data)
+                if (snip == null) snackbar.showSnackbar("The screenshot couldn't be taken.")
+            }
+        }
+    }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveNow() }
     LaunchedEffect(message) {
@@ -169,7 +189,19 @@ fun NotebookScreen(
     Box(modifier.fillMaxSize().background(if (dark) DeskDark else DeskLight).statusBarsPadding()) {
         Box(Modifier.fillMaxSize()) {
             if (nb != null && pages.isNotEmpty()) {
-                NotebookCanvas(viewModel = viewModel, notebook = nb, pages = pages, settings = settings, view = view)
+                Box(
+                    Modifier.fillMaxSize().drawWithContent {
+                        // While capturing, the pages are recorded into a layer that can be read back.
+                        if (capturing) {
+                            pagesLayer.record { this@drawWithContent.drawContent() }
+                            drawLayer(pagesLayer)
+                        } else {
+                            drawContent()
+                        }
+                    },
+                ) {
+                    NotebookCanvas(viewModel = viewModel, notebook = nb, pages = pages, settings = settings, view = view)
+                }
             }
             FloatingToolbar(
                 settings = settings,
@@ -223,6 +255,33 @@ fun NotebookScreen(
                 onUndo = { view.lasso = null; viewModel.undo() },
                 onRedo = { view.lasso = null; viewModel.redo() },
                 onImage = { imageMenuOpen = !imageMenuOpen; menuOpen = false },
+                onScreenshot = {
+                    imageMenuOpen = false
+                    menuOpen = false
+                    view.lasso = null
+                    val activity = context as? android.app.Activity
+                    if (activity?.isInMultiWindowMode == true) {
+                        // Sharing the screen with another app: Android's capture prompt, then one frame.
+                        val manager = context.getSystemService(android.media.projection.MediaProjectionManager::class.java)
+                        // Android 14+: ask for the whole screen (not "one app"), as IDEA.md §2.7 wants.
+                        val ask = if (android.os.Build.VERSION.SDK_INT >= 34) {
+                            manager.createScreenCaptureIntent(android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay())
+                        } else {
+                            manager.createScreenCaptureIntent()
+                        }
+                        runCatching { askToCapture.launch(ask) }
+                    } else {
+                        // Noteapp alone: a picture of the pages themselves (no prompt).
+                        scope.launch {
+                            capturing = true
+                            androidx.compose.runtime.withFrameNanos { }
+                            androidx.compose.runtime.withFrameNanos { }
+                            snip = runCatching { com.nzfrankwu.noteapp.capture.ScreenCapture.readable(pagesLayer.toImageBitmap().asAndroidBitmap()) }.getOrNull()
+                            capturing = false
+                            if (snip == null) snackbar.showSnackbar("The screenshot couldn't be taken.")
+                        }
+                    }
+                },
                 imageMenuOpen = imageMenuOpen,
                 onAddPage = {
                     view.lasso = null // a selection remembers its page's place, which moves
@@ -315,6 +374,33 @@ fun NotebookScreen(
                 )
             }
             ExportDialogs(viewModel, nb?.title.orEmpty())
+            snip?.let { picture ->
+                val image = remember(picture) { picture.asImageBitmap() }
+                SnipOverlay(
+                    picture = image,
+                    onCancel = { snip = null },
+                    onConfirm = { box ->
+                        snip = null
+                        val at = pageNow()
+                        scope.launch {
+                            val cropped = android.graphics.Bitmap.createBitmap(picture, box[0], box[1], box[2] - box[0], box[3] - box[1])
+                            if (com.nzfrankwu.noteapp.capture.ScreenCapture.isAllBlack(cropped)) {
+                                snackbar.showSnackbar("That app doesn't allow screenshots, so this part came out black.")
+                                return@launch
+                            }
+                            val placed = viewModel.insertSnip(at, cropped)
+                            val pageId = pages.getOrNull(at)?.id
+                            if (placed.isNotEmpty() && pageId != null) {
+                                // The snip comes selected, ready to drag (PHASE-3.md).
+                                if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
+                                view.lasso = LassoState.Selected.of(at, pageId, emptyList(), placed)
+                            } else {
+                                snackbar.showSnackbar("The screenshot couldn't be added.")
+                            }
+                        }
+                    },
+                )
+            }
             if (viewModel.insertingImages) {
                 androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter).testTag("inserting-images"))
             }

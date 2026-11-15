@@ -14,6 +14,11 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- The screenshot tool in split screen (Phase 3): Android requires a short foreground
+         service of type "mediaProjection" to take one picture of the screen, after its own prompt. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+
     <!--
         Android's built-in backup is OFF. NoteApp has its own Google Drive backup (Phase 6),
         and Android's would also copy the Canvas sign-in cookies (IDEA.md §3.5).
@@ -60,6 +65,12 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Takes one picture of the screen for the screenshot tool, then stops (Phase 3). -->
+        <service
+            android:name=".capture.ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
 
         <!-- A reminder alarm went off (only Noteapp's own alarms can reach it). -->
         <receiver
