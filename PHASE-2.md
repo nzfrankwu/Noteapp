@@ -84,7 +84,7 @@ Work happens on branch `phase-2`; it's merged into `main` at the end, with the u
   - Pressing harder than the threshold erases whole strokes it touches, with a sensitivity slider and an off switch.
   - Unit tests for the toggle and the threshold. The user tests both on the OPPO Pencil 2: the emulator can't check pressure levels or the pen button.
 - [x] **2.11 Thumbnails.** Notebook tiles show their first page (a cached picture, refreshed after edits). _(done 15 Nov: `data/Thumbnails` draws the first page to a PNG in the cache folder when that page is saved; `components/ThumbnailImage` loads it for the tile, reloading when the notebook changes. 2 emulator tests.)_
-- [ ] **2.12 Performance check on the tablet.** A long notebook (50+ pages of dense writing) stays smooth; fix what's slow.
+- [ ] **2.12 Performance check on the tablet.** A long notebook (50+ pages of dense writing) stays smooth; fix what's slow. _(in progress, 15 Nov. Measured on the emulator with 51 pages of about 900 strokes (editor ⋮ → "Add 50 pages of test writing (debug)"). Fixed so far: saving a full page 10× faster (buffered codec), strokes built for display in the background, scrolling no longer re-lays-out the screen, ink drawn as reusable 32-stroke chunk layers (150 ms → about 50 ms a frame). The last commit keeps each page as a picture on the graphics card; it builds but is NOT verified yet. Not run on the tablet. See HANDOFF.md for the exact next steps.)_
 - [ ] **End of phase:** run `/code-review`, fix what it finds, retest, then ask to merge into `main`.
 
 ## Folder screen layout (2.2), draft to confirm

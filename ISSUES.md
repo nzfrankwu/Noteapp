@@ -4,7 +4,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Known bugs
 
-_None yet._
+- **Scrolling a notebook with very full pages is not smooth yet (Phase 2, step 2.12, in progress).** On the emulator, two full pages on screen (about 1,800 strokes) scroll at roughly 50 ms a frame, down from 150 ms. A further fix (keeping each page as a ready-made picture) is committed but not yet checked on screen. Lightly written pages are fine. Not yet tried on the tablet.
 
 ## Open questions
 
@@ -17,6 +17,9 @@ _None yet._
   - Stability smooths a stroke when you lift the pen, so a wobbly line shifts slightly at that moment. It's off (0%) by default.
   - Hold-to-straighten snaps the line after you lift the pen, not while you're still holding.
   - Panning stops when your finger lifts (no "fling").
+  - Moving a large lasso selection pauses briefly when you let go (the moved strokes are rebuilt).
+  - Every page of a notebook is loaded into memory when it opens (fine for 50 pages; revisit for very long notebooks).
+  - A full page appears in a few quick steps the first time it scrolls into view.
   - Jetpack Ink adds about 7 MB to the app (its drawing code for every kind of processor). A release build for one device type would be smaller; not worth doing now.
 
 - Build warning: `libandroidx.graphics.path.so` can't be stripped of debug symbols, so it's packaged as is. This is harmless and comes from AndroidX. No action needed unless APK size matters.

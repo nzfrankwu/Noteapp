@@ -1,9 +1,9 @@
 package com.nzfrankwu.noteapp.ui.notebook
 
 import android.graphics.Matrix
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -15,20 +15,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import com.nzfrankwu.noteapp.domain.ink.InkChunk
 import com.nzfrankwu.noteapp.domain.ink.InkChunks
 import com.nzfrankwu.noteapp.domain.ink.InkStroke
 import com.nzfrankwu.noteapp.domain.ink.InkTool
 import com.nzfrankwu.noteapp.domain.ink.PageStrip
+import kotlin.math.ceil
 
 /** A page's chunks, remembered between edits so untouched ones are reused. */
 private class PageChunks {
@@ -45,13 +53,16 @@ private class PageChunks {
 /**
  * One page's ink, drawn fast however full the page is (PHASE-2.md 2.12).
  *
- * The page is a graphics layer positioned by the camera: scrolling and zooming only move the
- * layer, nothing is redrawn. Inside it the strokes are split into chunks ([InkChunks]), each its
- * own layer that's drawn once: writing or erasing redraws only the chunk it touches.
- * Highlighter chunks sit under pen chunks, like on paper. The lasso's selection is its own layer
- * on top, moved and resized by the layer (again without redrawing).
- *
- * A full page appears a few chunks per frame when it first shows, so it never freezes the screen.
+ * How it stays fast:
+ *  - The strokes are split into chunks ([InkChunks]), each drawn once into its own layer.
+ *    Writing or erasing redraws only the chunk it touches.
+ *  - The settled chunks sit in one page layer that the graphics card keeps as a ready-made
+ *    picture, so scrolling and pinching just move that picture: nothing is redrawn. The picture
+ *    is made at the zoom the view last settled at ([raster]) and remade when that changes.
+ *  - The chunk being written into (the last one) and the lasso's selection sit in a second layer
+ *    on top, so writing a stroke doesn't remake the page's picture.
+ *  - Highlighter chunks are under pen chunks, like on paper.
+ *  - A full page appears a few chunks per frame when it first shows, so it never freezes.
  */
 @Composable
 fun PageInkLayer(
@@ -65,7 +76,8 @@ fun PageInkLayer(
     renderer: CanvasStrokeRenderer,
 ) {
     @Suppress("UNUSED_VARIABLE") val version = viewModel.version // re-split the chunks on every edit
-    val ready = viewModel.drawables.isReady(pageId)
+    val raster = view.inkScale
+    if (raster <= 0f || !viewModel.drawables.isReady(pageId)) return
 
     // The strokes held by the lasso (hidden from the chunks, drawn by the selection layer). The
     // list is the same object while the selection is dragged, so dragging doesn't recompose this.
@@ -77,41 +89,53 @@ fun PageInkLayer(
     val hidden = remember(selected) { selected?.mapTo(HashSet()) { it.id } }
 
     val chunks = remember(pageId) { PageChunks() }
-    if (ready) chunks.update(viewModel.ink.strokes(pageId), hidden)
-    val total = chunks.highlights.size + chunks.pens.size
+    chunks.update(viewModel.ink.strokes(pageId), hidden)
+    val settled = chunks.highlights + chunks.pens.dropLast(1)
+    val tail = chunks.pens.lastOrNull()
 
     // A page showing for the first time reveals its chunks a few per frame.
     var revealed by remember(pageId) { mutableIntStateOf(REVEAL_PER_FRAME) }
-    val totalNow by rememberUpdatedState(total)
-    LaunchedEffect(pageId, ready) {
-        if (!ready) return@LaunchedEffect
-        while (revealed < totalNow) {
+    val settledCount by rememberUpdatedState(settled.size)
+    LaunchedEffect(pageId) {
+        while (revealed < settledCount) {
             withFrameNanos { }
             revealed += REVEAL_PER_FRAME
         }
         revealed = Int.MAX_VALUE // from now on, edits show at once
     }
 
-    Box(
-        Modifier.fillMaxSize().graphicsLayer {
-            val cam = view.camera ?: return@graphicsLayer
+    // The page in screen pixels at the settled zoom.
+    val widthPx = ceil(pageWidth * raster).toInt()
+    val heightPx = ceil(pageHeight * raster).toInt()
+    // Keeping a picture of the page only works up to the graphics card's picture size limits;
+    // zoomed in further, the chunks are drawn as they are (still without redrawing on scroll).
+    val asPicture = widthPx <= MAX_PICTURE_SIDE && heightPx <= MAX_PICTURE_SIDE &&
+        widthPx.toLong() * heightPx <= MAX_PICTURE_PIXELS
+    val place: GraphicsLayerScope.() -> Unit = {
+        val cam = view.camera
+        if (cam != null) {
             transformOrigin = TransformOrigin(0f, 0f)
-            scaleX = cam.scale
-            scaleY = cam.scale
+            scaleX = cam.scale / raster
+            scaleY = cam.scale / raster
             translationX = cam.toScreenX(strip.pageLeft(pageIndex))
             translationY = cam.toScreenY(0f)
+        }
+    }
+
+    PageSizedLayer(
+        widthPx, heightPx,
+        Modifier.graphicsLayer {
+            place()
+            compositingStrategy = if (asPicture) CompositingStrategy.Offscreen else CompositingStrategy.Auto
         },
     ) {
-        if (!ready) return@Box
-        var shown = 0
-        for (chunk in chunks.highlights) {
-            if (shown++ >= revealed) break
-            key(chunk.key) { ChunkLayer(chunk.strokes, pageId, pageWidth, pageHeight, viewModel.drawables, renderer, view) }
+        for ((index, chunk) in settled.withIndex()) {
+            if (index >= revealed) break
+            key(chunk.key) { ChunkLayer(chunk.strokes, pageId, raster, viewModel.drawables, renderer) }
         }
-        for (chunk in chunks.pens) {
-            if (shown++ >= revealed) break
-            key(chunk.key) { ChunkLayer(chunk.strokes, pageId, pageWidth, pageHeight, viewModel.drawables, renderer, view) }
-        }
+    }
+    PageSizedLayer(widthPx, heightPx, Modifier.graphicsLayer { place() }) {
+        if (tail != null) key(tail.key) { ChunkLayer(tail.strokes, pageId, raster, viewModel.drawables, renderer) }
         selected?.let { strokes ->
             key(System.identityHashCode(strokes)) {
                 Spacer(
@@ -119,16 +143,26 @@ fun PageInkLayer(
                         .graphicsLayer {
                             val sel = view.lasso as? LassoState.Selected ?: return@graphicsLayer
                             // Resize around the selection box's top-left corner, then move.
-                            transformOrigin = TransformOrigin(sel.bounds[0] / size.width, sel.bounds[1] / size.height)
+                            transformOrigin = TransformOrigin(sel.bounds[0] * raster / size.width, sel.bounds[1] * raster / size.height)
                             scaleX = sel.scale
                             scaleY = sel.scale
-                            translationX = sel.dx
-                            translationY = sel.dy
+                            translationX = sel.dx * raster
+                            translationY = sel.dy * raster
                         }
-                        .drawBehind { drawStrokes(strokes, pageId, viewModel.drawables, renderer, view.inkScale) },
+                        .drawBehind { drawStrokes(strokes, pageId, raster, viewModel.drawables, renderer) },
                 )
             }
         }
+    }
+}
+
+/** A layer exactly [widthPx] × [heightPx], placed at the top-left however big its parent is. */
+@Composable
+private fun PageSizedLayer(widthPx: Int, heightPx: Int, modifier: Modifier, content: @Composable () -> Unit) {
+    Layout(content, Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).then(modifier)) { measurables, _ ->
+        val fixed = Constraints.fixed(widthPx, heightPx)
+        val placeables = measurables.map { it.measure(fixed) }
+        layout(widthPx, heightPx) { placeables.forEach { it.place(0, 0) } }
     }
 }
 
@@ -137,40 +171,42 @@ fun PageInkLayer(
 private fun ChunkLayer(
     strokes: List<InkStroke>,
     pageId: String,
-    pageWidth: Float,
-    pageHeight: Float,
+    raster: Float,
     drawables: StrokeDrawables,
     renderer: CanvasStrokeRenderer,
-    view: EditorViewState,
 ) {
     Spacer(
         Modifier.fillMaxSize().graphicsLayer().drawBehind {
-            // Reading inkScale here redraws the chunk when the zoom has settled at a new level.
-            val scale = view.inkScale
-            clipRect(0f, 0f, pageWidth, pageHeight) { drawStrokes(strokes, pageId, drawables, renderer, scale) }
+            clipRect { drawStrokes(strokes, pageId, raster, drawables, renderer) }
         },
     )
 }
 
-/** Draws strokes in page units (the layers above scale them to the screen). */
+/** Draws strokes (saved in page units) at [raster] pixels per page unit. */
 private fun DrawScope.drawStrokes(
     strokes: List<InkStroke>,
     pageId: String,
+    raster: Float,
     drawables: StrokeDrawables,
     renderer: CanvasStrokeRenderer,
-    scale: Float,
 ) {
     // The renderer's matrix doesn't move anything: it tells it how big a pixel is, for smooth edges.
-    val hint = Matrix().apply { setScale(scale, scale) }
-    drawIntoCanvas { canvas ->
-        for (pass in 0..1) {
-            for (stroke in strokes) {
-                if ((stroke.tool == InkTool.HIGHLIGHTER) != (pass == 0)) continue
-                drawables.get(pageId, stroke)?.let { renderer.draw(canvas.nativeCanvas, it, hint) }
+    val hint = Matrix().apply { setScale(raster, raster) }
+    scale(raster, raster, pivot = Offset.Zero) {
+        drawIntoCanvas { canvas ->
+            for (pass in 0..1) {
+                for (stroke in strokes) {
+                    if ((stroke.tool == InkTool.HIGHLIGHTER) != (pass == 0)) continue
+                    drawables.get(pageId, stroke)?.let { renderer.draw(canvas.nativeCanvas, it, hint) }
+                }
             }
         }
     }
 }
 
 /** How many chunks of a page appear per frame when it first shows. */
-private const val REVEAL_PER_FRAME = 2
+private const val REVEAL_PER_FRAME = 8
+
+/** The biggest page picture the app asks the graphics card to keep (see [PageInkLayer]). */
+private const val MAX_PICTURE_SIDE = 4096
+private const val MAX_PICTURE_PIXELS = 12_000_000L

@@ -1,25 +1,34 @@
 # Handoff: where things stand
 
-_Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 15 Nov 2026, evening (handover; usage limit reached mid-step 2.12). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1 (Courses & tasks)** and **Phase 1b (Task views): both done and merged into `main`.** Their history is in `PHASE-1.md`, `PHASE-1B.md` and `ISSUES.md`.
 - **Current phase: Phase 2, Handwriting notebooks.** The plan is **`PHASE-2.md`** (decisions, design, checklist 2.1–2.12, layout drafts).
-- **Branch:** `phase-2` (pushed).
-- **Mode: "Hands-off"** since 15 Nov (the user said to use the remaining budget on Phase 2, push when it matters, and update docs often). Write `REPORT.md` when stopping, listing every 🔺 step done.
+- **Branch:** `phase-2` (pushed; the working tree is clean).
+- **Mode: "Hands-off"** since 15 Nov (the user said to spend the remaining budget on Phase 2, push when it matters, and update docs often). `REPORT.md` (local, git-ignored) has the report so far; update it when stopping, listing every 🔺 step done.
 - **The tablet runs the merged `main` build** (database version 3). **Don't install Phase 2 builds on the tablet without asking:** they upgrade its database to version 4.
-- **Done so far:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor: Jetpack Ink, page files and autosave, toolbar, undo/redo, lasso, pen button, press-hard-to-erase).
+- **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor: Jetpack Ink, page files and autosave, toolbar, undo/redo, lasso, pen button, press-hard-to-erase), 2.11 (thumbnails).
+- **In progress: 2.12 performance.** The last session ended on 15 Nov (evening) when the usage limit ran out, mid-step.
 
 ## Next steps (in order)
 
-1. **2.12 performance is in progress** (2.11 thumbnails is done). State on 15 Nov, evening:
-   - Found on the emulator with a 51-page test notebook (editor ⋮ → "Add 50 pages of test writing (debug)", about 900 strokes a page): drawing every stroke every frame gave about 150 ms frames.
-   - Done so far: buffered page codec (saving a full page 1300 ms → 124 ms), stroke bounds cached, drawables built in the background (`StrokeDrawables`, `NotebookViewModel.prepareToDraw`), camera/lasso moved into `EditorViewState` (read in the draw phase only), and ink drawn as per-page layers split into 32-stroke chunk layers (`domain/ink/InkChunks`, `ui/notebook/PageInkLayers.kt`).
-   - Still slow while scrolling full pages on the emulator. Next: read `dumpsys gfxinfo … framestats` per stage (scratchpad `framestats.py`) to see whether the app thread or the render thread is the bottleneck; if it's the render thread replaying thousands of meshes, cache each page as an offscreen layer (`CompositingStrategy.Offscreen`, drawn at the settled zoom) with the tail chunk outside it.
-   - The whole emulator suite has NOT been rerun since these changes: run it before calling 2.12 done.
-   - Then the end-of-phase `/code-review`, and `REPORT.md`.
-2. Waiting on the user: tablet checks (see ISSUES.md, Open questions).
+1. **Verify the newest commit ("page pictures") before anything else. It builds and unit tests pass, but it has NEVER been run:** the emulator had been closed. It changed only `ui/notebook/PageInkLayers.kt`: each page's settled chunks now sit in one layer with `CompositingStrategy.Offscreen` (the graphics card keeps the page as a picture, drawn at `EditorViewState.inkScale`), and the last pen chunk plus the lasso selection sit in a second layer on top.
+   - Start the `Pixel_Tablet` emulator, run the scratchpad-style setup (see Gotchas: fake Canvas, a folder, a notebook, then editor ⋮ → "Add 50 pages of test writing (debug)").
+   - Check by eye: ink shows, is sharp, is in the right place after scrolling, pinching and double-tapping; writing, erasing, lasso move/resize and undo still look right; rotating works.
+   - Measure: `adb shell dumpsys gfxinfo com.nzfrankwu.noteapp reset`, do small back-and-forth swipes on full pages, then read `dumpsys gfxinfo … framestats` per stage.
+   - **Numbers to beat** (emulator, 2 full pages on screen, about 1,800 strokes):
+     - drawing every stroke every frame (first editor commit): about 150 ms a frame, up to 1.3 s
+     - chunk layers without page pictures (commit `f24e69a`): app thread about 5 ms, render thread about 13 ms, but about 50 ms a frame in total (the GPU replays every stroke)
+   - If page pictures misbehave and can't be fixed quickly: `git revert` that one commit to get back to `f24e69a`'s chunk layers (measured, and seen working on screen).
+2. **Run the whole emulator suite** (`connectedDebugAndroidTest`): it has NOT been run since the 2.12 changes (last full pass: 180 tests, before them). Fix what breaks.
+3. **Finish 2.12:** tick it in `PHASE-2.md` with the numbers, update `ISSUES.md`. Ideas not done yet:
+   - skip chunks that are off screen when zoomed in beyond the page-picture size limit
+   - pre-draw the next page before it scrolls in
+   - a lasso move of many strokes rebuilds them on release (a short pause)
+4. **End of phase:** run `/code-review` on the branch, fix what it finds, rebuild and retest, update `REPORT.md`, then ask the user to approve merging into `main`.
+5. Waiting on the user: tablet checks (see "Waiting on the user" below and ISSUES.md, Open questions).
 
 ## Tablet database safety copy
 
@@ -31,6 +40,12 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
 - **Never install an older build than the tablet has** (it's now heading to database v3): Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
 
 ## Waiting on the user
+
+- **Phase 2 on the tablet** (needs their OK to install: it upgrades the database to version 4):
+  - writing with the OPPO Pencil 2: lag, pressure, palm rejection
+  - the pen's side button: does one click switch to the lasso and back?
+  - press hard to erase: is 90% the right level?
+  - a long notebook stays smooth (editor ⋮ → "Add 50 pages of test writing (debug)")
 
 - **Tablet testing** of B.1–B.6 (installed; see `REPORT.md` for the steps).
 - **Tablet checks not yet reported:**
@@ -123,6 +138,12 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
 - **Real upgrade test, old APK:** build `main` in a worktree (`git worktree add ../Noteapp-v3 main`, copy `local.properties`, `gradlew assembleDebug` there). Removing that worktree fails with "Filename too long"; delete it with `cmd /c rmdir /s /q` and `git worktree prune`.
 - **After a deliberately broken migration test, rebuild** (`assembleDebug`) before installing: the broken-migration test leaves a broken APK in `app/build/outputs`.
+- **Helper scripts are saved in `screenshots/`** (git-ignored, this PC only): `ui.py` (tap by text or description), `setup.sh` (fake Canvas + 3 course folders), `perf_setup.sh` (install, set up, make a notebook, add 50 test pages), `framestats.py` (per-stage frame times). Run them from that folder with Git Bash and `PYTHONIOENCODING=utf-8`.
+- **Measuring editor speed on the emulator:**
+  - Per-stage frame times: `adb shell dumpsys gfxinfo com.nzfrankwu.noteapp framestats` (columns `DrawStart`, `SyncQueued`, `IssueDrawCommandsStart`, `SwapBuffers`, `FrameCompleted`); a small Python script summarised medians (rewrite if the scratchpad is gone).
+  - Finger scroll: `adb shell input touchscreen swipe x1 y1 x2 y2 ms`. Double-tap: two `input touchscreen tap` about 0.12 s apart.
+  - Give long emulator scripts a `timeout` per adb call and run them in the background: one was killed mid-way and its leftover Back presses left the app.
+- **How the ink is drawn (2.12):** `NotebookCanvas` = desk and paper canvas → one `PageInkLayer` per page on screen → overlay canvas (lasso loop/box, eraser ring) → Jetpack Ink's wet layer. `PageInkLayer` splits a page's strokes into 32-stroke `InkChunk`s (`InkChunks.reconcile` reuses untouched chunks by object identity), each a `graphicsLayer` drawn once. Camera, lasso and `inkScale` live in `EditorViewState` and are read only in draw or layer blocks, so scrolling doesn't recompose.
 - **Jetpack Ink gotchas:**
   - `CanvasStrokeRenderer.draw(canvas, stroke, matrix)` does NOT move the canvas: the matrix only tunes quality. `canvas.concat(matrix)` first.
   - The Compose `InProgressStrokes` takes a Compose `Matrix` (screen → desk), and draws every pointer nobody consumed. Our gesture layer consumes fingers in `PointerEventPass.Initial` (palm rejection) and stylus events for eraser/lasso.
@@ -142,4 +163,4 @@ _Last updated: 15 Nov 2026. Keep this file current (see CLAUDE.md, "Session hand
 
   Never destructive. The guard tests (`SchemaHistoryTest`, `MigrationListTest`, `DataSafetyRulesTest`, `MigrationTest`) fail otherwise.
 - **Secrets:** never create, read or print files in `C:\Users\hiimf\keys\` (signing key and passwords). Never read the in-app browser's cookie store.
-- **`REPORT.md`, `REPORT-*.md` and `screenshots/` are git-ignored**: local only. `REPORT-phase-1.md` is the old Phase 1 overnight report.
+- **`REPORT.md`, `REPORT-*.md` and `screenshots/` are git-ignored**: local only. `REPORT.md` is the Phase 2 report so far; `REPORT-phase-1.md` and `REPORT-phase-1b.md` are the older ones.
