@@ -102,7 +102,7 @@ The goal is to let the user import lecture PDFs, write on them, drop images onto
    - Place it at the middle of the current page at about 60% of the page width, selected and ready to move.
    - "As a new page": a page sized to the image's shape, the image filling it.
    - Draw images under the ink in `PageInkLayer`, with a bitmap cache sized to the zoom.
-- [ ] 🔺 **3.6 Lasso with images.**
+- [x] 🔺 **3.6 Lasso with images.** _Done 16 Nov: `LassoState.Selected.images`, `transformedImages` (`LassoBox.mapImage`), `InkGeometry.imageInLoop` / `boundsOf(strokes, images)`, a lasso tap (< 24 px) picks the topmost picture, move/resize/rotate/delete/duplicate/copy/cut/paste carry pictures (one undo step each; `NotebookViewModel.Clip`), selected pictures draw in the overlay, pictures are clipped to their page, inserted pictures come in selected._
    - Selection includes images: a loop touching or crossing the image's box, or a lasso tap on the image.
    - Move, resize and rotate (reuse `LassoBox.map` maths for image boxes).
    - Duplicate, copy, cut, paste, and delete, all undoable.

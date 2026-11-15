@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -102,6 +103,8 @@ sealed interface LassoState {
         val target: FloatArray = bounds,
         val handles: Boolean = false,
         val angle: Float = 0f,
+        /** Pictures in the selection (Phase 3), moved and resized with the strokes. */
+        val images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(),
     ) : LassoState {
         /** The selection box after the move/resize so far (page units), before any [angle]. */
         fun box(): FloatArray = target
@@ -110,13 +113,17 @@ sealed interface LassoState {
 
         fun transformed(): List<InkStroke> = strokes.map { LassoBox.map(it, bounds, target, angle) }
 
+        fun transformedImages(): List<com.nzfrankwu.noteapp.domain.ink.InkImage> = images.map { LassoBox.mapImage(it, bounds, target, angle) }
+
         /** The handles shown: just the bottom-right corner, or all eight after Resize. */
         fun shownHandles(): List<BoxHandle> = if (handles) BoxHandle.entries else listOf(BoxHandle.BOTTOM_RIGHT)
 
         companion object {
-            /** A fresh selection of [strokes] (none moved yet). */
-            fun of(pageIndex: Int, pageId: String, strokes: List<InkStroke>, handles: Boolean = false): Selected? =
-                InkGeometry.boundsOf(strokes)?.let { Selected(pageIndex, pageId, strokes, it, handles = handles) }
+            /** A fresh selection of [strokes] and [images] (none moved yet); null if both are empty. */
+            fun of(
+                pageIndex: Int, pageId: String, strokes: List<InkStroke>,
+                images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(), handles: Boolean = false,
+            ): Selected? = InkGeometry.boundsOf(strokes, images)?.let { Selected(pageIndex, pageId, strokes, it, handles = handles, images = images) }
         }
     }
 }
@@ -394,7 +401,13 @@ fun NotebookCanvas(
                 }
                 // Pictures, under the ink (read version so they redraw when they change).
                 @Suppress("UNUSED_VARIABLE") val edits = viewModel.version
-                for (image in viewModel.ink.images(page.id)) drawPicture(image, viewModel.imageBitmaps[image.asset], left, top, s)
+                val held = (view.lasso as? LassoState.Selected)?.takeIf { it.pageId == page.id }?.images?.mapTo(HashSet()) { it.id }
+                // Clipped to the page, like the ink: a picture never shows on the next page.
+                clipRect(left, top, left + w, top + h) {
+                    for (image in viewModel.ink.images(page.id)) {
+                        if (held == null || image.id !in held) drawPicture(image, viewModel.imageBitmaps[image.asset], left, top, s)
+                    }
+                }
                 // Until the page's ink is drawn in full, its quick preview stands in (soft, F8).
                 if (view.fullyDrawn[page.id] != true) {
                     viewModel.previews[page.id]?.let { img ->
@@ -448,6 +461,9 @@ fun NotebookCanvas(
                 }
                 is LassoState.Selected -> {
                     val box = lasso.box()
+                    for (image in lasso.transformedImages()) {
+                        drawPicture(image, viewModel.imageBitmaps[image.asset], cam.toScreenX(strip.pageLeft(lasso.pageIndex)), cam.toScreenY(strip.pageTop(lasso.pageIndex)), cam.scale)
+                    }
                     val pl = strip.pageLeft(lasso.pageIndex)
                     val pt = strip.pageTop(lasso.pageIndex)
                     val l = cam.toScreenX(pl + box[0]) - 6f; val t = cam.toScreenY(pt + box[1]) - 6f
@@ -787,16 +803,21 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         PenMode.LASSO_LOOP -> {
                             val loop = view.lasso as? LassoState.Drawing
                             val page = loop?.let { snap.pages.getOrNull(it.pageIndex) }
-                            if (loop != null && page != null && loop.xs.size > 2) {
+                            if (loop != null && page != null) {
                                 val pl = snap.strip.pageLeft(loop.pageIndex)
                                 val pt = snap.strip.pageTop(loop.pageIndex)
                                 val xs = FloatArray(loop.xs.size) { loop.xs[it] - pl }
                                 val ys = FloatArray(loop.ys.size) { loop.ys[it] - pt }
-                                val picked = viewModel.strokesInLoop(page.id, xs, ys)
-                                onLasso(
-                                    if (picked.isEmpty()) null
-                                    else LassoState.Selected.of(loop.pageIndex, page.id, picked),
-                                )
+                                val extent = (xs.max() - xs.min()) + (ys.max() - ys.min())
+                                if (extent * cam.scale < LASSO_TAP_PX) {
+                                    // A lasso tap: the topmost picture under the pen (PHASE-3.md 3.6).
+                                    val image = viewModel.imageAt(page.id, xs.first(), ys.first())
+                                    onLasso(image?.let { LassoState.Selected.of(loop.pageIndex, page.id, emptyList(), listOf(it)) })
+                                } else {
+                                    val picked = viewModel.strokesInLoop(page.id, xs, ys)
+                                    val images = viewModel.imagesInLoop(page.id, xs, ys)
+                                    onLasso(LassoState.Selected.of(loop.pageIndex, page.id, picked, images))
+                                }
                             } else {
                                 onLasso(null)
                             }
@@ -805,8 +826,9 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             (view.lasso as? LassoState.Selected)?.let { sel ->
                                 if (sel.changed) {
                                     val moved = sel.transformed()
-                                    viewModel.replaceStrokes(sel.pageId, moved)
-                                    onLasso(LassoState.Selected.of(sel.pageIndex, sel.pageId, moved, sel.handles))
+                                    val movedImages = sel.transformedImages()
+                                    viewModel.replaceSelection(sel.pageId, moved, movedImages)
+                                    onLasso(LassoState.Selected.of(sel.pageIndex, sel.pageId, moved, movedImages, handles = sel.handles))
                                 }
                             }
                         }
@@ -1035,6 +1057,9 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPicture(
         }
     }
 }
+
+/** A lasso loop smaller than this (screen px, width + height) is a tap: it picks the picture under the pen. */
+private const val LASSO_TAP_PX = 24f
 
 /** How long the view must rest before a sharp part of a deeply zoomed PDF page is drawn. */
 private const val PDF_DETAIL_DELAY_MS = 180L

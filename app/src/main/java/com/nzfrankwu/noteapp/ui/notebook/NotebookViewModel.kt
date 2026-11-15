@@ -257,12 +257,12 @@ class NotebookViewModel(
 
     /**
      * Inserts pictures on page [pageIndex]: in its middle, about 60% of the page wide, each a
-     * little lower-right of the one before. One undo step. Returns how many could be read.
+     * little lower-right of the one before. One undo step. Returns the pictures placed.
      */
-    suspend fun insertImages(pageIndex: Int, sources: List<() -> java.io.InputStream?>): Int {
-        val nb = notebook.value ?: return 0
-        val page = pages.value.getOrNull(pageIndex) ?: return 0
-        if (!isEditable(page.id) || sources.isEmpty()) return 0
+    suspend fun insertImages(pageIndex: Int, sources: List<() -> java.io.InputStream?>): List<com.nzfrankwu.noteapp.domain.ink.InkImage> {
+        val nb = notebook.value ?: return emptyList()
+        val page = pages.value.getOrNull(pageIndex) ?: return emptyList()
+        if (!isEditable(page.id) || sources.isEmpty()) return emptyList()
         insertingImages = true
         try {
             val size = page.size(nb)
@@ -279,7 +279,7 @@ class NotebookViewModel(
                 ink.addImages(page.id, placed)
                 changed(page.id)
             }
-            return placed.size
+            return placed
         } finally {
             insertingImages = false
         }
@@ -425,51 +425,70 @@ class NotebookViewModel(
     fun strokesInLoop(pageId: String, xs: FloatArray, ys: FloatArray): List<InkStroke> =
         if (!isEditable(pageId)) emptyList() else ink.strokes(pageId).filter { InkGeometry.insideLasso(it, xs, ys) }
 
-    /** Saves the lasso's move or resize (same stroke IDs, new positions). */
-    fun replaceStrokes(pageId: String, after: List<InkStroke>) {
-        if (!isEditable(pageId) || after.isEmpty()) return
-        ink.replace(pageId, after)
+    /** The pictures the lasso loop picks (a corner inside, or touching the loop). */
+    fun imagesInLoop(pageId: String, xs: FloatArray, ys: FloatArray): List<com.nzfrankwu.noteapp.domain.ink.InkImage> =
+        if (!isEditable(pageId)) emptyList() else ink.images(pageId).filter { InkGeometry.imageInLoop(it, xs, ys) }
+
+    /** The topmost picture at ([x], [y]) on the page (page units), for a lasso tap. */
+    fun imageAt(pageId: String, x: Float, y: Float): com.nzfrankwu.noteapp.domain.ink.InkImage? =
+        if (!isEditable(pageId)) null else ink.images(pageId).lastOrNull { it.contains(x, y) }
+
+    /** Saves the lasso's move, resize or turn of strokes and pictures (same IDs, new places): one undo step. */
+    fun replaceSelection(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage>) {
+        if (!isEditable(pageId) || (strokes.isEmpty() && images.isEmpty())) return
+        ink.replace(pageId, strokes, images)
         changed(pageId)
     }
 
-    fun deleteStrokes(pageId: String, ids: Set<String>) {
+    /** Deletes the lasso's strokes and pictures (one undo step). Picture files are kept for undo. */
+    fun deleteSelection(pageId: String, strokeIds: Set<String>, imageIds: Set<String> = emptySet()) {
         if (!isEditable(pageId)) return
-        if (ink.erase(pageId, ids) > 0) changed(pageId)
+        if (ink.remove(pageId, strokeIds, imageIds) > 0) changed(pageId)
     }
 
     // ---- Copy, cut, duplicate and paste (PHASE-2.md F12) ----
 
-    /** Strokes copied or cut with the lasso, ready to paste (this notebook only, until it closes). */
-    var clipboard by mutableStateOf<List<InkStroke>?>(null)
+    /** Strokes and pictures copied or cut with the lasso (this notebook only, until it closes). */
+    data class Clip(val strokes: List<InkStroke>, val images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList())
+
+    /** What was copied or cut, ready to paste. */
+    var clipboard by mutableStateOf<Clip?>(null)
         private set
 
-    fun copy(strokes: List<InkStroke>) {
-        if (strokes.isNotEmpty()) clipboard = strokes
+    fun copy(strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList()) {
+        if (strokes.isNotEmpty() || images.isNotEmpty()) clipboard = Clip(strokes, images)
     }
 
-    fun cut(pageId: String, strokes: List<InkStroke>) {
-        copy(strokes)
-        deleteStrokes(pageId, strokes.mapTo(HashSet()) { it.id })
+    fun cut(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList()) {
+        copy(strokes, images)
+        deleteSelection(pageId, strokes.mapTo(HashSet()) { it.id }, images.mapTo(HashSet()) { it.id })
     }
 
-    /** Adds a copy of [strokes] a little down and to the right; returns the copy (for selecting it). */
-    fun duplicate(pageId: String, strokes: List<InkStroke>): List<InkStroke> {
-        if (!isEditable(pageId) || strokes.isEmpty()) return emptyList()
-        val copies = strokes.map { it.mapped(1f, 0f, 0f, DUPLICATE_OFFSET, DUPLICATE_OFFSET, newId = java.util.UUID.randomUUID().toString()) }
-        ink.add(pageId, copies)
+    /** Adds a copy a little down and to the right (one undo step); returns the copy (for selecting it). */
+    fun duplicate(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList()): Clip {
+        if (!isEditable(pageId) || (strokes.isEmpty() && images.isEmpty())) return Clip(emptyList())
+        val copies = Clip(
+            strokes.map { it.mapped(1f, 0f, 0f, DUPLICATE_OFFSET, DUPLICATE_OFFSET, newId = java.util.UUID.randomUUID().toString()) },
+            // A copied picture shares the same picture file (files are never deleted while in use).
+            images.map { it.copy(id = java.util.UUID.randomUUID().toString(), left = it.left + DUPLICATE_OFFSET, top = it.top + DUPLICATE_OFFSET) },
+        )
+        ink.add(pageId, copies.strokes, copies.images)
         changed(pageId)
         return copies
     }
 
     /** Pastes the clipboard centred on ([x], [y]) (page units); returns what was pasted. */
-    fun paste(pageId: String, x: Float, y: Float): List<InkStroke> {
-        val strokes = clipboard ?: return emptyList()
-        if (!isEditable(pageId)) return emptyList()
-        val box = InkGeometry.boundsOf(strokes) ?: return emptyList()
+    fun paste(pageId: String, x: Float, y: Float): Clip {
+        val clip = clipboard ?: return Clip(emptyList())
+        if (!isEditable(pageId)) return Clip(emptyList())
+        val box = InkGeometry.boundsOf(clip.strokes, clip.images) ?: return Clip(emptyList())
         val dx = x - (box[0] + box[2]) / 2
         val dy = y - (box[1] + box[3]) / 2
-        val pasted = strokes.map { it.mapped(1f, 0f, 0f, dx, dy, newId = java.util.UUID.randomUUID().toString()) }
-        ink.add(pageId, pasted)
+        val pasted = Clip(
+            clip.strokes.map { it.mapped(1f, 0f, 0f, dx, dy, newId = java.util.UUID.randomUUID().toString()) },
+            clip.images.map { it.copy(id = java.util.UUID.randomUUID().toString(), left = it.left + dx, top = it.top + dy) },
+        )
+        ink.add(pageId, pasted.strokes, pasted.images)
         changed(pageId)
         return pasted
     }

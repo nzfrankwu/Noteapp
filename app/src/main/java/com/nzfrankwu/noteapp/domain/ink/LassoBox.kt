@@ -92,6 +92,25 @@ object LassoBox {
     }
 
     /**
+     * [image] (inside [from]) placed into [to] like [map] places strokes: its centre moves with
+     * the box, its size stretches with it, and it turns by [angle] about [to]'s centre.
+     */
+    fun mapImage(image: InkImage, from: FloatArray, to: FloatArray, angle: Float = 0f): InkImage {
+        val sx = scaleX(from, to)
+        val sy = scaleY(from, to)
+        val fcx = (from[0] + from[2]) / 2; val fcy = (from[1] + from[3]) / 2
+        val tcx = (to[0] + to[2]) / 2; val tcy = (to[1] + to[3]) / 2
+        val dx = (image.centreX - fcx) * sx
+        val dy = (image.centreY - fcy) * sy
+        val c = cos(angle); val s = sin(angle)
+        val cx = tcx + dx * c - dy * s
+        val cy = tcy + dx * s + dy * c
+        val w = image.width * sx
+        val h = image.height * sy
+        return image.copy(left = cx - w / 2, top = cy - h / 2, width = w, height = h, rotation = image.rotation + angle)
+    }
+
+    /**
      * The angle to turn a selection by when the rotate handle is dragged from ([sx], [sy]) to
      * ([x], [y]) around ([cx], [cy]): radians, snapped to the nearest quarter turn when within
      * [SNAP_RADIANS] of it, so straightening writing back up is easy.

@@ -183,20 +183,20 @@ fun NotebookScreen(
                     view, strip,
                     onResize = { sel -> view.lasso = sel.copy(handles = !sel.handles) },
                     onDuplicate = { sel ->
-                        val copies = viewModel.duplicate(sel.pageId, sel.strokes)
-                        view.lasso = LassoState.Selected.of(sel.pageIndex, sel.pageId, copies, sel.handles) ?: sel
+                        val copies = viewModel.duplicate(sel.pageId, sel.strokes, sel.images)
+                        view.lasso = LassoState.Selected.of(sel.pageIndex, sel.pageId, copies.strokes, copies.images, handles = sel.handles) ?: sel
                     },
                     onCopy = { sel ->
-                        viewModel.copy(sel.strokes)
+                        viewModel.copy(sel.strokes, sel.images)
                         scope.launch { snackbar.showSnackbar("Copied. Hold a finger on a page to paste.") }
                     },
                     onCut = { sel ->
-                        viewModel.cut(sel.pageId, sel.strokes)
+                        viewModel.cut(sel.pageId, sel.strokes, sel.images)
                         view.lasso = null
                         scope.launch { snackbar.showSnackbar("Cut. Hold a finger on a page to paste.") }
                     },
                     onDelete = { sel ->
-                        viewModel.deleteStrokes(sel.pageId, sel.strokes.map { it.id }.toSet())
+                        viewModel.deleteSelection(sel.pageId, sel.strokes.mapTo(HashSet()) { it.id }, sel.images.mapTo(HashSet()) { it.id })
                         view.lasso = null
                     },
                 )
@@ -207,10 +207,10 @@ fun NotebookScreen(
                     val index = strip.pageAt(wx)
                     val page = pages.getOrNull(index) ?: return@PasteBubble
                     val pasted = viewModel.paste(page.id, wx - strip.pageLeft(index), cam.toWorldY(at.y) - strip.pageTop(index))
-                    if (pasted.isNotEmpty()) {
-                        // Pasted strokes come selected, ready to move (that needs the lasso).
+                    if (pasted.strokes.isNotEmpty() || pasted.images.isNotEmpty()) {
+                        // Pasted things come selected, ready to move (that needs the lasso).
                         if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
-                        view.lasso = LassoState.Selected.of(index, page.id, pasted)
+                        view.lasso = LassoState.Selected.of(index, page.id, pasted.strokes, pasted.images)
                     }
                 }
                 PageScroller(view, strip, pages.size)
@@ -286,9 +286,15 @@ fun NotebookScreen(
                                     view.animateTo(scope, grown.fit(settings.fitMode, at + 1, view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
                                 }
                             } else {
-                                val added = viewModel.insertImages(at, sources)
-                                if (added < uris.size) {
-                                    snackbar.showSnackbar(if (added == 0) "That picture couldn't be read." else "${uris.size - added} pictures couldn't be read.")
+                                val placed = viewModel.insertImages(at, sources)
+                                val pageId = pages.getOrNull(at)?.id
+                                if (placed.isNotEmpty() && pageId != null) {
+                                    // New pictures come selected, ready to move or resize (PHASE-3.md).
+                                    if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
+                                    view.lasso = LassoState.Selected.of(at, pageId, emptyList(), placed)
+                                }
+                                if (placed.size < uris.size) {
+                                    snackbar.showSnackbar(if (placed.isEmpty()) "That picture couldn't be read." else "${uris.size - placed.size} pictures couldn't be read.")
                                 }
                             }
                             uris.filter { it.scheme == "file" }.forEach { runCatching { java.io.File(it.path!!).delete() } }

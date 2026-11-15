@@ -1,11 +1,11 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.5 done and pushed; next 3.6). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.6 done and pushed; next 3.7). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
-- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model) and 3.5 (the image menu) are done**; next is 3.6 (lasso with pictures).
+- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu) and 3.6 (lasso with pictures) are done**; next is 3.7 (Export as PDF).
 - **Branch:** `phase-3` (from `main`), pushed after each step.
 - **Mode: hands-off** (the user said so on 16 Nov, 3.2 onwards): commit and push after each passing step; write `REPORT.md` when stopping; list every 🔺 step there.
 - **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
@@ -15,7 +15,8 @@ _Last updated: 16 Nov 2026 (hands-off mode; steps 3.1–3.5 done and pushed; nex
 
 ## Next steps (in order)
 
-1. **Step 3.6 (lasso with pictures)** 🔺: `LassoState.Selected` holds strokes only. Add pictures to it (loop touching/crossing a picture's box, or a lasso tap on a picture: `InkImage.contains`, `corners`), move/resize/rotate them with the strokes (`LassoBox.map`), and use `NotebookInk.replace/remove/add(pageId, strokes, images)` (one undo step each). Hide selected pictures from layer 1 while dragging (draw them in the selection layer). Duplicate/copy/cut/paste must copy pictures too (the clipboard holds strokes only now). Then make a newly inserted picture come in selected. Then 3.7 (PDF export).
+1. **Step 3.7 (Export as PDF)** 🔺 ★: add PdfBox-Android (approved; `com.tom-roush:pdfbox-android`, check the newest version that fits Kotlin 2.2 / AGP 9.5.1), `PDFBoxResourceLoader.init` in `NoteAppApplication`. PDF pages: import the original page (`LayerUtility` / `importPage`) and draw ink on top; other pages: new page with the paper pattern (`domain/PagePattern`), pictures, then ink. Ink as filled outlines (Jetpack Ink `Stroke.shape` outlines, or our own polyline fallback), highlighter with transparency. Share via the FileProvider (`exports/` is already in `file_paths.xml`), Save via `CreateDocument`. Then 3.8 (share into Noteapp), 3.9 (screenshot tool), 3.10 (tablet).
+   - 3.6 left: `LassoState.Selected.images`, `LassoBox.mapImage`, `InkGeometry.imageInLoop`, `NotebookViewModel.Clip / replaceSelection / deleteSelection / imageAt / imagesInLoop`.
    - 3.5 left: `ImageMenu.kt`, `data/ImageImport` (+ `loadForScreen`), `data/RecentImages`, `NotebookViewModel.insertImages / insertImageAsPage / prepareImages / imageBitmaps`, `drawPicture` in `NotebookCanvas`, `InkSketch.drawImages`, FileProvider `${applicationId}.files` (`res/xml/file_paths.xml`: cache `camera/`, `exports/`).
    - 3.4 left: `InkImage`, `PageContent`, `PageInkCodec.decodePage`, `NotebookInk.images/addImages/remove/replace/add(strokes, images)`, `InkEdit.Group`, `changedPages`.
    - 3.3 left: `PdfImport` (ID → copy into `notebooks/<id>/pdf-<uuid>.pdf` → `PdfPages.readInfo` → `createPdfNotebook`), `PdfPages` (whole-page pictures + `region` for deep zoom), `NotebookViewModel.preparePdf` / `preparePdfDetail` → `pdfPictures` / `pdfDetail` state drawn in `NotebookCanvas` layer 1, `NotebookListItem.isPdf`, `LibraryFilter.PDFS`.
