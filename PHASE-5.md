@@ -97,6 +97,23 @@ These additions are written into IDEA.md §2.8 and the Phase 5 row of §5; the u
 - [ ] **5.12 Tablet check:** ask first; back up with `screenshots/tablet_snapshot.sh`, install, compare. No database upgrade.
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest, then ask to merge into `main`.
 
+## Feedback round 1 (17 Nov 2026, on Phase 4 and text boxes)
+Done before split view, hands-off. The user's answers to my questions are in brackets.
+- [ ] **FB1 The bookmark sheet shows which task is picked.** The picked row gets a check mark and a stronger highlight.
+- [ ] **FB2 Long press a text box with a finger to edit it** (as well as tapping it). The lasso still selects boxes: a lasso tap or loop, or the pen held on a box.
+- [ ] **FB3 Search and filters in both task pickers** ("Link to a task" and the bookmark sheet):
+  - a search field (task title or course code)
+  - **course:** this course (default), all other courses, or one chosen course; with no course, "All courses"
+  - **due:** "Due soon" (default: due date still ahead, plus undated tasks) or "Already due" (due date passed, latest first); done tasks show in both, marked done [user]
+  - the sheet's linked tasks stay at the top; the search narrows them too
+  - pure filtering in `data/LinkChoices.kt`, unit-tested
+- [ ] **FB4 Two pens instead of three** [user]: pen 3 goes. The defaults become pen 1 dark blue and pen 2 red. Existing settings still at the old defaults (pen 1 black, pen 2 blue) are moved to the new ones; anyone on pen 3 is switched to pen 1.
+- [ ] 🔺 **FB5 The bookmark pen**: a new toolbar tool after the lasso, with two modes like a lasso: **free loop** and **rectangle**.
+  - Selecting an area takes a picture of it (the rectangle around a loop [user]) and opens the bookmark sheet with that picture as the note, plus optional text. Cancel, or touching outside the sheet, closes it as now.
+  - **Database version 7:** `task_bookmarks` gets an `image` column (nullable): the picture's file name. One `MIGRATION_6_7` (`ALTER TABLE … ADD COLUMN`), never destructive; old bookmarks keep no picture.
+  - Pictures are files in the notebook's folder (`bookmarks/<uuid>.png`), so Phase 6 backs them up with the notebook. A bookmark's picture file is deleted only when the bookmark is deleted for good (not while Undo can bring it back).
+  - Under the task, a bookmark with a picture shows it as a thumbnail beside "p. N" and its text.
+
 ## Verification
 - **Every step:** `gradlew.bat assembleDebug testDebugUnitTest`, plus `connectedDebugAndroidTest` with `ANDROID_SERIAL=emulator-5554` (a run wipes the emulator's app data; rebuild it with `screenshots/p4setup.sh`).
 - **Emulator screen tests:**
