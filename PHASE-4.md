@@ -101,7 +101,7 @@ The user added more to this phase:
   - ★ check-in
 - [x] **4.4 Icon menus** (16 Nov, hands-off): `ui/notebook/IconMenu.kt`; lasso icons Resize (open-in-full) · Crop · Duplicate · Copy · Cut · Delete (light red); Paste is a one-icon pill. Hold an icon for its name. Test tags `lasso-resize`, `lasso-crop`, `lasso-copy`, … , `paste-button`.: `IconMenu.kt`; LassoMenu and the Paste bubble become icons with tooltips. Screenshots light and dark. ★ quick look
 - [x] **4.5 Bookmarks in the editor** (16 Nov, hands-off): `BookmarkSheet.kt` (linked tasks, then This course, then Other tasks; note; Save enabled once a task is picked; a single linked task is preselected). The 🔖 button sits on the right, before ＋.: the 🔖 top-bar button, 🔖 in the lasso menu, and the bookmark sheet (task picker + note; reuses `LinkTaskSheet`).
-- [ ] 🔺 **4.6 PDF text layer**: `data/PdfText.kt` (words, lines, coordinate mapping incl. turned pages), the cache, emulator tests with PDFs made by `PdfDocument`. Then `domain/ink/TextSelection.kt` with unit tests.
+- [x] 🔺 **4.6 PDF text layer** (16 Nov, hands-off): `data/PdfText.kt` (PdfBox's text runs split into words at spaces and wide gaps; boxes from each glyph's matrix through `domain/PdfCoords`, shared with Export), `domain/ink/TextSelection.kt`. Selection works in whole words. `PdfTextTest` checks every word box against PdfRenderer's pixels at 0°, 90°, 180°, 270°.: `data/PdfText.kt` (words, lines, coordinate mapping incl. turned pages), the cache, emulator tests with PDFs made by `PdfDocument`. Then `domain/ink/TextSelection.kt` with unit tests.
 - [ ] 🔺 **4.7 Finger text selection**
   - hold → word, handles, the overlay
   - the icon menu: Copy, Highlight, Underline, Bookmark (prefilled note)

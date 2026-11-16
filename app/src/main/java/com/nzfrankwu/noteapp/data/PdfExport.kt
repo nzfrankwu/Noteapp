@@ -97,18 +97,10 @@ class PdfExport(
         }
     }
 
-    /** The matrix from our top-down units on the page as shown to the PDF's own units. */
+    /** The matrix from our top-down units on the page as shown to the PDF's own units (see [PdfCoords]). */
     private fun pageToPdf(box: PDRectangle, rotation: Int): Matrix {
-        val x0 = box.lowerLeftX
-        val y0 = box.lowerLeftY
-        val w = box.width
-        val h = box.height
-        return when (((rotation % 360) + 360) % 360) {
-            90 -> Matrix(0f, 1f, 1f, 0f, x0, y0)
-            180 -> Matrix(-1f, 0f, 0f, 1f, x0 + w, y0)
-            270 -> Matrix(0f, -1f, -1f, 0f, x0 + w, y0 + h)
-            else -> Matrix(1f, 0f, 0f, -1f, x0, y0 + h)
-        }
+        val m = com.nzfrankwu.noteapp.domain.PdfCoords.pageToPdf(box.lowerLeftX, box.lowerLeftY, box.width, box.height, rotation)
+        return Matrix(m[0], m[1], m[2], m[3], m[4], m[5])
     }
 
     private fun drawPaper(cs: PDPageContentStream, template: PageTemplate, w: Float, h: Float) {
