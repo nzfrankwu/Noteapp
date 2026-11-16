@@ -14,7 +14,7 @@ _Last updated: 16 Nov 2026 (Phase 5, hands-off; text boxes 5.1–5.5 done; stopp
 - **IDEA.md** §2.4, §2.6 and §5 were updated for bookmarks and text selection (user's OK, 16 Nov).
 - **Branch:** `phase-5` (from `main`), pushed after each step.
 - **Mode:** **Hands-off** for Phase 5 (the user said "continue on in hands off mode" on 16 Nov). List every 🔺 step done in REPORT.md.
-- **The tablet runs Phase 4** (the build of `266f99b`), database **version 6** (installed 16 Nov; before/after compare PASS: every row and all 159 page files unchanged). Backup in `backups/tablet-2026-11-16-before-v6/` (with the page files). Never install a build older than v6 on it: Room can't downgrade.
+- **The tablet runs Phase 5 up to 5.5** (text boxes, the build of `c2469f3`), database **version 6** (installed 17 Nov with the user's OK; before/after compare PASS, links and bookmarks unchanged). Backup in `backups/tablet-2026-11-17-before-p5/` (with the page files). Never install a build older than v6 on it: Room can't downgrade. Pages given text boxes are page format 3, which builds before Phase 5 can't read.
 - **The emulator runs Phase 4** (database v6).
 - Unit tests and the full emulator suite (**258 tests**) pass after Phase 5 step 5.5.
 
