@@ -75,13 +75,21 @@ fun EditorTopBar(
     androidx.compose.foundation.layout.BoxWithConstraints(
         Modifier
             .fillMaxWidth()
-            .height(BarHeight)
             .padding(horizontal = 12.dp),
     ) {
-        // The chip stops short of the Undo/Redo pill in the middle (portrait is narrow).
-        val chipMax = (maxWidth / 2 - CenterPillHalfWidth - ButtonSize - 24.dp).coerceAtLeast(0.dp)
+        // In a narrow window (e.g. half of Android's split screen, PHASE-5.md 5.11) the middle pill
+        // doesn't fit between the side buttons: it goes on a second row underneath.
+        val rightCount = if (onBookmark != null) 4 else 3
+        val rightWidth = ButtonSize * rightCount + 8.dp * (rightCount - 1)
+        val narrow = maxWidth < (CenterPillHalfWidth + maxOf(LeftGroupWidth, rightWidth) + 8.dp) * 2
+        // The chip stops short of the pill in the middle (or of the right buttons when narrow).
+        val chipMax = if (narrow) {
+            (maxWidth - rightWidth - LeftGroupWidth - 16.dp).coerceAtLeast(0.dp)
+        } else {
+            (maxWidth / 2 - CenterPillHalfWidth - LeftGroupWidth - 16.dp).coerceAtLeast(0.dp)
+        }
         Row(
-            Modifier.align(Alignment.CenterStart),
+            Modifier.height(BarHeight).align(Alignment.TopStart),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -92,7 +100,9 @@ fun EditorTopBar(
 
         Row(
             Modifier
-                .align(Alignment.Center)
+                // Narrow: on the right, under the side buttons, clear of the recent panel on the left.
+                .align(if (narrow) Alignment.TopEnd else Alignment.TopCenter)
+                .padding(top = if (narrow) BarHeight else (BarHeight - ButtonSize) / 2)
                 .shadow(3.dp, RoundedCornerShape(50))
                 .background(EditorBarButton, RoundedCornerShape(50))
                 .border(1.dp, ButtonRim, RoundedCornerShape(50))
@@ -115,7 +125,7 @@ fun EditorTopBar(
         }
 
         Row(
-            Modifier.align(Alignment.CenterEnd),
+            Modifier.height(BarHeight).align(Alignment.TopEnd),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -157,6 +167,7 @@ private fun BarButton(
         shape = CircleShape,
         colors = IconButtonDefaults.iconButtonColors(
             containerColor = when {
+                selected && filled -> androidx.compose.ui.graphics.lerp(EditorBarButton, Color.White, 0.25f)
                 selected -> Color.White.copy(alpha = 0.22f)
                 filled -> EditorBarButton
                 else -> Color.Transparent
@@ -196,3 +207,5 @@ private val BarHeight = 64.dp
 private val ButtonSize = 44.dp
 /** About half the width of the Undo/Redo/Image/Text/Screenshot pill. */
 private val CenterPillHalfWidth = 128.dp
+/** Back and the recent panel's button. */
+private val LeftGroupWidth = 98.dp
