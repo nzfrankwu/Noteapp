@@ -55,6 +55,7 @@ _None known._
 
 ## Done
 
+- **Phase 3 merged into `main` (16 Nov, `7de0c06`).** Phase 4 planned the same day (`PHASE-4.md`): links, page bookmarks, PDF text selection, icon menus.
 - **IDEA.md §2.7 and §5 (16 Nov):** snip noted as built in Phase 3 (user's OK).
 - **F36 (16 Nov):** a stroke written across the edge between two pages is no longer cut off: it's split at the edge, one piece per page (one undo step). Strokes written before the fix stay cut.
 - **End-of-phase review, Phase 3 (16 Nov):** 10 findings fixed (details in PHASE-3.md): crop crash on very long screenshots, a finger move lost on pinch, export of PDF pages that have their own rotation, a stale "PDF" tag, a share lost on rotation, the pen layer waiting on an unready page, the fresh last page after a split stroke, recent photos before Android 11, F35's corners (pictures only), and tests for the pen handoff.

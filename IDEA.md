@@ -68,6 +68,7 @@
 - Link any notebook or file to one or more tasks.
 - From a task: see and open its linked notes.
 - From a notebook: see which task(s) it belongs to.
+- **Page bookmarks** (added Nov 2026): bookmark a page of a notebook for a task, with an optional quick note. A bookmark made from selected PDF text gets that text as its note, and the note can be changed later. Under the task, bookmarks are grouped by notebook and ordered by page number (smallest first); tapping one opens that page, zoomed to the spot.
 
 ### 2.5 Notebooks (handwriting)
 - **Handwriting first**; **text boxes** added in a later phase.
@@ -89,6 +90,7 @@
 
 ### 2.6 Files: PDFs, images, Word/PowerPoint
 - **PDF:** import and write/highlight on top; export the annotated PDF.
+- **Selecting PDF text** (added Nov 2026): hold a finger on a PDF's text to select it and drag the handles to select more; a small icon menu offers Copy, Highlight, Underline and Bookmark (to a task). Scanned pages have no text to select.
 - **Images:** JPG, PNG, WebP, HEIC — insert into a page or import as their own page.
 - **Word (.docx) & PowerPoint (.pptx):** converted to PDF first, then annotated like a PDF (see §4 — conversion is done through Google Drive).
 - **"Share to NoteApp":** from any other app (Canvas, browser, Files), share a PDF/image straight into a chosen folder.
@@ -210,7 +212,7 @@ Build one phase at a time; each phase should leave a working app. Commit after e
 | **1b. Task views** | Days left on tasks, automatic course colours, Canvas "available from" date (database v2), home tabs, Calendar (month), Timeline |
 | **2. Handwriting notebooks** | **Subfolders** (folder-in-folder, done together with the notebook storage changes), notebook/page model, ink canvas with pen/highlighter/eraser, undo/redo, page templates (lined default), floating movable toolbar, zoom/scroll, palm rejection, autosave, **lasso select** (moved here from Phase 5, Nov 2026), pen button → lasso, press hard to erase, double-tap to fit |
 | **3. Images & PDFs** | Insert images, import PDFs and annotate, export annotated PDF, "Share to NoteApp", **screen capture/snip** (whole screen incl. other apps → crop → insert; moved here from Phase 5, Nov 2026) |
-| **4. Linking** | Link notebooks/files ↔ tasks; course folder view showing notes + tasks together |
+| **4. Linking** | Link notebooks/files ↔ tasks; course folder view showing notes + tasks together; **page bookmarks for tasks** (with quick notes) and **selecting PDF text** with a finger (Copy, Highlight, Underline, Bookmark), both added Nov 2026 |
 | **5. Productivity extras** | Text boxes, in-app split view of two notebooks, snip between split notebooks |
 | **6. Google Drive & backup** | ⚠️ Must be done and tested before I use the app for real. Google sign-in, automatic full backup + restore, manual "Export everything" / "Import from export", PDF copies mirroring course folders, backup status/warnings, Recently deleted, Word/PowerPoint conversion → later: Version history |
 | **7. Polish** | Search, partial eraser, custom tags, per-page templates, settings, performance tuning |
