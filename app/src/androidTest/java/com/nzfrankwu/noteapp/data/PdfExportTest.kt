@@ -171,6 +171,64 @@ class PdfExportTest {
     }
 
     @Test
+    fun textBoxes_exportAsRealText_whereTheScreenPutsThem() = runBlocking {
+        TextBoxLayout.install(context.assets)
+        val id = (notebooks.createNotebook(folderId, "Typed") as NotebookResult.Success).id
+        val page = notebooks.getPages(id).single()
+        val plain = TextBoxLayout.measured(
+            com.nzfrankwu.noteapp.domain.ink.InkText("t1", "Characteristic impedance Ω = √(L/C) of a lossless line", 60f, 100f, 200f, 0f, size = 14f),
+        )
+        val bold = TextBoxLayout.measured(
+            com.nzfrankwu.noteapp.domain.ink.InkText("t2", "Exam on Friday", 60f, 400f, 300f, 0f, size = 24f, colorArgb = Color.RED, bold = true),
+        )
+        files.write(id, page.id, emptyList(), texts = listOf(plain, bold))
+        val out = File(root, "typed.pdf")
+        PdfExport(files).export(notebooks.getNotebook(id)!!, notebooks.getPages(id), out, InkBrushes::exportShape)
+
+        PDDocument.load(out).use { doc ->
+            val text = PDFTextStripper().getText(doc).replace(Regex("\\s+"), " ")
+            assertTrue("Real, selectable text: $text", text.contains("Characteristic impedance Ω = √(L/C) of a lossless line"))
+            assertTrue(text.contains("Exam on Friday"))
+            // The font is embedded (a subset), so it looks the same in any PDF viewer.
+            val fonts = doc.getPage(0).resources.fontNames.map { doc.getPage(0).resources.getFont(it) }
+            assertTrue("Embedded: ${fonts.map { it.name }}", fonts.isNotEmpty() && fonts.all { it.isEmbedded })
+        }
+        // Each line lands where the screen draws it: the PDF's words sit inside the box's lines.
+        val words = PDDocument.load(out).use { PdfText.read(it, 0, PageSize(595f, 842f)).words }
+        val first = TextBoxLayout.lines(plain).first()
+        val word = words.first { it.text == "Characteristic" }
+        assertEquals(first.x, word.left, 1.5f)
+        assertEquals(first.baseline, word.baseline, 1f)
+        assertTrue("Wrapped like the screen", TextBoxLayout.lines(plain).size > 1)
+        // The bold red text is red on the page.
+        val bmp = render(out, 0, scale = 2f)
+        var red = 0
+        for (y in 800..880) for (x in 120..600) bmp.getPixel(x, y).let { if (Color.red(it) > 180 && Color.green(it) < 90) red++ }
+        assertTrue("Red text drawn: $red", red > 200)
+    }
+
+    @Test
+    fun aTextBoxWithAnEmoji_becomesAPicture() = runBlocking {
+        TextBoxLayout.install(context.assets)
+        val id = (notebooks.createNotebook(folderId, "Emoji") as NotebookResult.Success).id
+        val page = notebooks.getPages(id).single()
+        val box = TextBoxLayout.measured(
+            com.nzfrankwu.noteapp.domain.ink.InkText("t", "Well done 😀", 60f, 100f, 300f, 0f, size = 20f, colorArgb = Color.BLACK),
+        )
+        files.write(id, page.id, emptyList(), texts = listOf(box))
+        val out = File(root, "emoji.pdf")
+        PdfExport(files).export(notebooks.getNotebook(id)!!, notebooks.getPages(id), out, InkBrushes::exportShape)
+        PDDocument.load(out).use { doc ->
+            assertTrue(PDFTextStripper().getText(doc).isBlank())
+            assertTrue("A picture", doc.getPage(0).resources.xObjectNames.toList().isNotEmpty())
+        }
+        val bmp = render(out, 0)
+        var dark = 0
+        for (y in 100..130) for (x in 60..200) if (isDark(bmp.getPixel(x, y))) dark++
+        assertTrue("The words show: $dark", dark > 50)
+    }
+
+    @Test
     fun fileNames_areSafe() {
         assertEquals("Lecture 7.pdf", PdfExport.fileNameFor("Lecture 7"))
         assertEquals("a_b_c.pdf", PdfExport.fileNameFor("a/b\\c"))

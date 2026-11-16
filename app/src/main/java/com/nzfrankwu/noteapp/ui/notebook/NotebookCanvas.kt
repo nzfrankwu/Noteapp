@@ -125,7 +125,12 @@ sealed interface LassoState {
         fun transformedTexts(): List<com.nzfrankwu.noteapp.domain.ink.InkText> = texts.map { LassoBox.mapText(it, bounds, target, angle) }
 
         /** The handles shown: just the bottom-right corner, or all eight after Resize. */
-        fun shownHandles(): List<BoxHandle> = if (handles) BoxHandle.entries else listOf(BoxHandle.BOTTOM_RIGHT)
+        fun shownHandles(): List<BoxHandle> = when {
+            !handles -> listOf(BoxHandle.BOTTOM_RIGHT)
+            // Text scales evenly, so only the corners; and a short box's middle stays free to drag (Phase 5).
+            texts.isNotEmpty() -> BoxHandle.entries.filter { (it.left || it.right) && (it.top || it.bottom) }
+            else -> BoxHandle.entries
+        }
 
         companion object {
             /** A fresh selection of [strokes], [images] and [texts] (none moved yet); null if all are empty. */

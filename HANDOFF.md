@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 5, hands-off; 5.4 done, on step 5.5; stopping after 5.5 for the user's feedback). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 5, hands-off; text boxes 5.1–5.5 done; stopped for the user's feedback before 5.6). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -16,11 +16,11 @@ _Last updated: 16 Nov 2026 (Phase 5, hands-off; 5.4 done, on step 5.5; stopping 
 - **Mode:** **Hands-off** for Phase 5 (the user said "continue on in hands off mode" on 16 Nov). List every 🔺 step done in REPORT.md.
 - **The tablet runs Phase 4** (the build of `266f99b`), database **version 6** (installed 16 Nov; before/after compare PASS: every row and all 159 page files unchanged). Backup in `backups/tablet-2026-11-16-before-v6/` (with the page files). Never install a build older than v6 on it: Room can't downgrade.
 - **The emulator runs Phase 4** (database v6).
-- Unit tests and the full emulator suite (**241 tests**) pass at the end of Phase 4.
+- Unit tests and the full emulator suite (**258 tests**) pass after Phase 5 step 5.5.
 
 ## Next steps (in order)
 
-1. **Phase 5:** 5.0 and 5.1 done (page format 3 with text boxes, `8a093a4` → next commit). 5.2 done (`data/TextBoxLayout.kt`, font = PdfBox's Liberation Sans asset). 5.3 done (T button, `TextBoxEditing.kt`). 5.4 done (lasso). Next: **5.5 PDF export of text boxes**, then **stop for the user's feedback** on Phase 4 and the text boxes (they asked on 16 Nov).
+1. **Phase 5:** 5.0 and 5.1 done (page format 3 with text boxes, `8a093a4` → next commit). 5.2 done (`data/TextBoxLayout.kt`, font = PdfBox's Liberation Sans asset). 5.3 done (T button, `TextBoxEditing.kt`). 5.4 and 5.5 done: **text boxes are finished (5.1–5.5)**. **Stopped for the user's feedback** on Phase 4 and the text boxes (they asked on 16 Nov). REPORT.md is the text box report; REPORT-phase-4.md the Phase 4 one. After their feedback: fix what they ask, then **5.6** (🔺 split the editor into pane + shared controls; flag it first).
 2. Phase 4 tablet feedback (hold time, handle size) may still come from the user: fix it on `phase-5` if so.
 4. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture
