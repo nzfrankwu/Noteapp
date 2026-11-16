@@ -61,6 +61,26 @@ data class InkImage(
         return abs(ux) <= width / 2 && abs(uy) <= height / 2
     }
 
+    /**
+     * This picture cut down to the part ([left], [top], [right], [bottom] in the picture's own
+     * pixels, of a [pixelWidth] × [pixelHeight] file) and showing [newAsset]: the kept part stays
+     * exactly where it was on the page, at the same scale and turn (feedback F33).
+     */
+    fun cropped(newAsset: String, pixelWidth: Int, pixelHeight: Int, left: Int, top: Int, right: Int, bottom: Int): InkImage {
+        val sx = width / pixelWidth
+        val sy = height / pixelHeight
+        val w = (right - left) * sx
+        val h = (bottom - top) * sy
+        // The kept part's centre, relative to the whole picture's centre, in its own (unturned) frame.
+        val dx = left * sx + w / 2 - width / 2
+        val dy = top * sy + h / 2 - height / 2
+        val c = cos(rotation)
+        val s = sin(rotation)
+        val cx = centreX + dx * c - dy * s
+        val cy = centreY + dx * s + dy * c
+        return copy(asset = newAsset, left = cx - w / 2, top = cy - h / 2, width = w, height = h)
+    }
+
     companion object {
         /**
          * A picture [pixelWidth] × [pixelHeight] placed in the middle of a [pageWidth] × [pageHeight]

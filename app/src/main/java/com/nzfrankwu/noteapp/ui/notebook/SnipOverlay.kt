@@ -47,21 +47,29 @@ import kotlin.math.roundToInt
  * sit under the box. [onConfirm] gets the box in the picture's own pixels (left, top, right, bottom).
  */
 @Composable
-fun SnipOverlay(picture: ImageBitmap, onCancel: () -> Unit, onConfirm: (IntArray) -> Unit) {
+fun SnipOverlay(picture: ImageBitmap, onCancel: () -> Unit, onConfirm: (IntArray) -> Unit, startWhole: Boolean = false) {
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black).testTag("snip-overlay")) {
         val density = LocalDensity.current
         val viewW = constraints.maxWidth.toFloat()
         val viewH = constraints.maxHeight.toFloat()
-        // Where the picture sits (fitted, centred).
-        val scale = min(viewW / picture.width, viewH / picture.height)
+        // Where the picture sits: fitted and centred, with a margin all round (so every handle can
+        // be reached, clear of the system's gesture areas) and room for Cancel / Confirm below.
+        val margin = with(density) { 32.dp.toPx() }
+        val buttonRoom = with(density) { 72.dp.toPx() }
+        val areaW = (viewW - 2 * margin).coerceAtLeast(1f)
+        val areaH = (viewH - 2 * margin - buttonRoom).coerceAtLeast(1f)
+        val scale = min(areaW / picture.width, areaH / picture.height)
         val dstW = picture.width * scale
         val dstH = picture.height * scale
         val dstX = (viewW - dstW) / 2
-        val dstY = (viewH - dstH) / 2
+        val dstY = margin + (areaH - dstH) / 2
         val minSide = with(density) { 48.dp.toPx() }
-        // The crop box in screen pixels; it starts as the middle half of the picture.
+        // The crop box in screen pixels; it starts as the middle half of the picture (or all of it, to crop a picture).
         var box by remember(picture) {
-            mutableStateOf(floatArrayOf(dstX + dstW / 4, dstY + dstH / 4, dstX + dstW * 3 / 4, dstY + dstH * 3 / 4))
+            mutableStateOf(
+                if (startWhole) floatArrayOf(dstX, dstY, dstX + dstW, dstY + dstH)
+                else floatArrayOf(dstX + dstW / 4, dstY + dstH / 4, dstX + dstW * 3 / 4, dstY + dstH * 3 / 4),
+            )
         }
         fun clamped(b: FloatArray): FloatArray {
             var (l, t, r, bt) = b

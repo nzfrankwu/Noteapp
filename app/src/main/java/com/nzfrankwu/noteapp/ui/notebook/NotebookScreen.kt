@@ -122,6 +122,8 @@ fun NotebookScreen(
     var imageMenuOpen by remember { mutableStateOf(false) }
     // The screenshot tool (PHASE-3.md 3.9): the still picture being cropped, and a capture of the pages.
     var snip by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    // A picture being cropped (F33).
+    var cropping by remember { mutableStateOf<CropTarget?>(null) }
     var capturing by remember { mutableStateOf(false) }
     val pagesLayer = androidx.compose.ui.graphics.rememberGraphicsLayer()
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -214,6 +216,14 @@ fun NotebookScreen(
                 LassoMenu(
                     view, strip,
                     onResize = { sel -> view.lasso = sel.copy(handles = !sel.handles) },
+                    onCrop = { sel ->
+                        val image = sel.images.single()
+                        scope.launch {
+                            val full = viewModel.loadFullPicture(image)
+                            if (full == null) snackbar.showSnackbar("That picture couldn't be read.")
+                            else cropping = CropTarget(sel.pageIndex, sel.pageId, image, full)
+                        }
+                    },
                     onDuplicate = { sel ->
                         val copies = viewModel.duplicate(sel.pageId, sel.strokes, sel.images)
                         view.lasso = LassoState.Selected.of(sel.pageIndex, sel.pageId, copies.strokes, copies.images, handles = sel.handles) ?: sel
@@ -374,6 +384,25 @@ fun NotebookScreen(
                 )
             }
             ExportDialogs(viewModel, nb?.title.orEmpty())
+            cropping?.let { target ->
+                val image = remember(target) { target.picture.asImageBitmap() }
+                SnipOverlay(
+                    picture = image,
+                    startWhole = true,
+                    onCancel = { cropping = null },
+                    onConfirm = { box ->
+                        cropping = null
+                        scope.launch {
+                            val cropped = viewModel.cropImage(target.pageId, target.image, target.picture, box)
+                            if (cropped == null) {
+                                snackbar.showSnackbar("The picture couldn't be cropped.")
+                            } else {
+                                view.lasso = LassoState.Selected.of(target.pageIndex, target.pageId, emptyList(), listOf(cropped))
+                            }
+                        }
+                    },
+                )
+            }
             snip?.let { picture ->
                 val image = remember(picture) { picture.asImageBitmap() }
                 SnipOverlay(
@@ -408,6 +437,9 @@ fun NotebookScreen(
         }
     }
 }
+
+/** A picture being cropped: where it is, and its full picture file. */
+private class CropTarget(val pageIndex: Int, val pageId: String, val image: com.nzfrankwu.noteapp.domain.ink.InkImage, val picture: android.graphics.Bitmap)
 
 /** Exported PDFs wait here (cache) to be shared or saved; see res/xml/file_paths.xml. */
 private const val EXPORT_DIR = "exports"
@@ -561,6 +593,7 @@ private fun LassoMenu(
     view: EditorViewState,
     strip: PageStrip,
     onResize: (LassoState.Selected) -> Unit,
+    onCrop: (LassoState.Selected) -> Unit,
     onDuplicate: (LassoState.Selected) -> Unit,
     onCopy: (LassoState.Selected) -> Unit,
     onCut: (LassoState.Selected) -> Unit,
@@ -585,6 +618,10 @@ private fun LassoMenu(
     ) {
         Row {
             TextButton(onClick = { onResize(sel) }) { Text(if (sel.handles) "Resize ✓" else "Resize") }
+            // One picture on its own can be cropped (F33).
+            if (sel.strokes.isEmpty() && sel.images.size == 1) {
+                TextButton(onClick = { onCrop(sel) }, modifier = Modifier.testTag("lasso-crop")) { Text("Crop") }
+            }
             TextButton(onClick = { onDuplicate(sel) }) { Text("Duplicate") }
             TextButton(onClick = { onCopy(sel) }) { Text("Copy") }
             TextButton(onClick = { onCut(sel) }) { Text("Cut") }

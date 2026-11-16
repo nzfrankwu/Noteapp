@@ -83,6 +83,29 @@ class LassoImagesTest {
     }
 
     @Test
+    fun cropping_keepsThePartWhereItWas_atTheSameScale() {
+        // 200 × 100 on the page from a 2000 × 1000 file: 10 pixels per page unit.
+        val cropped = photo.cropped("images/c.jpg", 2000, 1000, left = 500, top = 200, right = 1500, bottom = 700)
+        assertEquals("images/c.jpg", cropped.asset)
+        assertEquals(photo.id, cropped.id)
+        assertEquals(150f, cropped.left, 0.01f) // 100 + 500/10
+        assertEquals(120f, cropped.top, 0.01f) // 100 + 200/10
+        assertEquals(100f, cropped.width, 0.01f)
+        assertEquals(50f, cropped.height, 0.01f)
+    }
+
+    @Test
+    fun croppingATurnedPicture_turnsTheKeptPartWithIt() {
+        // Half a turn: the right half of the picture now shows on the page's left.
+        val turned = photo.copy(rotation = PI.toFloat())
+        val rightHalf = turned.cropped("images/r.jpg", 2000, 1000, 1000, 0, 2000, 1000)
+        assertEquals(turned.centreX - 50f, rightHalf.centreX, 0.01f)
+        assertEquals(turned.centreY, rightHalf.centreY, 0.01f)
+        assertEquals(100f, rightHalf.width, 0.01f)
+        assertEquals(PI.toFloat(), rightHalf.rotation, 0.0001f)
+    }
+
+    @Test
     fun turningTheBox_turnsThePicture_aboutTheBoxCentre() {
         // The picture is the left half of a box; a half turn puts it on the right, upside down.
         val half = InkImage("h", "images/h.png", 0f, 0f, 100f, 100f)

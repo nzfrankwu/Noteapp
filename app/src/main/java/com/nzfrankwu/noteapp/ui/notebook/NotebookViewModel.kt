@@ -335,6 +335,27 @@ class NotebookViewModel(
         }
     }
 
+    /** The full picture file of [image], for cropping (null if it can't be read). */
+    suspend fun loadFullPicture(image: com.nzfrankwu.noteapp.domain.ink.InkImage): Bitmap? = withContext(io) {
+        runCatching { android.graphics.BitmapFactory.decodeFile(files.assetFile(notebookId, image.asset).path) }.getOrNull()
+    }
+
+    /**
+     * Crops [image] (on [pageId]) to [box] (left, top, right, bottom in [picture]'s pixels): the
+     * kept part is saved as a new picture file and takes the old one's place, one undo step (F33).
+     * The old file is kept, so Undo brings the whole picture back. Returns the cropped picture.
+     */
+    suspend fun cropImage(pageId: String, image: com.nzfrankwu.noteapp.domain.ink.InkImage, picture: Bitmap, box: IntArray): com.nzfrankwu.noteapp.domain.ink.InkImage? {
+        if (!isEditable(pageId)) return null
+        val part = withContext(Dispatchers.Default) { Bitmap.createBitmap(picture, box[0], box[1], box[2] - box[0], box[3] - box[1]) }
+        val saved = imageImport.importBitmap(notebookId, part) ?: return null
+        val cropped = image.cropped(saved.asset, picture.width, picture.height, box[0], box[1], box[2], box[3])
+        if (!isEditable(pageId)) return null
+        ink.replace(pageId, emptyList(), listOf(cropped))
+        changed(pageId)
+        return cropped
+    }
+
     /** Inserts a screenshot snip in the middle of page [pageIndex] (one undo step); returns it placed. */
     suspend fun insertSnip(pageIndex: Int, bitmap: Bitmap): List<com.nzfrankwu.noteapp.domain.ink.InkImage> {
         val nb = notebook.value ?: return emptyList()
