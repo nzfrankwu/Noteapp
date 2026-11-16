@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 17 Nov 2026 (Phase 5 built, feedback round done, reviewed; waiting on the user for the tablet install (v7) and the merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 17 Nov 2026 (Phase 5 built, reviewed and installed on the tablet (v7); waiting on the user's tablet check and the OK to merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -14,7 +14,7 @@ _Last updated: 17 Nov 2026 (Phase 5 built, feedback round done, reviewed; waitin
 - **IDEA.md** §2.4, §2.6 and §5 were updated for bookmarks and text selection (user's OK, 16 Nov).
 - **Branch:** `phase-5` (from `main`), pushed after each step.
 - **Mode:** **Hands-off** for Phase 5 (the user said "continue on in hands off mode" on 16 Nov). List every 🔺 step done in REPORT.md.
-- **The tablet runs Phase 5 up to 5.5** (text boxes, the build of `c2469f3`), database **version 6** (installed 17 Nov with the user's OK; before/after compare PASS, links and bookmarks unchanged). Backup in `backups/tablet-2026-11-17-before-p5/` (with the page files). Never install a build older than v6 on it: Room can't downgrade. **The next install upgrades it to v7** (bookmark pictures): ask first, back up, compare. Pages given text boxes are page format 3, which builds before Phase 5 can't read.
+- **The tablet runs all of Phase 5** (the build of `110ad39`), database **version 7** (installed 17 Nov with the user's OK; before/after compare PASS: every row, all 162 page files, the 3 links and 2 bookmarks unchanged). Backup in `backups/tablet-2026-11-17-before-v7/` (with the page files). Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
 - **The emulator runs Phase 5** (database v7).
 - Unit tests and the full emulator suite pass at the end of Phase 5 (count in the latest commit message).
 
@@ -22,7 +22,7 @@ _Last updated: 17 Nov 2026 (Phase 5 built, feedback round done, reviewed; waitin
 
 1. **Phase 5 is built and reviewed** (17 Nov, hands-off): text boxes (5.1–5.5), the user's feedback round FB1–FB5 (bookmark sheet ✓, long-press edit, task search/filters, two pens, the bookmark pen = database **v7**), the pane/host split (5.6), the recent panel and split view (5.7–5.9), between panes (5.10), narrow windows (5.11). The end-of-phase review's 10 findings are fixed (PHASE-5.md). REPORT.md is the Phase 5 report.
 2. **Waiting on the user:**
-   - **Tablet install** (ask first): back up with `screenshots/tablet_snapshot.sh`, install, compare. It upgrades the tablet to database **v7**.
+   - **Trying Phase 5 on the tablet** (installed 17 Nov, v7; test steps in REPORT.md).
    - **The OK to merge `phase-5` into `main`.**
 3. Then plan **Phase 6** (Google Drive and backup; IDEA.md §5: must be done before real use).
 4. Older follow-ups (ISSUES.md, not blocking):
