@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.unit.dp
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -280,5 +281,55 @@ class NotebookEditorTest {
         assertEquals(null, entry.spot)
         // Bookmarking linked the notebook too, so the chip shows the task.
         compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("linked-task-chip"), 5_000)
+    }
+
+    // ---- Phase 4: selecting PDF text ----
+
+    @Test
+    fun holdingAFingerOnPdfText_selectsIt_andHighlightIsOneUndoableStroke() {
+        // A one-page PDF notebook with a line of real text.
+        val bytes = java.io.ByteArrayOutputStream().also { out ->
+            val doc = android.graphics.pdf.PdfDocument()
+            val page = doc.startPage(android.graphics.pdf.PdfDocument.PageInfo.Builder(842, 595, 1).create())
+            page.canvas.drawText("Transmission lines", 60f, 80f, android.graphics.Paint().apply { textSize = 28f })
+            doc.finishPage(page)
+            doc.writeTo(out)
+            doc.close()
+        }.toByteArray()
+        val size = com.nzfrankwu.noteapp.domain.PageSize(842f, 595f)
+        runBlocking {
+            val folderId = (FolderRepository(db).createFolder("Slides", null) as FolderResult.Success).folderId
+            val id = notebooks.newNotebookId()
+            files.assetFile(id, "pdf-1.pdf").apply { parentFile?.mkdirs(); writeBytes(bytes) }
+            notebooks.createPdfNotebook(id, folderId, "Slides", "pdf-1.pdf", listOf(size))
+            notebookId = id
+        }
+        val word = com.tom_roush.pdfbox.pdmodel.PDDocument.load(bytes).use { com.nzfrankwu.noteapp.data.PdfText.read(it, 0, size) }.words.first()
+        show(InkToolSettings())
+
+        // Where that word is on screen: the page is fitted like the editor fits it.
+        val canvas = compose.onNodeWithTag("notebook-canvas").fetchSemanticsNode().size
+        val strip = com.nzfrankwu.noteapp.domain.ink.PageStrip(listOf(size))
+        val cam = strip.fit(com.nzfrankwu.noteapp.domain.ink.FitMode.DEFAULT, 0, canvas.width.toFloat(), canvas.height.toFloat())
+        val at = Offset(cam.toScreenX(strip.pageLeft(0) + word.centreX), cam.toScreenY(strip.pageTop(0) + word.centreY))
+        compose.onNodeWithTag("notebook-canvas").performTouchInput { longClick(at, durationMillis = 900) }
+
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("text-menu"), 10_000)
+        compose.onNodeWithTag("text-highlight").performClick()
+        compose.waitUntil(5_000) { strokeCount() == 1 }
+        assertTrue(viewModel.ink.strokes(pageId()).single().tool.isHighlighter)
+        compose.onNodeWithTag("text-menu").assertDoesNotExist()
+
+        compose.onNodeWithTag("undo").performClick()
+        compose.waitUntil(5_000) { strokeCount() == 0 }
+    }
+
+    @Test
+    fun holdingAFingerOnAPlainPage_doesntSelectText() {
+        show(InkToolSettings())
+        compose.onNodeWithTag("notebook-canvas").performTouchInput { longClick(center, durationMillis = 900) }
+        compose.waitForIdle()
+        Thread.sleep(500)
+        compose.onNodeWithTag("text-menu").assertDoesNotExist()
     }
 }

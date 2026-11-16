@@ -39,6 +39,7 @@ class PdfText(
     private val lock = Mutex()
     private val documents = HashMap<String, PDDocument?>()
     private val cache = LruCache<String, PageText>(MAX_PAGES)
+    @Volatile private var closed = false
 
     /** The text already read for [page], or null if it hasn't been read yet. */
     fun cached(page: Page): PageText? = cache.get(page.id)
@@ -49,6 +50,7 @@ class PdfText(
         val file = page.pdfFile ?: return PageText.EMPTY
         val index = page.pdfPage ?: return PageText.EMPTY
         return lock.withLock {
+            if (closed) return@withLock PageText.EMPTY
             cache.get(page.id) ?: withContext(io) {
                 val doc = documents.getOrPut(file) {
                     runCatching { PDDocument.load(files.assetFile(notebookId, file)) }.getOrNull()
@@ -63,11 +65,21 @@ class PdfText(
         }
     }
 
-    override fun close() {
-        documents.values.forEach { runCatching { it?.close() } }
-        documents.clear()
+    /**
+     * Closes the PDFs. Waits for a read in progress (they share the documents), so call it from
+     * a background coroutine; afterwards every page reads as empty.
+     */
+    suspend fun closeAll() = lock.withLock {
+        closed = true
+        withContext(io) {
+            documents.values.forEach { runCatching { it?.close() } }
+            documents.clear()
+        }
         cache.evictAll()
     }
+
+    /** Blocking [closeAll], for tests and `use { }`. */
+    override fun close() = kotlinx.coroutines.runBlocking { closeAll() }
 
     companion object {
         /** Pages whose text is kept at once. */

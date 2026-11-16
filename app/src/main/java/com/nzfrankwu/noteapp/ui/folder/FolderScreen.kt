@@ -29,6 +29,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
@@ -139,11 +141,11 @@ fun FolderScreen(
     // "Link to task…" from a notebook tile (PHASE-4.md 4.10).
     val linking by viewModel.linking.collectAsStateWithLifecycle()
     val linkChoices by viewModel.linkChoices.collectAsStateWithLifecycle()
-    val linkedMessage by viewModel.linked.collectAsStateWithLifecycle()
-    LaunchedEffect(linkedMessage) {
-        val text = linkedMessage ?: return@LaunchedEffect
-        snackbar.showSnackbar(text)
-        viewModel.linkedShown()
+    LaunchedEffect(viewModel) {
+        viewModel.linked.filterNotNull().collectLatest { text ->
+            viewModel.linkedShown()
+            snackbar.showSnackbar(text)
+        }
     }
     if (importing) ImportingDialog()
     var chosenTab by rememberSaveable { mutableStateOf(FolderTab.TASKS) }

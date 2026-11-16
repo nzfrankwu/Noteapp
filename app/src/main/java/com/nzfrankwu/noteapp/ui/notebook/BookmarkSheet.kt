@@ -34,7 +34,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.nzfrankwu.noteapp.data.TaskChoices
 import com.nzfrankwu.noteapp.data.db.TaskWithCourse
 import com.nzfrankwu.noteapp.domain.Bookmarks
-import com.nzfrankwu.noteapp.ui.task.PickerHeading
+import com.nzfrankwu.noteapp.ui.components.PickerHeading
 import java.time.Instant
 import java.time.ZoneId
 
@@ -90,7 +90,7 @@ fun BookmarkSheet(
                             item(key = "other-h") { PickerHeading("Other tasks", 0) }
                             items(rest.others, key = { "o-" + it.task.id }) { t -> Choice(t, t.task.id == picked, now, zone) { picked = t.task.id } }
                         }
-                        if (all.isEmpty()) item(key = "empty") { com.nzfrankwu.noteapp.ui.task.PickerEmpty("No tasks yet. Add one from a course folder first.") }
+                        if (all.isEmpty()) item(key = "empty") { com.nzfrankwu.noteapp.ui.components.PickerEmpty("No tasks yet. Add one from a course folder first.") }
                     }
                 }
                 HorizontalDivider(Modifier.padding(top = 8.dp))

@@ -57,6 +57,8 @@ import com.nzfrankwu.noteapp.ui.components.rememberThumbnail
 import com.nzfrankwu.noteapp.ui.folder.NewNotebookDialog
 import com.nzfrankwu.noteapp.ui.folder.notebookSubtitle
 import androidx.compose.foundation.horizontalScroll
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -105,9 +107,8 @@ fun TaskDetailScreen(
     val folderTree by viewModel.folderTree.collectAsStateWithLifecycle()
     val needsFolder by viewModel.needsFolder.collectAsStateWithLifecycle()
     val openNotebook by viewModel.openNotebook.collectAsStateWithLifecycle()
-    val unlinked by viewModel.unlinked.collectAsStateWithLifecycle()
     val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
-    val deletedBookmark by viewModel.deletedBookmark.collectAsStateWithLifecycle()
+
     val snackbar = remember { SnackbarHostState() }
     var picking by rememberSaveable { mutableStateOf(false) }
     var naming by rememberSaveable { mutableStateOf<String?>(null) }
@@ -119,20 +120,23 @@ fun TaskDetailScreen(
             onOpenNotebook(it, null, null)
         }
     }
-    LaunchedEffect(deletedBookmark) {
-        val gone = deletedBookmark ?: return@LaunchedEffect
-        snackbar.currentSnackbarData?.dismiss()
-        val result = snackbar.showSnackbar("Bookmark deleted", actionLabel = "Undo", withDismissAction = true, duration = SnackbarDuration.Long)
-        viewModel.deletedBookmarkShown() // only after the snackbar: clearing first would cancel it
-        if (result == SnackbarResult.ActionPerformed) viewModel.undoDeleteBookmark(gone)
+    // Undo snackbars. Each event is cleared as soon as it's taken (so it never shows twice);
+    // collectLatest lets a newer one replace a snackbar still showing.
+    LaunchedEffect(viewModel) {
+        viewModel.deletedBookmark.filterNotNull().collectLatest { gone ->
+            viewModel.deletedBookmarkShown()
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar("Bookmark deleted", actionLabel = "Undo", withDismissAction = true, duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) viewModel.undoDeleteBookmark(gone)
+        }
     }
-    LaunchedEffect(unlinked) {
-        val (title, what) = unlinked ?: return@LaunchedEffect
-        snackbar.currentSnackbarData?.dismiss()
-        // Cleared only after the snackbar: clearing first would restart this effect and cancel it.
-        val result = snackbar.showSnackbar("Unlinked “$title”", actionLabel = "Undo", withDismissAction = true, duration = SnackbarDuration.Long)
-        viewModel.unlinkShown()
-        if (result == SnackbarResult.ActionPerformed) viewModel.undoUnlink(what)
+    LaunchedEffect(viewModel) {
+        viewModel.unlinked.filterNotNull().collectLatest { (title, what) ->
+            viewModel.unlinkShown()
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar("Unlinked “$title”", actionLabel = "Undo", withDismissAction = true, duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) viewModel.undoUnlink(what)
+        }
     }
 
     val shown = state as? TaskDetailState.Shown

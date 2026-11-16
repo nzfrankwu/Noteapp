@@ -882,7 +882,8 @@ class NotebookViewModel(
 
     override fun onCleared() {
         saveNow()
-        if (pdfTextUsed) pdfText.close()
+        // Closed in the background, after any text still being read (never on the main thread).
+        if (pdfTextUsed) saveScope.launch { pdfText.closeAll() }
         pdf.close()
         super.onCleared()
     }

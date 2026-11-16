@@ -43,9 +43,9 @@ import com.nzfrankwu.noteapp.data.db.TaskWithCourse
 import com.nzfrankwu.noteapp.domain.DaysLeft
 import com.nzfrankwu.noteapp.ui.components.CourseTag
 import com.nzfrankwu.noteapp.ui.components.DaysLeftText
-import com.nzfrankwu.noteapp.ui.task.PickerDialog
-import com.nzfrankwu.noteapp.ui.task.PickerEmpty
-import com.nzfrankwu.noteapp.ui.task.PickerHeading
+import com.nzfrankwu.noteapp.ui.components.PickerDialog
+import com.nzfrankwu.noteapp.ui.components.PickerEmpty
+import com.nzfrankwu.noteapp.ui.components.PickerHeading
 import com.nzfrankwu.noteapp.ui.theme.EditorBarButton
 import com.nzfrankwu.noteapp.ui.theme.EditorBarIcon
 import java.time.Instant

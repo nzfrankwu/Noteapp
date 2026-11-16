@@ -40,6 +40,8 @@ import com.nzfrankwu.noteapp.data.FolderRow
 import com.nzfrankwu.noteapp.data.NotebookGroup
 import com.nzfrankwu.noteapp.data.SharedFiles
 import com.nzfrankwu.noteapp.data.SharedKind
+import com.nzfrankwu.noteapp.ui.components.PickerEmpty
+import com.nzfrankwu.noteapp.ui.components.PickerRow
 import com.nzfrankwu.noteapp.ui.components.SegmentedTabs
 
 /** Where pictures shared into Noteapp go. */
@@ -103,8 +105,8 @@ fun ShareSheet(
                     val showNotebooks = shared.kind == SharedKind.PICTURES && target == PictureTarget.NOTEBOOK
                     when {
                         busy -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                        showNotebooks && notebooks.isEmpty() -> Empty("No notebooks yet. Use “New notebook in a folder”.")
-                        !showNotebooks && folders.isEmpty() -> Empty("No folders yet. Make one on the home screen first.")
+                        showNotebooks && notebooks.isEmpty() -> PickerEmpty("No notebooks yet. Use “New notebook in a folder”.")
+                        !showNotebooks && folders.isEmpty() -> PickerEmpty("No folders yet. Make one on the home screen first.")
                         showNotebooks -> LazyColumn(Modifier.testTag("share-notebooks")) {
                             for (group in notebooks) {
                                 item(key = "h-" + group.folder.folder.id) {
@@ -116,13 +118,13 @@ fun ShareSheet(
                                     )
                                 }
                                 items(group.notebooks, key = { "n-" + it.id }) { nb ->
-                                    TargetRow(R.drawable.ic_note, nb.title, group.folder.depth + 1) { onPickNotebook(nb.id) }
+                                    PickerRow(R.drawable.ic_note, nb.title, group.folder.depth + 1) { onPickNotebook(nb.id) }
                                 }
                             }
                         }
                         else -> LazyColumn(Modifier.testTag("share-folders")) {
                             items(folders, key = { it.folder.id }) { row ->
-                                TargetRow(R.drawable.ic_folder, row.folder.name, row.depth) { onPickFolder(row.folder.id) }
+                                PickerRow(R.drawable.ic_folder, row.folder.name, row.depth) { onPickFolder(row.folder.id) }
                             }
                         }
                     }
@@ -133,27 +135,5 @@ fun ShareSheet(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun TargetRow(icon: Int, label: String, depth: Int, onClick: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(start = (depth * 20).dp + 4.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(painterResource(icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(14.dp))
-        Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-@Composable
-private fun Empty(text: String) {
-    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

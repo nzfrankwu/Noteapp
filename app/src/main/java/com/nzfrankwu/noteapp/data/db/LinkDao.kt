@@ -112,13 +112,4 @@ interface LinkDao {
         """,
     )
     fun observeBookmarksForTask(taskId: String): Flow<List<BookmarkWithPage>>
-
-    /** Bookmarks on the notebook's pages (not deleted), for showing them in the editor. */
-    @Query(
-        """
-        SELECT task_bookmarks.* FROM task_bookmarks JOIN pages ON pages.id = task_bookmarks.page_id
-        WHERE task_bookmarks.notebook_id = :notebookId AND pages.deleted_at IS NULL
-        """,
-    )
-    fun observeBookmarksInNotebook(notebookId: String): Flow<List<TaskBookmark>>
 }

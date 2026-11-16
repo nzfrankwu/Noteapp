@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.8 done; next is 4.9 chips on task cards). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.10 done and reviewed; waiting on the user for 4.11 tablet install and the merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -12,16 +12,39 @@ _Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.8 done; next is 4.9 c
   - the pop-up menus becoming icon pills
 - **IDEA.md** §2.4, §2.6 and §5 were updated for bookmarks and text selection (user's OK, 16 Nov).
 - **Branch:** `phase-4` (from `main`), pushed after each step.
-- **Mode:** **Hands-off** (user said "start phase 4, hands off", 16 Nov): no check-ins; commit and push after each step; anything needing the user goes in `REPORT.md` and `ISSUES.md`.
+- **Mode:** **Hands-off** for Phase 4 (the user said "start phase 4, hands off" on 16 Nov). Back to "Working together" unless the user says otherwise.
 - **The tablet runs the build of `55dbb3b`** (Phase 3 + F30–F36), database **version 5**. The Phase 3 review fixes (`5f5cd71`) are not on it yet. Never install a build older than v5 on it: Room can't downgrade.
-- Unit tests and the full emulator suite (**214 tests**) passed at the end of Phase 3.
+- **The emulator runs Phase 4** (database v6).
+- Unit tests and the full emulator suite (**241 tests**) pass at the end of Phase 4.
 
 ## Next steps (in order)
 
-1. **4.1 done** (database v6: `task_notebook_links`, `task_bookmarks`; `data/LinkRepository.kt`; `domain/Bookmarks.kt`). The emulator now has a v6 app; **the tablet is still v5**.
-2. **4.2 done** (task screen: linked notebook tiles, `ui/task/LinkNotebookSheet.kt` with reusable `PickerDialog`/`PickerRow`, `data/LinkChoices.kt`). **4.3 done** (editor chip: `ui/notebook/TaskLinkViews.kt`, `NotebookLinks.kt`; `NotebookViewModel(linkRepository = …)`). **4.4 done** (`IconMenu.kt`). **4.5 done** (`BookmarkSheet.kt`, `BookmarkRequest`). **4.6 done** (`data/PdfText.kt`, `domain/PdfCoords.kt`, `domain/ink/TextSelection.kt`). **4.7 done** (`TextSel`/`TextHandle` in `NotebookCanvas.kt`, `TextMenu` in `NotebookScreen.kt`). **4.8 done** (`BookmarksSection.kt`, `PageStrip.focus`, `NotebookScreen(openAtPage, openAtSpot)`). Next: 4.9 → 4.10 in order (hands-off, no check-ins). 4.11 (tablet install) needs the user's OK.
-3. Follow-ups from earlier phases (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release; tune the pen widths after real use (F22); deleted notebooks left without a folder (Phase 6).
-4. Still unreported tablet checks: a reminder arriving with the app swiped away (ColorOS); "Last synced" moving on its own (background sync).
+1. **Phase 4 steps 4.1–4.10 are done** (hands-off, 16 Nov; details and decisions in PHASE-4.md). The end-of-phase `/code-review` found 10 things, all fixed. The full emulator suite passes. `REPORT.md` has the summary for the user.
+2. **Waiting on the user:**
+   - **4.11 tablet install.** Ask first. Back up with the snapshot script, install, compare. This upgrades the tablet to database **v6**.
+   - **The OK to merge `phase-4` into `main`.**
+3. Then plan Phase 5 (text boxes, in-app split view).
+4. Older follow-ups (ISSUES.md, not blocking):
+   - very deep zoom has no page picture
+   - pre-draw the next page
+   - a big lasso move pauses on release
+   - pen widths (F22)
+   - deleted notebooks without a folder (Phase 6)
+5. Still-unreported tablet checks: a reminder with the app swiped away (ColorOS); "Last synced" moving on its own.
+
+## Phase 4 code map (new)
+
+- `data/db/TaskLinks.kt`, `LinkDao.kt`: the tables.
+- `data/LinkRepository.kt`, `data/LinkChoices.kt`: the pickers' lists.
+- `data/PdfText.kt`: PDF words.
+- `domain/Bookmarks.kt`, `domain/PdfCoords.kt`, `domain/ink/TextSelection.kt`.
+- `ui/task/LinkNotebookSheet.kt`, `BookmarksSection.kt`.
+- `ui/components/Pickers.kt`, `TaskCard.kt` (`LocalTaskNotebooks`).
+- `ui/notebook/`:
+  - `NotebookLinks.kt`, `TaskLinkViews.kt` (the chip and the task picker)
+  - `BookmarkSheet.kt`, `IconMenu.kt`
+  - `TextSel` / `TextHandle` in `NotebookCanvas.kt`, `TextMenu` in `NotebookScreen.kt`
+- `PageStrip.focus`: opening at a bookmark.
 
 ## Tablet database safety copy
 
@@ -130,6 +153,7 @@ _Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.8 done; next is 4.9 c
 - **Pinned versions:**
   - `kotlinx.serialization` is at 1.9.0 (the newest for Kotlin 2.2, which comes with AGP 9.5.1). It must stay at or above Room's needs, or `MigrationTest` crashes.
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
+- **`screenshots/p4demo.sh`** rebuilds the Phase 4 demo data: `lecture7.pdf` imported and linked to Assignment 3.
 - **Real upgrade test v5 → v6 (4.1):** `screenshots/upgrade_v6.sh <Windows path of screenshots/app-v5.apk>` (the v5 APK built from `main` is kept there).
 - **Real upgrade test, scripted (3.1):** `screenshots/upgrade_v5.sh <old APK as a Windows path>` installs the old build, makes sample data and a 51-page notebook, snapshots, installs the new build, snapshots again; then `python compare_dbs.py upgrade-v5/before upgrade-v5/after` compares every row and the page files' md5s. Pass the APK as `C:\...`: the script sets `MSYS_NO_PATHCONV=1`, so adb can't read `/c/...` paths.
 - **The pen layer is ours now (F30):** `ui/notebook/WetInkLayer.kt` replaces Ink's Compose `InProgressStrokes`; finished strokes are removed by `InkHandoff` after the page layer draws them (`drawStrokes` calls `handoff.drawn`). Its counting lives in `domain/ink/HandoffBook` (unit-tested). Debugging timing: log in `onStrokesFinished` and in `drawStrokes`.

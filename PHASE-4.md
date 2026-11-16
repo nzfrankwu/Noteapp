@@ -116,6 +116,18 @@ The user added more to this phase:
 - [x] **4.10 Tile ⋮ "Link to task…"** (16 Nov, hands-off): `FolderViewModel(links = …)`, reusing `LinkTaskSheet`. (`FolderLibrary.LibraryRow` → the task picker, this course's tasks).
 - [ ] **4.11 Tablet check**: ask first; back up with `tablet_snapshot.sh` and compare before/after. This install upgrades the database to v6.
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest, then ask to merge into `main`.
+  - **Review done (16 Nov, hands-off, high effort): 10 findings, all fixed.**
+    1. Closing the PDF text reader raced a read in progress (possible crash on leaving the notebook): it now closes in the background, under the reader's lock.
+    2. Lifting the finger while a big PDF's text was still loading cancelled the first selection: a read under way now finishes.
+    3. Undo snackbars (unlink, bookmark delete, link notices) could show again after coming back to a screen: each event is cleared as soon as it's shown.
+    4. An unused bookmarks query re-ran on every page save: removed.
+    5. The editor found its course from every notebook on every save: now from its own notebook only.
+    6. The app-wide links query re-grouped on every page save: only real changes pass, and only the task cards recompose.
+    7. Notebook chips added a 48 dp blank band to cards: plain clickable chips.
+    8. The pickers duplicated "Add to Noteapp"'s rows: shared in `ui/components/Pickers.kt`.
+    9. No screen test for PDF text gestures: two added (hold → menu → Highlight → Undo; no menu on a plain page).
+    10. Portrait and dark mode weren't checked: checked. While doing that, the text menu was moved so it centres on the part of the selection on screen.
+  - Still to do: ask the user to approve the merge into `main` (after the tablet check, 4.11).
 
 ## Verification
 - **Every step:** `gradlew.bat assembleDebug testDebugUnitTest`, plus `connectedDebugAndroidTest` with `ANDROID_SERIAL=emulator-5554` (the tablet is often plugged in).

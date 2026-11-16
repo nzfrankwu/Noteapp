@@ -6,7 +6,6 @@ import com.nzfrankwu.noteapp.data.LinkResult
 import com.nzfrankwu.noteapp.data.TaskChoices
 import com.nzfrankwu.noteapp.data.Unlinked
 import com.nzfrankwu.noteapp.data.db.FolderPlace
-import com.nzfrankwu.noteapp.data.db.TaskBookmark
 import com.nzfrankwu.noteapp.data.db.TaskWithCourse
 import com.nzfrankwu.noteapp.domain.PageSpot
 import kotlinx.coroutines.CoroutineScope
@@ -15,6 +14,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -33,9 +34,12 @@ class NotebookLinks(
 
     /** The course this notebook's folder belongs to (through its top folder), or null. */
     private val courseId: StateFlow<String?> =
-        combine(repo.observeAllNotebooks(), repo.observeAllFolders()) { notebooks, folders ->
-            val folderId = notebooks.firstOrNull { it.id == notebookId }?.folderId ?: return@combine null
-            FolderPlace.of(folderId, folders, emptyList())?.top?.courseId
+        combine(
+            // Only this notebook's folder matters: page saves touch the notebook, not its folder.
+            repo.observeNotebook(notebookId).map { it?.folderId }.distinctUntilChanged(),
+            repo.observeAllFolders(),
+        ) { folderId, folders ->
+            folderId?.let { FolderPlace.of(it, folders, emptyList())?.top?.courseId }
         }.stateIn(scope, SharingStarted.Eagerly, null)
 
     /** The tasks "Link to a task…" offers: this course's first, then the others. Already linked ones are left out. */
@@ -48,10 +52,6 @@ class NotebookLinks(
     val allChoices: StateFlow<TaskChoices> =
         combine(repo.observeAllTasks(), courseId) { all, course -> LinkChoices.tasks(course, all, emptySet()) }
             .stateIn(scope, SharingStarted.Eagerly, TaskChoices(emptyList(), emptyList()))
-
-    /** Bookmarks on this notebook's pages (not deleted). */
-    val bookmarks: StateFlow<List<TaskBookmark>> = repo.observeBookmarksInNotebook(notebookId)
-        .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     /** A short message for the snackbar after a link change, with Undo when [undo] is set. */
     data class Notice(val text: String, val undo: (() -> Unit)? = null)

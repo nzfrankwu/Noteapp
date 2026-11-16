@@ -1,5 +1,10 @@
 package com.nzfrankwu.noteapp.ui.task
 
+import com.nzfrankwu.noteapp.ui.components.PickerDialog
+import com.nzfrankwu.noteapp.ui.components.PickerEmpty
+import com.nzfrankwu.noteapp.ui.components.PickerHeading
+import com.nzfrankwu.noteapp.ui.components.PickerRow
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -102,84 +107,5 @@ private fun LazyListScope.notebookGroups(groups: List<NotebookGroup>, onPick: (S
         items(group.notebooks, key = { "$prefix-n-${it.id}" }) { nb ->
             PickerRow(R.drawable.ic_note, nb.title, group.folder.depth + 1, testTag = "pick-notebook-${nb.title}") { onPick(nb.id) }
         }
-    }
-}
-
-/** The dialog frame the pickers share (the same look as "Add to Noteapp"). */
-@Composable
-fun PickerDialog(title: String, testTag: String, onCancel: () -> Unit, subtitle: String? = null, content: LazyListScope.() -> Unit) {
-    Dialog(onDismissRequest = onCancel, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(0.9f).testTag(testTag),
-        ) {
-            Column(Modifier.padding(24.dp)) {
-                Text(title, style = MaterialTheme.typography.headlineSmall)
-                if (subtitle != null) {
-                    Spacer(Modifier.size(4.dp))
-                    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-                Spacer(Modifier.size(12.dp))
-                Box(Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 440.dp)) {
-                    LazyColumn(content = content)
-                }
-                HorizontalDivider(Modifier.padding(top = 8.dp))
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onCancel, modifier = Modifier.testTag("picker-cancel")) { Text("Cancel") }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PickerHeading(text: String, depth: Int) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.padding(start = (depth * 20).dp + 4.dp, top = 12.dp, bottom = 4.dp),
-    )
-}
-
-@Composable
-fun PickerRow(
-    icon: Int,
-    label: String,
-    depth: Int,
-    testTag: String? = null,
-    emphasised: Boolean = false,
-    trailing: (@Composable () -> Unit)? = null,
-    onClick: () -> Unit,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
-            .padding(start = (depth * 20).dp + 4.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(painterResource(icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(14.dp))
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (emphasised) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        if (trailing != null) trailing()
-    }
-}
-
-@Composable
-fun PickerEmpty(text: String) {
-    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

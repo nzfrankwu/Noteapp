@@ -685,8 +685,10 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
         onLasso(LassoState.Selected.of(sel.pageIndex, sel.pageId, moved, movedImages, handles = sel.handles))
     }
 
-    // Selecting PDF text (PHASE-4.md 4.7): which handle a finger or the pen is dragging.
+    // Selecting PDF text (PHASE-4.md 4.7): which handle a finger or the pen is dragging, and
+    // whether a held finger's page text is being read (lifting the finger then doesn't cancel it).
     var textDrag: TextHandle? = null
+    var readingText = false
 
     /** The text handle whose knob is under screen point [p], if any. */
     fun textHandleAt(p: Offset, snap: Snapshot, cam: Camera): TextHandle? {
@@ -1023,7 +1025,15 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         // and keeps dragging its end (PHASE-4.md 4.7); elsewhere it offers Paste (F12).
                         when {
                             selectPictureAt(at, snapshot(), c) -> Unit
-                            selectTextAt(at, snapshot(), c) -> if (touches.size == 1 && !tapMoved) textDrag = TextHandle.END
+                            run {
+                                // The first hold on a big PDF reads its text, which can take a moment.
+                                readingText = true
+                                try {
+                                    selectTextAt(at, snapshot(), c)
+                                } finally {
+                                    readingText = false
+                                }
+                            } -> if (touches.size == 1 && !tapMoved) textDrag = TextHandle.END
                             viewModel.clipboard != null -> view.pasteAt = at
                         }
                     }
@@ -1039,7 +1049,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                 continue
             }
             if (!change.pressed) {
-                longPress?.cancel()
+                if (!readingText) longPress?.cancel()
                 if (textDrag != null && touches.size == 1) {
                     textDrag = null
                     touches.remove(change.id)

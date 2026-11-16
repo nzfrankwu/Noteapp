@@ -44,6 +44,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -162,17 +164,19 @@ fun NotebookScreen(
     val links = viewModel.links
     val linkedTasks by (links?.tasks ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList()) }).collectAsStateWithLifecycle()
     var linkingTask by rememberSaveable { mutableStateOf(false) }
-    val linkNotice by (links?.notice ?: remember { kotlinx.coroutines.flow.MutableStateFlow(null) }).collectAsStateWithLifecycle()
-    LaunchedEffect(linkNotice) {
-        val notice = linkNotice ?: return@LaunchedEffect
-        snackbar.currentSnackbarData?.dismiss()
-        val result = snackbar.showSnackbar(
-            notice.text,
-            actionLabel = if (notice.undo != null) "Undo" else null,
-            duration = if (notice.undo != null) SnackbarDuration.Long else SnackbarDuration.Short,
-        )
-        links?.noticeShown() // only after the snackbar: clearing first would cancel it
-        if (result == SnackbarResult.ActionPerformed) notice.undo?.invoke()
+    // Link notices, cleared as soon as they're taken (so one never shows twice).
+    LaunchedEffect(links) {
+        links ?: return@LaunchedEffect
+        links.notice.filterNotNull().collectLatest { notice ->
+            links.noticeShown()
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(
+                notice.text,
+                actionLabel = if (notice.undo != null) "Undo" else null,
+                duration = if (notice.undo != null) SnackbarDuration.Long else SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) notice.undo?.invoke()
+        }
     }
     val zone = remember { java.time.ZoneId.systemDefault() }
     fun nowInstant(): java.time.Instant = java.time.Instant.now()
@@ -903,8 +907,10 @@ private fun TextMenu(
     val rects = TextSelection.lineRects(sel.text, sel.range)
     val pl = strip.pageLeft(sel.pageIndex)
     val pt = strip.pageTop(sel.pageIndex)
-    val left = cam.toScreenX(pl + rects.minOf { it[0] })
-    val right = cam.toScreenX(pl + rects.maxOf { it[2] })
+    // Centred on the part of the selection that's on screen.
+    val screenW = view.viewSize.width.toFloat()
+    val left = cam.toScreenX(pl + rects.minOf { it[0] }).coerceIn(0f, screenW)
+    val right = cam.toScreenX(pl + rects.maxOf { it[2] }).coerceIn(0f, screenW)
     val top = cam.toScreenY(pt + rects.first()[1])
     val bottom = cam.toScreenY(pt + rects.last()[3]) + TEXT_KNOB_RADIUS * 2 + 4f
     val mx = ((left + right) / 2 - menuWidth / 2f).coerceIn(8f, (view.viewSize.width - menuWidth - 8f).coerceAtLeast(8f))

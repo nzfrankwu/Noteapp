@@ -13,6 +13,7 @@ import com.nzfrankwu.noteapp.domain.Bookmarks
 import com.nzfrankwu.noteapp.domain.PageSpot
 import com.nzfrankwu.noteapp.domain.PageTemplate
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import java.time.Clock
 import java.util.UUID
@@ -60,7 +61,9 @@ class LinkRepository(
     fun observeTasksForNotebook(notebookId: String): Flow<List<TaskWithCourse>> = dao.observeTasksForNotebook(notebookId)
 
     /** Every task's linked notebooks (not deleted), by task ID, for the chips on task cards. */
-    fun observeAllLinks(): Flow<Map<String, List<LinkedNotebook>>> = dao.observeAllLinks().map { links -> links.groupBy { it.taskId } }
+    fun observeAllLinks(): Flow<Map<String, List<LinkedNotebook>>> =
+        // The query re-runs whenever any notebook is saved; pass on only real changes.
+        dao.observeAllLinks().distinctUntilChanged().map { links -> links.groupBy { it.taskId } }
 
     /** The task's bookmarks on pages that aren't deleted, grouped by notebook in page order. */
     fun observeBookmarksForTask(taskId: String): Flow<List<BookmarkGroup>> =
@@ -192,6 +195,6 @@ class LinkRepository(
     /** Every task with its course, for the task picker. */
     fun observeAllTasks(): Flow<List<TaskWithCourse>> = taskDao.observeAllWithCourse()
 
-    /** Bookmarks on the notebook's pages (not deleted), updating live. */
-    fun observeBookmarksInNotebook(notebookId: String): Flow<List<TaskBookmark>> = dao.observeBookmarksInNotebook(notebookId)
+    /** One notebook (deleted or not), updating live. */
+    fun observeNotebook(notebookId: String): Flow<com.nzfrankwu.noteapp.data.db.Notebook?> = notebookDao.observeNotebook(notebookId)
 }

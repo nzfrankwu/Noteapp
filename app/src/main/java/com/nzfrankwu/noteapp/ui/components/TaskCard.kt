@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import com.nzfrankwu.noteapp.R
 import com.nzfrankwu.noteapp.data.db.LinkedNotebook
@@ -39,7 +41,7 @@ import java.time.ZoneId
  */
 class TaskNotebooks(val byTask: Map<String, List<LinkedNotebook>>, val open: (notebookId: String) -> Unit)
 
-val LocalTaskNotebooks = staticCompositionLocalOf { TaskNotebooks(emptyMap()) {} }
+val LocalTaskNotebooks = compositionLocalOf { TaskNotebooks(emptyMap()) {} }
 
 /**
  * One task in a list: title, course, when it's due, and its status tag.
@@ -100,11 +102,14 @@ private fun NotebookChips(notebooks: List<LinkedNotebook>, onOpen: (String) -> U
     if (notebooks.isEmpty()) return
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         notebooks.take(MAX_CHIPS).forEach { nb ->
+            // Plain clickable (not Surface(onClick)): no 48 dp minimum height, so cards stay compact.
             Surface(
-                onClick = { onOpen(nb.notebookId) },
                 shape = MaterialTheme.shapes.small,
                 color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.testTag("notebook-chip-${nb.title}"),
+                modifier = Modifier
+                    .clip(MaterialTheme.shapes.small)
+                    .clickable { onOpen(nb.notebookId) }
+                    .testTag("notebook-chip-${nb.title}"),
             ) {
                 Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(
