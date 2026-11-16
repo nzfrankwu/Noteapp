@@ -281,7 +281,6 @@ internal fun NotebookEditor(
                     openAtSpot = openAtSpot,
                 )
             }
-            overlay()
             FloatingToolbar(
                 settings = settings,
                 viewSize = areaSize,
@@ -295,6 +294,8 @@ internal fun NotebookEditor(
                     }
                 },
             )
+            // Over the toolbar, under the top bar: the recent panel and a notebook being dragged (5.7).
+            overlay()
             // ---- Floating buttons (F17) ----
             EditorTopBar(
                 canUndo = viewModel.canUndo,

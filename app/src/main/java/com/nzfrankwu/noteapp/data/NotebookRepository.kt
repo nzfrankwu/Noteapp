@@ -49,6 +49,9 @@ class NotebookRepository(
     /** Every notebook (not deleted), updating live. */
     fun observeAllActive(): Flow<List<Notebook>> = dao.observeAllActive()
 
+    /** Every notebook (not deleted) with its page count (the recent panel, PHASE-5.md 5.7). */
+    fun observeAllListItems(): Flow<List<NotebookListItem>> = dao.observeAllListItems()
+
     /** One notebook (deleted or not), updating live. */
     fun observeNotebook(notebookId: String): Flow<Notebook?> = dao.observeNotebook(notebookId)
 

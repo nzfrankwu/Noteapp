@@ -341,15 +341,22 @@ fun NoteAppRoot(
                     )
                 }
                 entry<NotebookRoute> { route ->
-                    NotebookScreen(
-                        viewModel = viewModel {
-                            NotebookViewModel(
-                                route.notebookId, container.notebookRepository, container.notebookFiles,
-                                container.inkSettings, container.appScope, container.thumbnails,
-                                linkRepository = container.linkRepository,
-                            )
+                    // One notebook, or two in split view, with the recent panel (PHASE-5.md 5.7–5.9).
+                    com.nzfrankwu.noteapp.ui.notebook.NotebookWorkspace(
+                        firstId = route.notebookId,
+                        viewModelFor = { id ->
+                            viewModel(key = "notebook-$id") {
+                                NotebookViewModel(
+                                    id, container.notebookRepository, container.notebookFiles,
+                                    container.inkSettings, container.appScope, container.thumbnails,
+                                    linkRepository = container.linkRepository,
+                                )
+                            }
                         },
+                        viewStore = container.viewSettings,
+                        allNotebooks = container.notebookRepository.observeAllListItems(),
                         onBack = ::back,
+                        onReplace = { id -> if (backStack.isNotEmpty()) backStack[backStack.lastIndex] = NotebookRoute(id) },
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                         openAtPage = route.pageId,
                         openAtSpot = route.spot,
