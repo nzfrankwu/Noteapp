@@ -9,6 +9,8 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performTextInput
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -252,5 +254,31 @@ class NotebookEditorTest {
         compose.onNodeWithTag("linked-task-chip").performClick()
         compose.onNodeWithTag("linked-task-Problem set 4").performClick()
         compose.waitUntil(5_000) { opened == taskId }
+    }
+
+    @Test
+    fun bookmarkButton_savesABookmarkOfThePage_forTheChosenTask_withItsNote() {
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks)
+        val taskId = runBlocking {
+            FolderRepository(db).createFolder("Maths", "MATHS 208")
+            val courseId = db.courseDao().getAll().single().id
+            (com.nzfrankwu.noteapp.data.TaskRepository(db).createTask(com.nzfrankwu.noteapp.data.TaskDraft("Problem set 5", courseId))
+                as com.nzfrankwu.noteapp.data.TaskResult.Success).taskId
+        }
+        show(InkToolSettings(drawWithFinger = true), links)
+
+        compose.onNodeWithTag("bookmark-page").performClick()
+        compose.onNodeWithTag("bookmark-save").assertIsNotEnabled() // no task picked yet
+        compose.onNodeWithTag("pick-task-Problem set 5").performClick()
+        compose.onNodeWithTag("bookmark-note").performTextInput("Q3 working")
+        compose.onNodeWithTag("bookmark-save").performClick()
+
+        compose.waitUntil(5_000) { runBlocking { links.observeBookmarksForTask(taskId).first() }.isNotEmpty() }
+        val entry = runBlocking { links.observeBookmarksForTask(taskId).first() }.single().bookmarks.single()
+        assertEquals(1, entry.pageNumber)
+        assertEquals("Q3 working", entry.note)
+        assertEquals(null, entry.spot)
+        // Bookmarking linked the notebook too, so the chip shows the task.
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("linked-task-chip"), 5_000)
     }
 }

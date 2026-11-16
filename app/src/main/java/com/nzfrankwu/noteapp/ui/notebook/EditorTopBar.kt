@@ -60,6 +60,8 @@ fun EditorTopBar(
     onScreenshot: () -> Unit,
     menuOpen: Boolean,
     onMenuOpen: (Boolean) -> Unit,
+    /** Bookmarks the page on screen for a task (Phase 4), or null to hide the button. */
+    onBookmark: (() -> Unit)? = null,
     /** The linked task's chip, next to Back (Phase 4). */
     taskChip: @Composable () -> Unit = {},
     menu: @Composable ColumnScope.() -> Unit,
@@ -107,6 +109,9 @@ fun EditorTopBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (onBookmark != null) {
+                BarButton(R.drawable.ic_bookmark_add, "Bookmark this page for a task", onBookmark, Modifier.testTag("bookmark-page"))
+            }
             BarButton(R.drawable.ic_add, "Add pages, photos or a PDF", onAddMenu, Modifier.testTag("add-menu"))
             BarButton(R.drawable.ic_note_add, "Add a page after this one", onAddPage, Modifier.testTag("add-page"))
             Box {

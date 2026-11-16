@@ -168,6 +168,8 @@ fun NotebookScreen(
     }
     val zone = remember { java.time.ZoneId.systemDefault() }
     fun nowInstant(): java.time.Instant = java.time.Instant.now()
+    // A bookmark being saved (PHASE-4.md 4.5): its page, spot and prefilled note.
+    var bookmarking by remember { mutableStateOf<BookmarkRequest?>(null) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveNow() }
     LaunchedEffect(message) {
@@ -321,6 +323,14 @@ fun NotebookScreen(
                         viewModel.deleteSelection(sel.pageId, sel.strokes.mapTo(HashSet()) { it.id }, sel.images.mapTo(HashSet()) { it.id })
                         view.lasso = null
                     },
+                    onBookmark = if (links == null) null else { sel ->
+                        val b = sel.box()
+                        bookmarking = BookmarkRequest(
+                            sel.pageId, sel.pageIndex + 1,
+                            spot = com.nzfrankwu.noteapp.domain.PageSpot(b[0], b[1], b[2] - b[0], b[3] - b[1]),
+                            note = "",
+                        )
+                    },
                 )
                 PasteBubble(view) { at ->
                     view.pasteAt = null
@@ -386,6 +396,12 @@ fun NotebookScreen(
                 },
                 menuOpen = menuOpen,
                 onMenuOpen = { menuOpen = it },
+                onBookmark = if (links == null) null else {
+                    {
+                        val index = pageNow()
+                        pages.getOrNull(index)?.let { bookmarking = BookmarkRequest(it.id, index + 1, spot = null, note = "") }
+                    }
+                },
                 taskChip = {
                     if (links != null) {
                         LinkedTaskChip(
@@ -485,6 +501,28 @@ fun NotebookScreen(
                 )
             }
             ExportDialogs(viewModel, nb?.title.orEmpty())
+            val request = bookmarking
+            if (request != null && links != null) {
+                val linked by links.tasks.collectAsStateWithLifecycle()
+                val all by links.allChoices.collectAsStateWithLifecycle()
+                val linkedIds = linked.mapTo(HashSet()) { it.task.id }
+                BookmarkSheet(
+                    pageNumber = request.pageNumber,
+                    linked = linked,
+                    others = com.nzfrankwu.noteapp.data.TaskChoices(
+                        all.inCourse.filter { it.task.id !in linkedIds },
+                        all.others.filter { it.task.id !in linkedIds },
+                    ),
+                    note = request.note,
+                    now = nowInstant(),
+                    zone = zone,
+                    onSave = { task, note ->
+                        bookmarking = null
+                        links.addBookmark(task, request.pageId, note, request.spot)
+                    },
+                    onCancel = { bookmarking = null },
+                )
+            }
             if (linkingTask && links != null) {
                 val choices by links.choices.collectAsStateWithLifecycle()
                 LinkTaskSheet(
@@ -588,6 +626,9 @@ fun NotebookScreen(
         }
     }
 }
+
+/** A bookmark waiting for its task and note: page [pageId] (number [pageNumber]), at [spot] or the whole page. */
+data class BookmarkRequest(val pageId: String, val pageNumber: Int, val spot: com.nzfrankwu.noteapp.domain.PageSpot?, val note: String)
 
 /** A picture being cropped: where it is, and its full picture file. */
 private class CropTarget(val pageIndex: Int, val pageId: String, val image: com.nzfrankwu.noteapp.domain.ink.InkImage, val picture: android.graphics.Bitmap)

@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.4 done; next is 4.5). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.5 done; next is 4.6 🔺 PDF text layer). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -19,7 +19,7 @@ _Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.4 done; next is 4.5).
 ## Next steps (in order)
 
 1. **4.1 done** (database v6: `task_notebook_links`, `task_bookmarks`; `data/LinkRepository.kt`; `domain/Bookmarks.kt`). The emulator now has a v6 app; **the tablet is still v5**.
-2. **4.2 done** (task screen: linked notebook tiles, `ui/task/LinkNotebookSheet.kt` with reusable `PickerDialog`/`PickerRow`, `data/LinkChoices.kt`). **4.3 done** (editor chip: `ui/notebook/TaskLinkViews.kt`, `NotebookLinks.kt`; `NotebookViewModel(linkRepository = …)`). **4.4 done** (`IconMenu.kt`). Next: 4.5 → 4.10 in order (hands-off, no check-ins). 4.11 (tablet install) needs the user's OK.
+2. **4.2 done** (task screen: linked notebook tiles, `ui/task/LinkNotebookSheet.kt` with reusable `PickerDialog`/`PickerRow`, `data/LinkChoices.kt`). **4.3 done** (editor chip: `ui/notebook/TaskLinkViews.kt`, `NotebookLinks.kt`; `NotebookViewModel(linkRepository = …)`). **4.4 done** (`IconMenu.kt`). **4.5 done** (`BookmarkSheet.kt`, `BookmarkRequest`). Next: 4.6 → 4.10 in order (hands-off, no check-ins). 4.11 (tablet install) needs the user's OK.
 3. Follow-ups from earlier phases (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release; tune the pen widths after real use (F22); deleted notebooks left without a folder (Phase 6).
 4. Still unreported tablet checks: a reminder arriving with the app swiped away (ColorOS); "Last synced" moving on its own (background sync).
 
@@ -143,6 +143,7 @@ _Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.4 done; next is 4.5).
 - **Both the tablet and the emulator are often plugged in:** always set `ANDROID_SERIAL=emulator-5554` / `adb -s emulator-5554`.
 - **Real upgrade test, old APK:** build `main` in a worktree (`git worktree add ../Noteapp-v3 main`, copy `local.properties`, `gradlew assembleDebug` there). Removing that worktree fails with "Filename too long"; delete it with `cmd /c rmdir /s /q` and `git worktree prune`.
 - **After a deliberately broken migration test, rebuild** (`assembleDebug`) before installing: the broken-migration test leaves a broken APK in `app/build/outputs`.
+- **`screenshots/p4setup.sh`** reinstalls, makes fake-Canvas sample data and opens a new notebook in Engineering Electromagnetics (every emulator test run wipes the app's data).
 - **`screenshots/results.py`** (run from the project folder) prints the last emulator test run's totals and failures.
 - **Snackbar in a `LaunchedEffect(event)`:** clear the event only AFTER `showSnackbar` returns; clearing it first re-keys the effect and cancels the snackbar.
 - **Helper scripts are saved in `screenshots/`** (git-ignored, this PC only): `ui.py` (tap by text or description), `setup.sh` (fake Canvas + 3 course folders), `perf_setup.sh` (install, set up, make a notebook, add 50 test pages), `framestats.py` (per-stage frame times). Run them from that folder with Git Bash and `PYTHONIOENCODING=utf-8`.
