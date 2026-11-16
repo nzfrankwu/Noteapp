@@ -12,6 +12,7 @@ _None known._
 
 ## Follow-ups / tech debt
 
+- **Open in Canvas (Phase 5 FB11):** not tried with the real Canvas Student app: whether it opens the university's assignment links (else the Chrome tab takes over) needs the tablet.
 - **Split view (Phase 5.8):** each notebook opened in a pane keeps its view model until you leave the notebook screen (cheap, but many swaps in one visit keep many notebooks in memory). A real side-by-side split with another app needs the tablet.
 - **Bookmark pen (Phase 5 FB5):** deleting a bookmark keeps its picture file (so Undo works), and nothing removes it later yet; a clean-up of unused bookmark pictures belongs with backup (Phase 6). The picture is what's on screen, so a rectangle drawn partly off screen gets only the part on screen.
 - **Text boxes (Phase 5.1–5.5):**

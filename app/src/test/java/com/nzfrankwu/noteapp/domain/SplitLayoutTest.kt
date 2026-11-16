@@ -70,6 +70,17 @@ class SplitLayoutTest {
     }
 
     @Test
+    fun aDropOnOneNotebook_nearTheSides_isSideBySide_nearTopOrBottom_isStacked() {
+        // A landscape area 1000 × 600: near the left edge, the right edge, the top, the bottom.
+        assertEquals(SplitMode.SIDE_BY_SIDE to PaneSide.FIRST, SplitLayout.dropTarget(80f, 300f, 1000f, 600f))
+        assertEquals(SplitMode.SIDE_BY_SIDE to PaneSide.SECOND, SplitLayout.dropTarget(900f, 280f, 1000f, 600f))
+        assertEquals(SplitMode.TOP_BOTTOM to PaneSide.FIRST, SplitLayout.dropTarget(500f, 40f, 1000f, 600f))
+        assertEquals(SplitMode.TOP_BOTTOM to PaneSide.SECOND, SplitLayout.dropTarget(500f, 560f, 1000f, 600f))
+        // Shares, not pixels: 150 px from the left (15%) beats 120 px from the top (20%).
+        assertEquals(SplitMode.SIDE_BY_SIDE to PaneSide.FIRST, SplitLayout.dropTarget(150f, 120f, 1000f, 600f))
+    }
+
+    @Test
     fun recentNotebooks_newestFirst_noRepeats_atMost30() {
         var list = emptyList<String>()
         for (i in 1..35) list = RecentNotebooks.opened(list, "n$i")

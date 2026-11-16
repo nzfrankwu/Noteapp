@@ -125,6 +125,15 @@ Done before split view, hands-off. The user's answers to my questions are in bra
   - Pictures are files in the notebook's folder (`bookmarks/<uuid>.png`), so Phase 6 backs them up with the notebook. A bookmark's picture file is deleted only when the bookmark is deleted for good (not while Undo can bring it back).
   - Under the task, a bookmark with a picture shows it as a thumbnail beside "p. N" and its text.
 
+## Feedback round 2 (17 Nov 2026, after trying Phase 5 on the tablet)
+Done hands-off.
+- [x] **FB6 Dropping a notebook from the panel picks the layout**: with one notebook open, the nearest edge decides (as a share of the area): near the left/right, side by side on that side; near the top/bottom, top and bottom there. The lit zone shows it before you let go. In split view a drop still replaces the pane under the finger. `SplitLayout.dropTarget`, unit-tested.
+- [x] **FB7 Course folders**: notes and tasks are two shaded panels side by side (like Home), each scrolling from its own top, from 720 dp wide (portrait too); narrower windows keep one column, notes first, and jump to the top once the notes load (the list used to keep the tasks, loaded first, in view). Tiles in course folders are smaller (`Dimens.CourseTileMinWidth` 118 dp, was 150): 5 across in landscape, 3 in portrait.
+- [x] **FB8 Thinner divider**: 6 dp (was 14); the ⋮ handle keeps its own size (`requiredSize`) with a light rim, sticking out of the line.
+- [x] **FB9 The divider's menu is an icon pill**: swap (↔/↕), the other layout, close (red ✕); hold an icon for its name.
+- [x] **FB10 Image and Screenshot side by side** in the top bar (then Text).
+- [x] **FB11 Open in Canvas**: the Canvas Student app (`com.instructure.candroid`) if it can open the page, else a Chrome tab over Noteapp (`androidx.browser` 1.8.0, user's OK 17 Nov), else any browser. The Chrome tab uses Chrome's own sign-in, never Noteapp's Canvas cookies. Not tried with the real Canvas app (the emulator has none).
+
 ## Verification
 - **Every step:** `gradlew.bat assembleDebug testDebugUnitTest`, plus `connectedDebugAndroidTest` with `ANDROID_SERIAL=emulator-5554` (a run wipes the emulator's app data; rebuild it with `screenshots/p4setup.sh`).
 - **Emulator screen tests:**

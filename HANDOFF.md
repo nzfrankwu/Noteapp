@@ -24,6 +24,7 @@ _Last updated: 17 Nov 2026 (Phase 5 built, reviewed and installed on the tablet 
 2. **Waiting on the user:**
    - **Trying Phase 5 on the tablet** (installed 17 Nov, v7; test steps in REPORT.md).
    - **The OK to merge `phase-5` into `main`.**
+   - **Feedback round 2 (FB6–FB11) is done** (17 Nov, hands-off; PHASE-5.md), not yet on the tablet: the next install needs the user's OK (no database change since v7).
 3. Then plan **Phase 6** (Google Drive and backup; IDEA.md §5: must be done before real use).
 4. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture

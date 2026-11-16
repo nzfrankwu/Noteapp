@@ -64,6 +64,25 @@ object SplitLayout {
     fun canSplit(widthDp: Float, heightDp: Float): Boolean = maxOf(widthDp, heightDp) >= MIN_SPLIT_DP
 
     /**
+     * Where a notebook dropped at ([x], [y]) inside an area [width] × [height] opens when only one
+     * notebook is open (PHASE-5.md FB6): by the nearest edge (as a share of the area, so its shape
+     * doesn't matter). Near the left or right: side by side, on that side; near the top or bottom:
+     * stacked, there.
+     */
+    fun dropTarget(x: Float, y: Float, width: Float, height: Float): Pair<SplitMode, PaneSide> {
+        val left = x / width
+        val right = 1f - left
+        val top = y / height
+        val bottom = 1f - top
+        return when (minOf(left, right, top, bottom)) {
+            left -> SplitMode.SIDE_BY_SIDE to PaneSide.FIRST
+            right -> SplitMode.SIDE_BY_SIDE to PaneSide.SECOND
+            top -> SplitMode.TOP_BOTTOM to PaneSide.FIRST
+            else -> SplitMode.TOP_BOTTOM to PaneSide.SECOND
+        }
+    }
+
+    /**
      * Which half a notebook dropped at ([x], [y]) inside an area [width] × [height] lands in:
      * left/right side by side, top/bottom stacked.
      */

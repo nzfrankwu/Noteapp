@@ -20,11 +20,14 @@ work = "2.12.0"
 ink = "1.0.0"
 # PDF export (Phase 3, approved by the user): Apache 2.0, a port of Apache PDFBox.
 pdfboxAndroid = "2.0.27.0"
+# Chrome tabs for "Open in Canvas" when the Canvas app can't open the page (PHASE-5.md FB11; user's OK 17 Nov).
+browser = "1.8.0"
 
 [libraries]
 # Already in the app through Jetpack Ink; declared because our own pen layer uses it (F30).
 androidx-input-motionprediction = { group = "androidx.input", name = "input-motionprediction", version = "1.0.0" }
 pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfboxAndroid" }
+androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

@@ -3,6 +3,7 @@ package com.nzfrankwu.noteapp.ui.folder
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -70,6 +71,12 @@ import java.time.Instant
 
 /** Max width of the folder page's content on wide screens. */
 private val FolderContentMaxWidth = 900.dp
+
+/** From this width, a course folder shows its notes and tasks side by side (FB7). */
+private val SideBySideMinWidth = 720.dp
+
+/** The notes' share of the width when side by side; the tasks get the rest. */
+private const val NotesShare = 0.58f
 
 /** The views of a course folder (PHASE-1B.md, B.7). It always opens on Tasks. */
 enum class FolderTab(val label: String, val key: String) {
@@ -258,16 +265,10 @@ fun FolderScreen(
             return@Scaffold
         }
         BoxWithConstraints(Modifier.padding(innerPadding).fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            val gridWidth = min(maxWidth, FolderContentMaxWidth) - Dimens.ScreenPadding * 2
-            val columns = libraryColumns(gridWidth)
             val tiles = contents.itemsFor(filter)
             val now = remember(contents) { Instant.now() }
-            LazyColumn(
-                modifier = Modifier.widthIn(max = FolderContentMaxWidth).fillMaxWidth().testTag("folder-content"),
-                // Room at the bottom so the last row isn't hidden under ＋.
-                contentPadding = PaddingValues(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, top = Dimens.ScreenPadding, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
-            ) {
+            // The notebooks and files, as a LazyColumn's items (both layouts below).
+            val library: androidx.compose.foundation.lazy.LazyListScope.(Int) -> Unit = { columns ->
                 if (contents.loaded && contents.subfolders.isEmpty() && contents.notebooks.isEmpty()) {
                     item(key = "library-empty") {
                         EmptyState(
@@ -315,17 +316,69 @@ fun FolderScreen(
                         }
                     }
                 }
-                if (!isSubfolder) {
-                    taskItems(
-                        courseCode = courseCode,
-                        courseId = linkedCourseId,
-                        loaded = item != null,
-                        sections = sections,
-                        tasksNow = tasksNow,
-                        viewModel = viewModel,
-                        onAddTask = onAddTask,
-                        onOpenTask = onOpenTask,
-                    )
+            }
+            val tasks: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
+                taskItems(
+                    courseCode = courseCode,
+                    courseId = linkedCourseId,
+                    loaded = item != null,
+                    sections = sections,
+                    tasksNow = tasksNow,
+                    viewModel = viewModel,
+                    onAddTask = onAddTask,
+                    onOpenTask = onOpenTask,
+                )
+            }
+            if (!isSubfolder && maxWidth >= SideBySideMinWidth) {
+                // A course folder: notes and tasks side by side (PHASE-5.md FB7), each scrolling
+                // on its own from its top, like Home's Due soon and folders.
+                val notesWidth = (maxWidth - Dimens.ScreenPadding * 2 - Dimens.PaneGap) * NotesShare
+                Row(
+                    Modifier.fillMaxSize().padding(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, top = 8.dp, bottom = Dimens.ScreenPadding),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.PaneGap),
+                ) {
+                    // Two shaded panels, like Home's Due soon.
+                    androidx.compose.material3.Surface(
+                        modifier = Modifier.width(notesWidth).fillMaxHeight(),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().testTag("folder-content"),
+                            contentPadding = PaddingValues(Dimens.PanelPadding),
+                            verticalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
+                        ) { library(libraryColumns(notesWidth - Dimens.PanelPadding * 2, Dimens.CourseTileMinWidth)) }
+                    }
+                    androidx.compose.material3.Surface(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().testTag("folder-tasks"),
+                            // Room at the bottom so the last task isn't hidden under ＋.
+                            contentPadding = PaddingValues(start = Dimens.PanelPadding, end = Dimens.PanelPadding, top = Dimens.PanelPadding - Dimens.PaneGap, bottom = 88.dp),
+                            verticalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
+                        ) { tasks() }
+                    }
+                }
+            } else {
+                val gridWidth = min(maxWidth, FolderContentMaxWidth) - Dimens.ScreenPadding * 2
+                val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                // The notes come first: once they've loaded, show the top (the list would otherwise
+                // keep the tasks, loaded first, in view as the notes appear above them).
+                // Only when they load now (not coming back from a notebook, where the place is kept).
+                val loadedAtStart = remember { contents.loaded }
+                LaunchedEffect(contents.loaded) { if (contents.loaded && !loadedAtStart) listState.scrollToItem(0) }
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.widthIn(max = FolderContentMaxWidth).fillMaxWidth().testTag("folder-content"),
+                    // Room at the bottom so the last row isn't hidden under ＋.
+                    contentPadding = PaddingValues(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, top = Dimens.ScreenPadding, bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
+                ) {
+                    library(libraryColumns(gridWidth, if (isSubfolder) Dimens.LibraryTileMinWidth else Dimens.CourseTileMinWidth))
+                    if (!isSubfolder) tasks()
                 }
             }
         }

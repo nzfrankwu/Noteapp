@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
@@ -129,9 +130,12 @@ fun NotebookWorkspace(
     // A notebook being dragged out of the panel (5.9): its title and where the finger is.
     var dragging by remember { mutableStateOf<Pair<NotebookListItem, Offset>?>(null) }
 
-    fun openBeside(id: String, side: PaneSide) {
+    fun openBeside(id: String, side: PaneSide, inMode: SplitMode? = null) {
         if (id == first || id == secondId) return
-        if (savedMode == null) scope.launch { viewStore.setSplitMode(mode) }
+        when {
+            inMode != null && inMode != savedMode -> scope.launch { viewStore.setSplitMode(inMode) }
+            savedMode == null -> scope.launch { viewStore.setSplitMode(mode) }
+        }
         val current = first
         if (side == PaneSide.FIRST) {
             first = id
@@ -172,9 +176,14 @@ fun NotebookWorkspace(
     fun drop(item: NotebookListItem, at: Offset) {
         // Let go outside the pages, or back over the panel: nothing happens.
         if (!area.contains(at) || !canSplit || (panelOpen && at.x < area.left + panelPx)) return
-        val side = SplitLayout.dropSide(at.x - area.left, at.y - area.top, area.width, area.height, mode)
         val id = item.notebook.id
-        if (secondId == null) openBeside(id, side) else replacePane(side, id)
+        if (secondId == null) {
+            // One notebook: the nearest edge picks side by side or top and bottom (FB6).
+            val (dropMode, side) = SplitLayout.dropTarget(at.x - area.left, at.y - area.top, area.width, area.height)
+            openBeside(id, side, dropMode)
+        } else {
+            replacePane(SplitLayout.dropSide(at.x - area.left, at.y - area.top, area.width, area.height, mode), id)
+        }
         panelOpen = false
     }
 
@@ -368,8 +377,10 @@ private fun SplitPanes(
                     shape = RoundedCornerShape(50),
                     color = EditorBarButton,
                     modifier = Modifier
-                        .then(if (sideBySide) Modifier.size(24.dp, 56.dp) else Modifier.size(56.dp, 24.dp))
+                        // Its own size, sticking out of the thin divider (FB8), with a light rim to show on the dark line.
+                        .then(if (sideBySide) Modifier.requiredSize(24.dp, 56.dp) else Modifier.requiredSize(56.dp, 24.dp))
                         .shadow(3.dp, RoundedCornerShape(50))
+                        .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(50))
                         .onGloballyPositioned { handleCoords = it }
                         .pointerInput(sideBySide, total) {
                             detectDragGestures(
@@ -410,19 +421,33 @@ private fun SplitPanes(
                         )
                     }
                 }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text("Swap sides") }, onClick = { menu = false; onSwap() }, modifier = Modifier.testTag("split-swap"))
-                    DropdownMenuItem(
-                        text = { Text(if (sideBySide) "Top and bottom" else "Side by side") },
-                        onClick = { menu = false; onMode(if (sideBySide) SplitMode.TOP_BOTTOM else SplitMode.SIDE_BY_SIDE) },
-                        modifier = Modifier.testTag("split-mode"),
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Close split screen") },
-                        // The active notebook stays.
-                        onClick = { menu = false; onClose(if (activeIndex == 0) PaneSide.SECOND else PaneSide.FIRST) },
-                        modifier = Modifier.testTag("split-close"),
-                    )
+                if (menu) {
+                    // The handle's menu as a dark pill of icons, like the lasso's (FB9). Hold an icon for its name.
+                    androidx.compose.ui.window.Popup(
+                        alignment = Alignment.Center,
+                        offset = with(density) {
+                            if (sideBySide) IntOffset(0, 56.dp.roundToPx()) else IntOffset(0, 44.dp.roundToPx())
+                        },
+                        onDismissRequest = { menu = false },
+                        properties = androidx.compose.ui.window.PopupProperties(focusable = true),
+                    ) {
+                        IconMenu(
+                            listOf(
+                                IconMenuItem(if (sideBySide) R.drawable.ic_swap_horiz else R.drawable.ic_swap_vert, "Swap sides", "split-swap") {
+                                    menu = false; onSwap()
+                                },
+                                IconMenuItem(
+                                    if (sideBySide) R.drawable.ic_horizontal_split else R.drawable.ic_vertical_split,
+                                    if (sideBySide) "Top and bottom" else "Side by side", "split-mode",
+                                ) { menu = false; onMode(if (sideBySide) SplitMode.TOP_BOTTOM else SplitMode.SIDE_BY_SIDE) },
+                                // The active notebook stays.
+                                IconMenuItem(R.drawable.ic_close, "Close split screen", "split-close", destructive = true) {
+                                    menu = false; onClose(if (activeIndex == 0) PaneSide.SECOND else PaneSide.FIRST)
+                                },
+                            ),
+                            Modifier.testTag("split-menu"),
+                        )
+                    }
                 }
             }
         }
@@ -434,10 +459,13 @@ private fun SplitPanes(
  * (or pane) it would open in lit up.
  */
 @Composable
-private fun DragGhost(item: NotebookListItem, at: Offset, area: Rect, mode: SplitMode, split: Boolean) {
+private fun DragGhost(item: NotebookListItem, at: Offset, area: Rect, splitMode: SplitMode, split: Boolean) {
     val density = LocalDensity.current
     if (area.contains(at)) {
-        val side = SplitLayout.dropSide(at.x - area.left, at.y - area.top, area.width, area.height, mode)
+        val x = at.x - area.left
+        val y = at.y - area.top
+        // Split: the pane under the finger. One notebook: the nearest edge decides (FB6).
+        val (mode, side) = if (split) splitMode to SplitLayout.dropSide(x, y, area.width, area.height, splitMode) else SplitLayout.dropTarget(x, y, area.width, area.height)
         val half = when (mode) {
             SplitMode.SIDE_BY_SIDE -> if (side == PaneSide.FIRST) Rect(area.left, area.top, area.center.x, area.bottom) else Rect(area.center.x, area.top, area.right, area.bottom)
             SplitMode.TOP_BOTTOM -> if (side == PaneSide.FIRST) Rect(area.left, area.top, area.right, area.center.y) else Rect(area.left, area.center.y, area.right, area.bottom)
@@ -470,6 +498,7 @@ private fun DragGhost(item: NotebookListItem, at: Offset, area: Rect, mode: Spli
     }
 }
 
-private val DividerThickness = 14.dp
+/** Thin, so the notebooks get the room (FB8); the ⋮ handle stands out from it. */
+private val DividerThickness = 6.dp
 private val DividerColor = Color(0xFF1E1F22)
 private val DropTint = Color(0x332F6BDB)

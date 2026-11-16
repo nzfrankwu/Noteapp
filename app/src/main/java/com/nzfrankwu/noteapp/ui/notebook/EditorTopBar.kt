@@ -117,11 +117,12 @@ fun EditorTopBar(
                 R.drawable.ic_image, if (imageMenuOpen) "Close the image menu" else "Insert an image", onImage,
                 Modifier.testTag("image-button"), filled = false,
             )
+            // Image and Screenshot side by side (FB10), then text boxes.
+            BarButton(R.drawable.ic_crop, "Take a screenshot", onScreenshot, Modifier.testTag("screenshot-button"), filled = false)
             BarButton(
                 R.drawable.ic_text_fields, if (textMode) "Text boxes (on): tap the page to add one" else "Add a text box", onText,
                 Modifier.testTag("text-button"), filled = false, selected = textMode,
             )
-            BarButton(R.drawable.ic_crop, "Take a screenshot", onScreenshot, Modifier.testTag("screenshot-button"), filled = false)
         }
 
         Row(

@@ -78,6 +78,7 @@ import com.nzfrankwu.noteapp.ui.components.InfoBadge
 import com.nzfrankwu.noteapp.ui.components.OverdueBadge
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
 import com.nzfrankwu.noteapp.ui.components.StatusChip
+import com.nzfrankwu.noteapp.ui.components.openInCanvas
 import com.nzfrankwu.noteapp.ui.components.openLink
 import com.nzfrankwu.noteapp.ui.theme.Dimens
 import java.time.Instant
@@ -293,7 +294,8 @@ private fun TaskDetails(
 
         if (task.url != null) {
             FilledTonalButton(
-                onClick = { openLink(context, task.url) },
+                // Canvas tasks: the Canvas app, else a Chrome tab inside Noteapp (FB11).
+                onClick = { if (isCanvas) openInCanvas(context, task.url) else openLink(context, task.url) },
                 contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
                 modifier = Modifier.testTag("open-link"),
             ) {
