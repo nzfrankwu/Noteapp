@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.10 done and reviewed; waiting on the user for 4.11 tablet install and the merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 4 done and reviewed; installed on the tablet (v6, compare PASS); waiting on the user's tablet check and the merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -13,7 +13,7 @@ _Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.10 done and reviewed;
 - **IDEA.md** §2.4, §2.6 and §5 were updated for bookmarks and text selection (user's OK, 16 Nov).
 - **Branch:** `phase-4` (from `main`), pushed after each step.
 - **Mode:** **Hands-off** for Phase 4 (the user said "start phase 4, hands off" on 16 Nov). Back to "Working together" unless the user says otherwise.
-- **The tablet runs the build of `55dbb3b`** (Phase 3 + F30–F36), database **version 5**. The Phase 3 review fixes (`5f5cd71`) are not on it yet. Never install a build older than v5 on it: Room can't downgrade.
+- **The tablet runs Phase 4** (the build of `266f99b`), database **version 6** (installed 16 Nov; before/after compare PASS: every row and all 159 page files unchanged). Backup in `backups/tablet-2026-11-16-before-v6/` (with the page files). Never install a build older than v6 on it: Room can't downgrade.
 - **The emulator runs Phase 4** (database v6).
 - Unit tests and the full emulator suite (**241 tests**) pass at the end of Phase 4.
 
@@ -21,7 +21,7 @@ _Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.10 done and reviewed;
 
 1. **Phase 4 steps 4.1–4.10 are done** (hands-off, 16 Nov; details and decisions in PHASE-4.md). The end-of-phase `/code-review` found 10 things, all fixed. The full emulator suite passes. `REPORT.md` has the summary for the user.
 2. **Waiting on the user:**
-   - **4.11 tablet install.** Ask first. Back up with the snapshot script, install, compare. This upgrades the tablet to database **v6**.
+   - **4.11 done on our side** (installed, compare PASS). The user is trying it on the tablet (steps in `REPORT.md`).
    - **The OK to merge `phase-4` into `main`.**
 3. Then plan Phase 5 (text boxes, in-app split view).
 4. Older follow-ups (ISSUES.md, not blocking):
@@ -133,7 +133,7 @@ _Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.10 done and reviewed;
   - That run **uninstalls and reinstalls the app on the emulator**, which wipes its data. Recreate sample data before taking screenshots: Settings → "Use fake Canvas (debug)", then Home → "Link courses" → "Create folder" ×3.
   - One test class only: add `"-Pandroid.testInstrumentationRunnerArguments.class=<full class name>"`.
   - Results are in `app/build/outputs/androidTest-results/connected/debug/*.xml`. Gradle `-q` prints nothing on success.
-- **Tablet snapshot script:** `tablet_snapshot.sh <dir> [with-files]` (force-stop, copy db/-wal/-shm via run-as, md5 of every notebook file, optional tar of `files/notebooks`); rewrite it if the scratchpad is gone. Compare with `python screenshots/compare_dbs.py <before> <after>` (counts only). Ask the user before running it.
+- **Tablet snapshot script:** `tablet_snapshot.sh <dir> [with-files]` (force-stop, copy db/-wal/-shm via run-as, md5 of every notebook file, optional tar of `files/notebooks`); saved in `screenshots/tablet_snapshot.sh` (finds the tablet by model OPD2405). Compare with `python screenshots/compare_dbs.py <before> <after>` (counts only). Ask the user before running it.
 - **Tablet:** if `adb devices` doesn't list it, run `adb kill-server` then `adb start-server`. Install with `adb -s <tablet serial> install -r app/build/outputs/apk/debug/app-debug.apk`. Check the serial with `adb devices -l`; it's the OPD2405.
 - **Emulator stylus handwriting is off** (`settings put secure stylus_handwriting_enabled 0`). Its "Try out your stylus" tutorial swallowed scripted typing.
 - **To tap UI by text in scripts:**

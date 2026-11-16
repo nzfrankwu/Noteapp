@@ -114,7 +114,8 @@ The user added more to this phase:
   - ★ check-in
 - [x] **4.9 Chips on task cards** (16 Nov, hands-off): one app-wide `observeAllLinks()` flow, provided to every `TaskCard` through `LocalTaskNotebooks` (set in `NoteAppRoot`), so Due soon, folder lists and the Calendar day panel all show chips (at most 3, then "+N"). (`TaskCard`: optional `notebooks` + `onOpenNotebook`) in Home Due soon and folder task lists; one `observeAllLinks()` flow per screen.
 - [x] **4.10 Tile ⋮ "Link to task…"** (16 Nov, hands-off): `FolderViewModel(links = …)`, reusing `LinkTaskSheet`. (`FolderLibrary.LibraryRow` → the task picker, this course's tasks).
-- [ ] **4.11 Tablet check**: ask first; back up with `tablet_snapshot.sh` and compare before/after. This install upgrades the database to v6.
+- [x] **4.11 Tablet check**: ask first; back up with `tablet_snapshot.sh` and compare before/after. This install upgrades the database to v6.
+  - Done 16 Nov with the user's OK: backup in `backups/tablet-2026-11-16-before-v6/`; v5 → v6, every row and all 159 page files unchanged, integrity ok. The user's hands-on check is next.
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest, then ask to merge into `main`.
   - **Review done (16 Nov, hands-off, high effort): 10 findings, all fixed.**
     1. Closing the PDF text reader raced a read in progress (possible crash on leaving the notebook): it now closes in the background, under the reader's lock.
