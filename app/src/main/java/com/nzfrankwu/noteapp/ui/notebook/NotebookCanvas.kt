@@ -824,8 +824,8 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                                 val pl = snap.strip.pageLeft(sel.pageIndex)
                                 val x = cam.toWorldX(change.position.x) - pl
                                 val y = cam.toWorldY(change.position.y) - snap.strip.pageTop(sel.pageIndex)
-                                // The plain corner handle keeps the shape; Resize's handles stretch freely.
-                                onLasso(sel.copy(target = LassoBox.dragged(sel.target, grabbed, x, y, keepShape = !sel.handles)))
+                                // Corners always keep the shape (F35); the side handles stretch one way.
+                                onLasso(sel.copy(target = LassoBox.dragged(sel.target, grabbed, x, y, keepShape = true)))
                             }
                         }
                         PenMode.LASSO_ROTATE -> {
@@ -998,7 +998,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     } else {
                         val x = cam.toWorldX(now.x) - snap.strip.pageLeft(sel.pageIndex)
                         val y = cam.toWorldY(now.y) - snap.strip.pageTop(sel.pageIndex)
-                        sel.copy(target = LassoBox.dragged(sel.target, handle, x, y, keepShape = !sel.handles))
+                        sel.copy(target = LassoBox.dragged(sel.target, handle, x, y, keepShape = true))
                     },
                 )
             }

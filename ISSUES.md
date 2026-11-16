@@ -57,6 +57,7 @@ _None known._
 
 ## Done
 
+- **F35 (16 Nov):** in resize mode the corner handles keep a picture's (or writing's) shape; the side handles still stretch.
 - **Tablet feedback batch 1 (Phase 3, F30–F34), 16 Nov.** No flash when the pen lifts; hold a picture to select it; pictures select in resize mode and drag with a finger; Crop for pictures; a second ＋ "Add Page" menu (page style, photos, camera, pages from a PDF, a whole PDF).
 - **Phase 3 step 3.8 (16 Nov):** Share to Noteapp (layout OK'd by the user): share or "Open with" a PDF → pick a folder; pictures → add to a notebook (new pages at the end) or a new notebook in a folder.
 - **Phase 3 step 3.9 (16 Nov):** the screenshot tool (crop button): snip the notebook, or the whole screen in split screen, and insert it. Fixed on the way: a crash when confirming (Compose gives a hardware bitmap).

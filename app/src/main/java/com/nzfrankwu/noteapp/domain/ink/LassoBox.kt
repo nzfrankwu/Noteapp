@@ -42,7 +42,8 @@ object LassoBox {
 
     /**
      * [box] with [handle] dragged to ([x], [y]). Its opposite side stays put. Edge handles stretch
-     * one way; corners stretch freely, or keep the shape when [keepShape] (the plain corner handle).
+     * one way; corners stretch freely, or keep the shape when [keepShape] (the selection's corners
+     * always do, feedback F35: a picture only grows or shrinks; the crop box's corners don't).
      */
     fun dragged(box: FloatArray, handle: BoxHandle, x: Float, y: Float, keepShape: Boolean = false): FloatArray {
         var l = box[0]; var t = box[1]; var r = box[2]; var b = box[3]
