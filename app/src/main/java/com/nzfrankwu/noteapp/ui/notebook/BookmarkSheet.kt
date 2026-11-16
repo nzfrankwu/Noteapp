@@ -71,7 +71,7 @@ fun BookmarkSheet(
     val all = linked + others.all
     val task = all.firstOrNull { it.task.id == picked }
     val linkedShown = linked.filter { LinkChoices.matches(it, filter.query) }
-    val shown = LinkChoices.filter(others, filter, now)
+    val shown = remember(others, filter) { LinkChoices.filter(others, filter, now) }
     Dialog(onDismissRequest = onCancel, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
             shape = RoundedCornerShape(24.dp),

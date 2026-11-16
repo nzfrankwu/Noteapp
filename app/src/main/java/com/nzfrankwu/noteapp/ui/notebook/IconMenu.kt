@@ -39,6 +39,7 @@ data class IconMenuItem(
     val testTag: String? = null,
     val destructive: Boolean = false,
     val selected: Boolean = false,
+    val enabled: Boolean = true,
     val onClick: () -> Unit,
 )
 
@@ -58,25 +59,32 @@ fun IconMenu(items: List<IconMenuItem>, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        items.forEach { item ->
-            @Suppress("DEPRECATION")
-            TooltipBox(
-                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                tooltip = { PlainTooltip { Text(item.label) } },
-                state = rememberTooltipState(),
-            ) {
-                IconButton(
-                    onClick = item.onClick,
-                    modifier = Modifier.size(44.dp).then(if (item.testTag != null) Modifier.testTag(item.testTag) else Modifier),
-                    shape = CircleShape,
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = if (item.selected) Color.White.copy(alpha = 0.22f) else Color.Transparent,
-                        contentColor = if (item.destructive) DestructiveIcon else EditorBarIcon,
-                    ),
-                ) {
-                    Icon(painterResource(item.icon), contentDescription = item.label, modifier = Modifier.size(22.dp))
-                }
-            }
+        items.forEach { IconMenuButton(it) }
+    }
+}
+
+/** One icon button of the dark pill menus (also used by the text bar, PHASE-5.md 5.3). Hold it to see its name. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun IconMenuButton(item: IconMenuItem) {
+    @Suppress("DEPRECATION")
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(item.label) } },
+        state = rememberTooltipState(),
+    ) {
+        IconButton(
+            onClick = item.onClick,
+            enabled = item.enabled,
+            modifier = Modifier.size(44.dp).then(if (item.testTag != null) Modifier.testTag(item.testTag) else Modifier),
+            shape = CircleShape,
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = if (item.selected) Color.White.copy(alpha = 0.22f) else Color.Transparent,
+                contentColor = if (item.destructive) DestructiveIcon else EditorBarIcon,
+                disabledContentColor = EditorBarIcon.copy(alpha = 0.35f),
+            ),
+        ) {
+            Icon(painterResource(item.icon), contentDescription = item.label, modifier = Modifier.size(22.dp))
         }
     }
 }

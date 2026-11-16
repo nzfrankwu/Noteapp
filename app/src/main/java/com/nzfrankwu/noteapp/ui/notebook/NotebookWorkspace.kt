@@ -102,11 +102,16 @@ fun NotebookWorkspace(
     val secondPane = secondId?.let { paneFor(viewModelFor(it)) }
     val panes = listOfNotNull(firstPane, secondPane)
     val active = if (activeIndex == 1 && secondPane != null) secondPane else firstPane
+    // A text box being typed in is finished when the other pane becomes the active one.
+    LaunchedEffect(active) { panes.filter { it !== active }.forEach { it.finishTyping() } }
 
     val savedMode by viewStore.splitMode.collectAsState(initial = null)
     val ratio by viewStore.splitRatio.collectAsState(initial = SplitLayout.DEFAULT_RATIO)
     val recentIds by viewStore.recentNotebooks.collectAsState(initial = emptyList())
-    val all by allNotebooks.collectAsState(initial = emptyList())
+    // Only while the panel is open: the query re-counts every notebook's pages after each save.
+    val all by remember(panelOpen, allNotebooks) {
+        if (panelOpen) allNotebooks else kotlinx.coroutines.flow.flowOf(emptyList())
+    }.collectAsState(initial = emptyList())
     val recent = remember(recentIds, all) {
         val byId = all.associateBy { it.notebook.id }
         recentIds.mapNotNull { byId[it] }
@@ -163,8 +168,10 @@ fun NotebookWorkspace(
         activeIndex = 1 - activeIndex
     }
 
+    val panelPx = with(LocalDensity.current) { RecentPanelWidth.toPx() }
     fun drop(item: NotebookListItem, at: Offset) {
-        if (!area.contains(at) || !canSplit) return
+        // Let go outside the pages, or back over the panel: nothing happens.
+        if (!area.contains(at) || !canSplit || (panelOpen && at.x < area.left + panelPx)) return
         val side = SplitLayout.dropSide(at.x - area.left, at.y - area.top, area.width, area.height, mode)
         val id = item.notebook.id
         if (secondId == null) openBeside(id, side) else replacePane(side, id)
@@ -176,9 +183,10 @@ fun NotebookWorkspace(
     var capturingArea by remember { mutableStateOf(false) }
 
     NotebookEditor(
-        panes = panes,
+        // In a window too small for two, only the active notebook shows: the editor works on it alone.
+        panes = if (canSplit) panes else listOf(active),
         active = active,
-        captureArea = if (secondPane == null) null else {
+        captureArea = if (secondPane == null || !canSplit) null else {
             {
                 capturingArea = true
                 try {
@@ -195,7 +203,7 @@ fun NotebookWorkspace(
         onOpenTask = onOpenTask,
         leftButton = {
             TopBarIconButton(
-                R.drawable.ic_view_sidebar, if (panelOpen) "Close the recent notebooks" else "Recent notebooks",
+                R.drawable.ic_library_books, if (panelOpen) "Close the recent notebooks" else "Recent notebooks",
                 { panelOpen = !panelOpen }, Modifier.testTag("recent-button"), selected = panelOpen,
             )
         },

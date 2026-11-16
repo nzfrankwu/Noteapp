@@ -145,7 +145,7 @@ fun LinkedTaskChip(
 @Composable
 fun LinkTaskSheet(choices: TaskChoices, now: Instant, zone: ZoneId, onPick: (TaskWithCourse) -> Unit, onCancel: () -> Unit) {
     var filter by remember { mutableStateOf(TaskFilter()) }
-    val shown = LinkChoices.filter(choices, filter, now)
+    val shown = remember(choices, filter) { LinkChoices.filter(choices, filter, now) }
     PickerDialog(title = "Link to a task", testTag = "link-task-sheet", onCancel = onCancel) {
         item(key = "search") { TaskSearch(filter, { filter = it }, choices) }
         if (shown.isEmpty()) {

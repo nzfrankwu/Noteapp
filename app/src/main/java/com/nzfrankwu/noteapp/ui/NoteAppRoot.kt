@@ -355,7 +355,7 @@ fun NoteAppRoot(
                             }
                         },
                         viewStore = container.viewSettings,
-                        allNotebooks = container.notebookRepository.observeAllListItems(),
+                        allNotebooks = remember { container.notebookRepository.observeAllListItems() },
                         onBack = ::back,
                         onReplace = { id -> if (backStack.isNotEmpty()) backStack[backStack.lastIndex] = NotebookRoute(id) },
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },

@@ -12,6 +12,7 @@ _None known._
 
 ## Follow-ups / tech debt
 
+- **Split view (Phase 5.8):** each notebook opened in a pane keeps its view model until you leave the notebook screen (cheap, but many swaps in one visit keep many notebooks in memory). A real side-by-side split with another app needs the tablet.
 - **Bookmark pen (Phase 5 FB5):** deleting a bookmark keeps its picture file (so Undo works), and nothing removes it later yet; a clean-up of unused bookmark pictures belongs with backup (Phase 6). The picture is what's on screen, so a rectangle drawn partly off screen gets only the part on screen.
 - **Text boxes (Phase 5.1–5.5):**
   - A box moved or enlarged past the page's edge is cut off there (like pictures); it isn't pulled back onto the page.

@@ -43,7 +43,9 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -87,6 +89,8 @@ fun startTextEditing(
     at: Offset,
     allowNew: Boolean = view.textMode,
 ): Boolean {
+    // Another box being typed in is finished (saved) first, never dropped.
+    if (view.editingText != null) finishTextEditing(view, viewModel)
     val cam = view.camera ?: return false
     val wx = cam.toWorldX(at.x)
     val index = strip.pageAt(wx)
@@ -159,6 +163,8 @@ private fun EditorFor(view: EditorViewState, strip: PageStrip, viewModel: Notebo
     }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     var fieldHeight by remember { mutableIntStateOf(0) }
+    var fieldWindowTop by remember { mutableStateOf(0f) }
+    val rootView = androidx.compose.ui.platform.LocalView.current
     val latest by rememberUpdatedState(editing)
 
     val scale = cam.scale
@@ -183,13 +189,14 @@ private fun EditorFor(view: EditorViewState, strip: PageStrip, viewModel: Notebo
 
     // Keep the line being typed above the keyboard: move the pages up when it would be hidden.
     val imeBottom = WindowInsets.ime.getBottom(density)
-    LaunchedEffect(imeBottom, value.selection, layout, fieldHeight) {
+    LaunchedEffect(imeBottom, value.selection, layout, fieldHeight, fieldWindowTop) {
         val c = view.camera ?: return@LaunchedEffect
         val l = layout ?: return@LaunchedEffect
         if (imeBottom <= 0) return@LaunchedEffect
         val caret = runCatching { l.getCursorRect(value.selection.end.coerceIn(0, value.text.length)) }.getOrNull() ?: return@LaunchedEffect
-        val caretBottom = c.toScreenY(strip.pageTop(i) + latest.draft.top) + caret.bottom
-        val visibleBottom = view.viewSize.height - imeBottom - with(density) { 24.dp.toPx() }
+        // In window coordinates: in split view the pane may end above the window's bottom (and the keyboard).
+        val caretBottom = fieldWindowTop + caret.bottom
+        val visibleBottom = rootView.height - imeBottom - with(density) { 24.dp.toPx() }
         if (caretBottom > visibleBottom) view.camera = c.copy(offsetY = c.offsetY - (caretBottom - visibleBottom))
     }
 
@@ -208,6 +215,7 @@ private fun EditorFor(view: EditorViewState, strip: PageStrip, viewModel: Notebo
             .offset { IntOffset(sx.roundToInt(), sy.roundToInt()) }
             .requiredWidth(with(density) { widthPx.toDp() })
             .onSizeChanged { fieldHeight = it.height }
+            .onGloballyPositioned { fieldWindowTop = it.positionInWindow().y }
             .drawBehind {
                 val pad = 3.dp.toPx()
                 drawRect(
@@ -294,7 +302,7 @@ private fun TextBar(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
     ) {
-        BarIcon(R.drawable.ic_remove, "Smaller text", "text-smaller", enabled = box.size > InkText.SIZES.first() + 0.01f) { onSize(InkText.smaller(box.size)) }
+        IconMenuButton(IconMenuItem(R.drawable.ic_remove, "Smaller text", "text-smaller", enabled = box.size > InkText.SIZES.first() + 0.01f) { onSize(InkText.smaller(box.size)) })
         Text(
             box.size.roundToInt().toString(),
             style = MaterialTheme.typography.labelLarge,
@@ -302,7 +310,7 @@ private fun TextBar(
             modifier = Modifier.widthIn(min = 24.dp).testTag("text-size"),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
-        BarIcon(R.drawable.ic_add, "Larger text", "text-larger", enabled = box.size < InkText.MAX_SIZE - 0.01f) { onSize(InkText.larger(box.size)) }
+        IconMenuButton(IconMenuItem(R.drawable.ic_add, "Larger text", "text-larger", enabled = box.size < InkText.MAX_SIZE - 0.01f) { onSize(InkText.larger(box.size)) })
         Box(Modifier.size(width = 1.dp, height = 24.dp).background(Color.White.copy(alpha = 0.18f)))
         for (color in TEXT_COLORS) {
             val picked = color == box.colorArgb
@@ -319,34 +327,9 @@ private fun TextBar(
             )
         }
         Box(Modifier.size(width = 1.dp, height = 24.dp).background(Color.White.copy(alpha = 0.18f)))
-        BarIcon(R.drawable.ic_format_bold, if (box.bold) "Bold (on)" else "Bold", "text-bold", selected = box.bold, onClick = onBold)
-        BarIcon(R.drawable.ic_delete, "Delete the text box", "text-delete", destructive = true, onClick = onDelete)
-        BarIcon(R.drawable.ic_check, "Done", "text-done", onClick = onDone)
-    }
-}
-
-@Composable
-private fun BarIcon(
-    icon: Int,
-    label: String,
-    tag: String,
-    enabled: Boolean = true,
-    selected: Boolean = false,
-    destructive: Boolean = false,
-    onClick: () -> Unit,
-) {
-    IconButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.size(44.dp).testTag(tag),
-        shape = CircleShape,
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = if (selected) Color.White.copy(alpha = 0.22f) else Color.Transparent,
-            contentColor = if (destructive) Color(0xFFFF8A80) else EditorBarIcon,
-            disabledContentColor = EditorBarIcon.copy(alpha = 0.35f),
-        ),
-    ) {
-        Icon(painterResource(icon), contentDescription = label, modifier = Modifier.size(22.dp))
+        IconMenuButton(IconMenuItem(R.drawable.ic_format_bold, if (box.bold) "Bold (on)" else "Bold", "text-bold", selected = box.bold, onClick = onBold))
+        IconMenuButton(IconMenuItem(R.drawable.ic_delete, "Delete the text box", "text-delete", destructive = true, onClick = onDelete))
+        IconMenuButton(IconMenuItem(R.drawable.ic_check, "Done", "text-done", onClick = onDone))
     }
 }
 

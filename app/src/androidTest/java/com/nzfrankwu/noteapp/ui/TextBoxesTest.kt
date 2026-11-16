@@ -213,6 +213,22 @@ class TextBoxesTest {
     }
 
     @Test
+    fun holdingAnotherBox_whileTyping_keepsWhatWasTyped() {
+        // Review fix: the box being typed in is saved, not dropped, when another box is held.
+        show()
+        typeNewBox("First")
+        done()
+        // T is still on: a second box, ABOVE the first (low on the screen the keyboard would move the page).
+        tapPage(dy = -300f)
+        compose.onNodeWithTag("text-box-field").performTextInput("Second")
+        compose.onNodeWithTag("notebook-canvas").performTouchInput { longClick(Offset(centerX, centerY - 120f)) }
+        compose.waitForIdle()
+        compose.onNodeWithTag("text-box-field").performTextInput(" box")
+        done()
+        assertEquals(setOf("First box", "Second"), texts().map { it.text }.toSet())
+    }
+
+    @Test
     fun aLassoTapOnABox_selectsIt_forDuplicateAndDelete() {
         // With "Draw with finger" on, the test's finger works like the pen.
         show(InkToolSettings(drawWithFinger = true))

@@ -96,6 +96,17 @@ These additions are written into IDEA.md §2.8 and the Phase 5 row of §5; the u
 - [x] **5.11 Android split screen with other apps** (17 Nov, hands-off; checked with the emulator's display at 640 × 800 dp, the size of half the tablet): the top bar's middle pill moves to a second row on the right when the side buttons leave no room (under about 672 dp); the recent panel says "Make the window bigger…" and turns off splitting under 840 dp; a selected round button (the panel's) stays dark. A real side-by-side split with another app still needs the tablet. Was: half and one-third screen, landscape and portrait. Under about 840 dp in the split direction, dragging to split is off and the panel says why. Fix any crowding.
 - [ ] **5.12 Tablet check:** ask first; back up with `screenshots/tablet_snapshot.sh`, install, compare. No database upgrade.
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest, then ask to merge into `main`.
+  - **Review done (17 Nov, hands-off, high effort): 10 findings, all fixed.**
+    1. Holding a finger on a text box while typing in another dropped the first one's typing and hid that box: starting to type now finishes the open box first (screen test added).
+    2. The all-notebooks Flow was built anew on every recomposition of the notebook entry: remembered.
+    3. The all-notebooks query (page counts) re-ran after every save while a notebook was open: only collected while the recent panel is open.
+    4. The keep-above-the-keyboard pan assumed the pane reaches the window's bottom (wrong for the top pane when stacked): measured in window coordinates.
+    5. Dropping a dragged notebook back over the panel still split the screen: it cancels now.
+    6. In a window too small for two panes, the screenshot still offered "Insert into" both: the editor works on the shown pane alone then.
+    7. Typing stayed open in one pane after moving to the other: switching panes finishes it.
+    8. The text bar duplicated IconMenu's button: `IconMenuButton` is shared (with an `enabled` flag).
+    9. The task pickers re-filtered on every recomposition: remembered by (choices, filter).
+    10. The panel button had a hand-drawn icon (CLAUDE.md: Material icons): Material "library_books".
 
 ## Feedback round 1 (17 Nov 2026, on Phase 4 and text boxes)
 Done before split view, hands-off. The user's answers to my questions are in brackets.
