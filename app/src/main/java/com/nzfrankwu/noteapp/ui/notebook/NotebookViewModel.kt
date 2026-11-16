@@ -75,7 +75,12 @@ class NotebookViewModel(
     private val saveScope: CoroutineScope,
     private val thumbnails: Thumbnails? = null,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    /** Links to tasks and bookmarks (Phase 4). Null in tests that don't need them. */
+    linkRepository: com.nzfrankwu.noteapp.data.LinkRepository? = null,
 ) : ViewModel() {
+    /** This notebook's linked tasks and bookmarks, or null when links aren't available. */
+    val links: NotebookLinks? = linkRepository?.let { NotebookLinks(notebookId, it, viewModelScope) }
+
     val notebook: StateFlow<Notebook?> = notebooks.observeNotebook(notebookId)
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 

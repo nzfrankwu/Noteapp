@@ -44,7 +44,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -99,6 +101,8 @@ fun NotebookScreen(
     viewModel: NotebookViewModel,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens a linked task's page (Phase 4). */
+    onOpenTask: (String) -> Unit = {},
 ) {
     val notebook by viewModel.notebook.collectAsStateWithLifecycle()
     val pages by viewModel.pages.collectAsStateWithLifecycle()
@@ -145,6 +149,25 @@ fun NotebookScreen(
             }
         }
     }
+
+    // Links to tasks (PHASE-4.md 4.3): the chip by Back, and "Link to a task".
+    val links = viewModel.links
+    val linkedTasks by (links?.tasks ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList()) }).collectAsStateWithLifecycle()
+    var linkingTask by rememberSaveable { mutableStateOf(false) }
+    val linkNotice by (links?.notice ?: remember { kotlinx.coroutines.flow.MutableStateFlow(null) }).collectAsStateWithLifecycle()
+    LaunchedEffect(linkNotice) {
+        val notice = linkNotice ?: return@LaunchedEffect
+        snackbar.currentSnackbarData?.dismiss()
+        val result = snackbar.showSnackbar(
+            notice.text,
+            actionLabel = if (notice.undo != null) "Undo" else null,
+            duration = if (notice.undo != null) SnackbarDuration.Long else SnackbarDuration.Short,
+        )
+        links?.noticeShown() // only after the snackbar: clearing first would cancel it
+        if (result == SnackbarResult.ActionPerformed) notice.undo?.invoke()
+    }
+    val zone = remember { java.time.ZoneId.systemDefault() }
+    fun nowInstant(): java.time.Instant = java.time.Instant.now()
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveNow() }
     LaunchedEffect(message) {
@@ -363,7 +386,27 @@ fun NotebookScreen(
                 },
                 menuOpen = menuOpen,
                 onMenuOpen = { menuOpen = it },
+                taskChip = {
+                    if (links != null) {
+                        LinkedTaskChip(
+                            tasks = linkedTasks,
+                            now = nowInstant(),
+                            zone = zone,
+                            onOpenTask = { viewModel.saveNow(); onOpenTask(it) },
+                            onUnlink = links::unlink,
+                            onLinkTask = { linkingTask = true },
+                        )
+                    }
+                },
             ) {
+                if (links != null && linkedTasks.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("Link to a task…") },
+                        onClick = { menuOpen = false; linkingTask = true },
+                        modifier = Modifier.testTag("menu-link-task"),
+                    )
+                    HorizontalDivider()
+                }
                 Text(
                     "Paper",
                     style = MaterialTheme.typography.labelLarge,
@@ -442,6 +485,16 @@ fun NotebookScreen(
                 )
             }
             ExportDialogs(viewModel, nb?.title.orEmpty())
+            if (linkingTask && links != null) {
+                val choices by links.choices.collectAsStateWithLifecycle()
+                LinkTaskSheet(
+                    choices = choices,
+                    now = nowInstant(),
+                    zone = zone,
+                    onPick = { linkingTask = false; links.link(it) },
+                    onCancel = { linkingTask = false },
+                )
+            }
             if (addMenuOpen) {
                 AddPageDialog(
                     current = pages.getOrNull(addAfter)?.template ?: nb?.template ?: PageTemplate.DEFAULT,

@@ -337,9 +337,11 @@ fun NoteAppRoot(
                             NotebookViewModel(
                                 route.notebookId, container.notebookRepository, container.notebookFiles,
                                 container.inkSettings, container.appScope, container.thumbnails,
+                                linkRepository = container.linkRepository,
                             )
                         },
                         onBack = ::back,
+                        onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                     )
                 }
                 entry<CoursesRoute> {

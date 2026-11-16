@@ -94,7 +94,7 @@ The user added more to this phase:
   - `ui/task/LinkNotebookSheet.kt`, "New notebook for this task"
   - `onOpenNotebook` in `entry<TaskRoute>`
   - ★ check-in
-- [ ] **4.3 Notebook chip + "Link to a task…"**
+- [x] **4.3 Notebook chip + "Link to a task…"** (16 Nov, hands-off). The chip shrinks in portrait so it never reaches the middle buttons. Each task in its list has an unlink icon (Undo in the snackbar).
   - `EditorTopBar` chip slot by Back
   - the task picker `ui/notebook/LinkTaskSheet.kt`
   - `onOpenTask` from `entry<NotebookRoute>`

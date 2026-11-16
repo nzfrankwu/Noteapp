@@ -80,14 +80,18 @@ class NotebookEditorTest {
         scope.cancel()
     }
 
-    private fun show(settings: InkToolSettings) {
+    private fun show(
+        settings: InkToolSettings,
+        links: com.nzfrankwu.noteapp.data.LinkRepository? = null,
+        onOpenTask: (String) -> Unit = {},
+    ) {
         compose.runOnUiThread {
-            viewModel = NotebookViewModel(notebookId, notebooks, files, InMemoryInkSettings(settings), scope)
+            viewModel = NotebookViewModel(notebookId, notebooks, files, InMemoryInkSettings(settings), scope, linkRepository = links)
         }
         compose.setContent {
             NoteAppTheme {
                 Box(Modifier.size(width = 1100.dp, height = 760.dp)) {
-                    NotebookScreen(viewModel, onBack = {})
+                    NotebookScreen(viewModel, onBack = {}, onOpenTask = onOpenTask)
                 }
             }
         }
@@ -221,5 +225,32 @@ class NotebookEditorTest {
         compose.onNodeWithText("2 / 2").assertExists()
         compose.onNodeWithTag("undo").performClick()
         compose.waitUntil(5_000) { viewModel.pages.value.size == 1 }
+    }
+
+    // ---- Phase 4: linked tasks ----
+
+    @Test
+    fun linkToATask_fromTheMenu_showsTheChip_whichOpensTheTask() {
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks)
+        val taskId = runBlocking {
+            FolderRepository(db).createFolder("Maths", "MATHS 208")
+            val courseId = db.courseDao().getAll().single().id
+            val draft = com.nzfrankwu.noteapp.data.TaskDraft("Problem set 4", courseId, dueAt = java.time.Instant.now().plus(java.time.Duration.ofDays(3)))
+            (com.nzfrankwu.noteapp.data.TaskRepository(db).createTask(draft) as com.nzfrankwu.noteapp.data.TaskResult.Success).taskId
+        }
+        var opened: String? = null
+        show(InkToolSettings(drawWithFinger = true), links) { opened = it }
+
+        compose.onNodeWithTag("linked-task-chip").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Notebook options").performClick()
+        compose.onNodeWithTag("menu-link-task").performClick()
+        // The notebook's folder has no course, so "Other tasks" starts open.
+        compose.onNodeWithTag("pick-task-Problem set 4").performClick()
+
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("linked-task-chip"), 5_000)
+        compose.onNodeWithText("Problem set 4 · 3 days left", substring = true).assertExists()
+        compose.onNodeWithTag("linked-task-chip").performClick()
+        compose.onNodeWithTag("linked-task-Problem set 4").performClick()
+        compose.waitUntil(5_000) { opened == taskId }
     }
 }
