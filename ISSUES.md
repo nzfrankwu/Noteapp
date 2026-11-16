@@ -12,6 +12,7 @@ _None known._
 
 ## Follow-ups / tech debt
 
+- **PDF text selection (Phase 4.7):** selects whole words (not single letters). The gestures (hold, drag the knobs) were checked by script on the emulator, not by an automated screen test; the logic behind them is unit-tested. Text in a turned direction (e.g. a sideways label) selects as boxes around each word, but Highlight/Underline draw horizontal lines. Feel with a real finger and the OPPO Pencil needs the tablet.
 - **Add Page menu (F34):** pages added from a PDF (or the whole PDF) aren't an undo step; delete them with ⋮ → Delete this page. A copied-in PDF nobody used is removed if you cancel the page picker.
 - **Pen layer (F30):** our own copy of Jetpack Ink's Compose pen layer (`WetInkLayer`) now feeds the pen; if a future Ink version changes its Compose layer, compare. A finished stroke is drawn by both layers for one frame (invisible for pen; a highlighter may look a touch darker for that frame).
 - **Image menu, not checked yet (Phase 3.5):** Take Photo with the emulator's camera; "Allow limited access" (only some photos) and "Don't allow" paths; HEIC photos (the emulator has none). 

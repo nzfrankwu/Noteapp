@@ -78,6 +78,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.BuildConfig
 import com.nzfrankwu.noteapp.R
+import com.nzfrankwu.noteapp.domain.ink.TextSelection
 import com.nzfrankwu.noteapp.domain.PageTemplate
 import com.nzfrankwu.noteapp.domain.ink.EditorTool
 import com.nzfrankwu.noteapp.domain.ink.InkToolSettings
@@ -114,9 +115,13 @@ fun NotebookScreen(
     var showSettings by remember { mutableStateOf(false) }
     // Back closes the settings panel, then lets go of a lasso selection, before leaving.
     // (Read through derivedStateOf: dragging a selection must not recompose this screen.)
-    val hasSelection by remember(view) { derivedStateOf { view.lasso != null } }
+    val hasSelection by remember(view) { derivedStateOf { view.lasso != null || view.textSel != null } }
     BackHandler(enabled = showSettings || hasSelection) {
-        if (showSettings) showSettings = false else view.lasso = null
+        when {
+            showSettings -> showSettings = false
+            view.textSel != null -> view.textSel = null
+            else -> view.lasso = null
+        }
     }
     // Touching the page (pen or finger) closes the tool's settings panel (F27, F29).
     LaunchedEffect(view) {
@@ -180,6 +185,9 @@ fun NotebookScreen(
         if (damaged > 0) snackbar.showSnackbar("A page couldn't be read. Its file is kept safe and won't be changed.")
     }
     LaunchedEffect(settings.tool) { if (settings.tool != EditorTool.LASSO) view.lasso = null }
+    // Selected text remembers its page's place, which moves when pages are added or deleted.
+    val pageIds = pages.map { it.id }
+    LaunchedEffect(pageIds) { view.textSel = null }
     // The pen's side button, when it arrives as a key (the OPPO Pencil 2's does).
     DisposableEffect(viewModel) {
         val click: () -> Unit = { viewModel.penButtonClicked() }
@@ -330,6 +338,43 @@ fun NotebookScreen(
                             spot = com.nzfrankwu.noteapp.domain.PageSpot(b[0], b[1], b[2] - b[0], b[3] - b[1]),
                             note = "",
                         )
+                    },
+                )
+                TextMenu(
+                    view, strip,
+                    onCopy = { sel ->
+                        val clip = android.content.ClipData.newPlainText("PDF text", TextSelection.copyText(sel.text, sel.range))
+                        context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(clip)
+                        view.textSel = null
+                        // Android 13+ shows its own "Copied" confirmation.
+                        if (android.os.Build.VERSION.SDK_INT < 33) scope.launch { snackbar.showSnackbar("Copied.") }
+                    },
+                    onHighlight = { sel ->
+                        val style = settings.highlighter
+                        val strokes = TextSelection.strokes(
+                            TextSelection.highlightMarks(sel.text, sel.range), com.nzfrankwu.noteapp.domain.ink.InkTool.HIGHLIGHTER,
+                            style.colorArgb, size = null,
+                        ) { java.util.UUID.randomUUID().toString() }
+                        viewModel.addTextMarks(sel.pageId, strokes)
+                        view.textSel = null
+                    },
+                    onUnderline = { sel ->
+                        // The pen in use, or else the first pen: its colour, at a neat steady width.
+                        val style = settings.penStyle(settings.tool)?.takeIf { settings.tool.penSlot != null } ?: settings.pens.first()
+                        val strokes = TextSelection.strokes(
+                            TextSelection.underlineMarks(sel.text, sel.range, UNDERLINE_WIDTH), com.nzfrankwu.noteapp.domain.ink.InkTool.PEN_STEADY,
+                            style.colorArgb, size = UNDERLINE_WIDTH,
+                        ) { java.util.UUID.randomUUID().toString() }
+                        viewModel.addTextMarks(sel.pageId, strokes)
+                        view.textSel = null
+                    },
+                    onBookmark = if (links == null) null else { sel ->
+                        bookmarking = BookmarkRequest(
+                            sel.pageId, sel.pageIndex + 1,
+                            spot = TextSelection.spotOf(sel.text, sel.range),
+                            note = com.nzfrankwu.noteapp.domain.Bookmarks.noteFromSelectedText(TextSelection.copyText(sel.text, sel.range)),
+                        )
+                        view.textSel = null
                     },
                 )
                 PasteBubble(view) { at ->
@@ -820,6 +865,54 @@ private fun LassoMenu(
             .testTag("lasso-menu"),
     )
 }
+
+/**
+ * The menu for selected PDF text (PHASE-4.md 4.7), as icons: Copy, Highlight, Underline, Bookmark.
+ * It sits above the selection, or below it when there's no room above.
+ */
+@Composable
+private fun TextMenu(
+    view: EditorViewState,
+    strip: PageStrip,
+    onCopy: (TextSel) -> Unit,
+    onHighlight: (TextSel) -> Unit,
+    onUnderline: (TextSel) -> Unit,
+    onBookmark: ((TextSel) -> Unit)?,
+) {
+    val sel = view.textSel ?: return
+    val cam = view.camera ?: return
+    val density = LocalDensity.current
+    val gap = with(density) { 12.dp.toPx() }
+    val menuHeight = with(density) { 48.dp.toPx() }
+    var menuWidth by remember { mutableIntStateOf(0) }
+    val rects = TextSelection.lineRects(sel.text, sel.range)
+    val pl = strip.pageLeft(sel.pageIndex)
+    val pt = strip.pageTop(sel.pageIndex)
+    val left = cam.toScreenX(pl + rects.minOf { it[0] })
+    val right = cam.toScreenX(pl + rects.maxOf { it[2] })
+    val top = cam.toScreenY(pt + rects.first()[1])
+    val bottom = cam.toScreenY(pt + rects.last()[3]) + TEXT_KNOB_RADIUS * 2 + 4f
+    val mx = ((left + right) / 2 - menuWidth / 2f).coerceIn(8f, (view.viewSize.width - menuWidth - 8f).coerceAtLeast(8f))
+    // Above the text, clear of the floating buttons; else below the handles.
+    val above = top - gap - menuHeight
+    val my = if (above > with(density) { 72.dp.toPx() }) above else (bottom + gap).coerceAtMost(view.viewSize.height - menuHeight - 8f)
+    val items = buildList {
+        add(IconMenuItem(R.drawable.ic_content_copy, "Copy", "text-copy") { onCopy(sel) })
+        add(IconMenuItem(R.drawable.ic_highlighter, "Highlight", "text-highlight") { onHighlight(sel) })
+        add(IconMenuItem(R.drawable.ic_format_underlined, "Underline", "text-underline") { onUnderline(sel) })
+        if (onBookmark != null) add(IconMenuItem(R.drawable.ic_bookmark_add, "Bookmark for a task", "text-bookmark") { onBookmark(sel) })
+    }
+    IconMenu(
+        items,
+        Modifier
+            .offset { IntOffset(mx.roundToInt(), my.roundToInt()) }
+            .onSizeChanged { menuWidth = it.width }
+            .testTag("text-menu"),
+    )
+}
+
+/** Underlines made from selected text: a neat steady line this wide (page units). */
+private const val UNDERLINE_WIDTH = 1.2f
 
 /** The Paste bubble where a finger was held (F12). */
 @Composable

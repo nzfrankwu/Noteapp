@@ -56,6 +56,9 @@ object TextSelection {
     /** How far outside a word's box (page units) a held finger still picks it. */
     const val HOLD_SLOP = 4f
 
+    /** How much of a line's height a highlight's ends are pulled in (the flat tip overhangs). */
+    const val HIGHLIGHT_END_INSET = 0.2f
+
     /** How far below the baseline an underline sits (page units). */
     const val UNDERLINE_GAP = 1.5f
 
@@ -115,14 +118,30 @@ object TextSelection {
     fun copyText(text: PageText, range: TextRange): String =
         linesOf(text, range).joinToString("\n") { words -> words.joinToString(" ") { it.text } }
 
-    /** Highlighter marks: one per selected line, across its words, as tall as the line. */
+    /**
+     * Highlighter marks: one per selected line, across its words, as tall as the line. The ends
+     * are pulled in by [HIGHLIGHT_END_INSET] of the height, since the chisel tip reaches past them.
+     */
     fun highlightMarks(text: PageText, range: TextRange): List<LineMark> =
-        lineRects(text, range).map { r -> LineMark(r[0], r[2], (r[1] + r[3]) / 2, r[3] - r[1]) }
+        lineRects(text, range).map { r ->
+            val h = r[3] - r[1]
+            val inset = (h * HIGHLIGHT_END_INSET).coerceAtMost((r[2] - r[0]) / 4)
+            LineMark(r[0] + inset, r[2] - inset, (r[1] + r[3]) / 2, h)
+        }
 
     /** Underlines: one per selected line, just under its baseline, [thickness] thick. */
     fun underlineMarks(text: PageText, range: TextRange, thickness: Float): List<LineMark> =
         linesOf(text, range).map { words ->
             LineMark(words.minOf { it.left }, words.maxOf { it.right }, words.maxOf { it.baseline } + UNDERLINE_GAP + thickness / 2, thickness)
+        }
+
+    /**
+     * Straight strokes for [marks] (one per line), in [tool], [colorArgb] and either each mark's
+     * thickness (highlighter) or [size] (pen). [newId] names each stroke.
+     */
+    fun strokes(marks: List<LineMark>, tool: InkTool, colorArgb: Int, size: Float?, newId: () -> String): List<InkStroke> =
+        marks.filter { it.x2 > it.x1 }.map { m ->
+            Straighten.line(newId(), tool, colorArgb, size ?: m.thickness, m.x1, m.y, m.x2, m.y, 1f, InkStroke.TOOL_TOUCH)
         }
 
     /** The box around the whole selection (for a bookmark's spot). */

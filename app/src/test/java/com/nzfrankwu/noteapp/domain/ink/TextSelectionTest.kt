@@ -74,7 +74,21 @@ class TextSelectionTest {
     @Test
     fun highlightMarks_runAcrossEachLine_asTallAsIt() {
         val marks = TextSelection.highlightMarks(text, TextRange(1, 4))
-        assertEquals(listOf(LineMark(104f, 180f, 106f, 12f), LineMark(50f, 84f, 126f, 12f)), marks)
+        val inset = 12f * TextSelection.HIGHLIGHT_END_INSET
+        assertEquals(listOf(LineMark(104f + inset, 180f - inset, 106f, 12f), LineMark(50f + inset, 84f - inset, 126f, 12f)), marks)
+    }
+
+    @Test
+    fun strokes_areStraightLines_inTheGivenInk() {
+        var n = 0
+        val strokes = TextSelection.strokes(TextSelection.underlineMarks(text, TextRange(0, 4), 1f), InkTool.PEN_STEADY, 0xFF112233.toInt(), 1f) { "s${n++}" }
+        assertEquals(listOf("s0", "s1"), strokes.map { it.id })
+        val first = strokes[0]
+        assertEquals(InkTool.PEN_STEADY, first.tool)
+        assertEquals(1f, first.size)
+        assertEquals(50f, first.xs.first(), 0.001f)
+        assertEquals(180f, first.xs.last(), 0.001f)
+        assertEquals(1, first.ys.toSet().size) // flat
     }
 
     @Test

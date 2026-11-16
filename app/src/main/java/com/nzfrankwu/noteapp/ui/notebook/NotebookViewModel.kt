@@ -856,8 +856,33 @@ class NotebookViewModel(
         saveScope.launch(io) { runCatching { job() } }
     }
 
+    // ---- PDF text (PHASE-4.md 4.6–4.7) ----
+
+    /** The words of this notebook's PDF pages, read the first time a page's text is held. */
+    private val pdfText by lazy { com.nzfrankwu.noteapp.data.PdfText(files, notebookId, io) }
+    private var pdfTextUsed = false
+
+    /** The words of [page] (empty for a page that isn't from a PDF, or a scan). */
+    suspend fun pageText(page: Page): com.nzfrankwu.noteapp.domain.ink.PageText {
+        if (!page.isPdf) return com.nzfrankwu.noteapp.domain.ink.PageText.EMPTY
+        val nb = notebook.value ?: return com.nzfrankwu.noteapp.domain.ink.PageText.EMPTY
+        pdfTextUsed = true
+        return pdfText.pageText(page, page.size(nb))
+    }
+
+    /**
+     * Highlight or underline marks made from selected text (straight strokes, one per line), added
+     * as one undo step. They're ordinary ink: erasable, movable and exported.
+     */
+    fun addTextMarks(pageId: String, strokes: List<InkStroke>) {
+        if (!isEditable(pageId) || strokes.isEmpty()) return
+        ink.add(pageId, strokes)
+        changed(pageId)
+    }
+
     override fun onCleared() {
         saveNow()
+        if (pdfTextUsed) pdfText.close()
         pdf.close()
         super.onCleared()
     }
