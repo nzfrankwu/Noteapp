@@ -45,8 +45,8 @@ data class InkText(
         const val MIN_SIZE = 6f
         const val MAX_SIZE = 96f
 
-        /** Near-black, like pen 1. */
-        const val DEFAULT_COLOR = 0xFF1B1B1F.toInt()
+        /** Black, like pen 1. */
+        const val DEFAULT_COLOR = InkPalette.BLACK
 
         /** The narrowest a box can be dragged (page units). */
         const val MIN_WIDTH = 24f

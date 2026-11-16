@@ -174,6 +174,12 @@ class EditorViewState {
      */
     var hiddenTexts by mutableStateOf<Set<String>>(emptySet())
 
+    /** The T button is on (Phase 5): a tap on the page (pen or finger) places or edits a text box. */
+    var textMode by mutableStateOf(false)
+
+    /** The text box being typed in, or null (see TextBoxEditing.kt). */
+    var editingText by mutableStateOf<TextEditing?>(null)
+
     /** Where a finger was held to paste (screen pixels): shows the Paste bubble (F12). */
     var pasteAt by mutableStateOf<Offset?>(null)
 
@@ -645,7 +651,7 @@ private const val TAP_MS = 300L
 private const val DOUBLE_TAP_MS = 320L
 
 /** What a stylus (or the debug finger) is doing between down and up. */
-private enum class PenMode { INK, STRAIGHT, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, LASSO_ROTATE, TEXT_HANDLE, BLOCKED }
+private enum class PenMode { INK, STRAIGHT, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, LASSO_ROTATE, TEXT_HANDLE, TEXT_TAP, BLOCKED }
 
 private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGestures(
     snapshot: () -> Snapshot,
@@ -696,6 +702,8 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
     var penDownAt = 0L
     // A finger dragging the lasso's selection (F32): which handle, or null to move it.
     var fingerDrag: FingerDrag? = null
+    // The pen's touch finished typing in a text box (Phase 5): lifting it then makes no new box.
+    var penFinishedTyping = false
 
     /** Saves a moved, resized or turned selection and selects the result. */
     fun commitSelection(sel: LassoState.Selected) {
@@ -852,9 +860,14 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     // The pen can drag a text selection's handles; touching anywhere else lets the selection go.
                     val textHandle = textHandleAt(change.position, snap, cam)
                     if (textHandle == null) view.textSel = null
+                    // Touching the page outside the text box being typed in finishes it (Phase 5).
+                    penFinishedTyping = view.editingText != null
+                    if (penFinishedTyping) finishTextEditing(view, viewModel)
                     penMode = when {
                         textHandle != null -> PenMode.TEXT_HANDLE.also { textDrag = textHandle }
                         page == null || !viewModel.isEditable(page.id) -> PenMode.BLOCKED
+                        // The T button is on: the pen places or picks text boxes (its eraser end still erases).
+                        view.textMode && change.type != PointerType.Eraser -> PenMode.TEXT_TAP
                         change.type == PointerType.Eraser || tool == EditorTool.ERASER -> PenMode.ERASE
                         tool == EditorTool.LASSO && selected != null && onRotateHandle(change.position, selected, snap, cam) -> PenMode.LASSO_ROTATE
                         tool == EditorTool.LASSO && selected != null && handleAt(change.position, selected, snap, cam)?.also { grabbed = it } != null -> PenMode.LASSO_RESIZE
@@ -958,7 +971,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             change.consume()
                             textDrag?.let { textDrag = dragTextHandle(it, change.position, snap, cam) }
                         }
-                        PenMode.BLOCKED -> change.consume()
+                        PenMode.TEXT_TAP, PenMode.BLOCKED -> change.consume()
                     }
                     penLast = change.position
                 } else {
@@ -993,6 +1006,9 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         }
                         PenMode.LASSO_MOVE, PenMode.LASSO_RESIZE, PenMode.LASSO_ROTATE -> {
                             (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
+                        }
+                        PenMode.TEXT_TAP -> if ((change.position - penStart).getDistance() < TAP_SLOP * 2) {
+                            startTextEditing(view, viewModel, snap.strip, snap.pages, change.position, allowNew = !penFinishedTyping)
                         }
                         else -> Unit
                     }
@@ -1108,6 +1124,18 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         if (!insideSelection(change.position, sel, snap, cam) && handleAt(change.position, sel, snap, cam) == null &&
                             !onRotateHandle(change.position, sel, snap, cam)
                         ) onLasso(null)
+                    }
+                    // Text boxes (Phase 5): a tap finishes the one being typed in; a tap on a box
+                    // types in it; with the T button on, a tap on the paper makes a new one.
+                    val typing = view.editingText != null
+                    if (typing) finishTextEditing(view, viewModel)
+                    if (view.lasso == null && startTextEditing(view, viewModel, snap.strip, snap.pages, change.position, allowNew = view.textMode && !typing)) {
+                        lastTapUpAt = 0L
+                        continue
+                    }
+                    if (typing) {
+                        lastTapUpAt = 0L
+                        continue
                     }
                     if (change.uptimeMillis - lastTapUpAt < DOUBLE_TAP_MS && (change.position - lastTapPos).getDistance() < TAP_SLOP * 3) {
                         val index = snap.strip.pageAt(cam.toWorldX(change.position.x))

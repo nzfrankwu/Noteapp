@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 5, hands-off; 5.2 done, on step 5.3). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 5, hands-off; 5.3 done, on step 5.4; stopping after 5.5 for the user's feedback). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -20,7 +20,7 @@ _Last updated: 16 Nov 2026 (Phase 5, hands-off; 5.2 done, on step 5.3). Keep thi
 
 ## Next steps (in order)
 
-1. **Phase 5:** 5.0 and 5.1 done (page format 3 with text boxes, `8a093a4` → next commit). 5.2 done (`data/TextBoxLayout.kt`, font = PdfBox's Liberation Sans asset). Next: **5.3 placing and editing text boxes**, then 5.4 onwards (PHASE-5.md).
+1. **Phase 5:** 5.0 and 5.1 done (page format 3 with text boxes, `8a093a4` → next commit). 5.2 done (`data/TextBoxLayout.kt`, font = PdfBox's Liberation Sans asset). 5.3 done (T button, `TextBoxEditing.kt`). Next: **5.4 lasso for text boxes**, then 5.5 PDF export, then **stop for the user's feedback** on Phase 4 and the text boxes (they asked on 16 Nov).
 2. Phase 4 tablet feedback (hold time, handle size) may still come from the user: fix it on `phase-5` if so.
 4. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture

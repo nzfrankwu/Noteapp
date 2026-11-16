@@ -120,10 +120,12 @@ fun NotebookScreen(
     var showSettings by remember { mutableStateOf(false) }
     // Back closes the settings panel, then lets go of a lasso selection, before leaving.
     // (Read through derivedStateOf: dragging a selection must not recompose this screen.)
-    val hasSelection by remember(view) { derivedStateOf { view.lasso != null || view.textSel != null } }
+    val hasSelection by remember(view) { derivedStateOf { view.lasso != null || view.textSel != null || view.editingText != null || view.textMode } }
     BackHandler(enabled = showSettings || hasSelection) {
         when {
             showSettings -> showSettings = false
+            view.editingText != null -> finishTextEditing(view, viewModel)
+            view.textMode -> view.textMode = false
             view.textSel != null -> view.textSel = null
             else -> view.lasso = null
         }
@@ -183,7 +185,9 @@ fun NotebookScreen(
     // A bookmark being saved (PHASE-4.md 4.5): its page, spot and prefilled note.
     var bookmarking by remember { mutableStateOf<BookmarkRequest?>(null) }
 
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveNow() }
+    // A text box being typed in is kept too when the app goes to the background (Phase 5).
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { finishTextEditing(view, viewModel); viewModel.saveNow() }
+    DisposableEffect(view, viewModel) { onDispose { finishTextEditing(view, viewModel) } }
     LaunchedEffect(message) {
         message?.let { snackbar.showSnackbar(it); viewModel.messageShown() }
     }
@@ -290,6 +294,7 @@ fun NotebookScreen(
     }
 
     fun leave() {
+        finishTextEditing(view, viewModel)
         viewModel.saveNow()
         onBack()
     }
@@ -320,6 +325,7 @@ fun NotebookScreen(
                 showSettings = showSettings,
                 onShowSettings = { showSettings = it },
                 viewModel = viewModel,
+                onToolPicked = { finishTextEditing(view, viewModel); view.textMode = false },
             )
             if (strip != null) {
                 LassoMenu(
@@ -396,6 +402,7 @@ fun NotebookScreen(
                         view.textSel = null
                     },
                 )
+                TextBoxEditor(view, strip, viewModel)
                 PasteBubble(view) { at ->
                     view.pasteAt = null
                     val cam = view.camera ?: return@PasteBubble
@@ -416,8 +423,14 @@ fun NotebookScreen(
                 canUndo = viewModel.canUndo,
                 canRedo = viewModel.canRedo,
                 onBack = ::leave,
-                onUndo = { view.lasso = null; viewModel.undo() },
-                onRedo = { view.lasso = null; viewModel.redo() },
+                onUndo = { finishTextEditing(view, viewModel); view.lasso = null; viewModel.undo() },
+                onRedo = { finishTextEditing(view, viewModel); view.lasso = null; viewModel.redo() },
+                textMode = view.textMode,
+                onText = {
+                    finishTextEditing(view, viewModel)
+                    view.lasso = null
+                    view.textMode = !view.textMode
+                },
                 onImage = { imageMenuOpen = !imageMenuOpen; menuOpen = false },
                 onAddMenu = { view.lasso = null; imageMenuOpen = false; menuOpen = false; addAfter = pageNow(); addMenuOpen = true },
                 onScreenshot = {
@@ -790,6 +803,8 @@ private fun FloatingToolbar(
     showSettings: Boolean,
     onShowSettings: (Boolean) -> Unit,
     viewModel: NotebookViewModel,
+    /** A tool was picked on the toolbar (it turns the T button off). */
+    onToolPicked: () -> Unit = {},
 ) {
     val fullW = viewSize.width.toFloat()
     val fullH = viewSize.height.toFloat()
@@ -811,7 +826,7 @@ private fun FloatingToolbar(
             Row(verticalAlignment = Alignment.Top) {
                 InkToolbar(
                     settings = settings,
-                    onPickTool = { onShowSettings(false); viewModel.pickTool(it) },
+                    onPickTool = { onShowSettings(false); onToolPicked(); viewModel.pickTool(it) },
                     onStyle = { tool, style -> viewModel.updateSettings { it.withStyle(tool, style) } },
                     onOpenSettings = { onShowSettings(!showSettings) },
                     onDrag = { dx, dy ->

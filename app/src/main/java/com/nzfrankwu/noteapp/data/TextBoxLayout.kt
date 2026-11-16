@@ -80,6 +80,13 @@ object TextBoxLayout {
         return ceil(l.height / SCALE * 100f) / 100f
     }
 
+    /** The distance between two lines of text of font size [size] (page units), as laid out here. */
+    fun lineHeight(size: Float): Float {
+        val paint = TextPaint().apply { typeface = this@TextBoxLayout.typeface; textSize = size * SCALE }
+        val m = paint.fontMetricsInt
+        return (m.descent - m.ascent) * LINE_SPACING / SCALE
+    }
+
     /** [box] with its [InkText.height] set to what its text takes now. */
     fun measured(box: InkText): InkText = box.copy(height = height(box))
 

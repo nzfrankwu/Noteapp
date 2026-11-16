@@ -885,6 +885,30 @@ class NotebookViewModel(
         changed(pageId)
     }
 
+    // ---- Text boxes (PHASE-5.md 5.3) ----
+
+    /** The topmost text box under ([x], [y]) (page units), or null. */
+    fun textAt(pageId: String, x: Float, y: Float): com.nzfrankwu.noteapp.domain.ink.InkText? =
+        if (!isEditable(pageId)) null else ink.texts(pageId).lastOrNull { it.contains(x, y) }
+
+    /**
+     * The look of the last text box typed in (size, colour, bold), for the next new box. Kept
+     * while the notebook is open.
+     */
+    var lastTextStyle: com.nzfrankwu.noteapp.domain.ink.InkText? = null
+        private set
+
+    /**
+     * Finishes editing a text box as one undo step ([before] = null for a new box; [after] null
+     * or blank removes it). Its height is measured from the text first.
+     */
+    fun commitText(pageId: String, before: com.nzfrankwu.noteapp.domain.ink.InkText?, after: com.nzfrankwu.noteapp.domain.ink.InkText?) {
+        if (!isEditable(pageId)) return
+        val measured = after?.let { com.nzfrankwu.noteapp.data.TextBoxLayout.measured(it.copy(text = it.text.take(com.nzfrankwu.noteapp.domain.ink.InkText.MAX_LENGTH))) }
+        if (measured != null && measured.text.isNotBlank()) lastTextStyle = measured
+        if (ink.commitText(pageId, before, measured) != null) changed(pageId)
+    }
+
     override fun onCleared() {
         saveNow()
         // Closed in the background, after any text still being read (never on the main thread).

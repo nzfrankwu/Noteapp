@@ -58,6 +58,9 @@ fun EditorTopBar(
     imageMenuOpen: Boolean,
     /** Starts the screenshot tool. */
     onScreenshot: () -> Unit,
+    /** Turns the T button (text boxes, Phase 5) on or off; [textMode] is whether it's on. */
+    onText: () -> Unit = {},
+    textMode: Boolean = false,
     menuOpen: Boolean,
     onMenuOpen: (Boolean) -> Unit,
     /** Bookmarks the page on screen for a task (Phase 4), or null to hide the button. */
@@ -101,6 +104,10 @@ fun EditorTopBar(
                 R.drawable.ic_image, if (imageMenuOpen) "Close the image menu" else "Insert an image", onImage,
                 Modifier.testTag("image-button"), filled = false,
             )
+            BarButton(
+                R.drawable.ic_text_fields, if (textMode) "Text boxes (on): tap the page to add one" else "Add a text box", onText,
+                Modifier.testTag("text-button"), filled = false, selected = textMode,
+            )
             BarButton(R.drawable.ic_crop, "Take a screenshot", onScreenshot, Modifier.testTag("screenshot-button"), filled = false)
         }
 
@@ -131,6 +138,8 @@ private fun BarButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     filled: Boolean = true,
+    /** A mode that's on (the T button): a light ring behind the icon. */
+    selected: Boolean = false,
 ) {
     IconButton(
         onClick = onClick,
@@ -139,7 +148,11 @@ private fun BarButton(
         modifier = if (filled) modifier.size(ButtonSize).shadow(3.dp, CircleShape).border(1.dp, ButtonRim, CircleShape) else modifier.size(ButtonSize),
         shape = CircleShape,
         colors = IconButtonDefaults.iconButtonColors(
-            containerColor = if (filled) EditorBarButton else Color.Transparent,
+            containerColor = when {
+                selected -> Color.White.copy(alpha = 0.22f)
+                filled -> EditorBarButton
+                else -> Color.Transparent
+            },
             contentColor = EditorBarIcon,
             disabledContainerColor = if (filled) EditorBarButton else Color.Transparent,
             disabledContentColor = EditorBarIconDisabled,
@@ -173,5 +186,5 @@ private val ButtonRim = Color.White.copy(alpha = 0.18f)
 
 private val BarHeight = 64.dp
 private val ButtonSize = 44.dp
-/** About half the width of the Undo/Redo/Image/Screenshot pill. */
-private val CenterPillHalfWidth = 104.dp
+/** About half the width of the Undo/Redo/Image/Text/Screenshot pill. */
+private val CenterPillHalfWidth = 128.dp
