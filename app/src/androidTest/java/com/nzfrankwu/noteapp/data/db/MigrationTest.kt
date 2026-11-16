@@ -24,6 +24,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
@@ -462,7 +463,80 @@ class MigrationTest {
         db.close()
     }
 
+    // ---- Version 6 → 7: bookmark pictures (Phase 5, FB5) ----
+
+    /** Every row and value saved by version 6 (links and bookmarks too) survives 6 → 7; old bookmarks have no picture. */
+    @Test
+    fun migration6To7_keepsEveryValue_andOldBookmarksHaveNoPicture() {
+        val before = helper.createDatabase(testDbName, 6).let { old ->
+            insertVersion6Data(old)
+            version6Columns.mapValues { (table, columns) -> rowsOf(old, table, columns) }.also { old.close() }
+        }
+
+        val db = helper.runMigrationsAndValidate(testDbName, 7, true, MIGRATION_6_7)
+
+        for ((table, columns) in version6Columns) {
+            assertEquals("Rows of $table after migrating", before.getValue(table), rowsOf(db, table, columns))
+        }
+        db.query("SELECT image FROM task_bookmarks").use {
+            assertTrue(it.moveToFirst())
+            assertTrue("No picture", it.isNull(0))
+        }
+        db.query("PRAGMA foreign_key_check").use { assertFalse("Broken links between tables", it.moveToFirst()) }
+        db.close()
+    }
+
+    /** After updating, version 6's bookmark still lists, and a new bookmark can carry a picture. */
+    @Test
+    fun dataSavedByVersion6_survivesUpdatingToTheCurrentVersion_andTakesABookmarkPicture() {
+        helper.createDatabase(testDbName, 6).apply {
+            insertVersion6Data(this)
+            close()
+        }
+
+        val db = openWithAllMigrations()
+        runBlocking {
+            val notebooks = NotebookRepository(db, newId = idsFrom("x"))
+            val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks, newId = idsFrom("b"))
+            val old = links.observeBookmarksForTask("t2").first().single().bookmarks.single()
+            assertEquals("Slide 2", old.note)
+            assertEquals(com.nzfrankwu.noteapp.domain.PageSpot(10f, 20f, 30f, 40f), old.spot)
+            assertEquals(null, old.image)
+
+            links.addBookmark("t2", "pp1", null, com.nzfrankwu.noteapp.domain.PageSpot(1f, 2f, 3f, 4f), image = "bookmarks/b.png")
+            val all = links.observeBookmarksForTask("t2").first().single().bookmarks
+            assertEquals(listOf("bookmarks/b.png", null), all.map { it.image })
+            assertEquals(setOf("n1", "n2"), links.observeNotebooksForTask("t2").first().map { it.notebook.id }.toSet())
+        }
+        db.close()
+    }
+
     // ---- Helpers ----
+
+    /**
+     * Rows as version 6 saved them: version 5's rows plus two links and a bookmark (with a spot)
+     * on a PDF page. FROZEN to version 6's tables on purpose: never update this SQL for new versions.
+     */
+    private fun insertVersion6Data(db: SupportSQLiteDatabase) {
+        insertVersion5Data(db) // version 5's tables are part of version 6 (two tables were added)
+        db.execSQL("INSERT INTO task_notebook_links (task_id, notebook_id, created_at) VALUES ('t2', 'n2', 7000)")
+        db.execSQL("INSERT INTO task_notebook_links (task_id, notebook_id, created_at) VALUES ('t2', 'n1', 7100)")
+        db.execSQL(
+            "INSERT INTO task_bookmarks (id, task_id, notebook_id, page_id, note, spot_left, spot_top, spot_width, " +
+                "spot_height, created_at, updated_at) VALUES ('bm1', 't2', 'n2', 'pp2', 'Slide 2', 10.0, 20.0, 30.0, 40.0, 7200, 7200)",
+        )
+    }
+
+    /** Version 6's columns: version 5's plus the two link tables. FROZEN like [insertVersion6Data]. */
+    private val version6Columns: Map<String, List<String>> by lazy {
+        version5Columns + mapOf(
+            "task_notebook_links" to listOf("task_id", "notebook_id", "created_at"),
+            "task_bookmarks" to listOf(
+                "id", "task_id", "notebook_id", "page_id", "note", "spot_left", "spot_top", "spot_width", "spot_height",
+                "created_at", "updated_at",
+            ),
+        )
+    }
 
     /**
      * Rows as version 5 saved them: version 4's rows plus a PDF notebook with two pages of
@@ -624,7 +698,8 @@ class MigrationTest {
 
     /** Every row of [table] (by ID), with the raw stored value of each of [columns]. */
     private fun rowsOf(db: SupportSQLiteDatabase, table: String, columns: List<String>): List<List<Any?>> =
-        db.query("SELECT ${columns.joinToString { "`$it`" }} FROM `$table` ORDER BY `id`").use { cursor ->
+        // Ordered by every column (the link table has no `id`), so the order is always the same.
+        db.query("SELECT ${columns.joinToString { "`$it`" }} FROM `$table` ORDER BY ${columns.joinToString { "`$it`" }}").use { cursor ->
             buildList {
                 while (cursor.moveToNext()) add(columns.indices.map { cursor.rawValue(it) })
             }

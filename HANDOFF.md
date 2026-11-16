@@ -14,13 +14,13 @@ _Last updated: 16 Nov 2026 (Phase 5, hands-off; text boxes 5.1–5.5 done; stopp
 - **IDEA.md** §2.4, §2.6 and §5 were updated for bookmarks and text selection (user's OK, 16 Nov).
 - **Branch:** `phase-5` (from `main`), pushed after each step.
 - **Mode:** **Hands-off** for Phase 5 (the user said "continue on in hands off mode" on 16 Nov). List every 🔺 step done in REPORT.md.
-- **The tablet runs Phase 5 up to 5.5** (text boxes, the build of `c2469f3`), database **version 6** (installed 17 Nov with the user's OK; before/after compare PASS, links and bookmarks unchanged). Backup in `backups/tablet-2026-11-17-before-p5/` (with the page files). Never install a build older than v6 on it: Room can't downgrade. Pages given text boxes are page format 3, which builds before Phase 5 can't read.
+- **The tablet runs Phase 5 up to 5.5** (text boxes, the build of `c2469f3`), database **version 6** (installed 17 Nov with the user's OK; before/after compare PASS, links and bookmarks unchanged). Backup in `backups/tablet-2026-11-17-before-p5/` (with the page files). Never install a build older than v6 on it: Room can't downgrade. **The next install upgrades it to v7** (bookmark pictures): ask first, back up, compare. Pages given text boxes are page format 3, which builds before Phase 5 can't read.
 - **The emulator runs Phase 4** (database v6).
 - Unit tests and the full emulator suite (**258 tests**) pass after Phase 5 step 5.5.
 
 ## Next steps (in order)
 
-1. **Phase 5:** 5.0 and 5.1 done (page format 3 with text boxes, `8a093a4` → next commit). 5.2 done (`data/TextBoxLayout.kt`, font = PdfBox's Liberation Sans asset). 5.3 done (T button, `TextBoxEditing.kt`). 5.4 and 5.5 done: **text boxes are finished (5.1–5.5)**. **Stopped for the user's feedback** on Phase 4 and the text boxes (they asked on 16 Nov). REPORT.md is the text box report; REPORT-phase-4.md the Phase 4 one. **Their feedback (17 Nov) is the "Feedback round 1" list in PHASE-5.md (FB1–FB5)**, done hands-off before split view. Then **5.6** (🔺 split the editor into pane + shared controls; flag it first).
+1. **Phase 5:** 5.0 and 5.1 done (page format 3 with text boxes, `8a093a4` → next commit). 5.2 done (`data/TextBoxLayout.kt`, font = PdfBox's Liberation Sans asset). 5.3 done (T button, `TextBoxEditing.kt`). 5.4 and 5.5 done: **text boxes are finished (5.1–5.5)**. **Stopped for the user's feedback** on Phase 4 and the text boxes (they asked on 16 Nov). REPORT.md is the text box report; REPORT-phase-4.md the Phase 4 one. **Their feedback (17 Nov) is the "Feedback round 1" list in PHASE-5.md (FB1–FB5): all done** (hands-off; FB5 = database **v7**). Then **5.6** (🔺 split the editor into pane + shared controls; flag it first).
 2. Phase 4 tablet feedback (hold time, handle size) may still come from the user: fix it on `phase-5` if so.
 4. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture

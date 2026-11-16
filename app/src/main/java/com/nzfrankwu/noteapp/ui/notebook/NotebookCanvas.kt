@@ -63,6 +63,7 @@ import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import androidx.ink.strokes.Stroke
 import androidx.ink.strokes.StrokeInput
 import com.nzfrankwu.noteapp.data.TextBoxLayout
+import com.nzfrankwu.noteapp.domain.ink.BookmarkPen
 import com.nzfrankwu.noteapp.data.db.Notebook
 import com.nzfrankwu.noteapp.data.db.Page
 import com.nzfrankwu.noteapp.domain.ink.Camera
@@ -193,6 +194,12 @@ class EditorViewState {
 
     /** The text box being typed in, or null (see TextBoxEditing.kt). */
     var editingText by mutableStateOf<TextEditing?>(null)
+
+    /** The bookmark pen's loop or rectangle being drawn (desk units), or null (PHASE-5.md FB5). */
+    var bookmarkLoop by mutableStateOf<BookmarkLoop?>(null)
+
+    /** The part of a page the bookmark pen just picked, waiting for its picture and the bookmark sheet. */
+    var bookmarkArea by mutableStateOf<BookmarkArea?>(null)
 
     /** Where a finger was held to paste (screen pixels): shows the Paste bubble (F12). */
     var pasteAt by mutableStateOf<Offset?>(null)
@@ -529,9 +536,25 @@ fun NotebookCanvas(
             }
         }
 
-        // 3. The lasso's loop and box, and the eraser's ring.
+        // 3. The lasso's loop and box, the bookmark pen's loop, and the eraser's ring.
         Canvas(Modifier.fillMaxSize()) {
             val cam = view.camera ?: return@Canvas
+            view.bookmarkLoop?.let { loop ->
+                val style = DrawStroke(width = 2.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 8f)))
+                if (loop.rect && loop.xs.size >= 2) {
+                    val x0 = cam.toScreenX(loop.xs[0]); val y0 = cam.toScreenY(loop.ys[0])
+                    val x1 = cam.toScreenX(loop.xs[1]); val y1 = cam.toScreenY(loop.ys[1])
+                    drawRect(BookmarkOrange.copy(alpha = 0.10f), Offset(minOf(x0, x1), minOf(y0, y1)), Size(abs(x1 - x0), abs(y1 - y0)))
+                    drawRect(BookmarkOrange, Offset(minOf(x0, x1), minOf(y0, y1)), Size(abs(x1 - x0), abs(y1 - y0)), style = style)
+                } else if (loop.xs.size > 1) {
+                    val path = androidx.compose.ui.graphics.Path()
+                    loop.xs.indices.forEach { k ->
+                        val x = cam.toScreenX(loop.xs[k]); val y = cam.toScreenY(loop.ys[k])
+                        if (k == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    drawPath(path, BookmarkOrange, style = style)
+                }
+            }
             when (val lasso = view.lasso) {
                 is LassoState.Drawing -> if (lasso.xs.size > 1) {
                     val path = androidx.compose.ui.graphics.Path()
@@ -662,6 +685,9 @@ private val SelectionBlue = Color(0xFF2F6BDB)
 private fun rotateHandleAt(box: FloatArray): Pair<Float, Float> = (box[0] + box[2]) / 2 to box[1] - ROTATE_HANDLE_GAP
 
 /** Hold a finger this long to paste (ms). */
+/** The bookmark pen's loop (FB5): orange, so it isn't mistaken for the lasso's blue. */
+private val BookmarkOrange = Color(0xFFEF6C00)
+
 private const val LONG_PRESS_MS = 500L
 
 /** How often a held pen is checked when it sends nothing new (ms). */
@@ -675,7 +701,13 @@ private const val TAP_MS = 300L
 private const val DOUBLE_TAP_MS = 320L
 
 /** What a stylus (or the debug finger) is doing between down and up. */
-private enum class PenMode { INK, STRAIGHT, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, LASSO_ROTATE, TEXT_HANDLE, TEXT_TAP, BLOCKED }
+private enum class PenMode { INK, STRAIGHT, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, LASSO_ROTATE, TEXT_HANDLE, TEXT_TAP, BOOKMARK_LOOP, BLOCKED }
+
+/** The bookmark pen's loop or rectangle being drawn, in desk units (PHASE-5.md FB5). */
+data class BookmarkLoop(val pageIndex: Int, val xs: List<Float>, val ys: List<Float>, val rect: Boolean)
+
+/** The part of page [pageIndex] the bookmark pen picked: [left, top, right, bottom] in page units. */
+data class BookmarkArea(val pageIndex: Int, val pageId: String, val box: FloatArray)
 
 private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGestures(
     snapshot: () -> Snapshot,
@@ -907,6 +939,12 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             onLasso(LassoState.Drawing(pageIndex, listOf(cam.toWorldX(change.position.x)), listOf(cam.toWorldY(change.position.y))))
                             PenMode.LASSO_LOOP
                         }
+                        tool == EditorTool.BOOKMARK -> {
+                            view.bookmarkLoop = BookmarkLoop(
+                                pageIndex, listOf(cam.toWorldX(change.position.x)), listOf(cam.toWorldY(change.position.y)), snap.settings.bookmarkRect,
+                            )
+                            PenMode.BOOKMARK_LOOP
+                        }
                         else -> PenMode.INK
                     }
                     if (penMode == PenMode.INK && hardAtOnce) penMode = PenMode.ERASE // "Hold for: no wait"
@@ -1002,6 +1040,13 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             change.consume()
                             textDrag?.let { textDrag = dragTextHandle(it, change.position, snap, cam) }
                         }
+                        PenMode.BOOKMARK_LOOP -> {
+                            change.consume()
+                            view.bookmarkLoop?.let { loop ->
+                                val (xs, ys) = BookmarkPen.extend(loop.xs, loop.ys, cam.toWorldX(change.position.x), cam.toWorldY(change.position.y), loop.rect)
+                                view.bookmarkLoop = loop.copy(xs = xs, ys = ys)
+                            }
+                        }
                         PenMode.TEXT_TAP, PenMode.BLOCKED -> change.consume()
                     }
                     penLast = change.position
@@ -1046,6 +1091,20 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         }
                         PenMode.LASSO_MOVE, PenMode.LASSO_RESIZE, PenMode.LASSO_ROTATE -> {
                             (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
+                        }
+                        PenMode.BOOKMARK_LOOP -> {
+                            val loop = view.bookmarkLoop
+                            view.bookmarkLoop = null
+                            val page = loop?.let { snap.pages.getOrNull(it.pageIndex) }
+                            if (loop != null && page != null) {
+                                val pl = snap.strip.pageLeft(loop.pageIndex)
+                                val pt = snap.strip.pageTop(loop.pageIndex)
+                                val box = BookmarkPen.area(
+                                    FloatArray(loop.xs.size) { loop.xs[it] - pl }, FloatArray(loop.ys.size) { loop.ys[it] - pt },
+                                    snap.strip.pageWidth(loop.pageIndex), snap.strip.pageHeight(loop.pageIndex),
+                                )
+                                if (box != null) view.bookmarkArea = BookmarkArea(loop.pageIndex, page.id, box)
+                            }
                         }
                         PenMode.TEXT_TAP -> if ((change.position - penStart).getDistance() < TAP_SLOP * 2) {
                             startTextEditing(view, viewModel, snap.strip, snap.pages, change.position, allowNew = !penFinishedTyping)

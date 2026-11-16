@@ -2,24 +2,49 @@ package com.nzfrankwu.noteapp.domain.ink
 
 import kotlin.math.hypot
 
-/** The tools on the notebook toolbar. Saved by [key] (the last tool used). */
+/**
+ * The tools on the notebook toolbar. Saved by [key] (the last tool used). There were three pens
+ * until Phase 5 (PHASE-5.md FB4): a saved "pen3" now opens as pen 1.
+ */
 enum class EditorTool(val key: String, val label: String) {
     PEN_1("pen1", "Pen 1"),
     PEN_2("pen2", "Pen 2"),
-    PEN_3("pen3", "Pen 3"),
     HIGHLIGHTER("highlighter", "Highlighter"),
     ERASER("eraser", "Eraser"),
-    LASSO("lasso", "Lasso");
+    LASSO("lasso", "Lasso"),
+
+    /** Selects part of a page (a free loop or a rectangle) to bookmark it with its picture (FB5). */
+    BOOKMARK("bookmark", "Bookmark pen");
 
     /** Pens and the highlighter put ink down. */
-    val draws: Boolean get() = this != ERASER && this != LASSO
+    val draws: Boolean get() = this == PEN_1 || this == PEN_2 || this == HIGHLIGHTER
 
-    /** Which of the 3 pen slots, or null. */
-    val penSlot: Int? get() = when (this) { PEN_1 -> 0; PEN_2 -> 1; PEN_3 -> 2; else -> null }
+    /** Which of the [PEN_COUNT] pen slots, or null. */
+    val penSlot: Int? get() = when (this) { PEN_1 -> 0; PEN_2 -> 1; else -> null }
 
     companion object {
+        const val PEN_COUNT = 2
         fun fromKey(key: String?): EditorTool = entries.firstOrNull { it.key == key } ?: PEN_1
-        fun pen(slot: Int): EditorTool = listOf(PEN_1, PEN_2, PEN_3)[slot]
+        fun pen(slot: Int): EditorTool = listOf(PEN_1, PEN_2)[slot]
+    }
+}
+
+/**
+ * The pens' default colours over time (PHASE-5.md FB4). Until Phase 5 there were three pens,
+ * black, blue and red; now two, dark blue and red. Saved pens still at the OLD defaults move to
+ * the new ones once; colours picked on purpose stay.
+ */
+object PenDefaults {
+    /** The pen defaults saved settings are chosen under now (none saved = 1, three pens). */
+    const val VERSION = 2
+    private val OLD = listOf(InkPalette.BLACK, InkPalette.BLUE)
+    private val NOW = listOf(InkPalette.NAVY, InkPalette.RED)
+
+    /** Pen [slot]'s colour from its [saved] colour, saved under defaults [savedVersion] (null = 1). */
+    fun savedColor(saved: Int?, savedVersion: Int?, slot: Int): Int = when {
+        saved == null -> NOW[slot]
+        (savedVersion ?: 1) < VERSION && saved == OLD.getOrNull(slot) -> NOW[slot]
+        else -> saved
     }
 }
 
@@ -112,11 +137,8 @@ object PaletteEdit {
  */
 data class InkToolSettings(
     val tool: EditorTool = EditorTool.PEN_1,
-    val pens: List<PenStyle> = listOf(
-        PenStyle(InkPalette.BLACK, InkPalette.SIZES[1]),
-        PenStyle(InkPalette.BLUE, InkPalette.SIZES[1]),
-        PenStyle(InkPalette.RED, InkPalette.SIZES[1]),
-    ),
+    /** Pen 1 dark blue and pen 2 red by default (PHASE-5.md FB4). */
+    val pens: List<PenStyle> = List(EditorTool.PEN_COUNT) { PenStyle(PenDefaults.savedColor(null, null, it), InkPalette.SIZES[1]) },
     val highlighter: PenStyle = PenStyle(InkPalette.HIGHLIGHT_YELLOW, InkPalette.HIGHLIGHTER_SIZE),
     /** The highlighter's tip: round, or flat like a chisel marker (the default) (F18). */
     val highlighterRound: Boolean = false,
@@ -145,6 +167,8 @@ data class InkToolSettings(
     /** The toolbar's colours for pens and for the highlighter, in order; editable (F23). */
     val penPalette: List<Int> = InkPalette.PEN_COLORS,
     val highlighterPalette: List<Int> = InkPalette.HIGHLIGHTER_COLORS,
+    /** The bookmark pen draws a rectangle instead of a free loop (PHASE-5.md FB5). */
+    val bookmarkRect: Boolean = false,
 ) {
     /** The toolbar colours shown for [tool]. */
     fun palette(tool: EditorTool): List<Int> = if (tool == EditorTool.HIGHLIGHTER) highlighterPalette else penPalette

@@ -242,6 +242,38 @@ fun NotebookScreen(
     /** The page in the middle of the screen right now (read when a button is tapped). */
     fun pageNow(): Int = view.camera?.let { strip?.currentPage(it, view.viewSize.width.toFloat()) } ?: 0
 
+    // The bookmark pen picked part of a page (PHASE-5.md FB5): a picture of it as it looks on
+    // screen (the pen's loop is gone first), then the bookmark sheet.
+    LaunchedEffect(view, strip) {
+        snapshotFlow { view.bookmarkArea }.filterNotNull().collect { area ->
+            view.bookmarkArea = null
+            val s = strip ?: return@collect
+            val cam = view.camera ?: return@collect
+            val b = area.box
+            capturing = true
+            androidx.compose.runtime.withFrameNanos { }
+            androidx.compose.runtime.withFrameNanos { }
+            val full = runCatching { pagesLayer.toImageBitmap().asAndroidBitmap() }.getOrNull()
+            capturing = false
+            val picture = full?.let { bmp ->
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                    cropForBookmark(
+                        bmp,
+                        cam.toScreenX(s.pageLeft(area.pageIndex) + b[0]), cam.toScreenY(s.pageTop(area.pageIndex) + b[1]),
+                        cam.toScreenX(s.pageLeft(area.pageIndex) + b[2]), cam.toScreenY(s.pageTop(area.pageIndex) + b[3]),
+                    )
+                }
+            }
+            if (links == null) return@collect
+            bookmarking = BookmarkRequest(
+                area.pageId, area.pageIndex + 1,
+                spot = com.nzfrankwu.noteapp.domain.PageSpot(b[0], b[1], b[2] - b[0], b[3] - b[1]),
+                note = "",
+                picture = picture,
+            )
+        }
+    }
+
     // "Add Page" (F34): photos and camera pictures become pages of their own; PDFs add their pages.
     val latestStrip by androidx.compose.runtime.rememberUpdatedState(strip)
     // Shows page [index] once the page list has caught up with pages just added (so it's fitted to its own size).
@@ -596,9 +628,13 @@ fun NotebookScreen(
                     zone = zone,
                     onSave = { task, note ->
                         bookmarking = null
-                        links.addBookmark(task, request.pageId, note, request.spot)
+                        scope.launch {
+                            val image = request.picture?.let { viewModel.saveBookmarkPicture(it) }
+                            links.addBookmark(task, request.pageId, note, request.spot, image)
+                        }
                     },
                     onCancel = { bookmarking = null },
+                    picture = remember(request.picture) { request.picture?.asImageBitmap() },
                 )
             }
             if (linkingTask && links != null) {
@@ -706,7 +742,14 @@ fun NotebookScreen(
 }
 
 /** A bookmark waiting for its task and note: page [pageId] (number [pageNumber]), at [spot] or the whole page. */
-data class BookmarkRequest(val pageId: String, val pageNumber: Int, val spot: com.nzfrankwu.noteapp.domain.PageSpot?, val note: String)
+data class BookmarkRequest(
+    val pageId: String,
+    val pageNumber: Int,
+    val spot: com.nzfrankwu.noteapp.domain.PageSpot?,
+    val note: String,
+    /** The bookmark pen's picture of the spot (PHASE-5.md FB5), saved only if the bookmark is. */
+    val picture: android.graphics.Bitmap? = null,
+)
 
 /** A picture being cropped: where it is, and its full picture file. */
 private class CropTarget(val pageIndex: Int, val pageId: String, val image: com.nzfrankwu.noteapp.domain.ink.InkImage, val picture: android.graphics.Bitmap)
@@ -1073,3 +1116,25 @@ private fun BoxScope.PageScroller(view: EditorViewState, strip: PageStrip, pageC
 
 /** The page scroller fades this long after the pages stop moving (ms). */
 private const val SCROLLER_FADE_MS = 1_500L
+
+/**
+ * The part of the screen picture [full] between ([left], [top]) and ([right], [bottom]) (screen
+ * pixels), cut to the picture, at most [com.nzfrankwu.noteapp.domain.ink.BookmarkPen.MAX_PICTURE_SIDE]
+ * pixels on its longer side. Null if none of it is on screen.
+ */
+private fun cropForBookmark(full: android.graphics.Bitmap, left: Float, top: Float, right: Float, bottom: Float): android.graphics.Bitmap? {
+    val l = left.toInt().coerceIn(0, full.width)
+    val t = top.toInt().coerceIn(0, full.height)
+    val r = kotlin.math.ceil(right).toInt().coerceIn(0, full.width)
+    val b = kotlin.math.ceil(bottom).toInt().coerceIn(0, full.height)
+    if (r - l < 2 || b - t < 2) return null
+    val soft = full.config == android.graphics.Bitmap.Config.HARDWARE
+    val source = if (soft) full.copy(android.graphics.Bitmap.Config.ARGB_8888, false) else full
+    val cut = android.graphics.Bitmap.createBitmap(source, l, t, r - l, b - t)
+    val max = com.nzfrankwu.noteapp.domain.ink.BookmarkPen.MAX_PICTURE_SIDE
+    val longest = maxOf(cut.width, cut.height)
+    return if (longest <= max) cut else {
+        val k = max.toFloat() / longest
+        android.graphics.Bitmap.createScaledBitmap(cut, (cut.width * k).toInt().coerceAtLeast(1), (cut.height * k).toInt().coerceAtLeast(1), true)
+    }
+}

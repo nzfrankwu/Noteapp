@@ -48,6 +48,8 @@ class LinkRepository(
     private val notebooks: NotebookRepository,
     private val clock: Clock = Clock.systemUTC(),
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    /** Where bookmark pictures are (PHASE-5.md FB5); null in tests that don't need them. */
+    private val files: NotebookFiles? = null,
 ) {
     private val dao = db.linkDao()
     private val taskDao = db.taskDao()
@@ -74,6 +76,7 @@ class LinkRepository(
                     BookmarkEntry(
                         id = b.id, notebookId = b.notebookId, notebookTitle = row.notebookTitle, pageId = b.pageId,
                         pageNumber = row.pageNumber, note = b.note, spot = b.spot(), createdAt = b.createdAt,
+                        image = b.image,
                     )
                 },
             )
@@ -144,7 +147,7 @@ class LinkRepository(
      * Bookmarks page [pageId] for the task, with an optional [note] and [spot] (null = the whole
      * page), and links the page's notebook to the task if it isn't yet. Returns the bookmark's ID.
      */
-    suspend fun addBookmark(taskId: String, pageId: String, note: String?, spot: PageSpot? = null): LinkResult =
+    suspend fun addBookmark(taskId: String, pageId: String, note: String?, spot: PageSpot? = null, image: String? = null): LinkResult =
         db.withTransaction {
             taskDao.getById(taskId) ?: return@withTransaction LinkResult.Failure(LinkError.TaskNotFound)
             val page = notebookDao.getPage(pageId)
@@ -157,11 +160,17 @@ class LinkRepository(
             val bookmark = TaskBookmark(
                 id = newId(), taskId = taskId, notebookId = notebook.id, pageId = pageId, note = Bookmarks.cleanNote(note),
                 spotLeft = keptSpot?.left, spotTop = keptSpot?.top, spotWidth = keptSpot?.width, spotHeight = keptSpot?.height,
-                createdAt = now, updatedAt = now,
+                createdAt = now, updatedAt = now, image = image,
             )
             dao.insertBookmark(bookmark)
             LinkResult.Success(bookmark.id)
         }
+
+    /** The file of a bookmark's picture (FB5), or null when it has none or it can't be found. */
+    fun pictureFile(entry: BookmarkEntry): java.io.File? {
+        val name = entry.image ?: return null
+        return runCatching { files?.assetFile(entry.notebookId, name) }.getOrNull()?.takeIf { it.exists() }
+    }
 
     /** Adds, changes or (with a blank [note]) clears a bookmark's note. */
     suspend fun setNote(bookmarkId: String, note: String?): Boolean = db.withTransaction {

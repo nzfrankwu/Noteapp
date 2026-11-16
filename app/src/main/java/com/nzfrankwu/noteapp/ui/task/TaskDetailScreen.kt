@@ -183,6 +183,7 @@ fun TaskDetailScreen(
                             onOpen = { onOpenNotebook(it.notebookId, it.pageId, it.spot) },
                             onEditNote = { entry, note -> viewModel.setBookmarkNote(entry.id, note) },
                             onDelete = { viewModel.deleteBookmark(it.id) },
+                            pictureFile = viewModel::bookmarkPictureFile,
                         )
                     }
                 }

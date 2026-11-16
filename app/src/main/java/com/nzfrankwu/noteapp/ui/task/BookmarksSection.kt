@@ -1,6 +1,9 @@
 package com.nzfrankwu.noteapp.ui.task
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,6 +41,7 @@ import com.nzfrankwu.noteapp.ui.theme.Dimens
 /**
  * The task's page bookmarks (PHASE-4.md 4.8): grouped by notebook, in page order, each "p. 12"
  * and its note. Tap one to open the notebook there; ✎ adds or changes the note; the bin deletes it.
+ * A bookmark made with the bookmark pen (PHASE-5.md FB5) shows its picture ([pictureFile]).
  */
 @Composable
 fun BookmarksSection(
@@ -44,6 +49,7 @@ fun BookmarksSection(
     onOpen: (BookmarkEntry) -> Unit,
     onEditNote: (BookmarkEntry, String) -> Unit,
     onDelete: (BookmarkEntry) -> Unit,
+    pictureFile: (BookmarkEntry) -> java.io.File? = { null },
 ) {
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp).testTag("bookmarks")) {
@@ -70,7 +76,7 @@ fun BookmarksSection(
                     }
                     group.bookmarks.forEachIndexed { i, entry ->
                         if (i > 0) HorizontalDivider(Modifier.padding(horizontal = Dimens.TilePadding))
-                        BookmarkRow(entry, onOpen = { onOpen(entry) }, onEdit = { editing = entry.id }, onDelete = { onDelete(entry) })
+                        BookmarkRow(entry, pictureFile, onOpen = { onOpen(entry) }, onEdit = { editing = entry.id }, onDelete = { onDelete(entry) })
                     }
                 }
             }
@@ -88,7 +94,7 @@ fun BookmarksSection(
 }
 
 @Composable
-private fun BookmarkRow(entry: BookmarkEntry, onOpen: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun BookmarkRow(entry: BookmarkEntry, pictureFile: (BookmarkEntry) -> java.io.File?, onOpen: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -102,8 +108,9 @@ private fun BookmarkRow(entry: BookmarkEntry, onOpen: () -> Unit, onEdit: () -> 
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.widthIn(min = 52.dp),
         )
+        if (entry.image != null) BookmarkPicture(entry, pictureFile)
         Text(
-            entry.note ?: "No note",
+            entry.note ?: if (entry.image != null) "" else "No note",
             style = MaterialTheme.typography.bodyMedium,
             color = if (entry.note == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
@@ -118,6 +125,37 @@ private fun BookmarkRow(entry: BookmarkEntry, onOpen: () -> Unit, onEdit: () -> 
         }
     }
 }
+
+/** The bookmark pen's picture (FB5), small, loaded off the main thread. */
+@Composable
+private fun BookmarkPicture(entry: BookmarkEntry, pictureFile: (BookmarkEntry) -> java.io.File?) {
+    val picture by androidx.compose.runtime.produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, entry.id, entry.image) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            pictureFile(entry)?.let { com.nzfrankwu.noteapp.data.ImageImport.loadForScreen(it, PICTURE_PX) }
+        }?.asImageBitmap()
+    }
+    Box(
+        Modifier
+            .padding(vertical = 4.dp)
+            .size(width = 120.dp, height = 72.dp)
+            .background(androidx.compose.ui.graphics.Color.White, MaterialTheme.shapes.small)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
+            .testTag("bookmark-picture-${entry.pageNumber}"),
+        contentAlignment = Alignment.Center,
+    ) {
+        picture?.let {
+            androidx.compose.foundation.Image(
+                it,
+                contentDescription = "Bookmarked part of ${Bookmarks.pageLabel(entry.pageNumber)}",
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                modifier = Modifier.padding(2.dp),
+            )
+        }
+    }
+}
+
+/** Bookmark pictures in the list are loaded at most this big (pixels). */
+private const val PICTURE_PX = 360
 
 @Composable
 private fun NoteDialog(pageNumber: Int, initial: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {

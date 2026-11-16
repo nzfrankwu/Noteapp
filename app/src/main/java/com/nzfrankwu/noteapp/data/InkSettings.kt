@@ -50,7 +50,8 @@ class InkSettings(context: Context) : InkSettingsStore {
         return InkToolSettings(
             tool = EditorTool.fromKey(p[TOOL]),
             pens = d.pens.mapIndexed { i, pen ->
-                PenStyle(p[penColor(i)] ?: pen.colorArgb, p[penSize(i)] ?: pen.size, (p[penPressure(i)] ?: pen.pressure).coerceIn(PenPressure.OFF, PenPressure.FULL))
+                val color = com.nzfrankwu.noteapp.domain.ink.PenDefaults.savedColor(p[penColor(i)], p[PENS_VERSION], i)
+                PenStyle(color, p[penSize(i)] ?: pen.size, (p[penPressure(i)] ?: pen.pressure).coerceIn(PenPressure.OFF, PenPressure.FULL))
             },
             highlighter = PenStyle(p[HIGHLIGHTER_COLOR] ?: d.highlighter.colorArgb, p[HIGHLIGHTER_SIZE] ?: d.highlighter.size),
             eraserRadius = p[ERASER_RADIUS] ?: d.eraserRadius,
@@ -68,6 +69,7 @@ class InkSettings(context: Context) : InkSettingsStore {
             customColors = p[CUSTOM_COLORS]?.let(::parseColors) ?: d.customColors,
             penPalette = p[PEN_PALETTE]?.let(::parseColors)?.takeIf { it.isNotEmpty() } ?: d.penPalette,
             highlighterPalette = p[HIGHLIGHTER_PALETTE]?.let(::parseColors)?.takeIf { it.isNotEmpty() } ?: d.highlighterPalette,
+            bookmarkRect = p[BOOKMARK_RECT] ?: d.bookmarkRect,
         )
     }
 
@@ -95,6 +97,8 @@ class InkSettings(context: Context) : InkSettingsStore {
         p[CUSTOM_COLORS] = s.customColors.joinToString(",") { Integer.toHexString(it) }
         p[PEN_PALETTE] = s.penPalette.joinToString(",") { Integer.toHexString(it) }
         p[HIGHLIGHTER_PALETTE] = s.highlighterPalette.joinToString(",") { Integer.toHexString(it) }
+        p[BOOKMARK_RECT] = s.bookmarkRect
+        p[PENS_VERSION] = com.nzfrankwu.noteapp.domain.ink.PenDefaults.VERSION
     }
 
     /** Colours saved as "ff1b1c1e,ff2f6bdb"; anything unreadable is skipped. */
@@ -123,5 +127,9 @@ class InkSettings(context: Context) : InkSettingsStore {
         val TOOLBAR_COLLAPSED = booleanPreferencesKey("toolbar_collapsed")
         val FIT_MODE = stringPreferencesKey("fit_mode")
         val DRAW_WITH_FINGER = booleanPreferencesKey("draw_with_finger")
+        val BOOKMARK_RECT = booleanPreferencesKey("bookmark_rect")
+
+        /** Which pen defaults the saved pens were chosen under (see PenDefaults). */
+        val PENS_VERSION = intPreferencesKey("pens_version")
     }
 }

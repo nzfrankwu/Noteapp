@@ -31,7 +31,7 @@ abstract class NoteAppDatabase : RoomDatabase() {
 
     companion object {
         /** The current database version. See Migrations.kt before changing it. */
-        const val VERSION = 6
+        const val VERSION = 7
 
         /** File name inside the app's private storage. Must never change (it would "lose" the data). */
         const val FILE_NAME = "noteapp.db"

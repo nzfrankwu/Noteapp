@@ -899,6 +899,28 @@ class NotebookViewModel(
         changed(pageId)
     }
 
+    // ---- Bookmark pen pictures (PHASE-5.md FB5) ----
+
+    /**
+     * Saves a bookmark pen picture in the notebook's folder (`bookmarks/<uuid>.png`, written to a
+     * temporary file first) and returns its file name, or null if it couldn't be saved.
+     */
+    suspend fun saveBookmarkPicture(picture: Bitmap): String? = withContext(io) {
+        runCatching {
+            val name = "bookmarks/${java.util.UUID.randomUUID()}.png"
+            val file = files.assetFile(notebookId, name)
+            file.parentFile?.mkdirs()
+            val temp = java.io.File(file.parentFile, file.name + ".writing")
+            java.io.FileOutputStream(temp).use { out ->
+                picture.compress(Bitmap.CompressFormat.PNG, 100, out)
+                out.flush()
+                out.fd.sync()
+            }
+            if (!temp.renameTo(file)) error("Couldn't save the picture")
+            name
+        }.getOrNull()
+    }
+
     // ---- Text boxes (PHASE-5.md 5.3) ----
 
     /** The topmost text box under ([x], [y]) (page units), or null. */

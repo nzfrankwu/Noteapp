@@ -21,6 +21,8 @@ data class BookmarkEntry(
     /** The spot on the page, or null for the whole page. */
     val spot: PageSpot?,
     val createdAt: Instant,
+    /** The bookmark pen's picture (a file name in the notebook's folder), or null (PHASE-5.md FB5). */
+    val image: String? = null,
 )
 
 /** A notebook's bookmarks for one task, in page order. */

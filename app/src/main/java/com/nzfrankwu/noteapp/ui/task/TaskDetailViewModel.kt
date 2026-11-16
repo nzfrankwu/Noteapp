@@ -138,6 +138,9 @@ class TaskDetailViewModel(
         viewModelScope.launch { repo.setNote(bookmarkId, note) }
     }
 
+    /** The bookmark pen's picture file for [entry] (PHASE-5.md FB5), or null. */
+    fun bookmarkPictureFile(entry: com.nzfrankwu.noteapp.domain.BookmarkEntry): java.io.File? = links?.pictureFile(entry)
+
     fun deleteBookmark(bookmarkId: String) {
         val repo = links ?: return
         viewModelScope.launch { repo.deleteBookmark(bookmarkId)?.let { _deletedBookmark.value = it } }

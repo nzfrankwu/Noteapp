@@ -329,6 +329,64 @@ class NotebookEditorTest {
         compose.onNodeWithTag("bookmark-save").assertIsEnabled()
     }
 
+    @Test
+    fun theBookmarkPen_takesAPictureOfTheArea_andSavesItWithTheBookmark() {
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks, files = files)
+        val taskId = runBlocking {
+            FolderRepository(db).createFolder("Maths", "MATHS 208")
+            val courseId = db.courseDao().getAll().single().id
+            (com.nzfrankwu.noteapp.data.TaskRepository(db).createTask(com.nzfrankwu.noteapp.data.TaskDraft("Problem set 6", courseId))
+                as com.nzfrankwu.noteapp.data.TaskResult.Success).taskId
+        }
+        show(InkToolSettings(drawWithFinger = true, bookmarkRect = true), links)
+        drawLine(280f) // something to see in the picture
+        compose.waitUntil(5_000) { strokeCount() == 1 }
+        compose.runOnUiThread { viewModel.pickTool(EditorTool.BOOKMARK) }
+        compose.waitForIdle()
+
+        // A rectangle around the line.
+        compose.onNodeWithTag("notebook-canvas").performTouchInput {
+            swipe(Offset(centerX - 160f, 240f), Offset(centerX + 160f, 340f), durationMillis = 400)
+        }
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("bookmark-sheet"), 5_000)
+        compose.onNodeWithTag("bookmark-picture").assertExists()
+        compose.onNodeWithTag("pick-task-Problem set 6").performClick()
+        compose.onNodeWithTag("bookmark-note").performTextInput("The derivative")
+        compose.onNodeWithTag("bookmark-save").performClick()
+
+        compose.waitUntil(5_000) { runBlocking { links.observeBookmarksForTask(taskId).first() }.isNotEmpty() }
+        val entry = runBlocking { links.observeBookmarksForTask(taskId).first() }.single().bookmarks.single()
+        assertEquals("The derivative", entry.note)
+        assertTrue("Has a picture: ${entry.image}", entry.image?.startsWith("bookmarks/") == true)
+        val picture = links.pictureFile(entry)
+        assertTrue("The picture file exists", picture != null && picture.length() > 0)
+        val bmp = android.graphics.BitmapFactory.decodeFile(picture!!.path)
+        assertTrue("A real picture: ${bmp.width}×${bmp.height}", bmp.width > 100 && bmp.height > 30)
+        // The spot is the rectangle (page units), a little wider than tall.
+        val spot = entry.spot!!
+        assertTrue("Spot $spot", spot.width > spot.height)
+    }
+
+    @Test
+    fun aBookmarkPenSlip_orCancel_savesNothing() {
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks, files = files)
+        runBlocking { FolderRepository(db).createFolder("Maths", "MATHS 208") }
+        show(InkToolSettings(drawWithFinger = true, tool = EditorTool.BOOKMARK), links)
+        // A tiny loop is a slip: no sheet.
+        compose.onNodeWithTag("notebook-canvas").performTouchInput { swipe(Offset(centerX, 300f), Offset(centerX + 4f, 302f), durationMillis = 100) }
+        compose.waitForIdle()
+        compose.onNodeWithTag("bookmark-sheet").assertDoesNotExist()
+        // A real loop, then Cancel: nothing saved, and no ink was drawn.
+        compose.onNodeWithTag("notebook-canvas").performTouchInput {
+            swipe(Offset(centerX - 100f, 250f), Offset(centerX + 100f, 380f), durationMillis = 400)
+        }
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("bookmark-sheet"), 5_000)
+        compose.onNodeWithTag("bookmark-cancel").performClick()
+        compose.waitForIdle()
+        assertEquals(0, strokeCount())
+        assertTrue(java.io.File(tmp.root, "${NotebookFiles.DIR}/$notebookId/bookmarks").listFiles().isNullOrEmpty())
+    }
+
     // ---- Phase 4: selecting PDF text ----
 
     @Test

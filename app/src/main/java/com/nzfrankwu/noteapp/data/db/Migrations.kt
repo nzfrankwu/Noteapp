@@ -136,6 +136,19 @@ val MIGRATION_5_6: Migration = object : Migration(5, 6) {
     }
 }
 
+/**
+ * Version 6 → 7 (Phase 5, feedback FB5): bookmarks get `image`, the bookmark pen's picture of the
+ * bookmarked part of the page (a file name in the notebook's folder).
+ *
+ * It only adds an empty (null) column, so every existing row and value stays exactly as it was,
+ * and every existing bookmark simply has no picture.
+ */
+val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `task_bookmarks` ADD COLUMN `image` TEXT")
+    }
+}
+
 /** Every migration, oldest first. Keep this list at the bottom of the file (see above). */
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
@@ -143,4 +156,5 @@ val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_3_4,
     MIGRATION_4_5,
     MIGRATION_5_6,
+    MIGRATION_6_7,
 )

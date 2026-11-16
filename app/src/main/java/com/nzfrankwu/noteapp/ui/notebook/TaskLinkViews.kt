@@ -40,6 +40,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -195,6 +196,8 @@ fun TaskSearch(filter: TaskFilter, onFilter: (TaskFilter) -> Unit, choices: Task
                 FilterChip(
                     selected = true,
                     onClick = { open = true },
+                    colors = chipColors(),
+                    border = chipBorder(true),
                     label = { Text(label(filter.course), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 200.dp)) },
                     trailingIcon = { Icon(painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null, modifier = Modifier.size(18.dp)) },
                     modifier = Modifier.testTag("filter-course"),
@@ -223,16 +226,45 @@ fun TaskSearch(filter: TaskFilter, onFilter: (TaskFilter) -> Unit, choices: Task
                 selected = filter.due == DueFilter.SOON,
                 onClick = { onFilter(filter.copy(due = DueFilter.SOON)) },
                 label = { Text("Due soon") },
+                leadingIcon = if (filter.due == DueFilter.SOON) chipCheck else null,
+                colors = chipColors(),
+                border = chipBorder(filter.due == DueFilter.SOON),
                 modifier = Modifier.testTag("filter-soon"),
             )
             FilterChip(
                 selected = filter.due == DueFilter.PAST,
                 onClick = { onFilter(filter.copy(due = DueFilter.PAST)) },
                 label = { Text("Already due") },
+                leadingIcon = if (filter.due == DueFilter.PAST) chipCheck else null,
+                colors = chipColors(),
+                border = chipBorder(filter.due == DueFilter.PAST),
                 modifier = Modifier.testTag("filter-past"),
             )
         }
     }
+}
+
+/** Filter chips that read clearly on the dialog's background: filled when on, outlined when off. */
+@Composable
+private fun chipColors() = FilterChipDefaults.filterChipColors(
+    containerColor = MaterialTheme.colorScheme.surface,
+    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    selectedTrailingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+)
+
+@Composable
+private fun chipBorder(selected: Boolean) = FilterChipDefaults.filterChipBorder(
+    enabled = true,
+    selected = selected,
+    borderColor = MaterialTheme.colorScheme.outline,
+    selectedBorderColor = MaterialTheme.colorScheme.primary,
+    selectedBorderWidth = 1.dp,
+)
+
+private val chipCheck: @Composable () -> Unit = {
+    Icon(painterResource(R.drawable.ic_check), contentDescription = null, modifier = Modifier.size(18.dp))
 }
 
 /**
