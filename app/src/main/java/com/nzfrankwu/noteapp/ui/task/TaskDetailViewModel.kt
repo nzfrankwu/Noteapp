@@ -129,6 +129,27 @@ class TaskDetailViewModel(
 
     fun cancelNewNotebook() { _needsFolder.value = null }
 
+    /** A bookmark just deleted, for the snackbar's Undo. */
+    private val _deletedBookmark = MutableStateFlow<com.nzfrankwu.noteapp.data.db.TaskBookmark?>(null)
+    val deletedBookmark: StateFlow<com.nzfrankwu.noteapp.data.db.TaskBookmark?> = _deletedBookmark.asStateFlow()
+
+    fun setBookmarkNote(bookmarkId: String, note: String) {
+        val repo = links ?: return
+        viewModelScope.launch { repo.setNote(bookmarkId, note) }
+    }
+
+    fun deleteBookmark(bookmarkId: String) {
+        val repo = links ?: return
+        viewModelScope.launch { repo.deleteBookmark(bookmarkId)?.let { _deletedBookmark.value = it } }
+    }
+
+    fun undoDeleteBookmark(bookmark: com.nzfrankwu.noteapp.data.db.TaskBookmark) {
+        val repo = links ?: return
+        viewModelScope.launch { repo.restoreBookmark(bookmark) }
+    }
+
+    fun deletedBookmarkShown() { _deletedBookmark.value = null }
+
     fun notebookOpened() { _openNotebook.value = null }
 
     /** The name a new notebook for this task starts with. */

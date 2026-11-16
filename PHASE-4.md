@@ -107,7 +107,7 @@ The user added more to this phase:
   - the icon menu: Copy, Highlight, Underline, Bookmark (prefilled note)
   - gesture order with the picture hold and Paste
   - ★ check-in
-- [ ] **4.8 Bookmarks under the task**
+- [x] **4.8 Bookmarks under the task** (16 Nov, hands-off; no check-in): `ui/task/BookmarksSection.kt`, notebooks A–Z, page order; ✎ note dialog; delete with Undo. Opening at a spot uses `PageStrip.focus` (the spot in the middle, at most 1.6× the whole-page fit; the first/last page can't scroll past its middle, so a spot near the page's edge sits off-centre).
   - grouped by notebook, page order
   - add or change the note, delete
   - tap → open at the page/spot

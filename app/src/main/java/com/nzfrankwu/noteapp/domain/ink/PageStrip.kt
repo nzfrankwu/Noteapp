@@ -143,6 +143,22 @@ class PageStrip(val sizes: List<PageSize>, val gap: Float = GAP) {
         return Camera(scale, offsetX, offsetY)
     }
 
+    /**
+     * The camera that shows the spot [left], [top], [width] × [height] (page units) of page
+     * [index] in the middle of the screen, zoomed so it fills about [FOCUS_FILL] of it (a
+     * bookmark, PHASE-4.md 4.8). Never further out than the whole page fitted on screen, nor
+     * further in than [FOCUS_MAX_ZOOM] times that.
+     */
+    fun focus(index: Int, left: Float, top: Float, width: Float, height: Float, viewWidth: Float, viewHeight: Float): Camera {
+        val pageFit = fit(FitMode.PAGE, index, viewWidth, viewHeight).scale
+        val wanted = min(viewWidth * FOCUS_FILL / width.coerceAtLeast(1f), viewHeight * FOCUS_FILL / height.coerceAtLeast(1f))
+        val range = scaleRange(viewWidth, viewHeight)
+        val scale = wanted.coerceIn(pageFit, pageFit * FOCUS_MAX_ZOOM).coerceIn(range.start, range.endInclusive)
+        val cx = pageLeft(index) + left + width / 2
+        val cy = pageTop(index) + top + height / 2
+        return clamp(Camera(scale, viewWidth / 2 - cx * scale, viewHeight / 2 - cy * scale), viewWidth, viewHeight)
+    }
+
     /** Smallest and largest zoom for this screen. */
     fun scaleRange(viewWidth: Float, viewHeight: Float): ClosedFloatingPointRange<Float> {
         // The whole band can shrink to half; the narrowest page can be zoomed into the most.
@@ -218,6 +234,12 @@ class PageStrip(val sizes: List<PageSize>, val gap: Float = GAP) {
         val DEFAULT_SIZE = PageSize(595f, 842f)
 
         private const val MIN_ZOOM_OF_WHOLE_PAGE = 0.5f
+
+        /** How much of the screen a bookmarked spot fills when opened. */
+        const val FOCUS_FILL = 0.6f
+
+        /** A bookmark opens at most this many times closer than the whole page fitted on screen. */
+        const val FOCUS_MAX_ZOOM = 1.6f
         private const val MAX_ZOOM_OF_WIDTH = 4f
     }
 }

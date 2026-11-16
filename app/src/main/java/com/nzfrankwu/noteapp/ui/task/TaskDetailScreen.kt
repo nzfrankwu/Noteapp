@@ -106,6 +106,8 @@ fun TaskDetailScreen(
     val needsFolder by viewModel.needsFolder.collectAsStateWithLifecycle()
     val openNotebook by viewModel.openNotebook.collectAsStateWithLifecycle()
     val unlinked by viewModel.unlinked.collectAsStateWithLifecycle()
+    val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
+    val deletedBookmark by viewModel.deletedBookmark.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var picking by rememberSaveable { mutableStateOf(false) }
     var naming by rememberSaveable { mutableStateOf<String?>(null) }
@@ -116,6 +118,13 @@ fun TaskDetailScreen(
             viewModel.notebookOpened()
             onOpenNotebook(it, null, null)
         }
+    }
+    LaunchedEffect(deletedBookmark) {
+        val gone = deletedBookmark ?: return@LaunchedEffect
+        snackbar.currentSnackbarData?.dismiss()
+        val result = snackbar.showSnackbar("Bookmark deleted", actionLabel = "Undo", withDismissAction = true, duration = SnackbarDuration.Long)
+        viewModel.deletedBookmarkShown() // only after the snackbar: clearing first would cancel it
+        if (result == SnackbarResult.ActionPerformed) viewModel.undoDeleteBookmark(gone)
     }
     LaunchedEffect(unlinked) {
         val (title, what) = unlinked ?: return@LaunchedEffect
@@ -164,6 +173,12 @@ fun TaskDetailScreen(
                             onOpen = { onOpenNotebook(it, null, null) },
                             onUnlink = viewModel::unlink,
                             onLink = { picking = true },
+                        )
+                        BookmarksSection(
+                            groups = bookmarks,
+                            onOpen = { onOpenNotebook(it.notebookId, it.pageId, it.spot) },
+                            onEditNote = { entry, note -> viewModel.setBookmarkNote(entry.id, note) },
+                            onDelete = { viewModel.deleteBookmark(it.id) },
                         )
                     }
                 }

@@ -342,6 +342,8 @@ fun NoteAppRoot(
                         },
                         onBack = ::back,
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
+                        openAtPage = route.pageId,
+                        openAtSpot = route.spot,
                     )
                 }
                 entry<CoursesRoute> {

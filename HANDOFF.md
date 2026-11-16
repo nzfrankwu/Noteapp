@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.7 done; next is 4.8 bookmarks under the task). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.8 done; next is 4.9 chips on task cards). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -19,7 +19,7 @@ _Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1–4.7 done; next is 4.8 b
 ## Next steps (in order)
 
 1. **4.1 done** (database v6: `task_notebook_links`, `task_bookmarks`; `data/LinkRepository.kt`; `domain/Bookmarks.kt`). The emulator now has a v6 app; **the tablet is still v5**.
-2. **4.2 done** (task screen: linked notebook tiles, `ui/task/LinkNotebookSheet.kt` with reusable `PickerDialog`/`PickerRow`, `data/LinkChoices.kt`). **4.3 done** (editor chip: `ui/notebook/TaskLinkViews.kt`, `NotebookLinks.kt`; `NotebookViewModel(linkRepository = …)`). **4.4 done** (`IconMenu.kt`). **4.5 done** (`BookmarkSheet.kt`, `BookmarkRequest`). **4.6 done** (`data/PdfText.kt`, `domain/PdfCoords.kt`, `domain/ink/TextSelection.kt`). **4.7 done** (`TextSel`/`TextHandle` in `NotebookCanvas.kt`, `TextMenu` in `NotebookScreen.kt`). Next: 4.8 → 4.10 in order (hands-off, no check-ins). 4.11 (tablet install) needs the user's OK.
+2. **4.2 done** (task screen: linked notebook tiles, `ui/task/LinkNotebookSheet.kt` with reusable `PickerDialog`/`PickerRow`, `data/LinkChoices.kt`). **4.3 done** (editor chip: `ui/notebook/TaskLinkViews.kt`, `NotebookLinks.kt`; `NotebookViewModel(linkRepository = …)`). **4.4 done** (`IconMenu.kt`). **4.5 done** (`BookmarkSheet.kt`, `BookmarkRequest`). **4.6 done** (`data/PdfText.kt`, `domain/PdfCoords.kt`, `domain/ink/TextSelection.kt`). **4.7 done** (`TextSel`/`TextHandle` in `NotebookCanvas.kt`, `TextMenu` in `NotebookScreen.kt`). **4.8 done** (`BookmarksSection.kt`, `PageStrip.focus`, `NotebookScreen(openAtPage, openAtSpot)`). Next: 4.9 → 4.10 in order (hands-off, no check-ins). 4.11 (tablet install) needs the user's OK.
 3. Follow-ups from earlier phases (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release; tune the pen widths after real use (F22); deleted notebooks left without a folder (Phase 6).
 4. Still unreported tablet checks: a reminder arriving with the app swiped away (ColorOS); "Last synced" moving on its own (background sync).
 

@@ -104,6 +104,9 @@ fun NotebookScreen(
     modifier: Modifier = Modifier,
     /** Opens a linked task's page (Phase 4). */
     onOpenTask: (String) -> Unit = {},
+    /** A page to open at (a bookmark, Phase 4): its ID, and the spot to zoom to (null = the whole page). */
+    openAtPage: String? = null,
+    openAtSpot: com.nzfrankwu.noteapp.domain.PageSpot? = null,
 ) {
     val notebook by viewModel.notebook.collectAsStateWithLifecycle()
     val pages by viewModel.pages.collectAsStateWithLifecycle()
@@ -203,8 +206,20 @@ fun NotebookScreen(
     val viewSize = view.viewSize
     var fittedFor by remember { mutableStateOf(IntSize.Zero) }
     var savedPage by rememberSaveable { mutableIntStateOf(0) }
+    var openedAtBookmark by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(viewSize, strip != null && pages.isNotEmpty()) {
         if (strip == null || pages.isEmpty() || viewSize.width == 0 || fittedFor == viewSize) return@LaunchedEffect
+        // Opened at a bookmark: that page, zoomed to its spot (once; afterwards it's like any other page).
+        val bookmarked = if (!openedAtBookmark && view.camera == null) pages.indexOfFirst { it.id == openAtPage } else -1
+        if (bookmarked >= 0) {
+            val w = viewSize.width.toFloat()
+            val h = viewSize.height.toFloat()
+            view.camera = openAtSpot?.takeIf { it.isValid }?.let { strip.focus(bookmarked, it.left, it.top, it.width, it.height, w, h) }
+                ?: strip.fit(settings.fitMode, bookmarked, w, h)
+            openedAtBookmark = true
+            fittedFor = viewSize
+            return@LaunchedEffect
+        }
         val page = (view.camera?.let { strip.currentPage(it, fittedFor.width.toFloat()) } ?: savedPage)
             .coerceIn(0, pages.size - 1)
         view.camera = strip.fit(settings.fitMode, page, viewSize.width.toFloat(), viewSize.height.toFloat())
