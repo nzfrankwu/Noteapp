@@ -65,6 +65,7 @@ class WorkspaceTest {
     private val ink = InMemoryInkSettings(InkToolSettings())
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val models = HashMap<String, NotebookViewModel>()
+    private val clipboard = com.nzfrankwu.noteapp.ui.notebook.EditorClipboard()
     private var replacedWith: String? = null
 
     @Before
@@ -88,7 +89,7 @@ class WorkspaceTest {
                 Box(Modifier.size(width, height)) {
                     NotebookWorkspace(
                         firstId = lecture,
-                        viewModelFor = { id -> models.getOrPut(id) { NotebookViewModel(id, notebooks, files, ink, scope) } },
+                        viewModelFor = { id -> models.getOrPut(id) { NotebookViewModel(id, notebooks, files, ink, scope, sharedClipboard = clipboard) } },
                         viewStore = store,
                         allNotebooks = notebooks.observeAllListItems(),
                         onBack = {},
@@ -177,6 +178,49 @@ class WorkspaceTest {
         compose.onNodeWithTag("split-panes").assertDoesNotExist()
         compose.onNodeWithTag("recent-button").performClick()
         compose.onNodeWithContentDescription("Lecture 7 (open)").assertExists()
+    }
+
+    @Test
+    fun aPictureCopiedInOneNotebook_pastesIntoTheOther_withItsOwnCopyOfTheFile() {
+        show()
+        openTutorialBeside()
+        val from = models.getValue(lecture)
+        val to = models.getValue(tutorial)
+        compose.waitUntil(5_000) { from.pages.value.isNotEmpty() && from.isEditable(from.pages.value.first().id) && to.pages.value.isNotEmpty() && to.isEditable(to.pages.value.first().id) }
+        val red = android.graphics.Bitmap.createBitmap(40, 20, android.graphics.Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.RED) }
+        val picture = runBlocking { com.nzfrankwu.noteapp.data.ImageImport(files).importBitmap(lecture, red)!! }
+        val image = com.nzfrankwu.noteapp.domain.ink.InkImage("i", picture.asset, 10f, 10f, 40f, 20f)
+        val stroke = com.nzfrankwu.noteapp.domain.ink.InkStroke(
+            "s", com.nzfrankwu.noteapp.domain.ink.InkTool.PEN, android.graphics.Color.BLACK, 2f,
+            floatArrayOf(20f, 60f), floatArrayOf(20f, 30f), intArrayOf(0, 10),
+            floatArrayOf(0.5f, 0.5f), FloatArray(2) { com.nzfrankwu.noteapp.domain.ink.InkStroke.NONE },
+            FloatArray(2) { com.nzfrankwu.noteapp.domain.ink.InkStroke.NONE }, com.nzfrankwu.noteapp.domain.ink.InkStroke.TOOL_STYLUS,
+        )
+        compose.runOnUiThread { from.copy(listOf(stroke), listOf(image)) }
+        assertEquals(true, to.clipboard != null) // the other notebook sees it
+        val pasted = runBlocking { to.paste(to.pages.value.first().id, 200f, 200f) }
+        assertEquals(1, pasted.strokes.size)
+        val copy = pasted.images.single()
+        val file = files.assetFile(tutorial, copy.asset)
+        assertEquals("The picture file is in the target notebook's folder", true, file.exists() && file.length() > 0)
+        assertEquals(true, files.assetFile(lecture, picture.asset).exists()) // the original stays
+    }
+
+    @Test
+    fun aScreenshotInSplitView_asksWhichNotebook_andGoesThere() {
+        show()
+        openTutorialBeside() // Tutorial 5 is active
+        val lectureVm = models.getValue(lecture)
+        compose.waitUntil(5_000) { lectureVm.pages.value.isNotEmpty() && lectureVm.isEditable(lectureVm.pages.value.first().id) }
+        compose.onNodeWithTag("screenshot-button").performClick()
+        compose.waitUntilAtLeastOneExists(hasTestTag("snip-overlay"), 5_000)
+        compose.onNodeWithTag("snip-confirm").performClick()
+        compose.waitUntilAtLeastOneExists(hasTestTag("insert-into-1"), 5_000)
+        compose.onNodeWithText("Tutorial 5 (last used)").assertExists()
+        compose.onNodeWithTag("insert-into-1").performClick() // Lecture 7
+        compose.waitUntil(5_000) { lectureVm.ink.images(lectureVm.pages.value.first().id).isNotEmpty() }
+        val tutorialVm = models.getValue(tutorial)
+        assertEquals(0, tutorialVm.ink.images(tutorialVm.pages.value.first().id).size)
     }
 
     @Test

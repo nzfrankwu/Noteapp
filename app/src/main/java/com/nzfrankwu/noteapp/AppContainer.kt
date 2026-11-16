@@ -49,6 +49,9 @@ class AppContainer(context: Context) {
         com.nzfrankwu.noteapp.data.LinkRepository(database, notebookRepository, files = notebookFiles)
     }
 
+    /** The lasso's Copy/Cut, shared by every notebook while the app runs (PHASE-5.md 5.10). */
+    val editorClipboard: com.nzfrankwu.noteapp.ui.notebook.EditorClipboard by lazy { com.nzfrankwu.noteapp.ui.notebook.EditorClipboard() }
+
     /** The handwriting: one file per page in the app's private files folder (never the cache). */
     val notebookFiles: NotebookFiles by lazy { NotebookFiles(appContext.filesDir) }
 

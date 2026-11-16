@@ -77,6 +77,8 @@ class NotebookViewModel(
     private val io: CoroutineDispatcher = Dispatchers.IO,
     /** Links to tasks and bookmarks (Phase 4). Null in tests that don't need them. */
     linkRepository: com.nzfrankwu.noteapp.data.LinkRepository? = null,
+    /** The lasso's Copy/Cut, shared by every notebook (PHASE-5.md 5.10); one of its own in tests. */
+    private val sharedClipboard: EditorClipboard = EditorClipboard(),
 ) : ViewModel() {
     /** This notebook's linked tasks and bookmarks, or null when links aren't available. */
     val links: NotebookLinks? = linkRepository?.let { NotebookLinks(notebookId, it, viewModelScope) }
@@ -620,18 +622,17 @@ class NotebookViewModel(
 
     // ---- Copy, cut, duplicate and paste (PHASE-2.md F12) ----
 
-    /** Strokes and pictures copied or cut with the lasso (this notebook only, until it closes). */
+    /** Strokes, pictures and text boxes copied or cut with the lasso (pasted in any notebook, 5.10). */
     data class Clip(val strokes: List<InkStroke>, val images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(), val texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList()) {
         val isEmpty: Boolean get() = strokes.isEmpty() && images.isEmpty() && texts.isEmpty()
     }
 
-    /** What was copied or cut, ready to paste. */
-    var clipboard by mutableStateOf<Clip?>(null)
-        private set
+    /** What was copied or cut (in this notebook or another), ready to paste. */
+    val clipboard: Clip? get() = sharedClipboard.content?.clip
 
     fun copy(strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(), texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList()) {
         val clip = Clip(strokes, images, texts)
-        if (!clip.isEmpty) clipboard = clip
+        if (!clip.isEmpty) sharedClipboard.content = EditorClipboard.Content(notebookId, clip)
     }
 
     fun cut(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(), texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList()) {
@@ -653,10 +654,16 @@ class NotebookViewModel(
         return copies
     }
 
-    /** Pastes the clipboard centred on ([x], [y]) (page units); returns what was pasted. */
-    fun paste(pageId: String, x: Float, y: Float): Clip {
-        val clip = clipboard ?: return Clip(emptyList())
+    /**
+     * Pastes the clipboard centred on ([x], [y]) (page units); returns what was pasted. Pictures
+     * copied in another notebook are copied into this one's folder first (5.10).
+     */
+    suspend fun paste(pageId: String, x: Float, y: Float): Clip {
+        val content = sharedClipboard.content ?: return Clip(emptyList())
         if (!isEditable(pageId)) return Clip(emptyList())
+        val clip = if (content.notebookId == notebookId || content.clip.images.isEmpty()) content.clip else {
+            content.clip.copy(images = copyPicturesIn(content.notebookId, content.clip.images))
+        }
         val box = InkGeometry.boundsOf(clip.strokes, clip.images, clip.texts) ?: return Clip(emptyList())
         val dx = x - (box[0] + box[2]) / 2
         val dy = y - (box[1] + box[3]) / 2
@@ -668,6 +675,25 @@ class NotebookViewModel(
         ink.add(pageId, pasted.strokes, pasted.images, pasted.texts)
         changed(pageId)
         return pasted
+    }
+
+    /** Copies [images]' picture files from notebook [from] into this one; pictures that can't be copied are left out. */
+    private suspend fun copyPicturesIn(from: String, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage>): List<com.nzfrankwu.noteapp.domain.ink.InkImage> = withContext(io) {
+        val copied = HashMap<String, String?>()
+        images.mapNotNull { img ->
+            val name = copied.getOrPut(img.asset) {
+                runCatching {
+                    val source = files.assetFile(from, img.asset)
+                    if (!source.exists()) return@runCatching null
+                    val target = files.newImageName(img.asset.substringAfterLast('.', "png"))
+                    val file = files.assetFile(notebookId, target)
+                    file.parentFile?.mkdirs()
+                    source.copyTo(file)
+                    target
+                }.getOrNull()
+            }
+            name?.let { img.copy(asset = it) }
+        }
     }
 
     fun undo() {

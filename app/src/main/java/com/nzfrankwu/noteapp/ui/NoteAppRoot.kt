@@ -350,6 +350,7 @@ fun NoteAppRoot(
                                     id, container.notebookRepository, container.notebookFiles,
                                     container.inkSettings, container.appScope, container.thumbnails,
                                     linkRepository = container.linkRepository,
+                                    sharedClipboard = container.editorClipboard,
                                 )
                             }
                         },

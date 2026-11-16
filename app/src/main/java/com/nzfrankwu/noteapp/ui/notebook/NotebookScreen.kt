@@ -138,6 +138,8 @@ internal fun NotebookEditor(
     leftButton: @Composable () -> Unit = {},
     /** Things drawn over the panes, under the floating buttons (the recent panel, 5.7). */
     overlay: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {},
+    /** A picture of every pane at once (split view's screenshot, 5.10); null = the active pane's. */
+    captureArea: (suspend () -> android.graphics.Bitmap?)? = null,
     panesArea: @Composable (show: @Composable (PaneState, Modifier, String?, com.nzfrankwu.noteapp.domain.PageSpot?) -> Unit) -> Unit,
 ) {
     val viewModel = active.viewModel
@@ -171,6 +173,8 @@ internal fun NotebookEditor(
     var imageMenuOpen by remember { mutableStateOf(false) }
     // The screenshot tool (PHASE-3.md 3.9): the still picture being cropped.
     var snip by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    // A cropped screenshot waiting for "Insert into" (split view, PHASE-5.md 5.10).
+    var snipChoice by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     // The "Add Page" menu (F34), and a PDF whose pages are being chosen.
     var addMenuOpen by remember { mutableStateOf(false) }
     var choosingPdf by remember { mutableStateOf<NotebookViewModel.CopiedPdf?>(null) }
@@ -255,6 +259,22 @@ internal fun NotebookEditor(
         }
     }
 
+    // A screenshot's cropped part goes on the page in the middle of [p], selected (PHASE-3.md 3.9).
+    fun insertSnipInto(p: PaneState, cropped: android.graphics.Bitmap) {
+        val at = p.pageNow()
+        scope.launch {
+            val placed = p.viewModel.insertSnip(at, cropped)
+            val pageId = p.pages.getOrNull(at)?.id
+            if (placed.isNotEmpty() && pageId != null) {
+                // The snip comes selected, ready to drag.
+                if (settings.tool != EditorTool.LASSO) p.viewModel.pickTool(EditorTool.LASSO)
+                p.view.lasso = LassoState.Selected.of(at, pageId, emptyList(), placed)
+            } else {
+                snackbar.showSnackbar("The screenshot couldn't be added.")
+            }
+        }
+    }
+
     fun leave() {
         for (p in panes) {
             p.finishTyping()
@@ -329,7 +349,8 @@ internal fun NotebookEditor(
                     } else {
                         // Noteapp alone: a picture of the pages themselves (no prompt).
                         scope.launch {
-                            snip = active.capture()?.let { runCatching { com.nzfrankwu.noteapp.capture.ScreenCapture.readable(it) }.getOrNull() }
+                            val picture = captureArea?.invoke() ?: active.capture()
+                            snip = picture?.let { runCatching { com.nzfrankwu.noteapp.capture.ScreenCapture.readable(it) }.getOrNull() }
                             if (snip == null) snackbar.showSnackbar("The screenshot couldn't be taken.")
                         }
                     }
@@ -565,25 +586,23 @@ internal fun NotebookEditor(
                     onCancel = { snip = null },
                     onConfirm = { box ->
                         snip = null
-                        val p = active
-                        val at = p.pageNow()
-                        scope.launch {
-                            val cropped = android.graphics.Bitmap.createBitmap(picture, box[0], box[1], box[2] - box[0], box[3] - box[1])
-                            if (com.nzfrankwu.noteapp.capture.ScreenCapture.isAllBlack(cropped)) {
-                                snackbar.showSnackbar("That app doesn't allow screenshots, so this part came out black.")
-                                return@launch
-                            }
-                            val placed = p.viewModel.insertSnip(at, cropped)
-                            val pageId = p.pages.getOrNull(at)?.id
-                            if (placed.isNotEmpty() && pageId != null) {
-                                // The snip comes selected, ready to drag (PHASE-3.md).
-                                if (settings.tool != EditorTool.LASSO) p.viewModel.pickTool(EditorTool.LASSO)
-                                p.view.lasso = LassoState.Selected.of(at, pageId, emptyList(), placed)
-                            } else {
-                                snackbar.showSnackbar("The screenshot couldn't be added.")
-                            }
+                        val cropped = android.graphics.Bitmap.createBitmap(picture, box[0], box[1], box[2] - box[0], box[3] - box[1])
+                        if (com.nzfrankwu.noteapp.capture.ScreenCapture.isAllBlack(cropped)) {
+                            scope.launch { snackbar.showSnackbar("That app doesn't allow screenshots, so this part came out black.") }
+                        } else if (panes.size > 1) {
+                            snipChoice = cropped // which notebook? (5.10)
+                        } else {
+                            insertSnipInto(active, cropped)
                         }
                     },
+                )
+            }
+            snipChoice?.let { cropped ->
+                InsertIntoDialog(
+                    panes = panes,
+                    active = active,
+                    onPick = { p -> snipChoice = null; insertSnipInto(p, cropped) },
+                    onCancel = { snipChoice = null },
                 )
             }
             if (panes.any { it.viewModel.insertingImages }) {
@@ -990,4 +1009,38 @@ internal fun cropForBookmark(full: android.graphics.Bitmap, left: Float, top: Fl
         val k = max.toFloat() / longest
         android.graphics.Bitmap.createScaledBitmap(cut, (cut.width * k).toInt().coerceAtLeast(1), (cut.height * k).toInt().coerceAtLeast(1), true)
     }
+}
+
+/**
+ * "Insert into" (PHASE-5.md 5.10, IDEA.md §2.7): with two notebooks open, which one a screenshot
+ * goes into. The one last written in ([active]) is first and marked.
+ */
+@Composable
+private fun InsertIntoDialog(panes: List<PaneState>, active: PaneState, onPick: (PaneState) -> Unit, onCancel: () -> Unit) {
+    val ordered = listOf(active) + panes.filter { it !== active }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Insert into") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ordered.forEachIndexed { i, p ->
+                    val title = p.viewModel.notebook.value?.title ?: "Notebook"
+                    val label = if (i == 0) "$title (last used)" else title
+                    if (i == 0) {
+                        androidx.compose.material3.Button(
+                            onClick = { onPick(p) },
+                            modifier = Modifier.fillMaxWidth().testTag("insert-into-$i"),
+                        ) { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    } else {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { onPick(p) },
+                            modifier = Modifier.fillMaxWidth().testTag("insert-into-$i"),
+                        ) { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },
+    )
 }

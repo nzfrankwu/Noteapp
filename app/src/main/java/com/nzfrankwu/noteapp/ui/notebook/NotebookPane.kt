@@ -312,11 +312,15 @@ fun NotebookPane(
                 val wx = cam.toWorldX(at.x)
                 val index = strip.pageAt(wx)
                 val page = pages.getOrNull(index) ?: return@PasteBubble
-                val pasted = viewModel.paste(page.id, wx - strip.pageLeft(index), cam.toWorldY(at.y) - strip.pageTop(index))
-                if (!pasted.isEmpty) {
-                    // Pasted things come selected, ready to move (that needs the lasso).
-                    if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
-                    view.lasso = LassoState.Selected.of(index, page.id, pasted.strokes, pasted.images, texts = pasted.texts)
+                val x = wx - strip.pageLeft(index)
+                val y = cam.toWorldY(at.y) - strip.pageTop(index)
+                scope.launch {
+                    val pasted = viewModel.paste(page.id, x, y)
+                    if (!pasted.isEmpty) {
+                        // Pasted things come selected, ready to move (that needs the lasso).
+                        if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
+                        view.lasso = LassoState.Selected.of(index, page.id, pasted.strokes, pasted.images, texts = pasted.texts)
+                    }
                 }
             }
             PageScroller(view, strip, pages.size)

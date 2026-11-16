@@ -35,6 +35,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -169,9 +171,25 @@ fun NotebookWorkspace(
         panelOpen = false
     }
 
+    // A layer the panes area records into for split view's screenshot (5.10).
+    val areaLayer = androidx.compose.ui.graphics.rememberGraphicsLayer()
+    var capturingArea by remember { mutableStateOf(false) }
+
     NotebookEditor(
         panes = panes,
         active = active,
+        captureArea = if (secondPane == null) null else {
+            {
+                capturingArea = true
+                try {
+                    androidx.compose.runtime.withFrameNanos { }
+                    androidx.compose.runtime.withFrameNanos { }
+                    runCatching { areaLayer.toImageBitmap().asAndroidBitmap() }.getOrNull()
+                } finally {
+                    capturingArea = false
+                }
+            }
+        },
         onBack = onBack,
         modifier = modifier,
         onOpenTask = onOpenTask,
@@ -224,7 +242,15 @@ fun NotebookWorkspace(
         BoxWithConstraints(
             Modifier
                 .fillMaxSize()
-                .onGloballyPositioned { area = it.boundsInRoot() },
+                .onGloballyPositioned { area = it.boundsInRoot() }
+                .drawWithContent {
+                    if (capturingArea) {
+                        areaLayer.record { this@drawWithContent.drawContent() }
+                        drawLayer(areaLayer)
+                    } else {
+                        drawContent()
+                    }
+                },
         ) {
             canSplit = SplitLayout.canSplit(maxWidth.value, maxHeight.value)
             if (secondPane == null || !canSplit) {
