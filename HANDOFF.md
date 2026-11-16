@@ -14,7 +14,7 @@ _Last updated: 17 Nov 2026 (Phase 5 built, reviewed and installed on the tablet 
 - **IDEA.md** §2.4, §2.6 and §5 were updated for bookmarks and text selection (user's OK, 16 Nov).
 - **Branch:** `phase-5` (from `main`), pushed after each step.
 - **Mode:** **Hands-off** for Phase 5 (the user said "continue on in hands off mode" on 16 Nov). List every 🔺 step done in REPORT.md.
-- **The tablet runs Phase 5 with feedback rounds 2 and 3** (the build of `4480417`), database **version 7** (latest install 17 Nov with the user's OK; compare PASS: every row, all 164 files, links and bookmarks unchanged). Backups in `backups/tablet-2026-11-17-before-v7/`, `…-before-fb2/` and `…-before-fb3/` (with the page files). Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
+- **The tablet runs Phase 5 with feedback rounds 2–4** (the build of `389dc33`), database **version 7** (latest install 17 Nov with the user's OK; compare PASS: every row, all 164 files, links and bookmarks unchanged). Backups in `backups/tablet-2026-11-17-before-v7/`, `…-before-fb2/`, `…-before-fb3/` and `…-before-fb4/` (with the page files). Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
 - **The emulator runs Phase 5** (database v7).
 - Unit tests and the full emulator suite pass at the end of Phase 5 (count in the latest commit message).
 
@@ -24,7 +24,7 @@ _Last updated: 17 Nov 2026 (Phase 5 built, reviewed and installed on the tablet 
 2. **Waiting on the user:**
    - **Trying Phase 5 on the tablet** (installed 17 Nov, v7; test steps in REPORT.md).
    - **The OK to merge `phase-5` into `main`.**
-   - **Feedback rounds 2 and 3 (FB6–FB13) are done and on the tablet** (17 Nov; PHASE-5.md). The user is trying them.
+   - **Feedback rounds 2–4 (FB6–FB15) are done and on the tablet** (17 Nov; PHASE-5.md). The user is trying them.
 3. Then plan **Phase 6** (Google Drive and backup; IDEA.md §5: must be done before real use).
 4. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture
