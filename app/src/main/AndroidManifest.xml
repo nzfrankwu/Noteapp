@@ -6,6 +6,19 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- The image menu's Recent Images grid (Phase 3, OK'd by the user): read-only access to
+         photos. Android 14+ lets the person allow only some photos. Noteapp never changes them. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- The screenshot tool in split screen (Phase 3): Android requires a short foreground
+         service of type "mediaProjection" to take one picture of the screen, after its own prompt. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+
     <!--
         Android's built-in backup is OFF. NoteApp has its own Google Drive backup (Phase 6),
         and Android's would also copy the Canvas sign-in cookies (IDEA.md §3.5).
@@ -33,6 +46,25 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Share to Noteapp (Phase 3): a PDF becomes a notebook in a folder you pick; pictures
+                 go into a notebook or a new one. "Open with" works for PDFs too. -->
+            <intent-filter android:label="Add to Noteapp">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter android:label="Add to Noteapp">
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter android:label="Add to Noteapp">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
             <!-- Quick-add: share a link (or any text) to Noteapp to start a new task with it. -->
             <intent-filter android:label="New task">
                 <action android:name="android.intent.action.SEND" />
@@ -40,6 +72,24 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+
+        <!-- Hands files to other apps: the camera app saves Take Photo pictures here, and
+             exported PDFs are shared from here (cache folders only, see file_paths.xml). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Takes one picture of the screen for the screenshot tool, then stops (Phase 3). -->
+        <service
+            android:name=".capture.ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
 
         <!-- A reminder alarm went off (only Noteapp's own alarms can reach it). -->
         <receiver

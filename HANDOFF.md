@@ -1,23 +1,32 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 2 merged into `main`; next is planning Phase 3). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 3 done: 3.1–3.9, feedback F30–F36, end-of-phase review fixed; waiting on the user's OK to merge into `main`, and on the IDEA.md edit). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
-- **Current phase: none started.** Next is Phase 3 (see IDEA.md §5): plan it with the user first (a new `PHASE-3.md`, then a `phase-3` branch).
-- **Branch:** `main` (pushed; the working tree is clean). `phase-2` is merged and can be kept or deleted.
-- **Mode:** "Working together" (the default) unless the user says otherwise; they gave Phase 2 feedback live on 16 Nov.
-- **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
+- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu), 3.6 (lasso with pictures) 3.7 (Export as PDF), 3.8 (Share to Noteapp) and 3.9 (screenshot tool) are done**. 3.10: installed on the tablet and the upgrade check passed; the user's own testing is next, then the end-of-phase review.
+- **Branch:** `phase-3` (from `main`), pushed after each step.
+- **Mode:** the user ran hands-off on 16 Nov, then came back and OK'd 3.8's sheet layout ("Yes, build it"). Default to "Working together" unless told otherwise.
+- **The tablet runs the build of `55dbb3b`** (Phase 3 + feedback F30–F36, installed 16 Nov; before/after check passed: 6 notebooks, 223 pages, 154 files unchanged; backup in `backups/tablet-2026-11-16-before-F36/`), database **version 5**. Never install a build older than v5 on it: Room can't downgrade.
 - **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor), 2.11 (thumbnails), **2.12 (performance; verified on the emulator, 15 Nov)**: two full pages scroll at a median 19 ms a frame (was 150 ms), render thread about 1 ms. Rotating now keeps the current page (`rememberSaveable` in `NotebookScreen`).
 - **End-of-phase `/code-review` done (15 Nov):** 8 findings, 7 fixed (save retries even after leaving, no crash from a DB error after saving, lasso cleared by the eraser end / add page / delete page, newest highlighter chunk in its own layer under the page picture, add-page race, garbled `Migrations.kt` comments). The 8th (deleted notebooks left without a folder when their folder is deleted) is a Phase 6 follow-up in ISSUES.md.
 - Unit tests and the full emulator suite (**182 tests**) pass after the fixes.
 
 ## Next steps (in order)
 
-1. **Plan Phase 3** with the user (IDEA.md §5): write `PHASE-3.md`, mark 🔺 steps, then branch `phase-3`.
-2. Follow-ups from Phase 2 (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release; tune the steady/low/medium pen widths after real use (F22); deleted notebooks left without a folder (Phase 6).
-3. Still unreported tablet checks: a reminder arriving with the app swiped away (ColorOS); "Last synced" moving on its own (background sync).
+1. **Phase 3 is finished.** Feedback F30–F36 is done and on the tablet (`55dbb3b`). The end-of-phase `/code-review` found 10 things, all fixed (list in PHASE-3.md); unit tests and the full emulator suite (**214 tests**) pass. The review fixes are **not on the tablet yet** (ask before installing; back up first).
+2. **Waiting on the user:** approval to merge `phase-3` into `main`; OK for the IDEA.md §2.7/§5 edit (wording in REPORT.md and ISSUES.md).
+   - After the merge: Phase 4 (read IDEA.md §5 for what it is, and write `PHASE-4.md` with the user).
+3. Key Phase 3 decisions (details in `PHASE-3.md`):
+   - PdfBox-Android is approved for PDF export.
+   - The image menu shows recent photos; the photo-access permission is approved.
+   - The screenshot tool captures other apps too (via MediaProjection) and inserts the snip as an image right away. This pulls IDEA.md §2.7 forward from Phase 5; update IDEA.md §2.7 and §5 at step 3.9.
+   - A shared image asks each time: add to a notebook, or a new notebook in a folder.
+   - Writing on a PDF's last page adds a blank page (same as notebooks).
+   - Images are movable objects (lasso).
+4. Follow-ups from Phase 2 (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release; tune the steady/low/medium pen widths after real use (F22); deleted notebooks left without a folder (Phase 6).
+5. Still unreported tablet checks: a reminder arriving with the app swiped away (ColorOS); "Last synced" moving on its own (background sync).
 
 ## Tablet database safety copy
 
@@ -29,6 +38,8 @@ _Last updated: 16 Nov 2026 (Phase 2 merged into `main`; next is planning Phase 3
 - **Never install an older build than the tablet has** (it's now heading to database v3): Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
 
 ## Waiting on the user
+
+- **IDEA.md §2.7 and §5 (snip moved to Phase 3):** the plan said to update them at 3.9, but the tool refused to edit IDEA.md (CLAUDE.md: never change it without asking). Ask the user to OK the edit (text in REPORT.md), or make it themselves.
 
 - **Phase 2 on the tablet** (installed 15 Nov; the user is checking it):
   - writing with the OPPO Pencil 2: lag, pressure, palm rejection
@@ -85,7 +96,7 @@ _Last updated: 16 Nov 2026 (Phase 2 merged into `main`; next is planning Phase 3
 
 | Folder | What's in it |
 |---|---|
-| `data/db/` | Room database **v4**: `Course` (+`archivedAt`), `Folder` (+`parentId`), `Task` (+`availableAt`), `Notebook`, `Page`, DAOs, `FolderPlace`, `Migrations.kt` (`MIGRATION_1_2` … `MIGRATION_3_4`) |
+| `data/db/` | Room database **v5** (pages: `width`, `height`, `pdf_file`, `pdf_page`): `Course` (+`archivedAt`), `Folder` (+`parentId`), `Task` (+`availableAt`), `Notebook`, `Page`, DAOs, `FolderPlace`, `Migrations.kt` (`MIGRATION_1_2` … `MIGRATION_4_5`) |
 | `data/` | Repositories (`FolderRepository`, `TaskRepository`, `NotebookRepository`), `NotebookFiles` (page files), `Thumbnails`, `InkSettings` / `CanvasSettings` / `ViewSettings` (DataStore), `QuickAdd` |
 | `domain/ink/` | Plain-Kotlin handwriting logic: `InkStroke`, `PageInkCodec` (file format), `NotebookInk` (undo/redo), `InkGeometry` (eraser, lasso), `PageStrip` (fit/zoom), `EditorTools` (tools, palette, pen button, press-hard, straighten, smoothing) |
 | `ui/notebook/` | The editor: `NotebookScreen`, `NotebookCanvas` (drawing, gestures, lasso), `InkToolbar`, `InkBrushes` (our strokes ↔ Jetpack Ink), `NotebookViewModel` (loading, saving) |
@@ -106,6 +117,7 @@ _Last updated: 16 Nov 2026 (Phase 2 merged into `main`; next is planning Phase 3
   - That run **uninstalls and reinstalls the app on the emulator**, which wipes its data. Recreate sample data before taking screenshots: Settings → "Use fake Canvas (debug)", then Home → "Link courses" → "Create folder" ×3.
   - One test class only: add `"-Pandroid.testInstrumentationRunnerArguments.class=<full class name>"`.
   - Results are in `app/build/outputs/androidTest-results/connected/debug/*.xml`. Gradle `-q` prints nothing on success.
+- **Tablet snapshot script:** `tablet_snapshot.sh <dir> [with-files]` (force-stop, copy db/-wal/-shm via run-as, md5 of every notebook file, optional tar of `files/notebooks`); rewrite it if the scratchpad is gone. Compare with `python screenshots/compare_dbs.py <before> <after>` (counts only). Ask the user before running it.
 - **Tablet:** if `adb devices` doesn't list it, run `adb kill-server` then `adb start-server`. Install with `adb -s <tablet serial> install -r app/build/outputs/apk/debug/app-debug.apk`. Check the serial with `adb devices -l`; it's the OPD2405.
 - **Emulator stylus handwriting is off** (`settings put secure stylus_handwriting_enabled 0`). Its "Try out your stylus" tutorial swallowed scripted typing.
 - **To tap UI by text in scripts:**
@@ -125,6 +137,16 @@ _Last updated: 16 Nov 2026 (Phase 2 merged into `main`; next is planning Phase 3
 - **Pinned versions:**
   - `kotlinx.serialization` is at 1.9.0 (the newest for Kotlin 2.2, which comes with AGP 9.5.1). It must stay at or above Room's needs, or `MigrationTest` crashes.
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
+- **Real upgrade test, scripted (3.1):** `screenshots/upgrade_v5.sh <old APK as a Windows path>` installs the old build, makes sample data and a 51-page notebook, snapshots, installs the new build, snapshots again; then `python compare_dbs.py upgrade-v5/before upgrade-v5/after` compares every row and the page files' md5s. Pass the APK as `C:\...`: the script sets `MSYS_NO_PATHCONV=1`, so adb can't read `/c/...` paths.
+- **The pen layer is ours now (F30):** `ui/notebook/WetInkLayer.kt` replaces Ink's Compose `InProgressStrokes`; finished strokes are removed by `InkHandoff` after the page layer draws them (`drawStrokes` calls `handoff.drawn`). Its counting lives in `domain/ink/HandoffBook` (unit-tested). Debugging timing: log in `onStrokesFinished` and in `drawStrokes`.
+- **`folders.course_id` is unique:** subfolders store NULL there (they inherit the course through `parent_id`). Test data with a subfolder must use NULL.
+- **Sharing into Noteapp on the emulator:** open a PDF from Files (Downloads) → "Open with" → Noteapp. For pictures: `adb shell pm grant com.nzfrankwu.noteapp android.permission.READ_MEDIA_IMAGES`, then `am start -a android.intent.action.SEND -t image/png --eu android.intent.extra.STREAM content://media/external/images/media/<id> -n com.nzfrankwu.noteapp/.MainActivity` (ids from `content query --uri content://media/external/images/media --projection _id:_display_name`). `am` can't send a URI list, so SEND_MULTIPLE is untested by script.
+- **Multi-window on the emulator:** `adb shell am start --windowingMode 6 -n com.nzfrankwu.noteapp/.MainActivity` puts Noteapp's task in multi-window mode (not a neat split, but `isInMultiWindowMode` is true), which is enough to test the MediaProjection path. Android 16's prompt shows "Share entire screen" because we pass `createConfigForDefaultDisplay()`.
+- **Compose `GraphicsLayer.toImageBitmap()` gives a HARDWARE bitmap:** `getPixel` crashes on it; copy it (`ScreenCapture.readable`).
+- **Test pictures:** `screenshots/make_test_png.py out.png W H [--alpha]`; push to `/sdcard/Pictures/` and send `MEDIA_SCANNER_SCAN_FILE` so the Recent grid sees them. The emulator's photo permission dialog offers "Allow limited access / Allow all / Don't allow".
+- **Test PDFs:** `screenshots/make_test_pdf.py out.pdf 100` writes a slide PDF with no libraries; push it to `/sdcard/Download/` and it shows in the system picker's Recent. Emulator tests make PDFs on the device with `android.graphics.pdf.PdfDocument` (`PdfImportTest`).
+- **Heredocs:** a Python heredoc in the Bash tool failed with "unexpected EOF" twice for no clear reason; writing the script to a file with the Write tool always works.
+- **Both the tablet and the emulator are often plugged in:** always set `ANDROID_SERIAL=emulator-5554` / `adb -s emulator-5554`.
 - **Real upgrade test, old APK:** build `main` in a worktree (`git worktree add ../Noteapp-v3 main`, copy `local.properties`, `gradlew assembleDebug` there). Removing that worktree fails with "Filename too long"; delete it with `cmd /c rmdir /s /q` and `git worktree prune`.
 - **After a deliberately broken migration test, rebuild** (`assembleDebug`) before installing: the broken-migration test leaves a broken APK in `app/build/outputs`.
 - **Helper scripts are saved in `screenshots/`** (git-ignored, this PC only): `ui.py` (tap by text or description), `setup.sh` (fake Canvas + 3 course folders), `perf_setup.sh` (install, set up, make a notebook, add 50 test pages), `framestats.py` (per-stage frame times). Run them from that folder with Git Bash and `PYTHONIOENCODING=utf-8`.

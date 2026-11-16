@@ -12,6 +12,15 @@ _None known._
 
 ## Follow-ups / tech debt
 
+- **Add Page menu (F34):** pages added from a PDF (or the whole PDF) aren't an undo step; delete them with ⋮ → Delete this page. A copied-in PDF nobody used is removed if you cancel the page picker.
+- **Pen layer (F30):** our own copy of Jetpack Ink's Compose pen layer (`WetInkLayer`) now feeds the pen; if a future Ink version changes its Compose layer, compare. A finished stroke is drawn by both layers for one frame (invisible for pen; a highlighter may look a touch darker for that frame).
+- **Image menu, not checked yet (Phase 3.5):** Take Photo with the emulator's camera; "Allow limited access" (only some photos) and "Don't allow" paths; HEIC photos (the emulator has none). 
+- **Share to Noteapp (Phase 3.8):** sharing several pictures at once (SEND_MULTIPLE) is built but not tested by script on the emulator (adb can't send a list); try it from the Gallery on the tablet. Shares over 50 pictures keep the first 50.
+- **Screenshot tool (Phase 3.9):** a true side-by-side split with Chrome wasn't set up on the emulator (only multi-window mode); try it on the tablet. The capture includes Android's own red "sharing" chip in the status bar; crop it out. On ColorOS the prompt may look different.
+- **Export (Phase 3.7):** PDF pages with a `/Rotate` or a crop box offset aren't tested; ink is placed using the crop box. The app is about 9 MB bigger (debug) with PdfBox; check the release size.
+- **Pictures while selected (Phase 3.6):** a selected picture is drawn above the ink until it's let go (it's in the selection layer); the rotate handle turns pictures too but a non-square picture turned and then stretched sideways is only approximately right (the stretch follows the box, not the picture's own axes).
+- **PDF pages, things not checked yet (Phase 3.3):** the sharp deep-zoom part (`pdfDetail`) needs a two-finger pinch, which the emulator scripts can't do; check on the tablet. Jumping far with the page scroller shows the page white for a moment before its picture arrives (plain notebooks also have no preview that far away). PDFs with rotated pages (`/Rotate`) aren't tested. Android 15+ can open password-protected PDFs with a password; we just refuse them for now.
+- **Imported PDFs and images are never deleted (Phase 3 decision):** a notebook's `pdf-*.pdf` and `images/*` files stay even when their pages or images are deleted, so Undo and Phase 6's "Recently deleted" can bring them back. Clean-up of files nothing uses is a Phase 6/7 job.
 - **Steady pen width vs the pressure pen (F22):** at the same Thickness, the Off/Low/Medium pens may look thinner or thicker than the Full pen at your usual pressure (the emulator only has full pressure). Tune the multipliers in `InkBrushes.roundPen` after trying it on the tablet; changing them changes how existing strokes of those kinds look, so give a new key if notes already use them.
 - **Notebook editor, small things to revisit (Phase 2):**
   - Ink still being written shows on top of the toolbar if you write under it; it drops behind once you lift the pen.
@@ -46,6 +55,19 @@ _None known._
 
 ## Done
 
+- **IDEA.md §2.7 and §5 (16 Nov):** snip noted as built in Phase 3 (user's OK).
+- **F36 (16 Nov):** a stroke written across the edge between two pages is no longer cut off: it's split at the edge, one piece per page (one undo step). Strokes written before the fix stay cut.
+- **End-of-phase review, Phase 3 (16 Nov):** 10 findings fixed (details in PHASE-3.md): crop crash on very long screenshots, a finger move lost on pinch, export of PDF pages that have their own rotation, a stale "PDF" tag, a share lost on rotation, the pen layer waiting on an unready page, the fresh last page after a split stroke, recent photos before Android 11, F35's corners (pictures only), and tests for the pen handoff.
+- **F35 (16 Nov):** in resize mode the corner handles keep a picture's shape; the side handles still stretch. Writing alone keeps free corners in resize mode, as in Phase 2.
+- **Tablet feedback batch 1 (Phase 3, F30–F34), 16 Nov.** No flash when the pen lifts; hold a picture to select it; pictures select in resize mode and drag with a finger; Crop for pictures; a second ＋ "Add Page" menu (page style, photos, camera, pages from a PDF, a whole PDF).
+- **Phase 3 step 3.8 (16 Nov):** Share to Noteapp (layout OK'd by the user): share or "Open with" a PDF → pick a folder; pictures → add to a notebook (new pages at the end) or a new notebook in a folder.
+- **Phase 3 step 3.9 (16 Nov):** the screenshot tool (crop button): snip the notebook, or the whole screen in split screen, and insert it. Fixed on the way: a crash when confirming (Compose gives a hardware bitmap).
+- **Phase 3 step 3.7 (16 Nov):** Export as PDF (⋮ → Export as PDF → Share… or Save to device).
+- **Phase 3 step 3.6 (16 Nov):** the lasso selects pictures (loop or tap) to move, resize, turn, copy, cut, paste, duplicate and delete, all undoable.
+- **Phase 3 step 3.5 (16 Nov):** Insert image: the image menu (Recent Images, Photo Library, Take Photo); pictures sit under the ink and are saved with the page.
+- **Phase 3 steps 3.2–3.4 (16 Nov):** page files can hold pictures (format 2, only when a page has one).
+- **Phase 3 steps 3.2–3.3 (16 Nov):** pages of different sizes; Import PDF (folder ＋ → Import PDF), drawn with Android's PdfRenderer, with a "PDF" tag and a PDFs filter.
+- **Phase 3 step 3.1, database version 5 (16 Nov):** pages got their own size and PDF page columns (empty for every existing page). Real v4 → v5 upgrade on the emulator: every row unchanged, all page files byte-identical; a deliberately broken migration is caught by `MigrationTest`.
 - **Phase 2 second end-of-phase review (16 Nov):** 6 of 7 findings fixed, incl. Back now closes the tool panel (then the lasso selection) before leaving the notebook. All 183 emulator tests pass.
 - **Tablet feedback, batch 7 (Phase 2, F26–F28), 16 Nov.** A hard press held perfectly still now erases; the pen's settings panel closes when the pen touches the page; colour-wheel colours can be deleted or added to the toolbar.
 - **Tablet feedback, batch 6 (Phase 2, F21–F25), 16 Nov.** Highlighter opacity; pen pressure (Off/Low/Medium/Full, Off = same width); toolbar colours can be changed, reordered, deleted and added; tapping the colour in use opens the colour wheel; darker desk.

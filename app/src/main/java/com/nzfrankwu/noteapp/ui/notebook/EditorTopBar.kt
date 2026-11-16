@@ -50,6 +50,13 @@ fun EditorTopBar(
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onAddPage: () -> Unit,
+    /** Opens the "Add Page" menu (F34). */
+    onAddMenu: () -> Unit,
+    /** Opens or closes the image menu. */
+    onImage: () -> Unit,
+    imageMenuOpen: Boolean,
+    /** Starts the screenshot tool. */
+    onScreenshot: () -> Unit,
     menuOpen: Boolean,
     onMenuOpen: (Boolean) -> Unit,
     menu: @Composable ColumnScope.() -> Unit,
@@ -75,6 +82,12 @@ fun EditorTopBar(
         ) {
             BarButton(R.drawable.ic_undo, "Undo", onUndo, Modifier.testTag("undo"), enabled = canUndo, filled = false)
             BarButton(R.drawable.ic_redo, "Redo", onRedo, Modifier.testTag("redo"), enabled = canRedo, filled = false)
+            Box(Modifier.size(width = 1.dp, height = 24.dp).background(ButtonRim))
+            BarButton(
+                R.drawable.ic_image, if (imageMenuOpen) "Close the image menu" else "Insert an image", onImage,
+                Modifier.testTag("image-button"), filled = false,
+            )
+            BarButton(R.drawable.ic_crop, "Take a screenshot", onScreenshot, Modifier.testTag("screenshot-button"), filled = false)
         }
 
         Row(
@@ -82,6 +95,7 @@ fun EditorTopBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            BarButton(R.drawable.ic_add, "Add pages, photos or a PDF", onAddMenu, Modifier.testTag("add-menu"))
             BarButton(R.drawable.ic_note_add, "Add a page after this one", onAddPage, Modifier.testTag("add-page"))
             Box {
                 BarButton(R.drawable.ic_more_vert, "Notebook options", { onMenuOpen(true) })

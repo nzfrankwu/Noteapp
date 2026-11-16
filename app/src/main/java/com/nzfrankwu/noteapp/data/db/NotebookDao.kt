@@ -37,13 +37,20 @@ interface NotebookDao {
         """
         SELECT notebooks.*,
             (SELECT COUNT(*) FROM pages WHERE pages.notebook_id = notebooks.id AND pages.deleted_at IS NULL)
-            AS page_count
+            AS page_count,
+            EXISTS (SELECT 1 FROM pages WHERE pages.notebook_id = notebooks.id AND pages.pdf_file IS NOT NULL
+                AND pages.deleted_at IS NULL)
+            AS is_pdf
         FROM notebooks
         WHERE notebooks.folder_id = :folderId AND notebooks.deleted_at IS NULL
         ORDER BY notebooks.updated_at DESC, notebooks.title COLLATE NOCASE
         """,
     )
     fun observeInFolder(folderId: String): Flow<List<NotebookListItem>>
+
+    /** Every notebook (not deleted), A–Z, updating live: for "Add to Noteapp". */
+    @Query("SELECT * FROM notebooks WHERE deleted_at IS NULL ORDER BY title COLLATE NOCASE")
+    fun observeAllActive(): Flow<List<Notebook>>
 
     /** How many notebooks (not deleted) are in the folder. */
     @Query("SELECT COUNT(*) FROM notebooks WHERE folder_id = :folderId AND deleted_at IS NULL")

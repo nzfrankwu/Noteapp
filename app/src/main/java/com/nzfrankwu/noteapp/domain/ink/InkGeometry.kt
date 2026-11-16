@@ -102,6 +102,37 @@ object InkGeometry {
         return hypot(px - (ax + t * dx), py - (ay + t * dy))
     }
 
+    /**
+     * True if the lasso loop ([loopXs], [loopYs]) picks [image]: a corner of it is inside the loop,
+     * the loop is (partly) on the picture, or the two outlines cross (PHASE-3.md 3.6).
+     */
+    fun imageInLoop(image: InkImage, loopXs: FloatArray, loopYs: FloatArray): Boolean {
+        if (loopXs.size < 3) return false
+        val c = image.corners()
+        for (i in 0 until 4) if (pointInPolygon(c[2 * i], c[2 * i + 1], loopXs, loopYs)) return true
+        for (i in loopXs.indices) if (image.contains(loopXs[i], loopYs[i])) return true
+        for (i in 0 until 4) {
+            val ax = c[2 * i]; val ay = c[2 * i + 1]
+            val bx = c[(2 * i + 2) % 8]; val by = c[(2 * i + 3) % 8]
+            var j = loopXs.size - 1
+            for (k in loopXs.indices) {
+                if (segmentsCross(ax, ay, bx, by, loopXs[j], loopYs[j], loopXs[k], loopYs[k])) return true
+                j = k
+            }
+        }
+        return false
+    }
+
+    /** The smallest box around [strokes] and [images] (left, top, right, bottom), or null if both are empty. */
+    fun boundsOf(strokes: Collection<InkStroke>, images: Collection<InkImage>): FloatArray? {
+        var box = boundsOf(strokes)
+        for (img in images) {
+            val b = img.bounds()
+            box = if (box == null) b else floatArrayOf(minOf(box[0], b[0]), minOf(box[1], b[1]), maxOf(box[2], b[2]), maxOf(box[3], b[3]))
+        }
+        return box
+    }
+
     private fun segmentsCross(
         p1x: Float, p1y: Float, p2x: Float, p2y: Float,
         q1x: Float, q1y: Float, q2x: Float, q2y: Float,

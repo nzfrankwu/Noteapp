@@ -45,6 +45,22 @@ class AppContainer(context: Context) {
     /** First-page pictures for notebook tiles (a cache: drawn again whenever they're missing). */
     val thumbnails: Thumbnails by lazy { Thumbnails(java.io.File(appContext.cacheDir, "thumbnails")) }
 
+    /** Imports PDFs as notebooks (copied into the notebook's folder). */
+    val pdfImport: com.nzfrankwu.noteapp.data.PdfImport by lazy {
+        com.nzfrankwu.noteapp.data.PdfImport(notebookRepository, notebookFiles, thumbnails)
+    }
+
+    /**
+     * PDFs or pictures shared into Noteapp and waiting for "Add to Noteapp" (copied into the
+     * inbox). Kept here, not in the screen, so turning the tablet doesn't lose it.
+     */
+    val pendingShare = kotlinx.coroutines.flow.MutableStateFlow<com.nzfrankwu.noteapp.data.SharedFiles?>(null)
+
+    /** PDFs and pictures shared into Noteapp from other apps. */
+    val sharedImport: com.nzfrankwu.noteapp.data.SharedImport by lazy {
+        com.nzfrankwu.noteapp.data.SharedImport(notebookRepository, notebookFiles, com.nzfrankwu.noteapp.data.ImageImport(notebookFiles), pdfImport)
+    }
+
     /** The notebook toolbar's remembered choices. */
     val inkSettings: InkSettings by lazy { InkSettings(appContext) }
 

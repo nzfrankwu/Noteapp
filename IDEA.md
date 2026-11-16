@@ -94,6 +94,7 @@
 - **"Share to NoteApp":** from any other app (Canvas, browser, Files), share a PDF/image straight into a chosen folder.
 
 ### 2.7 Screen capture ("snip") into a note
+- **Built in Phase 3** (moved from Phase 5 in Nov 2026): capture → crop → insert, alone or in split screen. Snip between NoteApp's own split notebooks stays in Phase 5.
 - **Capture the whole screen, including other apps** — e.g. NoteApp on one side of Android split screen and a PDF/browser/Canvas on the other: capture → **drag a box to crop the part I want** → it's inserted into my open notebook as an image (move/resize it like any image).
 - **Two notebooks open in NoteApp's own split view:** snip from one notebook and drop it into the other. Ask which notebook to insert into (default: the one I was last writing in).
 - Android's screen-capture permission prompt is fine with me — accept that it may appear each time.
@@ -208,9 +209,9 @@ Build one phase at a time; each phase should leave a working app. Commit after e
 | **1. Courses & tasks** | Folders, manual tasks, status tags, home screen (Due soon + No due date + folders), task detail, reminders → then **Canvas sign-in + sync** (test the in-app login first), course linking, auto-status, quick-add from a link |
 | **1b. Task views** | Days left on tasks, automatic course colours, Canvas "available from" date (database v2), home tabs, Calendar (month), Timeline |
 | **2. Handwriting notebooks** | **Subfolders** (folder-in-folder, done together with the notebook storage changes), notebook/page model, ink canvas with pen/highlighter/eraser, undo/redo, page templates (lined default), floating movable toolbar, zoom/scroll, palm rejection, autosave, **lasso select** (moved here from Phase 5, Nov 2026), pen button → lasso, press hard to erase, double-tap to fit |
-| **3. Images & PDFs** | Insert images, import PDFs and annotate, export annotated PDF, "Share to NoteApp" |
+| **3. Images & PDFs** | Insert images, import PDFs and annotate, export annotated PDF, "Share to NoteApp", **screen capture/snip** (whole screen incl. other apps → crop → insert; moved here from Phase 5, Nov 2026) |
 | **4. Linking** | Link notebooks/files ↔ tasks; course folder view showing notes + tasks together |
-| **5. Productivity extras** | Text boxes, in-app split view of two notebooks, screen capture/snip (whole screen incl. other apps → crop → insert; snip between split notebooks) |
+| **5. Productivity extras** | Text boxes, in-app split view of two notebooks, snip between split notebooks |
 | **6. Google Drive & backup** | ⚠️ Must be done and tested before I use the app for real. Google sign-in, automatic full backup + restore, manual "Export everything" / "Import from export", PDF copies mirroring course folders, backup status/warnings, Recently deleted, Word/PowerPoint conversion → later: Version history |
 | **7. Polish** | Search, partial eraser, custom tags, per-page templates, settings, performance tuning |
 

@@ -20,13 +20,28 @@ import java.io.FileOutputStream
 class Thumbnails(private val dir: File) {
     fun file(notebookId: String): File = File(dir, "$notebookId.png")
 
-    /** Draws the page and saves it, replacing the old picture only once the new one is written. */
-    fun render(notebookId: String, template: PageTemplate, pageWidth: Float, pageHeight: Float, strokes: List<InkStroke>) {
+    /**
+     * Draws the page and saves it, replacing the old picture only once the new one is written.
+     * A page of an imported PDF ([pdfFile], page [pdfPage]) shows that page instead of a pattern.
+     */
+    fun render(
+        notebookId: String, template: PageTemplate, pageWidth: Float, pageHeight: Float, strokes: List<InkStroke>,
+        pdfFile: File? = null, pdfPage: Int = 0,
+        /** The page's pictures, with their files. */
+        images: List<Pair<com.nzfrankwu.noteapp.domain.ink.InkImage, File>> = emptyList(),
+    ) {
         val scale = WIDTH_PX / pageWidth
-        val bitmap = Bitmap.createBitmap(WIDTH_PX.toInt(), (pageHeight * scale).toInt(), Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(WIDTH_PX.toInt(), (pageHeight * scale).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(0xFFFFFFFF.toInt())
-        drawPattern(canvas, template, pageWidth, pageHeight, scale)
+        val pdf = pdfFile?.let { PdfPages.renderOnce(it, pdfPage, bitmap.width, bitmap.height) }
+        if (pdf != null) {
+            canvas.drawBitmap(pdf, 0f, 0f, null)
+            pdf.recycle()
+        } else if (pdfFile == null) {
+            drawPattern(canvas, template, pageWidth, pageHeight, scale)
+        }
+        InkSketch.drawImages(canvas, images.mapNotNull { (img, file) -> ImageImport.loadForScreen(file, 512)?.let { img to it } }, scale, recycle = true)
         InkSketch.draw(canvas, strokes, scale)
         dir.mkdirs()
         val temp = File(dir, "$notebookId.png.tmp")
@@ -60,10 +75,31 @@ class Thumbnails(private val dir: File) {
 }
 
 /**
- * A quick sketch of strokes with plain Android graphics: one line per stroke, highlighter under
+ * A quick sketch of strokes (and pictures) with plain Android graphics: one line per stroke, highlighter under
  * pen. Plenty for small pictures (notebook tiles, page previews); not for the page itself.
  */
 object InkSketch {
+    /** Draws pictures (page units) onto [canvas] at [scale], turned as on the page. */
+    fun drawImages(
+        canvas: Canvas,
+        images: List<Pair<com.nzfrankwu.noteapp.domain.ink.InkImage, android.graphics.Bitmap>>,
+        scale: Float,
+        recycle: Boolean = false,
+    ) {
+        val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+        for ((img, bitmap) in images) {
+            canvas.save()
+            canvas.rotate(Math.toDegrees(img.rotation.toDouble()).toFloat(), img.centreX * scale, img.centreY * scale)
+            canvas.drawBitmap(
+                bitmap, null,
+                android.graphics.RectF(img.left * scale, img.top * scale, (img.left + img.width) * scale, (img.top + img.height) * scale),
+                paint,
+            )
+            canvas.restore()
+            if (recycle) bitmap.recycle()
+        }
+    }
+
     /**
      * Draws [strokes] (page units) onto [canvas] at [scale] pixels per page unit. [widthFactor]
      * thins the lines (a pressure pen's line is usually thinner than its full size).

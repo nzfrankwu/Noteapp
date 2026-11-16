@@ -33,11 +33,20 @@ class MainActivity : ComponentActivity() {
     /** Text shared into Noteapp from another app (e.g. a link), to become a new task. */
     private val shareRequest = MutableStateFlow<SharedText?>(null)
 
+    /** PDFs or pictures shared into Noteapp, already copied into the inbox (PHASE-3.md 3.8). */
+    private val fileShareRequest get() = (application as NoteAppApplication).container.pendingShare
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // Only on a fresh start: after rotation the task page is already on the back stack.
-        if (savedInstanceState == null) takeRequests(intent)
+        if (savedInstanceState == null) {
+            // Copies left in the inbox by a share that was never finished (the app was closed).
+            if (!isFileShare(intent) && fileShareRequest.value == null) {
+                java.io.File(filesDir, com.nzfrankwu.noteapp.data.SharedImport.INBOX_DIR).deleteRecursively()
+            }
+            takeRequests(intent)
+        }
         // Each time the app comes to the front: sync with Canvas if the last sync was over 15
         // minutes ago (does nothing when Canvas isn't connected).
         lifecycleScope.launch {
@@ -51,7 +60,7 @@ class MainActivity : ComponentActivity() {
             val courses by courseDao.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
             val seen = remember(courses) { courses.map { CourseSeen(it.code, it.createdAt) } }
             NoteAppTheme(courses = seen) {
-                NoteAppRoot(openTaskRequest = openTaskRequest, shareRequest = shareRequest)
+                NoteAppRoot(openTaskRequest = openTaskRequest, shareRequest = shareRequest, fileShareRequest = fileShareRequest)
             }
         }
     }
@@ -65,7 +74,56 @@ class MainActivity : ComponentActivity() {
         takeRequests(intent)
     }
 
+    private fun isFileShare(intent: Intent?): Boolean {
+        val type = intent?.type ?: return false
+        return (intent.action == Intent.ACTION_SEND && (type == PDF_TYPE || type.startsWith("image/"))) ||
+            (intent.action == Intent.ACTION_SEND_MULTIPLE && type.startsWith("image/")) ||
+            (intent.action == Intent.ACTION_VIEW && type == PDF_TYPE)
+    }
+
+    /**
+     * A PDF or pictures shared into Noteapp: copy them into the private inbox straight away (the
+     * other app's permission to read them can lapse), then ask where they go.
+     */
+    private fun takeFileShare(intent: Intent) {
+        val uris: List<android.net.Uri> = when (intent.action) {
+            Intent.ACTION_SEND -> listOfNotNull(androidx.core.content.IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, android.net.Uri::class.java))
+            Intent.ACTION_SEND_MULTIPLE -> androidx.core.content.IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, android.net.Uri::class.java).orEmpty()
+            else -> listOfNotNull(intent.data)
+        }
+        val pdf = intent.type == PDF_TYPE
+        intent.action = Intent.ACTION_MAIN // so it isn't handled twice
+        if (uris.isEmpty()) return
+        val inbox = java.io.File(filesDir, com.nzfrankwu.noteapp.data.SharedImport.INBOX_DIR)
+        lifecycleScope.launch {
+            val copies = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                uris.take(MAX_SHARED_FILES).mapNotNull { uri ->
+                    val name = runCatching {
+                        contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                            if (c.moveToFirst()) c.getString(0) else null
+                        }
+                    }.getOrNull()
+                    com.nzfrankwu.noteapp.data.SharedImport.copyToInbox(inbox, if (pdf) "pdf" else "img") {
+                        contentResolver.openInputStream(uri)
+                    }?.let { com.nzfrankwu.noteapp.data.InboxFile(it, name) }
+                }
+            }
+            if (copies.isEmpty()) {
+                android.widget.Toast.makeText(this@MainActivity, "Noteapp couldn't read that file.", android.widget.Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            fileShareRequest.value = com.nzfrankwu.noteapp.data.SharedFiles(
+                if (pdf) com.nzfrankwu.noteapp.data.SharedKind.PDF else com.nzfrankwu.noteapp.data.SharedKind.PICTURES,
+                if (pdf) copies.take(1) else copies,
+            )
+        }
+    }
+
     private fun takeRequests(intent: Intent?) {
+        if (intent != null && isFileShare(intent)) {
+            takeFileShare(intent)
+            return
+        }
         if (intent?.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
             shareRequest.value = SharedText(
                 text = intent.getStringExtra(Intent.EXTRA_TEXT),
@@ -77,5 +135,12 @@ class MainActivity : ComponentActivity() {
         val taskId = intent?.getStringExtra(Notifications.EXTRA_OPEN_TASK_ID) ?: return
         intent.removeExtra(Notifications.EXTRA_OPEN_TASK_ID) // so it isn't handled twice
         openTaskRequest.value = taskId
+    }
+
+    private companion object {
+        const val PDF_TYPE = "application/pdf"
+
+        /** More pictures than this at once are left out (one page each). */
+        const val MAX_SHARED_FILES = 50
     }
 }

@@ -6,7 +6,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -79,6 +83,7 @@ import com.nzfrankwu.noteapp.domain.ink.PageStrip
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
 import com.nzfrankwu.noteapp.ui.theme.DeskDark
 import com.nzfrankwu.noteapp.ui.theme.DeskLight
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -115,6 +120,31 @@ fun NotebookScreen(
         snapshotFlow { view.pageTouches }.collect { if (it != seen) { seen = it; showSettings = false } }
     }
     var menuOpen by remember { mutableStateOf(false) }
+    var imageMenuOpen by remember { mutableStateOf(false) }
+    // The screenshot tool (PHASE-3.md 3.9): the still picture being cropped, and a capture of the pages.
+    var snip by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    // The "Add Page" menu (F34), and a PDF whose pages are being chosen.
+    var addMenuOpen by remember { mutableStateOf(false) }
+    var choosingPdf by remember { mutableStateOf<NotebookViewModel.CopiedPdf?>(null) }
+    var pdfWhole by remember { mutableStateOf(false) }
+    var addAfter by remember { mutableIntStateOf(0) }
+    // A picture being cropped (F33).
+    var cropping by remember { mutableStateOf<CropTarget?>(null) }
+    var capturing by remember { mutableStateOf(false) }
+    val pagesLayer = androidx.compose.ui.graphics.rememberGraphicsLayer()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Android's screen-capture prompt (split screen); then the capture service takes one frame.
+    val askToCapture = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val data = result.data
+        if (result.resultCode == android.app.Activity.RESULT_OK && data != null) {
+            scope.launch {
+                snip = com.nzfrankwu.noteapp.capture.ScreenCapture.capture(context, result.resultCode, data)
+                if (snip == null) snackbar.showSnackbar("The screenshot couldn't be taken.")
+            }
+        }
+    }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveNow() }
     LaunchedEffect(message) {
@@ -133,9 +163,8 @@ fun NotebookScreen(
     }
 
     val nb = notebook
-    val strip = remember(nb?.pageWidth, nb?.pageHeight, pages.size) {
-        nb?.let { PageStrip(it.pageWidth, it.pageHeight, pages.size) }
-    }
+    val sizes = nb?.let { n -> pages.map { it.size(n) } }
+    val strip = remember(sizes) { sizes?.let { PageStrip(it) } }
     // Fit the page once the screen size is known, and refit the same page after rotating.
     // Rotating rebuilds the screen, so the page being viewed is kept in saved state.
     val viewSize = view.viewSize
@@ -157,6 +186,57 @@ fun NotebookScreen(
     /** The page in the middle of the screen right now (read when a button is tapped). */
     fun pageNow(): Int = view.camera?.let { strip?.currentPage(it, view.viewSize.width.toFloat()) } ?: 0
 
+    // "Add Page" (F34): photos and camera pictures become pages of their own; PDFs add their pages.
+    val latestStrip by androidx.compose.runtime.rememberUpdatedState(strip)
+    // Shows page [index] once the page list has caught up with pages just added (so it's fitted to its own size).
+    fun showPage(index: Int) {
+        scope.launch {
+            val s = kotlinx.coroutines.withTimeoutOrNull(2_000) {
+                androidx.compose.runtime.snapshotFlow { latestStrip }.first { it != null && it.pageCount > index }
+            } ?: latestStrip ?: return@launch
+            view.animateTo(scope, s.fit(settings.fitMode, index.coerceAtMost(s.pageCount - 1), view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
+        }
+    }
+    fun addPicturePages(uris: List<android.net.Uri>) {
+        val resolver = context.contentResolver
+        scope.launch {
+            var at = addAfter
+            var failed = 0
+            for (uri in uris) {
+                if (viewModel.insertImageAsPage(at) { openPicture(resolver, uri) } != null) at++ else failed++
+            }
+            uris.filter { it.scheme == "file" }.forEach { runCatching { java.io.File(it.path!!).delete() } }
+            if (at > addAfter) showPage(addAfter + 1)
+            if (failed > 0) snackbar.showSnackbar(if (failed == 1) "A picture couldn't be read." else "$failed pictures couldn't be read.")
+        }
+    }
+    val pickPagePhotos = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia(20),
+    ) { uris -> if (uris.isNotEmpty()) addPicturePages(uris) }
+    var pageCameraFile by remember { mutableStateOf<java.io.File?>(null) }
+    val takePagePhoto = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.TakePicture(),
+    ) { ok ->
+        val file = pageCameraFile
+        if (ok && file != null && file.length() > 0) addPicturePages(listOf(android.net.Uri.fromFile(file)))
+    }
+    val pickPagePdf = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val resolver = context.contentResolver
+        scope.launch {
+            val pdf = viewModel.copyPdfIn({ resolver.openInputStream(uri) }) { message -> scope.launch { snackbar.showSnackbar(message) } }
+                ?: return@launch
+            if (pdfWhole) {
+                // "Add the entire PDF": every page, after the page on screen.
+                if (viewModel.insertPdfPages(addAfter, pdf, pdf.sizes.indices.toList()) > 0) showPage(addAfter + 1)
+            } else {
+                choosingPdf = pdf
+            }
+        }
+    }
+
     fun leave() {
         viewModel.saveNow()
         onBack()
@@ -168,7 +248,19 @@ fun NotebookScreen(
     Box(modifier.fillMaxSize().background(if (dark) DeskDark else DeskLight).statusBarsPadding()) {
         Box(Modifier.fillMaxSize()) {
             if (nb != null && pages.isNotEmpty()) {
-                NotebookCanvas(viewModel = viewModel, notebook = nb, pages = pages, settings = settings, view = view)
+                Box(
+                    Modifier.fillMaxSize().drawWithContent {
+                        // While capturing, the pages are recorded into a layer that can be read back.
+                        if (capturing) {
+                            pagesLayer.record { this@drawWithContent.drawContent() }
+                            drawLayer(pagesLayer)
+                        } else {
+                            drawContent()
+                        }
+                    },
+                ) {
+                    NotebookCanvas(viewModel = viewModel, notebook = nb, pages = pages, settings = settings, view = view)
+                }
             }
             FloatingToolbar(
                 settings = settings,
@@ -181,21 +273,29 @@ fun NotebookScreen(
                 LassoMenu(
                     view, strip,
                     onResize = { sel -> view.lasso = sel.copy(handles = !sel.handles) },
+                    onCrop = { sel ->
+                        val image = sel.images.single()
+                        scope.launch {
+                            val full = viewModel.loadFullPicture(image)
+                            if (full == null) snackbar.showSnackbar("That picture couldn't be read.")
+                            else cropping = CropTarget(sel.pageIndex, sel.pageId, image, full)
+                        }
+                    },
                     onDuplicate = { sel ->
-                        val copies = viewModel.duplicate(sel.pageId, sel.strokes)
-                        view.lasso = LassoState.Selected.of(sel.pageIndex, sel.pageId, copies, sel.handles) ?: sel
+                        val copies = viewModel.duplicate(sel.pageId, sel.strokes, sel.images)
+                        view.lasso = LassoState.Selected.of(sel.pageIndex, sel.pageId, copies.strokes, copies.images, handles = sel.handles) ?: sel
                     },
                     onCopy = { sel ->
-                        viewModel.copy(sel.strokes)
+                        viewModel.copy(sel.strokes, sel.images)
                         scope.launch { snackbar.showSnackbar("Copied. Hold a finger on a page to paste.") }
                     },
                     onCut = { sel ->
-                        viewModel.cut(sel.pageId, sel.strokes)
+                        viewModel.cut(sel.pageId, sel.strokes, sel.images)
                         view.lasso = null
                         scope.launch { snackbar.showSnackbar("Cut. Hold a finger on a page to paste.") }
                     },
                     onDelete = { sel ->
-                        viewModel.deleteStrokes(sel.pageId, sel.strokes.map { it.id }.toSet())
+                        viewModel.deleteSelection(sel.pageId, sel.strokes.mapTo(HashSet()) { it.id }, sel.images.mapTo(HashSet()) { it.id })
                         view.lasso = null
                     },
                 )
@@ -205,11 +305,11 @@ fun NotebookScreen(
                     val wx = cam.toWorldX(at.x)
                     val index = strip.pageAt(wx)
                     val page = pages.getOrNull(index) ?: return@PasteBubble
-                    val pasted = viewModel.paste(page.id, wx - strip.pageLeft(index), cam.toWorldY(at.y))
-                    if (pasted.isNotEmpty()) {
-                        // Pasted strokes come selected, ready to move (that needs the lasso).
+                    val pasted = viewModel.paste(page.id, wx - strip.pageLeft(index), cam.toWorldY(at.y) - strip.pageTop(index))
+                    if (pasted.strokes.isNotEmpty() || pasted.images.isNotEmpty()) {
+                        // Pasted things come selected, ready to move (that needs the lasso).
                         if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
-                        view.lasso = LassoState.Selected.of(index, page.id, pasted)
+                        view.lasso = LassoState.Selected.of(index, page.id, pasted.strokes, pasted.images)
                     }
                 }
                 PageScroller(view, strip, pages.size)
@@ -221,12 +321,42 @@ fun NotebookScreen(
                 onBack = ::leave,
                 onUndo = { view.lasso = null; viewModel.undo() },
                 onRedo = { view.lasso = null; viewModel.redo() },
+                onImage = { imageMenuOpen = !imageMenuOpen; menuOpen = false },
+                onAddMenu = { view.lasso = null; imageMenuOpen = false; menuOpen = false; addAfter = pageNow(); addMenuOpen = true },
+                onScreenshot = {
+                    imageMenuOpen = false
+                    menuOpen = false
+                    view.lasso = null
+                    val activity = context as? android.app.Activity
+                    if (activity?.isInMultiWindowMode == true) {
+                        // Sharing the screen with another app: Android's capture prompt, then one frame.
+                        val manager = context.getSystemService(android.media.projection.MediaProjectionManager::class.java)
+                        // Android 14+: ask for the whole screen (not "one app"), as IDEA.md §2.7 wants.
+                        val ask = if (android.os.Build.VERSION.SDK_INT >= 34) {
+                            manager.createScreenCaptureIntent(android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay())
+                        } else {
+                            manager.createScreenCaptureIntent()
+                        }
+                        runCatching { askToCapture.launch(ask) }
+                    } else {
+                        // Noteapp alone: a picture of the pages themselves (no prompt).
+                        scope.launch {
+                            capturing = true
+                            androidx.compose.runtime.withFrameNanos { }
+                            androidx.compose.runtime.withFrameNanos { }
+                            snip = runCatching { com.nzfrankwu.noteapp.capture.ScreenCapture.readable(pagesLayer.toImageBitmap().asAndroidBitmap()) }.getOrNull()
+                            capturing = false
+                            if (snip == null) snackbar.showSnackbar("The screenshot couldn't be taken.")
+                        }
+                    }
+                },
+                imageMenuOpen = imageMenuOpen,
                 onAddPage = {
                     view.lasso = null // a selection remembers its page's place, which moves
                     scope.launch {
                         val at = pageNow() + 1
                         if (viewModel.addPage(at) != null && strip != null) {
-                            val grown = PageStrip(strip.pageWidth, strip.pageHeight, pages.size + 1)
+                            val grown = strip.withPageAdded(at)
                             view.animateTo(scope, grown.fit(settings.fitMode, at, view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
                         }
                     }
@@ -248,6 +378,16 @@ fun NotebookScreen(
                 }
                 HorizontalDivider()
                 DropdownMenuItem(
+                    text = { Text("Export as PDF") },
+                    onClick = {
+                        menuOpen = false
+                        view.lasso = null
+                        viewModel.exportPdf(java.io.File(context.cacheDir, EXPORT_DIR))
+                    },
+                    modifier = Modifier.testTag("export-pdf"),
+                )
+                HorizontalDivider()
+                DropdownMenuItem(
                     text = { Text("Delete this page", color = MaterialTheme.colorScheme.error) },
                     enabled = pages.size > 1,
                     onClick = {
@@ -266,10 +406,223 @@ fun NotebookScreen(
                     )
                 }
             }
+            if (imageMenuOpen) {
+                // Under the Image button, at the right (like Notein): picking a picture inserts it.
+                ImageMenu(
+                    onInsert = { uris, asNewPage ->
+                        imageMenuOpen = false
+                        val resolver = context.contentResolver
+                        val at = pageNow()
+                        scope.launch {
+                            val sources = uris.map { uri -> { openPicture(resolver, uri) } }
+                            if (asNewPage) {
+                                val pageId = viewModel.insertImageAsPage(at, sources.first())
+                                if (pageId == null) snackbar.showSnackbar("That picture couldn't be read.")
+                                else if (strip != null) {
+                                    val grown = strip.withPageAdded(at + 1)
+                                    view.animateTo(scope, grown.fit(settings.fitMode, at + 1, view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
+                                }
+                            } else {
+                                val placed = viewModel.insertImages(at, sources)
+                                val pageId = pages.getOrNull(at)?.id
+                                if (placed.isNotEmpty() && pageId != null) {
+                                    // New pictures come selected, ready to move or resize (PHASE-3.md).
+                                    if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
+                                    view.lasso = LassoState.Selected.of(at, pageId, emptyList(), placed)
+                                }
+                                if (placed.size < uris.size) {
+                                    snackbar.showSnackbar(if (placed.isEmpty()) "That picture couldn't be read." else "${uris.size - placed.size} pictures couldn't be read.")
+                                }
+                            }
+                            uris.filter { it.scheme == "file" }.forEach { runCatching { java.io.File(it.path!!).delete() } }
+                        }
+                    },
+                    onDismiss = { imageMenuOpen = false },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp),
+                )
+            }
+            ExportDialogs(viewModel, nb?.title.orEmpty())
+            if (addMenuOpen) {
+                AddPageDialog(
+                    current = pages.getOrNull(addAfter)?.template ?: nb?.template ?: PageTemplate.DEFAULT,
+                    onDismiss = { addMenuOpen = false },
+                    onChoice = { choice ->
+                        addMenuOpen = false
+                        when (choice) {
+                            is AddPageChoice.Blank -> scope.launch {
+                                if (viewModel.addPage(addAfter + 1, template = choice.template) != null) showPage(addAfter + 1)
+                            }
+                            AddPageChoice.Photos -> pickPagePhotos.launch(
+                                androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly),
+                            )
+                            AddPageChoice.Camera -> {
+                                val dir = java.io.File(context.cacheDir, CAMERA_DIR).apply { mkdirs() }
+                                val file = java.io.File(dir, "page-${System.currentTimeMillis()}.jpg")
+                                pageCameraFile = file
+                                runCatching { takePagePhoto.launch(androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", file)) }
+                            }
+                            AddPageChoice.PdfPages -> { pdfWhole = false; pickPagePdf.launch(arrayOf("application/pdf")) }
+                            AddPageChoice.WholePdf -> { pdfWhole = true; pickPagePdf.launch(arrayOf("application/pdf")) }
+                        }
+                    },
+                )
+            }
+            choosingPdf?.let { pdf ->
+                PdfPagePicker(
+                    pageCount = pdf.sizes.size,
+                    aspect = { pdf.sizes[it].width / pdf.sizes[it].height },
+                    thumbnail = { i, px -> viewModel.pdfThumbnail(pdf, i, px) },
+                    onDismiss = { choosingPdf = null; viewModel.discardPdf(pdf) },
+                    onAdd = { chosen ->
+                        choosingPdf = null
+                        scope.launch {
+                            val added = viewModel.insertPdfPages(addAfter, pdf, chosen)
+                            if (added > 0) showPage(addAfter + 1)
+                        }
+                    },
+                )
+            }
+            cropping?.let { target ->
+                val image = remember(target) { target.picture.asImageBitmap() }
+                SnipOverlay(
+                    picture = image,
+                    startWhole = true,
+                    onCancel = { cropping = null },
+                    onConfirm = { box ->
+                        cropping = null
+                        scope.launch {
+                            val cropped = viewModel.cropImage(target.pageId, target.image, target.picture, box)
+                            if (cropped == null) {
+                                snackbar.showSnackbar("The picture couldn't be cropped.")
+                            } else {
+                                view.lasso = LassoState.Selected.of(target.pageIndex, target.pageId, emptyList(), listOf(cropped))
+                            }
+                        }
+                    },
+                )
+            }
+            snip?.let { picture ->
+                val image = remember(picture) { picture.asImageBitmap() }
+                SnipOverlay(
+                    picture = image,
+                    onCancel = { snip = null },
+                    onConfirm = { box ->
+                        snip = null
+                        val at = pageNow()
+                        scope.launch {
+                            val cropped = android.graphics.Bitmap.createBitmap(picture, box[0], box[1], box[2] - box[0], box[3] - box[1])
+                            if (com.nzfrankwu.noteapp.capture.ScreenCapture.isAllBlack(cropped)) {
+                                snackbar.showSnackbar("That app doesn't allow screenshots, so this part came out black.")
+                                return@launch
+                            }
+                            val placed = viewModel.insertSnip(at, cropped)
+                            val pageId = pages.getOrNull(at)?.id
+                            if (placed.isNotEmpty() && pageId != null) {
+                                // The snip comes selected, ready to drag (PHASE-3.md).
+                                if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
+                                view.lasso = LassoState.Selected.of(at, pageId, emptyList(), placed)
+                            } else {
+                                snackbar.showSnackbar("The screenshot couldn't be added.")
+                            }
+                        }
+                    },
+                )
+            }
+            if (viewModel.insertingImages) {
+                androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter).testTag("inserting-images"))
+            }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
         }
     }
 }
+
+/** A picture being cropped: where it is, and its full picture file. */
+private class CropTarget(val pageIndex: Int, val pageId: String, val image: com.nzfrankwu.noteapp.domain.ink.InkImage, val picture: android.graphics.Bitmap)
+
+/** Exported PDFs wait here (cache) to be shared or saved; see res/xml/file_paths.xml. */
+private const val EXPORT_DIR = "exports"
+
+/**
+ * Export as PDF (PHASE-3.md 3.7): a progress dialog, then Share… (Android's share sheet) or
+ * Save to device (Android's "save as").
+ */
+@Composable
+private fun ExportDialogs(viewModel: NotebookViewModel, title: String) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var saved by remember { mutableStateOf<String?>(null) }
+    val state = viewModel.exportState
+    val saveAs = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/pdf"),
+    ) { uri ->
+        val file = (viewModel.exportState as? NotebookViewModel.ExportState.Ready)?.file
+        if (uri != null && file != null) {
+            scope.launch {
+                saved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
+                        "Saved."
+                    }.getOrElse { "Couldn't save the PDF there." }
+                }
+            }
+        }
+    }
+    when (state) {
+        is NotebookViewModel.ExportState.Working -> androidx.compose.material3.AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Exporting PDF…") },
+            text = {
+                Column {
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { if (state.total == 0) 0f else state.done.toFloat() / state.total },
+                        modifier = Modifier.fillMaxWidth().testTag("export-progress"),
+                    )
+                    Text("Page ${state.done} of ${state.total}", modifier = Modifier.padding(top = 8.dp))
+                }
+            },
+            confirmButton = {},
+            dismissButton = { androidx.compose.material3.TextButton(onClick = viewModel::cancelExport) { Text("Cancel") } },
+        )
+        is NotebookViewModel.ExportState.Ready -> androidx.compose.material3.AlertDialog(
+            onDismissRequest = { saved = null; viewModel.exportShown() },
+            title = { Text("PDF ready") },
+            text = { Text(saved ?: "“${state.file.name}” is ready to share or save.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", state.file)
+                        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "application/pdf"
+                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(android.content.Intent.createChooser(send, "Share PDF"))
+                    },
+                    modifier = Modifier.testTag("export-share"),
+                ) { Text("Share…") }
+            },
+            dismissButton = {
+                Row {
+                    androidx.compose.material3.TextButton(onClick = { saveAs.launch(state.file.name) }, modifier = Modifier.testTag("export-save")) {
+                        Text("Save to device")
+                    }
+                    androidx.compose.material3.TextButton(onClick = { saved = null; viewModel.exportShown() }) { Text("Close") }
+                }
+            },
+        )
+        NotebookViewModel.ExportState.Failed -> androidx.compose.material3.AlertDialog(
+            onDismissRequest = viewModel::exportShown,
+            title = { Text("Couldn't export") },
+            text = { Text("The PDF couldn't be made. Your notes are safe; try again.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = viewModel::exportShown) { Text("OK") } },
+        )
+        null -> Unit
+    }
+}
+
+/** Opens a chosen picture: from another app (content://) or our own camera file (file://, cache only). */
+private fun openPicture(resolver: android.content.ContentResolver, uri: android.net.Uri): java.io.InputStream? =
+    if (uri.scheme == "file") uri.path?.let { java.io.File(it).inputStream() } else resolver.openInputStream(uri)
 
 /** The floating toolbar (or its tucked-away button), where it was left; its settings panel beside it. */
 @Composable
@@ -338,6 +691,7 @@ private fun LassoMenu(
     view: EditorViewState,
     strip: PageStrip,
     onResize: (LassoState.Selected) -> Unit,
+    onCrop: (LassoState.Selected) -> Unit,
     onDuplicate: (LassoState.Selected) -> Unit,
     onCopy: (LassoState.Selected) -> Unit,
     onCut: (LassoState.Selected) -> Unit,
@@ -350,7 +704,7 @@ private fun LassoMenu(
     val box = sel.box()
     val bx = cam.toScreenX(strip.pageLeft(sel.pageIndex) + box[0])
         .coerceIn(8f, (view.viewSize.width - menuWidth - 8f).coerceAtLeast(8f))
-    val by = (cam.toScreenY(box[3]) + gap).coerceAtMost(view.viewSize.height - 160f)
+    val by = (cam.toScreenY(strip.pageTop(sel.pageIndex) + box[3]) + gap).coerceAtMost(view.viewSize.height - 160f)
     Surface(
         modifier = Modifier
             .offset { IntOffset(bx.roundToInt(), by.roundToInt()) }
@@ -362,6 +716,10 @@ private fun LassoMenu(
     ) {
         Row {
             TextButton(onClick = { onResize(sel) }) { Text(if (sel.handles) "Resize ✓" else "Resize") }
+            // One picture on its own can be cropped (F33).
+            if (sel.strokes.isEmpty() && sel.images.size == 1) {
+                TextButton(onClick = { onCrop(sel) }, modifier = Modifier.testTag("lasso-crop")) { Text("Crop") }
+            }
             TextButton(onClick = { onDuplicate(sel) }) { Text("Duplicate") }
             TextButton(onClick = { onCopy(sel) }) { Text("Copy") }
             TextButton(onClick = { onCut(sel) }) { Text("Cut") }

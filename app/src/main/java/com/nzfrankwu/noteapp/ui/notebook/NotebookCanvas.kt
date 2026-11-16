@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -69,6 +70,7 @@ import com.nzfrankwu.noteapp.domain.ink.InkGeometry
 import com.nzfrankwu.noteapp.domain.ink.BoxHandle
 import com.nzfrankwu.noteapp.domain.ink.LassoBox
 import com.nzfrankwu.noteapp.domain.ink.InkStroke
+import com.nzfrankwu.noteapp.domain.ink.PageSplit
 import com.nzfrankwu.noteapp.domain.ink.InkTool
 import com.nzfrankwu.noteapp.domain.ink.InkToolSettings
 import com.nzfrankwu.noteapp.domain.ink.PageStrip
@@ -102,6 +104,8 @@ sealed interface LassoState {
         val target: FloatArray = bounds,
         val handles: Boolean = false,
         val angle: Float = 0f,
+        /** Pictures in the selection (Phase 3), moved and resized with the strokes. */
+        val images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(),
     ) : LassoState {
         /** The selection box after the move/resize so far (page units), before any [angle]. */
         fun box(): FloatArray = target
@@ -110,13 +114,20 @@ sealed interface LassoState {
 
         fun transformed(): List<InkStroke> = strokes.map { LassoBox.map(it, bounds, target, angle) }
 
+        fun transformedImages(): List<com.nzfrankwu.noteapp.domain.ink.InkImage> = images.map { LassoBox.mapImage(it, bounds, target, angle) }
+
         /** The handles shown: just the bottom-right corner, or all eight after Resize. */
         fun shownHandles(): List<BoxHandle> = if (handles) BoxHandle.entries else listOf(BoxHandle.BOTTOM_RIGHT)
 
         companion object {
-            /** A fresh selection of [strokes] (none moved yet). */
-            fun of(pageIndex: Int, pageId: String, strokes: List<InkStroke>, handles: Boolean = false): Selected? =
-                InkGeometry.boundsOf(strokes)?.let { Selected(pageIndex, pageId, strokes, it, handles = handles) }
+            /** A fresh selection of [strokes] and [images] (none moved yet); null if both are empty. */
+            fun of(
+                pageIndex: Int, pageId: String, strokes: List<InkStroke>,
+                images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(), handles: Boolean = false,
+            ): Selected? = InkGeometry.boundsOf(strokes, images)?.let {
+                // Pictures alone open in resize mode (F32): all eight handles and the rotate handle.
+                Selected(pageIndex, pageId, strokes, it, handles = handles || (strokes.isEmpty() && images.isNotEmpty()), images = images)
+            }
         }
     }
 }
@@ -146,6 +157,9 @@ class EditorViewState {
 
     /** Counts touches on the page (pen or finger); the tool's settings panel closes on the next one (F27, F29). */
     var pageTouches by mutableIntStateOf(0)
+
+    /** Hands finished strokes from the pen layer to the page layers without a flash (F30). */
+    val handoff = InkHandoff()
 
     /** Where a finger was held to paste (screen pixels): shows the Paste bubble (F12). */
     var pasteAt by mutableStateOf<Offset?>(null)
@@ -258,9 +272,8 @@ fun NotebookCanvas(
     view: EditorViewState,
     modifier: Modifier = Modifier,
 ) {
-    val strip = remember(notebook.pageWidth, notebook.pageHeight, pages.size) {
-        PageStrip(notebook.pageWidth, notebook.pageHeight, pages.size)
-    }
+    val sizes = pages.map { it.size(notebook) }
+    val strip = remember(sizes) { PageStrip(sizes) }
     val renderer = remember { CanvasStrokeRenderer.create() }
     val motionScope = rememberCoroutineScope()
     val inputs = remember { InkLayerInputs() }
@@ -275,16 +288,29 @@ fun NotebookCanvas(
     val current by rememberUpdatedState(Snapshot(strip, pages, settings))
     var eraserAt by remember { mutableStateOf<Offset?>(null) }
 
-    val onStrokesFinished: (List<Stroke>) -> Unit = remember(viewModel) {
-        { strokes ->
+    val onStrokesFinished: (Map<androidx.ink.authoring.InProgressStrokeId, Stroke>) -> Unit = remember(viewModel, view) {
+        { finished ->
             val snap = current
-            strokes.groupBy { stroke ->
-                val first = StrokeInput().also { stroke.inputs.populate(0, it) }
-                snap.strip.pageAt(first.x)
-            }.forEach { (index, group) ->
-                val page = snap.pages.getOrNull(index) ?: return@forEach
-                viewModel.addStrokes(page.id, group.map { InkBrushes.toSaved(it, snap.strip.pageLeft(index), 0f) })
+            val byPage = LinkedHashMap<Int, MutableList<InkStroke>>()
+            for ((wetId, stroke) in finished) {
+                // In desk units first, then cut where it crosses from page to page (F36): each page
+                // keeps its own piece, moved into its own units.
+                val desk = InkBrushes.toSaved(stroke, 0f, 0f)
+                val pieces = PageSplit.split(
+                    desk,
+                    pageAt = snap.strip::pageAt,
+                    edgeBetween = { a, b -> if (b > a) snap.strip.pageLeft(b) - snap.strip.gap / 2 else snap.strip.pageLeft(a) - snap.strip.gap / 2 },
+                    newId = { java.util.UUID.randomUUID().toString() },
+                ).filter { (index, _) -> snap.pages.getOrNull(index) != null }
+                // The pen layer keeps drawing it until every piece is drawn by its page (F30: no flash).
+                view.handoff.expect(pieces.map { it.second.id }, wetId)
+                for ((index, piece) in pieces) {
+                    byPage.getOrPut(index) { ArrayList() } +=
+                        piece.mapped(1f, 0f, 0f, -snap.strip.pageLeft(index), -snap.strip.pageTop(index), scaleSize = false)
+                }
             }
+            byPage.keys.forEach { viewModel.prepareToDraw(snap.pages[it].id) } // so it can draw them (and the pen layer let go)
+            viewModel.addStrokesAcross(byPage.entries.associate { (index, strokes) -> snap.pages[index].id to strokes })
         }
     }
 
@@ -303,6 +329,43 @@ fun NotebookCanvas(
         for (i in near) pages.getOrNull(i)?.let { viewModel.prepareToDraw(it.id) }
         val keep = (near.first - 1).coerceAtLeast(0)..(near.last + 1).coerceAtMost(pages.lastIndex)
         viewModel.keepReadyOnly(keep.mapNotNullTo(HashSet()) { pages.getOrNull(it)?.id })
+    }
+    // Imported PDF pages near the screen, drawn at the settled zoom (see NotebookViewModel.preparePdf).
+    LaunchedEffect(visible, pages, view.inkScale) {
+        if (visible.isEmpty() || view.inkScale <= 0f) return@LaunchedEffect
+        val order = ((visible.first - 1)..(visible.last + 1))
+            .sortedBy { if (it in visible) 0 else 1 }
+            .mapNotNull { pages.getOrNull(it) }
+        viewModel.preparePdf(order, view.inkScale)
+    }
+    // Pictures on the pages near the screen.
+    LaunchedEffect(visible, pages, viewModel.version) {
+        if (visible.isEmpty()) return@LaunchedEffect
+        viewModel.prepareImages(((visible.first - 1)..(visible.last + 1)).mapNotNull { pages.getOrNull(it) })
+    }
+    // Zoomed in very far on a PDF page: once the view rests, draw just the part on screen, sharp.
+    LaunchedEffect(view, strip, pages) {
+        snapshotFlow { view.camera }.collectLatest { cam ->
+            if (cam == null || pages.none { it.isPdf }) return@collectLatest
+            delay(PDF_DETAIL_DELAY_MS)
+            val vw = view.viewSize.width.toFloat()
+            val vh = view.viewSize.height.toFloat()
+            val regions = HashMap<Page, FloatArray>()
+            for (i in strip.visiblePages(cam, vw)) {
+                val page = pages.getOrNull(i)?.takeIf { it.isPdf } ?: continue
+                val pl = strip.pageLeft(i)
+                val pt = strip.pageTop(i)
+                // The part of the page on screen, plus a margin for small moves, in page units.
+                val mx = vw / cam.scale * 0.15f
+                val my = vh / cam.scale * 0.15f
+                val l = (cam.toWorldX(0f) - pl - mx).coerceAtLeast(0f)
+                val t = (cam.toWorldY(0f) - pt - my).coerceAtLeast(0f)
+                val r = (cam.toWorldX(vw) - pl + mx).coerceAtMost(strip.pageWidth(i))
+                val b = (cam.toWorldY(vh) - pt + my).coerceAtMost(strip.pageHeight(i))
+                if (r > l && b > t) regions[page] = floatArrayOf(l, t, r, b)
+            }
+            viewModel.preparePdfDetail(regions, cam.scale)
+        }
     }
     // Follow the zoom once it has settled (see EditorViewState.inkScale).
     LaunchedEffect(view) {
@@ -339,15 +402,32 @@ fun NotebookCanvas(
             drawRect(if (dark) DeskDark else DeskLight)
             val cam = view.camera ?: return@Canvas
             val s = cam.scale
-            val w = notebook.pageWidth * s
-            val h = notebook.pageHeight * s
             val shown = strip.visiblePages(cam, size.width)
-            val top = cam.toScreenY(0f)
             for (i in shown) {
                 val page = pages.getOrNull(i) ?: continue
+                val pw = strip.pageWidth(i)
+                val ph = strip.pageHeight(i)
+                val w = pw * s
+                val h = ph * s
                 val left = cam.toScreenX(strip.pageLeft(i))
+                val top = cam.toScreenY(strip.pageTop(i))
                 drawRect(PaperWhite, Offset(left, top), Size(w, h))
-                drawPaperPattern(page.template ?: notebook.template, notebook.pageWidth, notebook.pageHeight, PaperLine, left, top, s)
+                if (page.isPdf) {
+                    // An imported PDF's page (no paper pattern), then a sharper part when zoomed in far.
+                    viewModel.pdfPictures[page.id]?.let { drawPdfLayer(it, left, top, s) }
+                    viewModel.pdfDetail[page.id]?.let { drawPdfLayer(it, left, top, s) }
+                } else {
+                    drawPaperPattern(page.template ?: notebook.template, pw, ph, PaperLine, left, top, s)
+                }
+                // Pictures, under the ink (read version so they redraw when they change).
+                @Suppress("UNUSED_VARIABLE") val edits = viewModel.version
+                val held = (view.lasso as? LassoState.Selected)?.takeIf { it.pageId == page.id }?.images?.mapTo(HashSet()) { it.id }
+                // Clipped to the page, like the ink: a picture never shows on the next page.
+                clipRect(left, top, left + w, top + h) {
+                    for (image in viewModel.ink.images(page.id)) {
+                        if (held == null || image.id !in held) drawPicture(image, viewModel.imageBitmaps[image.asset], left, top, s)
+                    }
+                }
                 // Until the page's ink is drawn in full, its quick preview stands in (soft, F8).
                 if (view.fullyDrawn[page.id] != true) {
                     viewModel.previews[page.id]?.let { img ->
@@ -364,10 +444,14 @@ fun NotebookCanvas(
                 }
             }
             // The pages touch (F4): a thin dark line marks each edge, including the outer ones.
+            // Where two pages meet, the line is as tall as the taller of the two.
             if (!shown.isEmpty()) {
                 for (i in shown.first..shown.last + 1) {
                     val x = cam.toScreenX(strip.pageLeft(i) - if (i > 0) strip.gap / 2 else 0f)
-                    drawLine(PageEdge, Offset(x, top), Offset(x, top + h), strokeWidth = PAGE_EDGE_PX)
+                    val tall = listOfNotNull(i - 1, i).filter { it in 0 until strip.pageCount }
+                        .maxByOrNull { strip.pageHeight(it) } ?: continue
+                    val top = cam.toScreenY(strip.pageTop(tall))
+                    drawLine(PageEdge, Offset(x, top), Offset(x, top + strip.pageHeight(tall) * s), strokeWidth = PAGE_EDGE_PX)
                 }
             }
         }
@@ -379,7 +463,7 @@ fun NotebookCanvas(
             // While pages fly past, only those already drawn stay; the rest show their preview.
             if (flying && view.fullyDrawn[page.id] != true) continue
             key(page.id) {
-                PageInkLayer(viewModel, page.id, i, notebook.pageWidth, notebook.pageHeight, strip, view, renderer)
+                PageInkLayer(viewModel, page.id, i, strip.pageWidth(i), strip.pageHeight(i), strip, view, renderer)
             }
         }
 
@@ -397,9 +481,13 @@ fun NotebookCanvas(
                 }
                 is LassoState.Selected -> {
                     val box = lasso.box()
+                    for (image in lasso.transformedImages()) {
+                        drawPicture(image, viewModel.imageBitmaps[image.asset], cam.toScreenX(strip.pageLeft(lasso.pageIndex)), cam.toScreenY(strip.pageTop(lasso.pageIndex)), cam.scale)
+                    }
                     val pl = strip.pageLeft(lasso.pageIndex)
-                    val l = cam.toScreenX(pl + box[0]) - 6f; val t = cam.toScreenY(box[1]) - 6f
-                    val r = cam.toScreenX(pl + box[2]) + 6f; val b = cam.toScreenY(box[3]) + 6f
+                    val pt = strip.pageTop(lasso.pageIndex)
+                    val l = cam.toScreenX(pl + box[0]) - 6f; val t = cam.toScreenY(pt + box[1]) - 6f
+                    val r = cam.toScreenX(pl + box[2]) + 6f; val b = cam.toScreenY(pt + box[3]) + 6f
                     // While the rotate handle is dragged, the box turns with the writing (F14).
                     rotate(Math.toDegrees(lasso.angle.toDouble()).toFloat(), pivot = Offset((l + r) / 2, (t + b) / 2)) {
                         drawRect(SelectionBlue, Offset(l, t), Size(r - l, b - t), style = DrawStroke(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))))
@@ -444,18 +532,22 @@ fun NotebookCanvas(
             }
         }
         // 4. The stroke being written (Jetpack Ink's low-latency layer).
-        InkLayer(inputs, onStrokesFinished)
+        InkLayer(inputs, view.handoff, onStrokesFinished)
     }
 }
 
 /** The pen layer. Its inputs never change identity, so it isn't rebuilt (which would cancel a stroke). */
 @Composable
-private fun InkLayer(inputs: InkLayerInputs, onStrokesFinished: (List<Stroke>) -> Unit) {
+private fun InkLayer(
+    inputs: InkLayerInputs,
+    handoff: InkHandoff,
+    onStrokesFinished: (Map<androidx.ink.authoring.InProgressStrokeId, Stroke>) -> Unit,
+) {
     val nextBrush = remember(inputs) { { inputs.brush } }
-    InProgressStrokes(
-        defaultBrush = null,
+    WetInkLayer(
         nextBrush = nextBrush,
         pointerEventToWorldTransform = inputs.transform,
+        handoff = handoff,
         onStrokesFinished = onStrokesFinished,
     )
 }
@@ -537,8 +629,31 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
     var lock = AxisLock()
     val velocity = VelocityTracker()
     var pinched = false
-    // Press and hold a finger to paste (F12).
+    // Press and hold a finger to paste (F12), or to pick the picture under it (F31).
     var longPress: Job? = null
+    var penDownAt = 0L
+    // A finger dragging the lasso's selection (F32): which handle, or null to move it.
+    var fingerDrag: FingerDrag? = null
+
+    /** Saves a moved, resized or turned selection and selects the result. */
+    fun commitSelection(sel: LassoState.Selected) {
+        if (!sel.changed) return
+        val moved = sel.transformed()
+        val movedImages = sel.transformedImages()
+        viewModel.replaceSelection(sel.pageId, moved, movedImages)
+        onLasso(LassoState.Selected.of(sel.pageIndex, sel.pageId, moved, movedImages, handles = sel.handles))
+    }
+
+    /** Selects the topmost picture under screen point [at], switching to the lasso. True if there was one. */
+    fun selectPictureAt(at: Offset, snap: Snapshot, cam: Camera): Boolean {
+        val index = snap.strip.pageAt(cam.toWorldX(at.x))
+        val page = snap.pages.getOrNull(index) ?: return false
+        val image = viewModel.imageAt(page.id, cam.toWorldX(at.x) - snap.strip.pageLeft(index), cam.toWorldY(at.y) - snap.strip.pageTop(index))
+            ?: return false
+        if (snap.settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
+        onLasso(LassoState.Selected.of(index, page.id, emptyList(), listOf(image)))
+        return true
+    }
 
     while (true) {
         val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -571,6 +686,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                 // ---- Pen ----
                 if (change.changedToDownIgnoreConsumed() && penId == null) {
                     penId = change.id
+                    penDownAt = change.uptimeMillis
                     penStart = change.position
                     penLast = change.position
                     penIsFinger = !isPen
@@ -600,6 +716,14 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         while (true) {
                             delay(HOLD_CHECK_MS)
                             if (penId != watchedPen || penMode != PenMode.INK) break
+                            val held = android.os.SystemClock.uptimeMillis() - penDownAt
+                            if (held >= LONG_PRESS_MS && (lastScreen - penStart).getDistance() < TAP_SLOP) {
+                                val c0 = view.camera ?: break
+                                if (selectPictureAt(penStart, snapshot(), c0)) {
+                                    penMode = PenMode.LASSO_MOVE // the next sample is consumed, which cancels the dot
+                                    break
+                                }
+                            }
                             val quiet = android.os.SystemClock.uptimeMillis() - lastPenTime
                             if (quiet < HOLD_CHECK_MS) continue // samples are still arriving
                             val now = snapshot()
@@ -708,9 +832,9 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             (view.lasso as? LassoState.Selected)?.let { sel ->
                                 val pl = snap.strip.pageLeft(sel.pageIndex)
                                 val x = cam.toWorldX(change.position.x) - pl
-                                val y = cam.toWorldY(change.position.y)
-                                // The plain corner handle keeps the shape; Resize's handles stretch freely.
-                                onLasso(sel.copy(target = LassoBox.dragged(sel.target, grabbed, x, y, keepShape = !sel.handles)))
+                                val y = cam.toWorldY(change.position.y) - snap.strip.pageTop(sel.pageIndex)
+                                // Corners always keep the shape (F35); the side handles stretch one way.
+                                onLasso(sel.copy(target = LassoBox.dragged(sel.target, grabbed, x, y, keepShape = keepsShape(sel))))
                             }
                         }
                         PenMode.LASSO_ROTATE -> {
@@ -735,27 +859,27 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         PenMode.LASSO_LOOP -> {
                             val loop = view.lasso as? LassoState.Drawing
                             val page = loop?.let { snap.pages.getOrNull(it.pageIndex) }
-                            if (loop != null && page != null && loop.xs.size > 2) {
+                            if (loop != null && page != null) {
                                 val pl = snap.strip.pageLeft(loop.pageIndex)
+                                val pt = snap.strip.pageTop(loop.pageIndex)
                                 val xs = FloatArray(loop.xs.size) { loop.xs[it] - pl }
-                                val ys = loop.ys.toFloatArray()
-                                val picked = viewModel.strokesInLoop(page.id, xs, ys)
-                                onLasso(
-                                    if (picked.isEmpty()) null
-                                    else LassoState.Selected.of(loop.pageIndex, page.id, picked),
-                                )
+                                val ys = FloatArray(loop.ys.size) { loop.ys[it] - pt }
+                                val extent = (xs.max() - xs.min()) + (ys.max() - ys.min())
+                                if (extent * cam.scale < LASSO_TAP_PX) {
+                                    // A lasso tap: the topmost picture under the pen (PHASE-3.md 3.6).
+                                    val image = viewModel.imageAt(page.id, xs.first(), ys.first())
+                                    onLasso(image?.let { LassoState.Selected.of(loop.pageIndex, page.id, emptyList(), listOf(it)) })
+                                } else {
+                                    val picked = viewModel.strokesInLoop(page.id, xs, ys)
+                                    val images = viewModel.imagesInLoop(page.id, xs, ys)
+                                    onLasso(LassoState.Selected.of(loop.pageIndex, page.id, picked, images))
+                                }
                             } else {
                                 onLasso(null)
                             }
                         }
                         PenMode.LASSO_MOVE, PenMode.LASSO_RESIZE, PenMode.LASSO_ROTATE -> {
-                            (view.lasso as? LassoState.Selected)?.let { sel ->
-                                if (sel.changed) {
-                                    val moved = sel.transformed()
-                                    viewModel.replaceStrokes(sel.pageId, moved)
-                                    onLasso(LassoState.Selected.of(sel.pageIndex, sel.pageId, moved, sel.handles))
-                                }
-                            }
+                            (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
                         }
                         else -> Unit
                     }
@@ -791,22 +915,39 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     lock = AxisLock()
                     velocity.resetTracking()
                     pinched = false
-                    if (viewModel.clipboard != null) {
-                        val at = change.position
-                        longPress = motionScope.launch {
-                            delay(LONG_PRESS_MS)
-                            if (touches.size == 1 && !tapMoved && penId == null) view.pasteAt = at
+                    fingerDrag = (view.lasso as? LassoState.Selected)?.let { sel ->
+                        when {
+                            sel.handles && handleAt(change.position, sel, snap, cam) != null -> FingerDrag(handleAt(change.position, sel, snap, cam))
+                            insideSelection(change.position, sel, snap, cam) -> FingerDrag(null)
+                            else -> null
                         }
+                    }
+                    val at = change.position
+                    longPress = motionScope.launch {
+                        delay(LONG_PRESS_MS)
+                        if (touches.size != 1 || tapMoved || penId != null || fingerDrag != null) return@launch
+                        val c = view.camera ?: return@launch
+                        // A finger held on a picture picks it (F31); elsewhere it offers Paste (F12).
+                        if (!selectPictureAt(at, snapshot(), c) && viewModel.clipboard != null) view.pasteAt = at
                     }
                 } else {
                     tapMoved = true // a pinch is not a tap
                     pinched = true
+                    // Two fingers zoom, even over a selection: keep any move made so far.
+                    if (fingerDrag != null) (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
+                    fingerDrag = null
                 }
                 velocity.addPosition(change.uptimeMillis, change.position)
                 continue
             }
             if (!change.pressed) {
                 longPress?.cancel()
+                if (fingerDrag != null && touches.size == 1) {
+                    fingerDrag = null
+                    touches.remove(change.id)
+                    (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
+                    continue
+                }
                 // The lift can be a little further on than the last move: apply that bit too.
                 val lastPos = touches[change.id]
                 if (lastPos != null && touches.size == 1 && !pinched && (change.position - lastPos).getDistance() > 0.5f) {
@@ -851,6 +992,30 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
             if (touches.size == 1) velocity.addPosition(change.uptimeMillis, change.position)
         }
 
+        // ---- A finger dragging the selection (F32) ----
+        val drag = fingerDrag
+        if (drag != null && touches.size == 1 && penId == null) {
+            val id = touches.keys.first()
+            val now = event.changes.firstOrNull { it.id == id }?.position
+            val before = touches.getValue(id)
+            val sel = view.lasso as? LassoState.Selected
+            if (now != null && sel != null && now != before) {
+                touches[id] = now
+                if ((now - tapDownPos).getDistance() > TAP_SLOP) tapMoved = true
+                val handle = drag.handle
+                onLasso(
+                    if (handle == null) {
+                        sel.copy(target = LassoBox.moved(sel.target, (now.x - before.x) / cam.scale, (now.y - before.y) / cam.scale))
+                    } else {
+                        val x = cam.toWorldX(now.x) - snap.strip.pageLeft(sel.pageIndex)
+                        val y = cam.toWorldY(now.y) - snap.strip.pageTop(sel.pageIndex)
+                        sel.copy(target = LassoBox.dragged(sel.target, handle, x, y, keepShape = keepsShape(sel)))
+                    },
+                )
+            }
+            continue
+        }
+
         // ---- Pan and pinch-zoom with the fingers that moved ----
         if (touches.isNotEmpty() && penId == null) {
             val before = touches.values.toList()
@@ -875,6 +1040,15 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
     }
 }
 
+/**
+ * Whether a corner handle keeps the selection's shape: always for pictures (F35: they only grow
+ * or shrink) and outside Resize mode; Resize's corners stretch writing freely (Phase 2).
+ */
+private fun keepsShape(sel: LassoState.Selected): Boolean = !sel.handles || sel.images.isNotEmpty()
+
+/** A finger dragging the lasso's selection: by [handle] (resize), or by its middle (move) when null. */
+private class FingerDrag(val handle: BoxHandle?)
+
 /** A straight line in progress (F11), in desk units, with the pen it's drawn with. */
 data class StraightLine(
     val sx: Float, val sy: Float, val ex: Float, val ey: Float,
@@ -894,9 +1068,10 @@ private fun finishStraightLine(line: StraightLine, snap: Snapshot, viewModel: No
     val index = snap.strip.pageAt(line.sx)
     val page = snap.pages.getOrNull(index) ?: return
     val left = snap.strip.pageLeft(index)
+    val top = snap.strip.pageTop(index)
     val stroke = Straighten.line(
         java.util.UUID.randomUUID().toString(), line.tool, line.colorArgb, line.size,
-        line.sx - left, line.sy, line.ex - left, line.ey, line.pressure,
+        line.sx - left, line.sy - top, line.ex - left, line.ey - top, line.pressure,
         if (line.byFinger) InkStroke.TOOL_TOUCH else InkStroke.TOOL_STYLUS,
     )
     viewModel.addStrokes(page.id, listOf(stroke))
@@ -912,10 +1087,11 @@ private fun eraseStep(viewModel: NotebookViewModel, snap: Snapshot, cam: Camera,
     val index = snap.strip.pageAt(cam.toWorldX(to.x))
     val page = snap.pages.getOrNull(index) ?: return
     val pl = snap.strip.pageLeft(index)
+    val pt = snap.strip.pageTop(index)
     viewModel.eraseAlong(
         page.id,
-        cam.toWorldX(from.x) - pl, cam.toWorldY(from.y),
-        cam.toWorldX(to.x) - pl, cam.toWorldY(to.y),
+        cam.toWorldX(from.x) - pl, cam.toWorldY(from.y) - pt,
+        cam.toWorldX(to.x) - pl, cam.toWorldY(to.y) - pt,
         snap.settings.eraserRadius,
     )
 }
@@ -923,7 +1099,8 @@ private fun eraseStep(viewModel: NotebookViewModel, snap: Snapshot, cam: Camera,
 private fun selectionScreenBox(sel: LassoState.Selected, snap: Snapshot, cam: Camera): FloatArray {
     val box = sel.box()
     val pl = snap.strip.pageLeft(sel.pageIndex)
-    return floatArrayOf(cam.toScreenX(pl + box[0]), cam.toScreenY(box[1]), cam.toScreenX(pl + box[2]), cam.toScreenY(box[3]))
+    val pt = snap.strip.pageTop(sel.pageIndex)
+    return floatArrayOf(cam.toScreenX(pl + box[0]), cam.toScreenY(pt + box[1]), cam.toScreenX(pl + box[2]), cam.toScreenY(pt + box[3]))
 }
 
 private fun insideSelection(p: Offset, sel: LassoState.Selected, snap: Snapshot, cam: Camera): Boolean {
@@ -952,3 +1129,53 @@ private fun handleAt(p: Offset, sel: LassoState.Selected, snap: Snapshot, cam: C
 }
 
 private fun androidx.compose.ui.input.pointer.PointerInputChange.changedToDownIgnoreConsumed() = !previousPressed && pressed
+
+/**
+ * Draws a picture on a page whose top-left corner is at ([pageLeft], [pageTop]) px, at [scale]
+ * px per page unit, turned about its centre. Until its [bitmap] has loaded, a pale box stands in.
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPicture(
+    image: com.nzfrankwu.noteapp.domain.ink.InkImage,
+    bitmap: androidx.compose.ui.graphics.ImageBitmap?,
+    pageLeft: Float, pageTop: Float, scale: Float,
+) {
+    val x = pageLeft + image.left * scale
+    val y = pageTop + image.top * scale
+    val w = image.width * scale
+    val h = image.height * scale
+    rotate(Math.toDegrees(image.rotation.toDouble()).toFloat(), pivot = Offset(x + w / 2, y + h / 2)) {
+        if (bitmap == null) {
+            drawRect(Color(0x1F000000), Offset(x, y), Size(w, h))
+        } else {
+            drawImage(
+                bitmap,
+                dstOffset = IntOffset(x.roundToInt(), y.roundToInt()),
+                dstSize = IntSize(w.roundToInt().coerceAtLeast(1), h.roundToInt().coerceAtLeast(1)),
+                filterQuality = FilterQuality.Medium,
+            )
+        }
+    }
+}
+
+/** A lasso loop smaller than this (screen px, width + height) is a tap: it picks the picture under the pen. */
+private const val LASSO_TAP_PX = 24f
+
+/** How long the view must rest before a sharp part of a deeply zoomed PDF page is drawn. */
+private const val PDF_DETAIL_DELAY_MS = 180L
+
+/** Draws a part of a PDF page on the page whose top-left corner is at ([pageLeft], [pageTop]) px, at [scale] px per page unit. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPdfLayer(
+    layer: NotebookViewModel.PdfLayer, pageLeft: Float, pageTop: Float, scale: Float,
+) {
+    val x0 = pageLeft + layer.left * scale
+    val y0 = pageTop + layer.top * scale
+    val x1 = pageLeft + layer.right * scale
+    val y1 = pageTop + layer.bottom * scale
+    drawImage(
+        layer.image,
+        dstOffset = IntOffset(x0.roundToInt(), y0.roundToInt()),
+        dstSize = IntSize((x1 - x0).roundToInt().coerceAtLeast(1), (y1 - y0).roundToInt().coerceAtLeast(1)),
+        filterQuality = FilterQuality.Medium,
+    )
+}
+

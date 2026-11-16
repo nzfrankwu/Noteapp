@@ -126,13 +126,13 @@ fun PageInkLayer(
             scaleX = cam.scale / raster
             scaleY = cam.scale / raster
             translationX = cam.toScreenX(strip.pageLeft(pageIndex))
-            translationY = cam.toScreenY(0f)
+            translationY = cam.toScreenY(strip.pageTop(pageIndex))
         }
     }
 
     // The newest highlighter chunk, under the page picture (so highlighting doesn't remake it).
     PageSizedLayer(widthPx, heightPx, Modifier.graphicsLayer { place() }) {
-        if (highlightTail != null) key(highlightTail.key) { ChunkLayer(highlightTail.strokes, pageId, raster, viewModel.drawables, renderer) }
+        if (highlightTail != null) key(highlightTail.key) { ChunkLayer(highlightTail.strokes, pageId, raster, viewModel.drawables, renderer, view.handoff) }
     }
     PageSizedLayer(
         widthPx, heightPx,
@@ -143,11 +143,11 @@ fun PageInkLayer(
     ) {
         for ((index, chunk) in settled.withIndex()) {
             if (index >= revealed) break
-            key(chunk.key) { ChunkLayer(chunk.strokes, pageId, raster, viewModel.drawables, renderer) }
+            key(chunk.key) { ChunkLayer(chunk.strokes, pageId, raster, viewModel.drawables, renderer, view.handoff) }
         }
     }
     PageSizedLayer(widthPx, heightPx, Modifier.graphicsLayer { place() }) {
-        if (tail != null) key(tail.key) { ChunkLayer(tail.strokes, pageId, raster, viewModel.drawables, renderer) }
+        if (tail != null) key(tail.key) { ChunkLayer(tail.strokes, pageId, raster, viewModel.drawables, renderer, view.handoff) }
         selected?.let { strokes ->
             key(System.identityHashCode(strokes)) {
                 Spacer(
@@ -190,10 +190,11 @@ private fun ChunkLayer(
     raster: Float,
     drawables: StrokeDrawables,
     renderer: CanvasStrokeRenderer,
+    handoff: InkHandoff? = null,
 ) {
     Spacer(
         Modifier.fillMaxSize().graphicsLayer().drawBehind {
-            clipRect { drawStrokes(strokes, pageId, raster, drawables, renderer) }
+            clipRect { drawStrokes(strokes, pageId, raster, drawables, renderer, handoff) }
         },
     )
 }
@@ -205,6 +206,7 @@ private fun DrawScope.drawStrokes(
     raster: Float,
     drawables: StrokeDrawables,
     renderer: CanvasStrokeRenderer,
+    handoff: InkHandoff? = null,
 ) {
     // The renderer's matrix doesn't move anything: it tells it how big a pixel is, for smooth edges.
     val hint = Matrix().apply { setScale(raster, raster) }
@@ -214,6 +216,8 @@ private fun DrawScope.drawStrokes(
                 for (stroke in strokes) {
                     if (stroke.tool.isHighlighter != (pass == 0)) continue
                     drawables.get(pageId, stroke)?.let { renderer.draw(canvas.nativeCanvas, it, hint) }
+                    // A stroke just written: the pen layer can now stop drawing it (F30).
+                    if (handoff != null && handoff.hasWaiting) handoff.drawn(stroke.id)
                 }
             }
         }

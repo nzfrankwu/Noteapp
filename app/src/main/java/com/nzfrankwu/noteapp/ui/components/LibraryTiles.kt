@@ -60,6 +60,8 @@ fun NotebookTile(
     actions: List<TileAction>,
     modifier: Modifier = Modifier,
     thumbnail: ImageBitmap? = null,
+    /** An imported PDF: a small "PDF" tag sits on its picture. */
+    isPdf: Boolean = false,
 ) {
     LibraryTile(
         title = title,
@@ -79,8 +81,22 @@ fun NotebookTile(
         ) {
             if (thumbnail != null) {
                 androidx.compose.foundation.Image(thumbnail, contentDescription = null, modifier = Modifier.fillMaxSize())
-            } else {
+            } else if (!isPdf) {
                 Canvas(Modifier.fillMaxSize()) { drawPaperPattern(template, pageWidth, pageHeight, PaperLine) }
+            }
+            if (isPdf) {
+                Text(
+                    "PDF",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = androidx.compose.ui.graphics.Color.White,
+                    modifier = Modifier
+                        .align(androidx.compose.ui.Alignment.BottomStart)
+                        .padding(4.dp)
+                        .clip(MaterialTheme.shapes.extraSmall)
+                        .background(com.nzfrankwu.noteapp.ui.theme.Red40)
+                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                        .testTag("pdf-tag"),
+                )
             }
         }
     }

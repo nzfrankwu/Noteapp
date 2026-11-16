@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -123,6 +124,19 @@ fun FolderScreen(
     val linkedCourseId = if (isSubfolder) null else item?.folder?.courseId
     var menuOpen by remember { mutableStateOf(false) }
     var addMenuOpen by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Import PDF: Android's file picker, then the PDF is copied into Noteapp.
+    val pickPdf = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            val resolver = context.contentResolver
+            viewModel.importPdf(displayNameOf(resolver, uri)) { resolver.openInputStream(uri) }
+        }
+    }
+    val importing by viewModel.importing.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
+    if (importing) ImportingDialog()
     var chosenTab by rememberSaveable { mutableStateOf(FolderTab.TASKS) }
     // Without a linked course there's nothing to put on a calendar: Tasks only.
     val tab = if (linkedCourseId == null) FolderTab.TASKS else chosenTab
@@ -143,6 +157,12 @@ fun FolderScreen(
                             leadingIcon = { Icon(painterResource(R.drawable.ic_note_add), contentDescription = null) },
                             onClick = { addMenuOpen = false; viewModel.startNewNotebook() },
                             modifier = Modifier.testTag("new-notebook"),
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Import PDF") },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_picture_as_pdf), contentDescription = null) },
+                            onClick = { addMenuOpen = false; pickPdf.launch(arrayOf("application/pdf")) },
+                            modifier = Modifier.testTag("import-pdf"),
                         )
                         DropdownMenuItem(
                             text = { Text("New folder") },
@@ -473,4 +493,31 @@ private fun FolderDialogs(
 @Composable
 private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(text = text, style = MaterialTheme.typography.titleLarge, modifier = modifier)
+}
+
+/** The file's name as the other app gives it (e.g. "Lecture 3.pdf"), or null. */
+private fun displayNameOf(resolver: android.content.ContentResolver, uri: android.net.Uri): String? = try {
+    resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+        if (c.moveToFirst()) c.getString(0) else null
+    }
+} catch (e: Exception) {
+    null
+}
+
+/** "Importing PDF…" while a PDF is copied in (a big lecture PDF can take a moment). */
+@Composable
+private fun ImportingDialog() {
+    androidx.compose.ui.window.Dialog(onDismissRequest = {}) {
+        androidx.compose.material3.Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.testTag("importing-pdf"),
+        ) {
+            Row(Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.CircularProgressIndicator(Modifier.size(28.dp))
+                Spacer(Modifier.width(16.dp))
+                Text("Importing PDF…", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+    }
 }

@@ -83,9 +83,28 @@ val MIGRATION_3_4: Migration = object : Migration(3, 4) {
     }
 }
 
+/**
+ * Version 4 → 5 (Phase 3, step 3.1): pages of their own size, and pages of imported PDFs.
+ * Pages get four empty (null) columns:
+ *  - `width`, `height`: the page's own size (null = the notebook's size, as every page so far)
+ *  - `pdf_file`, `pdf_page`: which PDF file in the notebook's folder, and which page of it
+ *
+ * It only adds empty columns, so every existing row and value stays exactly as it was, and every
+ * existing page stays a plain page of its notebook's size.
+ */
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `pages` ADD COLUMN `width` REAL")
+        db.execSQL("ALTER TABLE `pages` ADD COLUMN `height` REAL")
+        db.execSQL("ALTER TABLE `pages` ADD COLUMN `pdf_file` TEXT")
+        db.execSQL("ALTER TABLE `pages` ADD COLUMN `pdf_page` INTEGER")
+    }
+}
+
 /** Every migration, oldest first. Keep this list at the bottom of the file (see above). */
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
     MIGRATION_3_4,
+    MIGRATION_4_5,
 )

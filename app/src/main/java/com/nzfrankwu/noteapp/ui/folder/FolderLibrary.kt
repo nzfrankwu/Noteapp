@@ -60,8 +60,13 @@ sealed interface LibraryItem {
 
 /** The tiles to show for [filter]: subfolders first (A–Z), then notebooks (latest first). */
 fun FolderContents.itemsFor(filter: LibraryFilter): List<LibraryItem> {
-    val subs = if (filter == LibraryFilter.NOTEBOOKS) emptyList() else subfolders.map { LibraryItem.Sub(it) }
-    val books = if (filter == LibraryFilter.FOLDERS) emptyList() else notebooks.map { LibraryItem.Book(it) }
+    val subs = if (filter == LibraryFilter.ALL || filter == LibraryFilter.FOLDERS) subfolders.map { LibraryItem.Sub(it) } else emptyList()
+    val books = when (filter) {
+        LibraryFilter.ALL -> notebooks
+        LibraryFilter.PDFS -> notebooks.filter { it.isPdf }
+        LibraryFilter.NOTEBOOKS -> notebooks.filter { !it.isPdf }
+        LibraryFilter.FOLDERS -> emptyList()
+    }.map { LibraryItem.Book(it) }
     return subs + books
 }
 
@@ -124,6 +129,7 @@ fun LibraryRow(
                     template = entry.item.notebook.template,
                     pageWidth = entry.item.notebook.pageWidth,
                     pageHeight = entry.item.notebook.pageHeight,
+                    isPdf = entry.item.isPdf,
                     onOpen = { onOpenNotebook(entry.item.notebook.id) },
                     actions = listOf(
                         TileAction("Rename") { onRenameNotebook(entry.item) },

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Files Noteapp hands to other apps through its FileProvider (PHASE-3.md). Cache folders only:
+    never the notebooks themselves.
+      camera/  - where the camera app saves a photo taken with Take Photo
+      exports/ - exported PDFs, for Share (step 3.7)
+-->
+<paths>
+    <cache-path name="camera" path="camera/" />
+    <cache-path name="exports" path="exports/" />
+</paths>

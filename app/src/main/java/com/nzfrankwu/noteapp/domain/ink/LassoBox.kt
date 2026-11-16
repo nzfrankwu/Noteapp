@@ -42,7 +42,8 @@ object LassoBox {
 
     /**
      * [box] with [handle] dragged to ([x], [y]). Its opposite side stays put. Edge handles stretch
-     * one way; corners stretch freely, or keep the shape when [keepShape] (the plain corner handle).
+     * one way; corners stretch freely, or keep the shape when [keepShape] (the selection's corners
+     * always do, feedback F35: a picture only grows or shrinks; the crop box's corners don't).
      */
     fun dragged(box: FloatArray, handle: BoxHandle, x: Float, y: Float, keepShape: Boolean = false): FloatArray {
         var l = box[0]; var t = box[1]; var r = box[2]; var b = box[3]
@@ -89,6 +90,25 @@ object LassoBox {
             stroke.id, stroke.tool, stroke.colorArgb, stroke.size * sqrt(sx * sy), xs, ys,
             stroke.times.copyOf(), stroke.pressure.copyOf(), stroke.tilt.copyOf(), orientation, stroke.inputTool,
         )
+    }
+
+    /**
+     * [image] (inside [from]) placed into [to] like [map] places strokes: its centre moves with
+     * the box, its size stretches with it, and it turns by [angle] about [to]'s centre.
+     */
+    fun mapImage(image: InkImage, from: FloatArray, to: FloatArray, angle: Float = 0f): InkImage {
+        val sx = scaleX(from, to)
+        val sy = scaleY(from, to)
+        val fcx = (from[0] + from[2]) / 2; val fcy = (from[1] + from[3]) / 2
+        val tcx = (to[0] + to[2]) / 2; val tcy = (to[1] + to[3]) / 2
+        val dx = (image.centreX - fcx) * sx
+        val dy = (image.centreY - fcy) * sy
+        val c = cos(angle); val s = sin(angle)
+        val cx = tcx + dx * c - dy * s
+        val cy = tcy + dx * s + dy * c
+        val w = image.width * sx
+        val h = image.height * sy
+        return image.copy(left = cx - w / 2, top = cy - h / 2, width = w, height = h, rotation = image.rotation + angle)
     }
 
     /**

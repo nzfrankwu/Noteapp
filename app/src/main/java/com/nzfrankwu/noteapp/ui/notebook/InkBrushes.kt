@@ -125,6 +125,30 @@ object InkBrushes {
     }
 
     /** Builds a drawable stroke (page coordinates) from a saved one, or null if it has no valid points. */
+    /**
+     * The stroke's filled outline in page units, exactly as the screen draws it, and its colour
+     * (highlighter see-through): for PDF export.
+     */
+    fun exportShape(saved: InkStroke): com.nzfrankwu.noteapp.data.StrokeShape? {
+        val stroke = toDrawable(saved) ?: return null
+        val mesh = stroke.shape
+        val v = androidx.ink.geometry.MutableVec()
+        val outlines = ArrayList<FloatArray>()
+        for (g in 0 until mesh.getRenderGroupCount()) {
+            for (o in 0 until mesh.getOutlineCount(g)) {
+                val n = mesh.getOutlineVertexCount(g, o)
+                val points = FloatArray(n * 2)
+                for (k in 0 until n) {
+                    mesh.populateOutlinePosition(g, o, k, v)
+                    points[2 * k] = v.x
+                    points[2 * k + 1] = v.y
+                }
+                outlines += points
+            }
+        }
+        return com.nzfrankwu.noteapp.data.StrokeShape(outlines, stroke.brush.colorIntArgb)
+    }
+
     fun toDrawable(saved: InkStroke): Stroke? {
         val batch = MutableStrokeInputBatch()
         val type = toolType(saved.inputTool)

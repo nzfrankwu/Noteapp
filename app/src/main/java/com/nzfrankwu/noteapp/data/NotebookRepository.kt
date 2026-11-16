@@ -5,6 +5,7 @@ import com.nzfrankwu.noteapp.data.db.Notebook
 import com.nzfrankwu.noteapp.data.db.NotebookListItem
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 import com.nzfrankwu.noteapp.data.db.Page
+import com.nzfrankwu.noteapp.domain.PageSize
 import com.nzfrankwu.noteapp.domain.PageTemplate
 import kotlinx.coroutines.flow.Flow
 import java.time.Clock
@@ -16,7 +17,10 @@ sealed interface NotebookError {
     data object NotFound : NotebookError
     /** A notebook always keeps at least one page. */
     data object LastPage : NotebookError
+    /** A PDF notebook needs at least one page, every page a positive size, and an unused ID. */
+    data object BadPdf : NotebookError
 }
+
 
 sealed interface NotebookResult {
     /** [id] is the notebook's (or, for page changes, the page's) ID. */
@@ -41,6 +45,9 @@ class NotebookRepository(
 
     /** The folder's notebooks (not deleted), most recently changed first. Updates live. */
     fun observeInFolder(folderId: String): Flow<List<NotebookListItem>> = dao.observeInFolder(folderId)
+
+    /** Every notebook (not deleted), updating live. */
+    fun observeAllActive(): Flow<List<Notebook>> = dao.observeAllActive()
 
     /** One notebook (deleted or not), updating live. */
     fun observeNotebook(notebookId: String): Flow<Notebook?> = dao.observeNotebook(notebookId)
@@ -67,6 +74,116 @@ class NotebookRepository(
             dao.insertPage(Page(id = newId(), notebookId = notebook.id, position = 0, createdAt = now, updatedAt = now))
             NotebookResult.Success(notebook.id)
         }
+
+    /**
+     * A fresh ID for a notebook that [createPdfNotebook] will make. The PDF is copied into that
+     * notebook's folder (NotebookFiles) BEFORE its rows exist, so a notebook never points at a
+     * file that isn't there yet; an interrupted import only leaves an unused folder behind.
+     */
+    fun newNotebookId(): String = newId()
+
+    /**
+     * Creates notebook [notebookId] in [folderId] with one page per page of the imported PDF
+     * [pdfFile] (a file name in the notebook's folder), in order, each the size in [pageSizes].
+     * All in one transaction: either the whole notebook is made, or nothing is.
+     *
+     * The notebook's own size is the first page's; blank pages added later copy their
+     * neighbour's size (see [addPage]). Its template is for those blank pages: PDF pages draw no
+     * paper pattern.
+     */
+    suspend fun createPdfNotebook(
+        notebookId: String,
+        folderId: String,
+        title: String,
+        pdfFile: String,
+        pageSizes: List<PageSize>,
+        template: PageTemplate = PageTemplate.DEFAULT,
+    ): NotebookResult = db.withTransaction {
+        val cleanTitle = title.trim()
+        if (cleanTitle.isEmpty()) return@withTransaction NotebookResult.Failure(NotebookError.BlankTitle)
+        if (pageSizes.isEmpty() || pageSizes.any { !it.isValid } || pdfFile.isBlank() || dao.getNotebook(notebookId) != null) {
+            return@withTransaction NotebookResult.Failure(NotebookError.BadPdf)
+        }
+        folderDao.getById(folderId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
+        val now = clock.instant()
+        val first = pageSizes.first()
+        dao.insertNotebook(
+            Notebook(
+                id = notebookId, folderId = folderId, title = cleanTitle, template = template,
+                pageWidth = first.width, pageHeight = first.height, createdAt = now, updatedAt = now,
+            ),
+        )
+        pageSizes.forEachIndexed { index, size ->
+            dao.insertPage(
+                Page(
+                    id = newId(), notebookId = notebookId, position = index, createdAt = now, updatedAt = now,
+                    width = size.width, height = size.height, pdfFile = pdfFile, pdfPage = index,
+                ),
+            )
+        }
+        NotebookResult.Success(notebookId)
+    }
+
+    /**
+     * Inserts pages of a PDF already copied into the notebook's folder ([pdfFile]) at [index], in
+     * one transaction (feedback F34: "Add Page from PDF", "Add the entire PDF"). [pages] are the
+     * PDF's page numbers (0 = first) with their sizes. Returns the new pages' IDs, in order.
+     */
+    suspend fun insertPdfPages(notebookId: String, index: Int, pdfFile: String, pages: List<Pair<Int, PageSize>>): List<String>? =
+        db.withTransaction {
+            val notebook = dao.getNotebook(notebookId) ?: return@withTransaction null
+            if (pages.isEmpty() || pdfFile.isBlank() || pages.any { !it.second.isValid || it.first < 0 }) return@withTransaction null
+            val now = clock.instant()
+            val existing = dao.getPages(notebookId)
+            val at = index.coerceIn(0, existing.size)
+            val added = pages.map { (pdfPage, size) ->
+                Page(
+                    id = newId(), notebookId = notebookId, position = 0, createdAt = now, updatedAt = now,
+                    width = size.width, height = size.height, pdfFile = pdfFile, pdfPage = pdfPage,
+                )
+            }
+            val order = existing.toMutableList().apply { addAll(at, added) }
+            val positions = order.withIndex().associate { (i, p) -> p.id to i }
+            for (p in added) dao.insertPage(p.copy(position = positions.getValue(p.id)))
+            renumber(existing, order, now)
+            dao.updateNotebook(notebook.copy(updatedAt = now))
+            added.map { it.id }
+        }
+
+    /** A fresh ID for a page whose file is written before the page is added (see [addPage]). */
+    fun newPageId(): String = newId()
+
+    /**
+     * Creates notebook [notebookId] in [folderId] with the given pages ([pages]: each page's ID and
+     * size), in order, in one transaction. For pictures shared into Noteapp: their page files are
+     * written first, under these IDs, so a page never shows before its picture is saved.
+     */
+    suspend fun createNotebookOfPages(
+        notebookId: String,
+        folderId: String,
+        title: String,
+        pages: List<Pair<String, PageSize>>,
+        template: PageTemplate = PageTemplate.DEFAULT,
+    ): NotebookResult = db.withTransaction {
+        val cleanTitle = title.trim()
+        if (cleanTitle.isEmpty()) return@withTransaction NotebookResult.Failure(NotebookError.BlankTitle)
+        if (pages.isEmpty() || pages.any { !it.second.isValid } || dao.getNotebook(notebookId) != null) {
+            return@withTransaction NotebookResult.Failure(NotebookError.BadPdf)
+        }
+        folderDao.getById(folderId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
+        val now = clock.instant()
+        val first = pages.first().second
+        dao.insertNotebook(
+            Notebook(
+                id = notebookId, folderId = folderId, title = cleanTitle, template = template,
+                pageWidth = first.width, pageHeight = first.height, createdAt = now, updatedAt = now,
+            ),
+        )
+        pages.forEachIndexed { index, (pageId, size) ->
+            dao.insertPage(Page(id = pageId, notebookId = notebookId, position = index, createdAt = now, updatedAt = now, width = size.width, height = size.height))
+        }
+        NotebookResult.Success(notebookId)
+    }
 
     suspend fun rename(notebookId: String, newTitle: String): NotebookResult = db.withTransaction {
         val cleanTitle = newTitle.trim()
@@ -104,13 +221,28 @@ class NotebookRepository(
     /**
      * Adds an empty page at [index] (0 = first; past the end = last) and returns its ID. The pages
      * after it move along by one.
+     *
+     * The new page is the same size as the page before it (or, at the front, the page after it),
+     * so a blank page among a PDF's pages matches them, unless [size] is given (e.g. a page shaped
+     * like a picture). It's always a plain page, never a PDF page.
      */
-    suspend fun addPage(notebookId: String, index: Int): NotebookResult = db.withTransaction {
+    suspend fun addPage(
+        notebookId: String,
+        index: Int,
+        size: PageSize? = null,
+        pageId: String? = null,
+        template: PageTemplate? = null,
+    ): NotebookResult = db.withTransaction {
         val notebook = dao.getNotebook(notebookId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
         val now = clock.instant()
         val pages = dao.getPages(notebookId)
         val at = index.coerceIn(0, pages.size)
-        val page = Page(id = newId(), notebookId = notebookId, position = at, createdAt = now, updatedAt = now)
+        val neighbour = pages.getOrNull(at - 1) ?: pages.getOrNull(at)
+        if (pageId != null && dao.getPage(pageId) != null) return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
+        val page = Page(
+            id = pageId ?: newId(), notebookId = notebookId, position = at, template = template, createdAt = now, updatedAt = now,
+            width = size?.width ?: neighbour?.width, height = size?.height ?: neighbour?.height,
+        )
         val renumbered = pages.toMutableList().apply { add(at, page) }
         dao.insertPage(page)
         renumber(renumbered.filter { it.id != page.id }, renumbered, now)

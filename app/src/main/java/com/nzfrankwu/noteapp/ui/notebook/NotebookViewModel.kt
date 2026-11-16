@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.Bitmap
 import com.nzfrankwu.noteapp.data.InkSketch
@@ -21,6 +22,7 @@ import com.nzfrankwu.noteapp.data.db.Notebook
 import com.nzfrankwu.noteapp.data.db.Page
 import com.nzfrankwu.noteapp.domain.ink.EditorTool
 import com.nzfrankwu.noteapp.domain.ink.InkEdit
+import com.nzfrankwu.noteapp.domain.ink.changedPages
 import com.nzfrankwu.noteapp.domain.ink.InkGeometry
 import com.nzfrankwu.noteapp.domain.ink.InkStroke
 import com.nzfrankwu.noteapp.domain.ink.InkToolSettings
@@ -128,7 +130,7 @@ class NotebookViewModel(
             if (pageStatus[page.id] == PageStatus.Ready) continue
             when (read) {
                 PageRead.Missing -> ink.load(page.id, emptyList()).also { pageStatus[page.id] = PageStatus.Ready }
-                is PageRead.Ok -> ink.load(page.id, read.strokes).also { pageStatus[page.id] = PageStatus.Ready }
+                is PageRead.Ok -> ink.load(page.id, read.strokes, read.images).also { pageStatus[page.id] = PageStatus.Ready }
                 is PageRead.Damaged -> pageStatus[page.id] = PageStatus.Damaged(read.reason)
             }
             version++
@@ -194,8 +196,13 @@ class NotebookViewModel(
                 val pageId = previewOrder.firstOrNull { it !in previews && isEditable(it) } ?: break
                 val edits = pageEdits[pageId] ?: 0
                 val strokes = ink.strokes(pageId).toList()
-                val picture = if (strokes.isEmpty()) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
-                    renderPreview(strokes, nb.pageWidth, nb.pageHeight)
+                val size = pages.value.firstOrNull { it.id == pageId }?.size(nb)
+                    ?: com.nzfrankwu.noteapp.domain.PageSize(nb.pageWidth, nb.pageHeight)
+                val page = pages.value.firstOrNull { it.id == pageId }
+                val pdfBack = page?.let { p -> pdfFileOf(p)?.let { f -> pdf.wholePage(f, p.pdfPage ?: 0, size, PREVIEW_WIDTH_PX / size.width) } }
+                val pictures = ink.images(pageId).mapNotNull { img -> imageBitmaps[img.asset]?.let { img to it.asAndroidBitmap() } }
+                val picture = if (strokes.isEmpty() && pdfBack == null && pictures.isEmpty()) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
+                    renderPreview(strokes, size.width, size.height, pdfBack?.bitmap, pictures)
                 }
                 // Changed while it was drawn: draw it again (the loop comes back to it).
                 if ((pageEdits[pageId] ?: 0) == edits) previews[pageId] = picture
@@ -203,11 +210,308 @@ class NotebookViewModel(
         }
     }
 
-    private fun renderPreview(strokes: List<InkStroke>, pageWidth: Float, pageHeight: Float): ImageBitmap {
+    private fun renderPreview(
+        strokes: List<InkStroke>, pageWidth: Float, pageHeight: Float, pdfPage: Bitmap? = null,
+        pictures: List<Pair<com.nzfrankwu.noteapp.domain.ink.InkImage, Bitmap>> = emptyList(),
+    ): ImageBitmap {
         val scale = PREVIEW_WIDTH_PX / pageWidth
         val bitmap = Bitmap.createBitmap(PREVIEW_WIDTH_PX.toInt(), (pageHeight * scale).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
-        InkSketch.draw(android.graphics.Canvas(bitmap), strokes, scale, widthFactor = PREVIEW_LINE_FACTOR, minWidth = 0.7f)
+        val canvas = android.graphics.Canvas(bitmap)
+        if (pdfPage != null && !pdfPage.isRecycled) {
+            canvas.drawBitmap(pdfPage, null, android.graphics.Rect(0, 0, bitmap.width, bitmap.height), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
+        }
+        InkSketch.drawImages(canvas, pictures, scale)
+        InkSketch.draw(canvas, strokes, scale, widthFactor = PREVIEW_LINE_FACTOR, minWidth = 0.7f)
         return bitmap.asImageBitmap()
+    }
+
+    // ---- Export as PDF (Phase 3) ----
+
+    /** Where an export is. */
+    sealed interface ExportState {
+        data class Working(val done: Int, val total: Int) : ExportState
+        data class Ready(val file: java.io.File) : ExportState
+        data object Failed : ExportState
+    }
+
+    var exportState by mutableStateOf<ExportState?>(null)
+        private set
+    private var exportJob: Job? = null
+
+    /**
+     * Saves the notebook, then writes it as a PDF to [dir] (a cache folder, e.g. exports/), named
+     * after the notebook. The screen then offers Share or Save to device.
+     */
+    fun exportPdf(dir: java.io.File) {
+        if (exportState is ExportState.Working) return
+        val nb = notebook.value ?: return
+        val list = pages.value
+        if (list.isEmpty()) return
+        exportState = ExportState.Working(0, list.size)
+        exportJob = viewModelScope.launch {
+            exportState = try {
+                saveNow()?.join() // the export reads the saved pages
+                val out = java.io.File(dir, com.nzfrankwu.noteapp.data.PdfExport.fileNameFor(nb.title))
+                com.nzfrankwu.noteapp.data.PdfExport(files, io).export(nb, list, out, InkBrushes::exportShape) { done, total ->
+                    viewModelScope.launch { if (exportState is ExportState.Working) exportState = ExportState.Working(done, total) }
+                }
+                ExportState.Ready(out)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                null
+            } catch (e: Exception) {
+                ExportState.Failed
+            } catch (e: OutOfMemoryError) {
+                ExportState.Failed
+            }
+        }
+    }
+
+    fun cancelExport() {
+        exportJob?.cancel()
+        exportState = null
+    }
+
+    fun exportShown() {
+        if (exportState !is ExportState.Working) exportState = null
+    }
+
+    // ---- Pictures (Phase 3) ----
+
+    private val imageImport = com.nzfrankwu.noteapp.data.ImageImport(files, io)
+
+    /** Pictures ready for the screen, by file name (shrunk to about the screen's size). */
+    val imageBitmaps = mutableStateMapOf<String, ImageBitmap>()
+    private val imageLoads = HashSet<String>()
+
+    /** True while pictures are being brought in (the screen shows it). */
+    var insertingImages by mutableStateOf(false)
+        private set
+
+    /** Loads the pictures on the pages [near] for the screen, and forgets the others. */
+    fun prepareImages(near: List<Page>) {
+        val wanted = near.flatMap { ink.images(it.id) }.mapTo(HashSet()) { it.asset }
+        imageBitmaps.keys.filter { it !in wanted }.forEach { imageBitmaps.remove(it) }
+        for (asset in wanted) {
+            if (asset in imageBitmaps || !imageLoads.add(asset)) continue
+            viewModelScope.launch {
+                try {
+                    val file = runCatching { files.assetFile(notebookId, asset) }.getOrNull()
+                    val bitmap = file?.let { withContext(io) { com.nzfrankwu.noteapp.data.ImageImport.loadForScreen(it, IMAGE_SCREEN_PX) } }
+                    if (bitmap != null) imageBitmaps[asset] = bitmap.asImageBitmap()
+                } finally {
+                    imageLoads.remove(asset)
+                }
+            }
+        }
+    }
+
+    /**
+     * Inserts pictures on page [pageIndex]: in its middle, about 60% of the page wide, each a
+     * little lower-right of the one before. One undo step. Returns the pictures placed.
+     */
+    suspend fun insertImages(pageIndex: Int, sources: List<() -> java.io.InputStream?>): List<com.nzfrankwu.noteapp.domain.ink.InkImage> {
+        val nb = notebook.value ?: return emptyList()
+        val page = pages.value.getOrNull(pageIndex) ?: return emptyList()
+        if (!isEditable(page.id) || sources.isEmpty()) return emptyList()
+        insertingImages = true
+        try {
+            val size = page.size(nb)
+            val placed = ArrayList<com.nzfrankwu.noteapp.domain.ink.InkImage>()
+            for (open in sources) {
+                val imported = imageImport.import(notebookId, open) ?: continue
+                val image = com.nzfrankwu.noteapp.domain.ink.InkImage.centred(
+                    java.util.UUID.randomUUID().toString(), imported.asset, imported.widthPx, imported.heightPx, size.width, size.height,
+                )
+                val shift = placed.size * CASCADE_STEP
+                placed += image.copy(left = image.left + shift, top = image.top + shift)
+            }
+            if (placed.isNotEmpty() && isEditable(page.id)) {
+                ink.addImages(page.id, placed)
+                changed(page.id)
+            }
+            return placed
+        } finally {
+            insertingImages = false
+        }
+    }
+
+    /** A PDF copied into this notebook's folder, ready to add pages from (F34). */
+    class CopiedPdf(val name: String, val file: java.io.File, val sizes: List<com.nzfrankwu.noteapp.domain.PageSize>)
+
+    /**
+     * Copies the PDF [open] reads into this notebook's folder and reads its pages. Null, with
+     * [onFail] told why, if it can't be read, is password-protected or isn't a PDF (then the copy
+     * is removed again: nothing uses it).
+     */
+    suspend fun copyPdfIn(open: () -> java.io.InputStream?, onFail: (String) -> Unit): CopiedPdf? = withContext(io) {
+        val name = try {
+            open()?.use { files.importPdf(notebookId, it) }
+        } catch (e: Exception) {
+            null
+        } ?: return@withContext null.also { withContext(Dispatchers.Main) { onFail(com.nzfrankwu.noteapp.data.PdfImport.CANT_READ) } }
+        val file = files.assetFile(notebookId, name)
+        when (val info = com.nzfrankwu.noteapp.data.PdfPages.readInfo(file)) {
+            is com.nzfrankwu.noteapp.data.PdfInfo.Ok -> CopiedPdf(name, file, info.pageSizes)
+            else -> {
+                file.delete()
+                withContext(Dispatchers.Main) {
+                    onFail(if (info == com.nzfrankwu.noteapp.data.PdfInfo.PasswordProtected) com.nzfrankwu.noteapp.data.PdfImport.PASSWORD else com.nzfrankwu.noteapp.data.PdfImport.BROKEN)
+                }
+                null
+            }
+        }
+    }
+
+    /** A small picture of page [index] of [pdf], for choosing pages (F34). */
+    suspend fun pdfThumbnail(pdf: CopiedPdf, index: Int, widthPx: Int): ImageBitmap? {
+        val size = pdf.sizes.getOrNull(index) ?: return null
+        return this.pdf.wholePage(pdf.file, index, size, widthPx / size.width)?.bitmap?.asImageBitmap()
+    }
+
+    /** Adds pages [indices] of [pdf] after page [afterIndex], in order. Returns how many were added. */
+    suspend fun insertPdfPages(afterIndex: Int, pdf: CopiedPdf, indices: List<Int>): Int {
+        val chosen = indices.filter { it in pdf.sizes.indices }.map { it to pdf.sizes[it] }
+        val ids = notebooks.insertPdfPages(notebookId, afterIndex + 1, pdf.name, chosen) ?: return 0
+        version++
+        return ids.size
+    }
+
+    /** Forgets a copied PDF nobody used (the person cancelled choosing pages). */
+    fun discardPdf(pdf: CopiedPdf) {
+        viewModelScope.launch(io) {
+            // Only if no page uses it (a page may if the same copy was used before).
+            if (pages.value.none { it.pdfFile == pdf.name }) pdf.file.delete()
+        }
+    }
+
+    /** The full picture file of [image], for cropping (null if it can't be read). */
+    suspend fun loadFullPicture(image: com.nzfrankwu.noteapp.domain.ink.InkImage): Bitmap? = withContext(io) {
+        runCatching { android.graphics.BitmapFactory.decodeFile(files.assetFile(notebookId, image.asset).path) }.getOrNull()
+    }
+
+    /**
+     * Crops [image] (on [pageId]) to [box] (left, top, right, bottom in [picture]'s pixels): the
+     * kept part is saved as a new picture file and takes the old one's place, one undo step (F33).
+     * The old file is kept, so Undo brings the whole picture back. Returns the cropped picture.
+     */
+    suspend fun cropImage(pageId: String, image: com.nzfrankwu.noteapp.domain.ink.InkImage, picture: Bitmap, box: IntArray): com.nzfrankwu.noteapp.domain.ink.InkImage? {
+        if (!isEditable(pageId)) return null
+        val part = withContext(Dispatchers.Default) { Bitmap.createBitmap(picture, box[0], box[1], box[2] - box[0], box[3] - box[1]) }
+        val saved = imageImport.importBitmap(notebookId, part) ?: return null
+        val cropped = image.cropped(saved.asset, picture.width, picture.height, box[0], box[1], box[2], box[3])
+        if (!isEditable(pageId)) return null
+        ink.replace(pageId, emptyList(), listOf(cropped))
+        changed(pageId)
+        return cropped
+    }
+
+    /** Inserts a screenshot snip in the middle of page [pageIndex] (one undo step); returns it placed. */
+    suspend fun insertSnip(pageIndex: Int, bitmap: Bitmap): List<com.nzfrankwu.noteapp.domain.ink.InkImage> {
+        val nb = notebook.value ?: return emptyList()
+        val page = pages.value.getOrNull(pageIndex) ?: return emptyList()
+        if (!isEditable(page.id)) return emptyList()
+        insertingImages = true
+        try {
+            val imported = imageImport.importBitmap(notebookId, bitmap) ?: return emptyList()
+            val size = page.size(nb)
+            val image = com.nzfrankwu.noteapp.domain.ink.InkImage.centred(
+                java.util.UUID.randomUUID().toString(), imported.asset, imported.widthPx, imported.heightPx, size.width, size.height,
+            )
+            if (!isEditable(page.id)) return emptyList()
+            ink.addImages(page.id, listOf(image))
+            changed(page.id)
+            return listOf(image)
+        } finally {
+            insertingImages = false
+        }
+    }
+
+    /**
+     * Inserts a picture as a page of its own after page [afterIndex]: the page takes the
+     * picture's shape (its longer side as long as an A4 page's) and the picture fills it.
+     */
+    suspend fun insertImageAsPage(afterIndex: Int, open: () -> java.io.InputStream?): String? {
+        insertingImages = true
+        try {
+            val imported = imageImport.import(notebookId, open) ?: return null
+            val size = com.nzfrankwu.noteapp.domain.PageSize.forPicture(imported.widthPx, imported.heightPx)
+            val pageId = addPage(afterIndex + 1, size = size) ?: return null
+            ink.addImages(
+                pageId,
+                listOf(com.nzfrankwu.noteapp.domain.ink.InkImage(java.util.UUID.randomUUID().toString(), imported.asset, 0f, 0f, size.width, size.height)),
+            )
+            changed(pageId)
+            return pageId
+        } finally {
+            insertingImages = false
+        }
+    }
+
+    // ---- PDF pages (Phase 3) ----
+
+    /** Draws imported PDFs' pages (one background thread; closed with the notebook). */
+    private val pdf = com.nzfrankwu.noteapp.data.PdfPages()
+
+    /** A drawn part of a PDF page, ready for the screen: [left]..[bottom] in page units. */
+    class PdfLayer(val image: ImageBitmap, val left: Float, val top: Float, val right: Float, val bottom: Float, val scale: Float)
+
+    /** Each PDF page near the screen, drawn whole at about the settled zoom. */
+    val pdfPictures = mutableStateMapOf<String, PdfLayer>()
+
+    /** Zoomed in further than a whole-page picture allows: a sharp picture of just the part on screen. */
+    val pdfDetail = mutableStateMapOf<String, PdfLayer>()
+    private var pdfJob: Job? = null
+    private var detailJob: Job? = null
+
+    private fun pdfFileOf(page: Page): java.io.File? =
+        page.pdfFile?.let { runCatching { files.assetFile(notebookId, it) }.getOrNull() }
+
+    private fun com.nzfrankwu.noteapp.data.PdfPicture.toLayer() = PdfLayer(bitmap.asImageBitmap(), left, top, right, bottom, scale)
+
+    /**
+     * Gets the PDF pages among [near] (nearest first) drawn at about [scale] pixels per page unit,
+     * and forgets the pictures of pages further away.
+     */
+    fun preparePdf(near: List<Page>, scale: Float) {
+        val nb = notebook.value ?: return
+        if (scale <= 0f) return
+        val wanted = near.filter { it.isPdf }
+        val keep = wanted.mapTo(HashSet()) { it.id }
+        pdfPictures.keys.filter { it !in keep }.forEach { pdfPictures.remove(it) }
+        pdfDetail.keys.filter { it !in keep }.forEach { pdfDetail.remove(it) }
+        if (wanted.isEmpty()) return
+        pdfJob?.cancel()
+        pdfJob = viewModelScope.launch {
+            for (page in wanted) {
+                val size = page.size(nb)
+                val target = com.nzfrankwu.noteapp.data.PdfPages.wholePageScale(size, scale)
+                val have = pdfPictures[page.id]
+                if (have != null && kotlin.math.abs(have.scale - target) <= target * 0.05f) continue
+                val file = pdfFileOf(page) ?: continue
+                pdf.wholePage(file, page.pdfPage ?: 0, size, scale)?.let { pdfPictures[page.id] = it.toLayer() }
+            }
+        }
+    }
+
+    /**
+     * When zoomed in past what a whole-page picture holds, draws just the [regions] on screen
+     * (page ID → left, top, right, bottom in page units) at [scale]. An empty map clears them.
+     */
+    fun preparePdfDetail(regions: Map<Page, FloatArray>, scale: Float) {
+        val nb = notebook.value ?: return
+        detailJob?.cancel()
+        val needed = regions.filterKeys { page ->
+            page.isPdf && scale > com.nzfrankwu.noteapp.data.PdfPages.wholePageScale(page.size(nb), scale = Float.MAX_VALUE) * 1.15f
+        }
+        val neededIds = needed.keys.mapTo(HashSet()) { it.id }
+        pdfDetail.keys.filter { it !in neededIds }.forEach { pdfDetail.remove(it) }
+        if (needed.isEmpty()) return
+        detailJob = viewModelScope.launch {
+            for ((page, r) in needed) {
+                val file = pdfFileOf(page) ?: continue
+                pdf.region(file, page.pdfPage ?: 0, r[0], r[1], r[2], r[3], scale)?.let { pdfDetail[page.id] = it.toLayer() }
+            }
+        }
     }
 
     /** Keeps only the pages near the screen ready to draw (the rest are rebuilt when needed). */
@@ -223,6 +527,23 @@ class NotebookViewModel(
         ink.add(pageId, finished)
         changed(pageId)
         addPageAfterIfLast(pageId)
+    }
+
+    /**
+     * New strokes on several pages at once (one stroke split where it crossed a page edge, F36):
+     * one undo step. Pages that can't take writing right now are left out.
+     */
+    fun addStrokesAcross(byPage: Map<String, List<InkStroke>>) {
+        val ok = byPage.filter { (pageId, strokes) -> isEditable(pageId) && strokes.isNotEmpty() }
+        if (ok.size <= 1) {
+            ok.entries.firstOrNull()?.let { (pageId, strokes) -> addStrokes(pageId, strokes) }
+            return
+        }
+        val stability = settings.value.stability
+        ink.addAcross(ok.mapValues { (_, strokes) -> strokes.map { Smoothing.smoothed(it, stability) } })
+        ok.keys.forEach { changed(it) }
+        val order = pages.value.withIndex().associate { (i, p) -> p.id to i }
+        addPageAfterIfLast(ok.keys.maxBy { order[it] ?: -1 })
     }
 
     private var addingNextPage = false
@@ -259,51 +580,70 @@ class NotebookViewModel(
     fun strokesInLoop(pageId: String, xs: FloatArray, ys: FloatArray): List<InkStroke> =
         if (!isEditable(pageId)) emptyList() else ink.strokes(pageId).filter { InkGeometry.insideLasso(it, xs, ys) }
 
-    /** Saves the lasso's move or resize (same stroke IDs, new positions). */
-    fun replaceStrokes(pageId: String, after: List<InkStroke>) {
-        if (!isEditable(pageId) || after.isEmpty()) return
-        ink.replace(pageId, after)
+    /** The pictures the lasso loop picks (a corner inside, or touching the loop). */
+    fun imagesInLoop(pageId: String, xs: FloatArray, ys: FloatArray): List<com.nzfrankwu.noteapp.domain.ink.InkImage> =
+        if (!isEditable(pageId)) emptyList() else ink.images(pageId).filter { InkGeometry.imageInLoop(it, xs, ys) }
+
+    /** The topmost picture at ([x], [y]) on the page (page units), for a lasso tap. */
+    fun imageAt(pageId: String, x: Float, y: Float): com.nzfrankwu.noteapp.domain.ink.InkImage? =
+        if (!isEditable(pageId)) null else ink.images(pageId).lastOrNull { it.contains(x, y) }
+
+    /** Saves the lasso's move, resize or turn of strokes and pictures (same IDs, new places): one undo step. */
+    fun replaceSelection(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage>) {
+        if (!isEditable(pageId) || (strokes.isEmpty() && images.isEmpty())) return
+        ink.replace(pageId, strokes, images)
         changed(pageId)
     }
 
-    fun deleteStrokes(pageId: String, ids: Set<String>) {
+    /** Deletes the lasso's strokes and pictures (one undo step). Picture files are kept for undo. */
+    fun deleteSelection(pageId: String, strokeIds: Set<String>, imageIds: Set<String> = emptySet()) {
         if (!isEditable(pageId)) return
-        if (ink.erase(pageId, ids) > 0) changed(pageId)
+        if (ink.remove(pageId, strokeIds, imageIds) > 0) changed(pageId)
     }
 
     // ---- Copy, cut, duplicate and paste (PHASE-2.md F12) ----
 
-    /** Strokes copied or cut with the lasso, ready to paste (this notebook only, until it closes). */
-    var clipboard by mutableStateOf<List<InkStroke>?>(null)
+    /** Strokes and pictures copied or cut with the lasso (this notebook only, until it closes). */
+    data class Clip(val strokes: List<InkStroke>, val images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList())
+
+    /** What was copied or cut, ready to paste. */
+    var clipboard by mutableStateOf<Clip?>(null)
         private set
 
-    fun copy(strokes: List<InkStroke>) {
-        if (strokes.isNotEmpty()) clipboard = strokes
+    fun copy(strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList()) {
+        if (strokes.isNotEmpty() || images.isNotEmpty()) clipboard = Clip(strokes, images)
     }
 
-    fun cut(pageId: String, strokes: List<InkStroke>) {
-        copy(strokes)
-        deleteStrokes(pageId, strokes.mapTo(HashSet()) { it.id })
+    fun cut(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList()) {
+        copy(strokes, images)
+        deleteSelection(pageId, strokes.mapTo(HashSet()) { it.id }, images.mapTo(HashSet()) { it.id })
     }
 
-    /** Adds a copy of [strokes] a little down and to the right; returns the copy (for selecting it). */
-    fun duplicate(pageId: String, strokes: List<InkStroke>): List<InkStroke> {
-        if (!isEditable(pageId) || strokes.isEmpty()) return emptyList()
-        val copies = strokes.map { it.mapped(1f, 0f, 0f, DUPLICATE_OFFSET, DUPLICATE_OFFSET, newId = java.util.UUID.randomUUID().toString()) }
-        ink.add(pageId, copies)
+    /** Adds a copy a little down and to the right (one undo step); returns the copy (for selecting it). */
+    fun duplicate(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList()): Clip {
+        if (!isEditable(pageId) || (strokes.isEmpty() && images.isEmpty())) return Clip(emptyList())
+        val copies = Clip(
+            strokes.map { it.mapped(1f, 0f, 0f, DUPLICATE_OFFSET, DUPLICATE_OFFSET, newId = java.util.UUID.randomUUID().toString()) },
+            // A copied picture shares the same picture file (files are never deleted while in use).
+            images.map { it.copy(id = java.util.UUID.randomUUID().toString(), left = it.left + DUPLICATE_OFFSET, top = it.top + DUPLICATE_OFFSET) },
+        )
+        ink.add(pageId, copies.strokes, copies.images)
         changed(pageId)
         return copies
     }
 
     /** Pastes the clipboard centred on ([x], [y]) (page units); returns what was pasted. */
-    fun paste(pageId: String, x: Float, y: Float): List<InkStroke> {
-        val strokes = clipboard ?: return emptyList()
-        if (!isEditable(pageId)) return emptyList()
-        val box = InkGeometry.boundsOf(strokes) ?: return emptyList()
+    fun paste(pageId: String, x: Float, y: Float): Clip {
+        val clip = clipboard ?: return Clip(emptyList())
+        if (!isEditable(pageId)) return Clip(emptyList())
+        val box = InkGeometry.boundsOf(clip.strokes, clip.images) ?: return Clip(emptyList())
         val dx = x - (box[0] + box[2]) / 2
         val dy = y - (box[1] + box[3]) / 2
-        val pasted = strokes.map { it.mapped(1f, 0f, 0f, dx, dy, newId = java.util.UUID.randomUUID().toString()) }
-        ink.add(pageId, pasted)
+        val pasted = Clip(
+            clip.strokes.map { it.mapped(1f, 0f, 0f, dx, dy, newId = java.util.UUID.randomUUID().toString()) },
+            clip.images.map { it.copy(id = java.util.UUID.randomUUID().toString(), left = it.left + dx, top = it.top + dy) },
+        )
+        ink.add(pageId, pasted.strokes, pasted.images)
         changed(pageId)
         return pasted
     }
@@ -320,9 +660,9 @@ class NotebookViewModel(
 
     private fun afterUndoRedo(edit: InkEdit, undoing: Boolean) {
         when (edit) {
-            is InkEdit.Add -> changed(edit.pageId)
-            is InkEdit.Remove -> changed(edit.pageId)
-            is InkEdit.Replace -> changed(edit.pageId)
+            is InkEdit.Add, is InkEdit.Remove, is InkEdit.Replace,
+            is InkEdit.AddImages, is InkEdit.RemoveImages, is InkEdit.ReplaceImages, is InkEdit.Group,
+            -> edit.changedPages.forEach { changed(it) }
             is InkEdit.AddPage -> viewModelScope.launch {
                 if (undoing) notebooks.deletePage(edit.pageId) else notebooks.restorePage(edit.pageId, edit.index)
             }
@@ -340,8 +680,13 @@ class NotebookViewModel(
      * Adds an empty page at [index] and returns its ID (null if it failed). [recordUndo] makes it
      * an undo step (the Add page button); a page added by itself after writing isn't one.
      */
-    suspend fun addPage(index: Int, recordUndo: Boolean = true): String? {
-        val result = notebooks.addPage(notebookId, index)
+    suspend fun addPage(
+        index: Int,
+        recordUndo: Boolean = true,
+        size: com.nzfrankwu.noteapp.domain.PageSize? = null,
+        template: com.nzfrankwu.noteapp.domain.PageTemplate? = null,
+    ): String? {
+        val result = notebooks.addPage(notebookId, index, size, template = template)
         if (result !is NotebookResult.Success) return null
         // The page list may already have shown (and readied) the new page; keep anything on it.
         if (!ink.isLoaded(result.id)) ink.load(result.id, emptyList())
@@ -441,17 +786,18 @@ class NotebookViewModel(
     fun saveNow(): Job? {
         if (dirty.isEmpty()) return null
         saveJob?.cancel()
-        val toSave = dirty.associateWith { ink.strokes(it).toList() }
+        // Strokes AND pictures: a save must never drop a page's pictures.
+        val toSave = dirty.associateWith { ink.strokes(it).toList() to ink.images(it).toList() }
         dirty.clear()
         // The tile shows the first page: redraw it only when that page changed.
         val thumbnail = if (pages.value.firstOrNull()?.id in toSave) thumbnailJob() else null
         return saveScope.launch {
             saveLock.withLock {
                 val saved = ArrayList<String>()
-                for ((pageId, strokes) in toSave) {
+                for ((pageId, content) in toSave) {
                     // A failed write is retried here, in the scope that outlives the screen, so a
                     // save made while leaving the notebook still gets its retries.
-                    if (writeWithRetries(pageId, strokes)) {
+                    if (writeWithRetries(pageId, content.first, content.second)) {
                         saved += pageId
                     } else {
                         withContext(Dispatchers.Main) {
@@ -469,11 +815,11 @@ class NotebookViewModel(
     }
 
     /** Writes a page's file, trying again after short pauses if it fails. True once it's saved. */
-    private suspend fun writeWithRetries(pageId: String, strokes: List<InkStroke>): Boolean {
+    private suspend fun writeWithRetries(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage>): Boolean {
         for (pause in SAVE_RETRY_PAUSES_MS) {
             delay(pause)
             try {
-                withContext(io) { files.write(notebookId, pageId, strokes) }
+                withContext(io) { files.write(notebookId, pageId, strokes, images) }
                 return true
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -492,7 +838,11 @@ class NotebookViewModel(
         if (!isEditable(first.id)) return null
         val strokes = ink.strokes(first.id).toList()
         val paper = first.template ?: template ?: nb.template
-        return { t.render(notebookId, paper, nb.pageWidth, nb.pageHeight, strokes) }
+        val size = first.size(nb)
+        val pdfFile = pdfFileOf(first)
+        val pdfPage = first.pdfPage ?: 0
+        val images = ink.images(first.id).mapNotNull { img -> runCatching { img to files.assetFile(notebookId, img.asset) }.getOrNull() }
+        return { t.render(notebookId, paper, size.width, size.height, strokes, pdfFile, pdfPage, images) }
     }
 
     /** Redraws the tile picture (e.g. after the first page changed). */
@@ -503,10 +853,17 @@ class NotebookViewModel(
 
     override fun onCleared() {
         saveNow()
+        pdf.close()
         super.onCleared()
     }
 
     companion object {
+        /** Pictures are shown shrunk to about this many pixels on their longest side. */
+        const val IMAGE_SCREEN_PX = 2048
+
+        /** Each further picture inserted at once sits this much (page units) lower-right. */
+        private const val CASCADE_STEP = 24f
+
         /** Preview width in pixels: small, so it's quick to draw and looks soft when stretched (F8). */
         const val PREVIEW_WIDTH_PX = 320f
 
