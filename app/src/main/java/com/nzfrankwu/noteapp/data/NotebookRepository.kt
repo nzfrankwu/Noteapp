@@ -124,6 +124,32 @@ class NotebookRepository(
         NotebookResult.Success(notebookId)
     }
 
+    /**
+     * Inserts pages of a PDF already copied into the notebook's folder ([pdfFile]) at [index], in
+     * one transaction (feedback F34: "Add Page from PDF", "Add the entire PDF"). [pages] are the
+     * PDF's page numbers (0 = first) with their sizes. Returns the new pages' IDs, in order.
+     */
+    suspend fun insertPdfPages(notebookId: String, index: Int, pdfFile: String, pages: List<Pair<Int, PageSize>>): List<String>? =
+        db.withTransaction {
+            val notebook = dao.getNotebook(notebookId) ?: return@withTransaction null
+            if (pages.isEmpty() || pdfFile.isBlank() || pages.any { !it.second.isValid || it.first < 0 }) return@withTransaction null
+            val now = clock.instant()
+            val existing = dao.getPages(notebookId)
+            val at = index.coerceIn(0, existing.size)
+            val added = pages.map { (pdfPage, size) ->
+                Page(
+                    id = newId(), notebookId = notebookId, position = 0, createdAt = now, updatedAt = now,
+                    width = size.width, height = size.height, pdfFile = pdfFile, pdfPage = pdfPage,
+                )
+            }
+            val order = existing.toMutableList().apply { addAll(at, added) }
+            val positions = order.withIndex().associate { (i, p) -> p.id to i }
+            for (p in added) dao.insertPage(p.copy(position = positions.getValue(p.id)))
+            renumber(existing, order, now)
+            dao.updateNotebook(notebook.copy(updatedAt = now))
+            added.map { it.id }
+        }
+
     /** A fresh ID for a page whose file is written before the page is added (see [addPage]). */
     fun newPageId(): String = newId()
 
@@ -200,7 +226,13 @@ class NotebookRepository(
      * so a blank page among a PDF's pages matches them, unless [size] is given (e.g. a page shaped
      * like a picture). It's always a plain page, never a PDF page.
      */
-    suspend fun addPage(notebookId: String, index: Int, size: PageSize? = null, pageId: String? = null): NotebookResult = db.withTransaction {
+    suspend fun addPage(
+        notebookId: String,
+        index: Int,
+        size: PageSize? = null,
+        pageId: String? = null,
+        template: PageTemplate? = null,
+    ): NotebookResult = db.withTransaction {
         val notebook = dao.getNotebook(notebookId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
         val now = clock.instant()
         val pages = dao.getPages(notebookId)
@@ -208,7 +240,7 @@ class NotebookRepository(
         val neighbour = pages.getOrNull(at - 1) ?: pages.getOrNull(at)
         if (pageId != null && dao.getPage(pageId) != null) return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
         val page = Page(
-            id = pageId ?: newId(), notebookId = notebookId, position = at, createdAt = now, updatedAt = now,
+            id = pageId ?: newId(), notebookId = notebookId, position = at, template = template, createdAt = now, updatedAt = now,
             width = size?.width ?: neighbour?.width, height = size?.height ?: neighbour?.height,
         )
         val renumbered = pages.toMutableList().apply { add(at, page) }

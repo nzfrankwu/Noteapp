@@ -129,6 +129,13 @@ The goal is to let the user import lecture PDFs, write on them, drop images onto
 - [ ] **3.10 Tablet and data-safety check.** _Installed 16 Nov (user OK'd; build of `5513838`). Before: copied the tablet's database + all 139 notebook files to `backups/tablet-db-2026-11-16-before-v5/` (git-ignored). Upgrade v4 → v5 PASSED: 10 courses, 5 folders, 124 tasks, 4 notebooks, 143 pages, every old value unchanged, new columns empty, 139 page files byte-identical, no crash. **Left: the user tries a real lecture PDF, pictures, export, sharing and the screenshot tool on the tablet.**_
    - Before installing on the tablet, copy its database (HANDOFF.md steps, ask first), then confirm the v4 → v5 upgrade keeps all 10 courses, 4 folders and 124 tasks, and every notebook.
    - The user tries a real lecture PDF, images, export and sharing on the tablet.
+### Tablet feedback, batch 1 (16 Nov)
+- [x] 🔺 **F30. No flash on pen-up.** The page layer drew the saved stroke 21–29 ms after Jetpack Ink's Compose layer had dropped it. New `WetInkLayer` (Ink's Compose pointer handling on the public `InProgressStrokesView`) + `InkHandoff`: the wet stroke stays until its page layer has drawn it, plus one frame (500 ms cap).
+- [x] **F31. Hold a picture to select it** (finger or pen, 0.5 s, held still); with the pen the same touch then drags it. Switches to the lasso.
+- [x] **F32. Pictures select in resize mode** (8 handles + rotate) when the selection is pictures only; a finger on a selection drags it or its handles.
+- [x] **F33. Crop** in the lasso menu for a single picture: the crop screen (`SnipOverlay`, now with margins) starts round the whole picture; Confirm saves the kept part as a new file in place (`InkImage.cropped`), one undo step.
+- [x] **F34. Second ＋ button: "Add Page"** like Notein (user's screenshot): Cancel · Add Page · Add, page styles, Import from Photo Library / Add from Camera (each a page), Add Page from PDF (`PdfPagePicker` thumbnails), Add the entire PDF (`NotebookRepository.insertPdfPages`, one transaction). Template Library left out (the user's call).
+
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest (unit tests + full emulator suite), then ask the user to approve merging into `main`.
 
 ## Files to change (main ones)

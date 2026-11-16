@@ -83,6 +83,7 @@ import com.nzfrankwu.noteapp.domain.ink.PageStrip
 import com.nzfrankwu.noteapp.ui.components.RoundIconButton
 import com.nzfrankwu.noteapp.ui.theme.DeskDark
 import com.nzfrankwu.noteapp.ui.theme.DeskLight
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -122,6 +123,11 @@ fun NotebookScreen(
     var imageMenuOpen by remember { mutableStateOf(false) }
     // The screenshot tool (PHASE-3.md 3.9): the still picture being cropped, and a capture of the pages.
     var snip by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    // The "Add Page" menu (F34), and a PDF whose pages are being chosen.
+    var addMenuOpen by remember { mutableStateOf(false) }
+    var choosingPdf by remember { mutableStateOf<NotebookViewModel.CopiedPdf?>(null) }
+    var pdfWhole by remember { mutableStateOf(false) }
+    var addAfter by remember { mutableIntStateOf(0) }
     // A picture being cropped (F33).
     var cropping by remember { mutableStateOf<CropTarget?>(null) }
     var capturing by remember { mutableStateOf(false) }
@@ -179,6 +185,57 @@ fun NotebookScreen(
 
     /** The page in the middle of the screen right now (read when a button is tapped). */
     fun pageNow(): Int = view.camera?.let { strip?.currentPage(it, view.viewSize.width.toFloat()) } ?: 0
+
+    // "Add Page" (F34): photos and camera pictures become pages of their own; PDFs add their pages.
+    val latestStrip by androidx.compose.runtime.rememberUpdatedState(strip)
+    // Shows page [index] once the page list has caught up with pages just added (so it's fitted to its own size).
+    fun showPage(index: Int) {
+        scope.launch {
+            val s = kotlinx.coroutines.withTimeoutOrNull(2_000) {
+                androidx.compose.runtime.snapshotFlow { latestStrip }.first { it != null && it.pageCount > index }
+            } ?: latestStrip ?: return@launch
+            view.animateTo(scope, s.fit(settings.fitMode, index.coerceAtMost(s.pageCount - 1), view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
+        }
+    }
+    fun addPicturePages(uris: List<android.net.Uri>) {
+        val resolver = context.contentResolver
+        scope.launch {
+            var at = addAfter
+            var failed = 0
+            for (uri in uris) {
+                if (viewModel.insertImageAsPage(at) { openPicture(resolver, uri) } != null) at++ else failed++
+            }
+            uris.filter { it.scheme == "file" }.forEach { runCatching { java.io.File(it.path!!).delete() } }
+            if (at > addAfter) showPage(addAfter + 1)
+            if (failed > 0) snackbar.showSnackbar(if (failed == 1) "A picture couldn't be read." else "$failed pictures couldn't be read.")
+        }
+    }
+    val pickPagePhotos = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia(20),
+    ) { uris -> if (uris.isNotEmpty()) addPicturePages(uris) }
+    var pageCameraFile by remember { mutableStateOf<java.io.File?>(null) }
+    val takePagePhoto = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.TakePicture(),
+    ) { ok ->
+        val file = pageCameraFile
+        if (ok && file != null && file.length() > 0) addPicturePages(listOf(android.net.Uri.fromFile(file)))
+    }
+    val pickPagePdf = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val resolver = context.contentResolver
+        scope.launch {
+            val pdf = viewModel.copyPdfIn({ resolver.openInputStream(uri) }) { message -> scope.launch { snackbar.showSnackbar(message) } }
+                ?: return@launch
+            if (pdfWhole) {
+                // "Add the entire PDF": every page, after the page on screen.
+                if (viewModel.insertPdfPages(addAfter, pdf, pdf.sizes.indices.toList()) > 0) showPage(addAfter + 1)
+            } else {
+                choosingPdf = pdf
+            }
+        }
+    }
 
     fun leave() {
         viewModel.saveNow()
@@ -265,6 +322,7 @@ fun NotebookScreen(
                 onUndo = { view.lasso = null; viewModel.undo() },
                 onRedo = { view.lasso = null; viewModel.redo() },
                 onImage = { imageMenuOpen = !imageMenuOpen; menuOpen = false },
+                onAddMenu = { view.lasso = null; imageMenuOpen = false; menuOpen = false; addAfter = pageNow(); addMenuOpen = true },
                 onScreenshot = {
                     imageMenuOpen = false
                     menuOpen = false
@@ -384,6 +442,46 @@ fun NotebookScreen(
                 )
             }
             ExportDialogs(viewModel, nb?.title.orEmpty())
+            if (addMenuOpen) {
+                AddPageDialog(
+                    current = pages.getOrNull(addAfter)?.template ?: nb?.template ?: PageTemplate.DEFAULT,
+                    onDismiss = { addMenuOpen = false },
+                    onChoice = { choice ->
+                        addMenuOpen = false
+                        when (choice) {
+                            is AddPageChoice.Blank -> scope.launch {
+                                if (viewModel.addPage(addAfter + 1, template = choice.template) != null) showPage(addAfter + 1)
+                            }
+                            AddPageChoice.Photos -> pickPagePhotos.launch(
+                                androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly),
+                            )
+                            AddPageChoice.Camera -> {
+                                val dir = java.io.File(context.cacheDir, CAMERA_DIR).apply { mkdirs() }
+                                val file = java.io.File(dir, "page-${System.currentTimeMillis()}.jpg")
+                                pageCameraFile = file
+                                runCatching { takePagePhoto.launch(androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", file)) }
+                            }
+                            AddPageChoice.PdfPages -> { pdfWhole = false; pickPagePdf.launch(arrayOf("application/pdf")) }
+                            AddPageChoice.WholePdf -> { pdfWhole = true; pickPagePdf.launch(arrayOf("application/pdf")) }
+                        }
+                    },
+                )
+            }
+            choosingPdf?.let { pdf ->
+                PdfPagePicker(
+                    pageCount = pdf.sizes.size,
+                    aspect = { pdf.sizes[it].width / pdf.sizes[it].height },
+                    thumbnail = { i, px -> viewModel.pdfThumbnail(pdf, i, px) },
+                    onDismiss = { choosingPdf = null; viewModel.discardPdf(pdf) },
+                    onAdd = { chosen ->
+                        choosingPdf = null
+                        scope.launch {
+                            val added = viewModel.insertPdfPages(addAfter, pdf, chosen)
+                            if (added > 0) showPage(addAfter + 1)
+                        }
+                    },
+                )
+            }
             cropping?.let { target ->
                 val image = remember(target) { target.picture.asImageBitmap() }
                 SnipOverlay(

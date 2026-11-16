@@ -50,6 +50,8 @@ fun EditorTopBar(
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onAddPage: () -> Unit,
+    /** Opens the "Add Page" menu (F34). */
+    onAddMenu: () -> Unit,
     /** Opens or closes the image menu. */
     onImage: () -> Unit,
     imageMenuOpen: Boolean,
@@ -93,6 +95,7 @@ fun EditorTopBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            BarButton(R.drawable.ic_add, "Add pages, photos or a PDF", onAddMenu, Modifier.testTag("add-menu"))
             BarButton(R.drawable.ic_note_add, "Add a page after this one", onAddPage, Modifier.testTag("add-page"))
             Box {
                 BarButton(R.drawable.ic_more_vert, "Notebook options", { onMenuOpen(true) })

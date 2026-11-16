@@ -215,6 +215,32 @@ class NotebookRepositoryTest {
     }
 
     @Test
+    fun pdfPages_canBeInsertedIntoAnyNotebook_inOrder_afterThePageOnScreen() = runBlocking {
+        val id = create()
+        val first = pageIds(id).single()
+        val second = (repo.addPage(id, 1) as NotebookResult.Success).id
+        val added = repo.insertPdfPages(id, 1, "pdf-x.pdf", listOf(2 to PageSize(842f, 595f), 4 to PageSize(612f, 792f)))!!
+        assertEquals(listOf(first) + added + second, pageIds(id))
+        assertEquals(listOf(0, 1, 2, 3), repo.getPages(id).map { it.position })
+        val pages = repo.getPages(id)
+        assertEquals(listOf(null, 2, 4, null), pages.map { it.pdfPage })
+        assertEquals(listOf(null, "pdf-x.pdf", "pdf-x.pdf", null), pages.map { it.pdfFile })
+        assertEquals(612f, pages[2].width)
+        assertEquals(true, repo.observeInFolder(folderId).first().single().isPdf)
+        // Nothing is inserted for bad input.
+        assertNull(repo.insertPdfPages(id, 0, "pdf-x.pdf", emptyList()))
+        assertNull(repo.insertPdfPages("missing", 0, "pdf-x.pdf", listOf(0 to PageSize(1f, 1f))))
+        assertEquals(4, repo.getPages(id).size)
+    }
+
+    @Test
+    fun anAddedPage_canHaveItsOwnPattern() = runBlocking {
+        val id = create(template = PageTemplate.LINED)
+        val page = (repo.addPage(id, 1, template = PageTemplate.GRID) as NotebookResult.Success).id
+        assertEquals(PageTemplate.GRID, db.notebookDao().getPage(page)!!.template)
+    }
+
+    @Test
     fun addedPage_inAPlainNotebook_usesTheNotebooksSize() = runBlocking {
         val id = create()
         val page = db.notebookDao().getPage((repo.addPage(id, 1) as NotebookResult.Success).id)!!

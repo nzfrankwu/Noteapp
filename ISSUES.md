@@ -14,6 +14,8 @@ _None known._
 
 ## Follow-ups / tech debt
 
+- **Add Page menu (F34):** pages added from a PDF (or the whole PDF) aren't an undo step; delete them with ⋮ → Delete this page. A copied-in PDF nobody used is removed if you cancel the page picker.
+- **Pen layer (F30):** our own copy of Jetpack Ink's Compose pen layer (`WetInkLayer`) now feeds the pen; if a future Ink version changes its Compose layer, compare. A finished stroke is drawn by both layers for one frame (invisible for pen; a highlighter may look a touch darker for that frame).
 - **Image menu, not checked yet (Phase 3.5):** Take Photo with the emulator's camera; "Allow limited access" (only some photos) and "Don't allow" paths; HEIC photos (the emulator has none). 
 - **Share to Noteapp (Phase 3.8):** sharing several pictures at once (SEND_MULTIPLE) is built but not tested by script on the emulator (adb can't send a list); try it from the Gallery on the tablet. Shares over 50 pictures keep the first 50.
 - **Screenshot tool (Phase 3.9):** a true side-by-side split with Chrome wasn't set up on the emulator (only multi-window mode); try it on the tablet. The capture includes Android's own red "sharing" chip in the status bar; crop it out. On ColorOS the prompt may look different.
@@ -55,6 +57,7 @@ _None known._
 
 ## Done
 
+- **Tablet feedback batch 1 (Phase 3, F30–F34), 16 Nov.** No flash when the pen lifts; hold a picture to select it; pictures select in resize mode and drag with a finger; Crop for pictures; a second ＋ "Add Page" menu (page style, photos, camera, pages from a PDF, a whole PDF).
 - **Phase 3 step 3.8 (16 Nov):** Share to Noteapp (layout OK'd by the user): share or "Open with" a PDF → pick a folder; pictures → add to a notebook (new pages at the end) or a new notebook in a folder.
 - **Phase 3 step 3.9 (16 Nov):** the screenshot tool (crop button): snip the notebook, or the whole screen in split screen, and insert it. Fixed on the way: a crash when confirming (Compose gives a hardware bitmap).
 - **Phase 3 step 3.7 (16 Nov):** Export as PDF (⋮ → Export as PDF → Share… or Save to device).

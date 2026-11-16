@@ -15,7 +15,7 @@ _Last updated: 16 Nov 2026 (3.1–3.9 done and pushed; installed on the tablet, 
 
 ## Next steps (in order)
 
-1. **Waiting on the user:** their tablet testing of Phase 3 (steps in REPORT.md) and feedback; OK for the IDEA.md §2.7/§5 edit (wording in REPORT.md and ISSUES.md). The v4 → v5 upgrade on the tablet already passed (16 Nov).
+1. **Tablet feedback batch 1 (F30–F34) is done** (16 Nov, pushed; details in PHASE-3.md). Ask before installing it on the tablet (copy its database first; `tablet_snapshot.sh`). **Waiting on the user:** more tablet testing and feedback; OK for the IDEA.md §2.7/§5 edit (wording in REPORT.md and ISSUES.md). The v4 → v5 upgrade on the tablet already passed (16 Nov).
 2. Then the **end-of-phase `/code-review`**, fixes, rebuild and retest, and ask to merge into `main`.
    - 3.8 left: `data/ShareTargets`, `ui/share/ShareSheet`, `MainActivity.takeFileShare / isFileShare`, the sheet block in `NoteAppRoot` (after `fun back()`), `AppContainer.sharedImport`.
    - 3.9 left: `capture/ScreenCaptureService` + `ScreenCapture`, `ui/notebook/SnipOverlay`, `NotebookViewModel.insertSnip`.
@@ -139,6 +139,7 @@ _Last updated: 16 Nov 2026 (3.1–3.9 done and pushed; installed on the tablet, 
   - `kotlinx.serialization` is at 1.9.0 (the newest for Kotlin 2.2, which comes with AGP 9.5.1). It must stay at or above Room's needs, or `MigrationTest` crashes.
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
 - **Real upgrade test, scripted (3.1):** `screenshots/upgrade_v5.sh <old APK as a Windows path>` installs the old build, makes sample data and a 51-page notebook, snapshots, installs the new build, snapshots again; then `python compare_dbs.py upgrade-v5/before upgrade-v5/after` compares every row and the page files' md5s. Pass the APK as `C:\...`: the script sets `MSYS_NO_PATHCONV=1`, so adb can't read `/c/...` paths.
+- **The pen layer is ours now (F30):** `ui/notebook/WetInkLayer.kt` replaces Ink's Compose `InProgressStrokes`; finished strokes are removed by `InkHandoff` after the page layer draws them (`drawStrokes` calls `handoff.drawn`). Debugging timing: log in `onStrokesFinished` and in `drawStrokes`.
 - **`folders.course_id` is unique:** subfolders store NULL there (they inherit the course through `parent_id`). Test data with a subfolder must use NULL.
 - **Sharing into Noteapp on the emulator:** open a PDF from Files (Downloads) → "Open with" → Noteapp. For pictures: `adb shell pm grant com.nzfrankwu.noteapp android.permission.READ_MEDIA_IMAGES`, then `am start -a android.intent.action.SEND -t image/png --eu android.intent.extra.STREAM content://media/external/images/media/<id> -n com.nzfrankwu.noteapp/.MainActivity` (ids from `content query --uri content://media/external/images/media --projection _id:_display_name`). `am` can't send a URI list, so SEND_MULTIPLE is untested by script.
 - **Multi-window on the emulator:** `adb shell am start --windowingMode 6 -n com.nzfrankwu.noteapp/.MainActivity` puts Noteapp's task in multi-window mode (not a neat split, but `isInMultiWindowMode` is true), which is enough to test the MediaProjection path. Android 16's prompt shows "Share entire screen" because we pass `createConfigForDefaultDisplay()`.

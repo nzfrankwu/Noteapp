@@ -335,6 +335,55 @@ class NotebookViewModel(
         }
     }
 
+    /** A PDF copied into this notebook's folder, ready to add pages from (F34). */
+    class CopiedPdf(val name: String, val file: java.io.File, val sizes: List<com.nzfrankwu.noteapp.domain.PageSize>)
+
+    /**
+     * Copies the PDF [open] reads into this notebook's folder and reads its pages. Null, with
+     * [onFail] told why, if it can't be read, is password-protected or isn't a PDF (then the copy
+     * is removed again: nothing uses it).
+     */
+    suspend fun copyPdfIn(open: () -> java.io.InputStream?, onFail: (String) -> Unit): CopiedPdf? = withContext(io) {
+        val name = try {
+            open()?.use { files.importPdf(notebookId, it) }
+        } catch (e: Exception) {
+            null
+        } ?: return@withContext null.also { withContext(Dispatchers.Main) { onFail(com.nzfrankwu.noteapp.data.PdfImport.CANT_READ) } }
+        val file = files.assetFile(notebookId, name)
+        when (val info = com.nzfrankwu.noteapp.data.PdfPages.readInfo(file)) {
+            is com.nzfrankwu.noteapp.data.PdfInfo.Ok -> CopiedPdf(name, file, info.pageSizes)
+            else -> {
+                file.delete()
+                withContext(Dispatchers.Main) {
+                    onFail(if (info == com.nzfrankwu.noteapp.data.PdfInfo.PasswordProtected) com.nzfrankwu.noteapp.data.PdfImport.PASSWORD else com.nzfrankwu.noteapp.data.PdfImport.BROKEN)
+                }
+                null
+            }
+        }
+    }
+
+    /** A small picture of page [index] of [pdf], for choosing pages (F34). */
+    suspend fun pdfThumbnail(pdf: CopiedPdf, index: Int, widthPx: Int): ImageBitmap? {
+        val size = pdf.sizes.getOrNull(index) ?: return null
+        return this.pdf.wholePage(pdf.file, index, size, widthPx / size.width)?.bitmap?.asImageBitmap()
+    }
+
+    /** Adds pages [indices] of [pdf] after page [afterIndex], in order. Returns how many were added. */
+    suspend fun insertPdfPages(afterIndex: Int, pdf: CopiedPdf, indices: List<Int>): Int {
+        val chosen = indices.filter { it in pdf.sizes.indices }.map { it to pdf.sizes[it] }
+        val ids = notebooks.insertPdfPages(notebookId, afterIndex + 1, pdf.name, chosen) ?: return 0
+        version++
+        return ids.size
+    }
+
+    /** Forgets a copied PDF nobody used (the person cancelled choosing pages). */
+    fun discardPdf(pdf: CopiedPdf) {
+        viewModelScope.launch(io) {
+            // Only if no page uses it (a page may if the same copy was used before).
+            if (pages.value.none { it.pdfFile == pdf.name }) pdf.file.delete()
+        }
+    }
+
     /** The full picture file of [image], for cropping (null if it can't be read). */
     suspend fun loadFullPicture(image: com.nzfrankwu.noteapp.domain.ink.InkImage): Bitmap? = withContext(io) {
         runCatching { android.graphics.BitmapFactory.decodeFile(files.assetFile(notebookId, image.asset).path) }.getOrNull()
@@ -614,8 +663,13 @@ class NotebookViewModel(
      * Adds an empty page at [index] and returns its ID (null if it failed). [recordUndo] makes it
      * an undo step (the Add page button); a page added by itself after writing isn't one.
      */
-    suspend fun addPage(index: Int, recordUndo: Boolean = true, size: com.nzfrankwu.noteapp.domain.PageSize? = null): String? {
-        val result = notebooks.addPage(notebookId, index, size)
+    suspend fun addPage(
+        index: Int,
+        recordUndo: Boolean = true,
+        size: com.nzfrankwu.noteapp.domain.PageSize? = null,
+        template: com.nzfrankwu.noteapp.domain.PageTemplate? = null,
+    ): String? {
+        val result = notebooks.addPage(notebookId, index, size, template = template)
         if (result !is NotebookResult.Success) return null
         // The page list may already have shown (and readied) the new page; keep anything on it.
         if (!ink.isLoaded(result.id)) ink.load(result.id, emptyList())
