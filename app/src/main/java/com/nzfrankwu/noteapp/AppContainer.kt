@@ -50,6 +50,11 @@ class AppContainer(context: Context) {
         com.nzfrankwu.noteapp.data.PdfImport(notebookRepository, notebookFiles, thumbnails)
     }
 
+    /** PDFs and pictures shared into Noteapp from other apps. */
+    val sharedImport: com.nzfrankwu.noteapp.data.SharedImport by lazy {
+        com.nzfrankwu.noteapp.data.SharedImport(notebookRepository, notebookFiles, com.nzfrankwu.noteapp.data.ImageImport(notebookFiles), pdfImport)
+    }
+
     /** The notebook toolbar's remembered choices. */
     val inkSettings: InkSettings by lazy { InkSettings(appContext) }
 

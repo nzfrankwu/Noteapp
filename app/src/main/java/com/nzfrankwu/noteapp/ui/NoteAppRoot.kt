@@ -23,6 +23,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.reminders.Notifications
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,6 +96,7 @@ fun appContainer(): AppContainer =
 fun NoteAppRoot(
     openTaskRequest: MutableStateFlow<String?> = MutableStateFlow(null),
     shareRequest: MutableStateFlow<SharedText?> = MutableStateFlow(null),
+    fileShareRequest: MutableStateFlow<com.nzfrankwu.noteapp.data.SharedFiles?> = MutableStateFlow(null),
 ) {
     val container = appContainer()
     val context = LocalContext.current
@@ -132,6 +134,62 @@ fun NoteAppRoot(
     val scope = rememberCoroutineScope()
 
     fun back() { backStack.removeLastOrNull() }
+
+    // A PDF or pictures shared from another app: "Add to Noteapp" asks where they go (PHASE-3.md 3.8).
+    val sharedFiles by fileShareRequest.collectAsStateWithLifecycle()
+    var shareBusy by remember { androidx.compose.runtime.mutableStateOf(false) }
+    sharedFiles?.let { request ->
+        val allFolders by container.folderRepository.observeAllFolders().collectAsStateWithLifecycle(emptyList())
+        val allNotebooks by container.notebookRepository.observeAllActive().collectAsStateWithLifecycle(emptyList())
+        val tree = remember(allFolders) { com.nzfrankwu.noteapp.data.ShareTargets.folderTree(allFolders) }
+        val groups = remember(tree, allNotebooks) { com.nzfrankwu.noteapp.data.ShareTargets.notebooksByFolder(tree, allNotebooks) }
+        fun finish(openNotebook: String?, message: String?) {
+            request.files.forEach { runCatching { it.file.delete() } }
+            fileShareRequest.value = null
+            shareBusy = false
+            openNotebook?.let { backStack.add(com.nzfrankwu.noteapp.ui.navigation.NotebookRoute(it)) }
+            message?.let { scope.launch { snackbar.showSnackbar(it) } }
+        }
+        val sources = request.files.map { f -> { f.file.inputStream() as java.io.InputStream? } }
+        com.nzfrankwu.noteapp.ui.share.ShareSheet(
+            shared = request,
+            folders = tree,
+            notebooks = groups,
+            busy = shareBusy,
+            onPickFolder = { folderId ->
+                shareBusy = true
+                scope.launch {
+                    if (request.kind == com.nzfrankwu.noteapp.data.SharedKind.PDF) {
+                        val title = com.nzfrankwu.noteapp.data.PdfImport.titleFrom(request.files.first().displayName)
+                        when (val r = container.sharedImport.pdfToFolder(folderId, title, sources.first())) {
+                            is com.nzfrankwu.noteapp.data.PdfImportResult.Success -> finish(r.notebookId, null)
+                            is com.nzfrankwu.noteapp.data.PdfImportResult.Failure -> finish(null, r.message)
+                        }
+                    } else {
+                        val date = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.ENGLISH))
+                        val title = com.nzfrankwu.noteapp.data.SharedImport.titleForPictures(request.files.map { it.displayName }, date)
+                        val id = container.sharedImport.picturesToNewNotebook(folderId, title, sources)
+                        finish(id, if (id == null) "Those pictures couldn't be read." else null)
+                    }
+                }
+            },
+            onPickNotebook = { notebookId ->
+                shareBusy = true
+                scope.launch {
+                    val added = container.sharedImport.picturesToNotebook(notebookId, sources)
+                    finish(
+                        notebookId.takeIf { added > 0 },
+                        when {
+                            added == 0 -> "Those pictures couldn't be read."
+                            added < request.files.size -> "${request.files.size - added} pictures couldn't be read."
+                            else -> null
+                        },
+                    )
+                }
+            },
+            onCancel = { finish(null, null) },
+        )
+    }
 
     Box(Modifier.fillMaxSize()) {
         androidx.compose.runtime.CompositionLocalProvider(com.nzfrankwu.noteapp.ui.components.LocalThumbnails provides container.thumbnails) {

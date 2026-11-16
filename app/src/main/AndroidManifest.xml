@@ -46,6 +46,25 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Share to Noteapp (Phase 3): a PDF becomes a notebook in a folder you pick; pictures
+                 go into a notebook or a new one. "Open with" works for PDFs too. -->
+            <intent-filter android:label="Add to Noteapp">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter android:label="Add to Noteapp">
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter android:label="Add to Noteapp">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
             <!-- Quick-add: share a link (or any text) to Noteapp to start a new task with it. -->
             <intent-filter android:label="New task">
                 <action android:name="android.intent.action.SEND" />

@@ -47,6 +47,10 @@ interface NotebookDao {
     )
     fun observeInFolder(folderId: String): Flow<List<NotebookListItem>>
 
+    /** Every notebook (not deleted), A–Z, updating live: for "Add to Noteapp". */
+    @Query("SELECT * FROM notebooks WHERE deleted_at IS NULL ORDER BY title COLLATE NOCASE")
+    fun observeAllActive(): Flow<List<Notebook>>
+
     /** How many notebooks (not deleted) are in the folder. */
     @Query("SELECT COUNT(*) FROM notebooks WHERE folder_id = :folderId AND deleted_at IS NULL")
     suspend fun countInFolder(folderId: String): Int

@@ -55,6 +55,9 @@ class FolderRepository(
     /** The folders inside [parentId], A–Z, with how many things each holds. Updates live. */
     fun observeSubfolders(parentId: String): Flow<List<SubfolderListItem>> = folderDao.observeChildren(parentId)
 
+    /** Every folder at every depth, updating live (for "Add to Noteapp"). */
+    fun observeAllFolders(): Flow<List<com.nzfrankwu.noteapp.data.db.Folder>> = folderDao.observeAll()
+
     /**
      * Where a folder sits: its path from the top folder down to it, and the top folder's course
      * (which subfolders belong to). Null once the folder is deleted. Updates live.

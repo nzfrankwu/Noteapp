@@ -10,16 +10,12 @@ _None known._
 
 - **IDEA.md §2.7 and §5: OK to note that snip moved to Phase 3?** Proposed text: in §2.7, "Built in Phase 3 (moved from Phase 5 in Nov 2026): capture → crop → insert, alone or in split screen. Snip between NoteApp's own split notebooks stays in Phase 5."; in the §5 table, add screen capture/snip to Phase 3 and keep only "snip between split notebooks" in Phase 5.
 
-- **Share to Noteapp sheet (Phase 3.8): OK this layout, or send a Notein screenshot of its import sheet.** Proposal: when you share into Noteapp, a dialog titled "Add to Noteapp" opens over the app.
-  - A **PDF**: "Import “Lecture 7.pdf” into…", then your folders as a list (subfolders indented under their folder, each with a folder icon). Tap a folder: the PDF becomes a notebook there and opens.
-  - **Pictures**: two tabs at the top, **Add to a notebook** | **New notebook in a folder**. The first lists your notebooks under folder headings; tap one and the pictures are added as new pages at its end (one page each, shaped like the picture) and it opens. The second lists folders; tap one and a new notebook (named after the picture, or "Shared pictures 16 Nov") is made there.
-  - A **Cancel** button at the bottom. Nothing is saved until you tap a folder or notebook.
-
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
 ## Follow-ups / tech debt
 
 - **Image menu, not checked yet (Phase 3.5):** Take Photo with the emulator's camera; "Allow limited access" (only some photos) and "Don't allow" paths; HEIC photos (the emulator has none). 
+- **Share to Noteapp (Phase 3.8):** sharing several pictures at once (SEND_MULTIPLE) is built but not tested by script on the emulator (adb can't send a list); try it from the Gallery on the tablet. Shares over 50 pictures keep the first 50.
 - **Screenshot tool (Phase 3.9):** a true side-by-side split with Chrome wasn't set up on the emulator (only multi-window mode); try it on the tablet. The capture includes Android's own red "sharing" chip in the status bar; crop it out. On ColorOS the prompt may look different.
 - **Export (Phase 3.7):** PDF pages with a `/Rotate` or a crop box offset aren't tested; ink is placed using the crop box. The app is about 9 MB bigger (debug) with PdfBox; check the release size.
 - **Pictures while selected (Phase 3.6):** a selected picture is drawn above the ink until it's let go (it's in the selection layer); the rotate handle turns pictures too but a non-square picture turned and then stretched sideways is only approximately right (the stretch follows the box, not the picture's own axes).
@@ -59,6 +55,7 @@ _None known._
 
 ## Done
 
+- **Phase 3 step 3.8 (16 Nov):** Share to Noteapp (layout OK'd by the user): share or "Open with" a PDF → pick a folder; pictures → add to a notebook (new pages at the end) or a new notebook in a folder.
 - **Phase 3 step 3.9 (16 Nov):** the screenshot tool (crop button): snip the notebook, or the whole screen in split screen, and insert it. Fixed on the way: a crash when confirming (Compose gives a hardware bitmap).
 - **Phase 3 step 3.7 (16 Nov):** Export as PDF (⋮ → Export as PDF → Share… or Save to device).
 - **Phase 3 step 3.6 (16 Nov):** the lasso selects pictures (loop or tap) to move, resize, turn, copy, cut, paste, duplicate and delete, all undoable.

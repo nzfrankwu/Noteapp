@@ -46,6 +46,9 @@ class NotebookRepository(
     /** The folder's notebooks (not deleted), most recently changed first. Updates live. */
     fun observeInFolder(folderId: String): Flow<List<NotebookListItem>> = dao.observeInFolder(folderId)
 
+    /** Every notebook (not deleted), updating live. */
+    fun observeAllActive(): Flow<List<Notebook>> = dao.observeAllActive()
+
     /** One notebook (deleted or not), updating live. */
     fun observeNotebook(notebookId: String): Flow<Notebook?> = dao.observeNotebook(notebookId)
 

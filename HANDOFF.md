@@ -1,13 +1,13 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (hands-off mode stopped; 3.1–3.7 and 3.9 done and pushed; 3.8's sheet and the IDEA.md edit wait on the user; then 3.10). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (3.1–3.9 done and pushed; the IDEA.md edit and the tablet install (3.10) wait on the user). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
-- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu), 3.6 (lasso with pictures) and 3.7 (Export as PDF) are done**. 3.8 (Share to Noteapp): the data side is done; the destination sheet waits for the user's OK on its layout. 3.9 (screenshot tool) is done. Next: 3.8's sheet (after the user's OK), then 3.10 (tablet, ask first), then the end-of-phase review.
+- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu), 3.6 (lasso with pictures) 3.7 (Export as PDF), 3.8 (Share to Noteapp) and 3.9 (screenshot tool) are done**. Next: 3.10 (tablet, ask first), then the end-of-phase review.
 - **Branch:** `phase-3` (from `main`), pushed after each step.
-- **Mode: hands-off** (the user said so on 16 Nov, 3.2 onwards): commit and push after each passing step; write `REPORT.md` when stopping; list every 🔺 step there.
+- **Mode:** the user ran hands-off on 16 Nov, then came back and OK'd 3.8's sheet layout ("Yes, build it"). Default to "Working together" unless told otherwise.
 - **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
 - **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor), 2.11 (thumbnails), **2.12 (performance; verified on the emulator, 15 Nov)**: two full pages scroll at a median 19 ms a frame (was 150 ms), render thread about 1 ms. Rotating now keeps the current page (`rememberSaveable` in `NotebookScreen`).
 - **End-of-phase `/code-review` done (15 Nov):** 8 findings, 7 fixed (save retries even after leaving, no crash from a DB error after saving, lasso cleared by the eraser end / add page / delete page, newest highlighter chunk in its own layer under the page picture, add-page race, garbled `Migrations.kt` comments). The 8th (deleted notebooks left without a folder when their folder is deleted) is a Phase 6 follow-up in ISSUES.md.
@@ -15,25 +15,19 @@ _Last updated: 16 Nov 2026 (hands-off mode stopped; 3.1–3.7 and 3.9 done and p
 
 ## Next steps (in order)
 
-1. **Ask the user** about the two waiting items (3.8's sheet layout, the IDEA.md §2.7/§5 edit). Both are in REPORT.md and ISSUES.md.
-   - 3.9 left: `capture/ScreenCaptureService` + `ScreenCapture` (capture, `readable`, `isAllBlack`), `ui/notebook/SnipOverlay`, `NotebookViewModel.insertSnip`, the `pagesLayer` / `capturing` capture in `NotebookScreen`.
-2. **Step 3.8's sheet, once the user OKs a layout** (proposal in ISSUES.md "Open questions"): then add manifest `SEND`/`SEND_MULTIPLE` (`application/pdf`, `image/*`) and `VIEW` (`application/pdf`), and in `MainActivity.takeRequests` copy each shared URI with `SharedImport.copyToInbox(filesDir/shared-inbox)` straight away, then show the sheet from `NoteAppRoot`, call `SharedImport`, open the notebook, and delete the inbox copies.
-   - 3.8 groundwork: `data/SharedImport`, `NotebookRepository.newPageId / addPage(pageId) / createNotebookOfPages`, `PageSize.forPicture`.
-   - 3.7 left: `data/PdfExport`, `StrokeShape`, `InkBrushes.exportShape`, `NotebookViewModel.exportPdf / ExportState`, `ExportDialogs` in `NotebookScreen`.
-   - 3.6 left: `LassoState.Selected.images`, `LassoBox.mapImage`, `InkGeometry.imageInLoop`, `NotebookViewModel.Clip / replaceSelection / deleteSelection / imageAt / imagesInLoop`.
-   - 3.5 left: `ImageMenu.kt`, `data/ImageImport` (+ `loadForScreen`), `data/RecentImages`, `NotebookViewModel.insertImages / insertImageAsPage / prepareImages / imageBitmaps`, `drawPicture` in `NotebookCanvas`, `InkSketch.drawImages`, FileProvider `${applicationId}.files` (`res/xml/file_paths.xml`: cache `camera/`, `exports/`).
-   - 3.4 left: `InkImage`, `PageContent`, `PageInkCodec.decodePage`, `NotebookInk.images/addImages/remove/replace/add(strokes, images)`, `InkEdit.Group`, `changedPages`.
-   - 3.3 left: `PdfImport` (ID → copy into `notebooks/<id>/pdf-<uuid>.pdf` → `PdfPages.readInfo` → `createPdfNotebook`), `PdfPages` (whole-page pictures + `region` for deep zoom), `NotebookViewModel.preparePdf` / `preparePdfDetail` → `pdfPictures` / `pdfDetail` state drawn in `NotebookCanvas` layer 1, `NotebookListItem.isPdf`, `LibraryFilter.PDFS`.
-   - 3.2 left: `PageStrip(sizes)`, `pageTop(i)` (pages centred in a band as tall as the tallest), `withPageAdded`, `Page.size(notebook)`.
-2. Key Phase 3 decisions (details in `PHASE-3.md`):
+1. **Waiting on the user:** OK for the IDEA.md §2.7/§5 edit (wording in REPORT.md and ISSUES.md), and OK to install on the tablet (3.10: copy its database first, check counts after the v4 → v5 upgrade).
+2. Then the **end-of-phase `/code-review`**, fixes, rebuild and retest, and ask to merge into `main`.
+   - 3.8 left: `data/ShareTargets`, `ui/share/ShareSheet`, `MainActivity.takeFileShare / isFileShare`, the sheet block in `NoteAppRoot` (after `fun back()`), `AppContainer.sharedImport`.
+   - 3.9 left: `capture/ScreenCaptureService` + `ScreenCapture`, `ui/notebook/SnipOverlay`, `NotebookViewModel.insertSnip`.
+3. Key Phase 3 decisions (details in `PHASE-3.md`):
    - PdfBox-Android is approved for PDF export.
    - The image menu shows recent photos; the photo-access permission is approved.
    - The screenshot tool captures other apps too (via MediaProjection) and inserts the snip as an image right away. This pulls IDEA.md §2.7 forward from Phase 5; update IDEA.md §2.7 and §5 at step 3.9.
    - A shared image asks each time: add to a notebook, or a new notebook in a folder.
    - Writing on a PDF's last page adds a blank page (same as notebooks).
    - Images are movable objects (lasso).
-3. Follow-ups from Phase 2 (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release; tune the steady/low/medium pen widths after real use (F22); deleted notebooks left without a folder (Phase 6).
-4. Still unreported tablet checks: a reminder arriving with the app swiped away (ColorOS); "Last synced" moving on its own (background sync).
+4. Follow-ups from Phase 2 (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release; tune the steady/low/medium pen widths after real use (F22); deleted notebooks left without a folder (Phase 6).
+5. Still unreported tablet checks: a reminder arriving with the app swiped away (ColorOS); "Last synced" moving on its own (background sync).
 
 ## Tablet database safety copy
 
@@ -47,7 +41,6 @@ _Last updated: 16 Nov 2026 (hands-off mode stopped; 3.1–3.7 and 3.9 done and p
 ## Waiting on the user
 
 - **IDEA.md §2.7 and §5 (snip moved to Phase 3):** the plan said to update them at 3.9, but the tool refused to edit IDEA.md (CLAUDE.md: never change it without asking). Ask the user to OK the edit (text in REPORT.md), or make it themselves.
-- **Phase 3, step 3.8: the "Share to Noteapp" sheet's layout** (no Notein screenshot of it; CLAUDE.md says to describe a new screen first). The proposal is in ISSUES.md → Open questions.
 
 - **Phase 2 on the tablet** (installed 15 Nov; the user is checking it):
   - writing with the OPPO Pencil 2: lag, pressure, palm rejection
@@ -146,6 +139,7 @@ _Last updated: 16 Nov 2026 (hands-off mode stopped; 3.1–3.7 and 3.9 done and p
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
 - **Real upgrade test, scripted (3.1):** `screenshots/upgrade_v5.sh <old APK as a Windows path>` installs the old build, makes sample data and a 51-page notebook, snapshots, installs the new build, snapshots again; then `python compare_dbs.py upgrade-v5/before upgrade-v5/after` compares every row and the page files' md5s. Pass the APK as `C:\...`: the script sets `MSYS_NO_PATHCONV=1`, so adb can't read `/c/...` paths.
 - **`folders.course_id` is unique:** subfolders store NULL there (they inherit the course through `parent_id`). Test data with a subfolder must use NULL.
+- **Sharing into Noteapp on the emulator:** open a PDF from Files (Downloads) → "Open with" → Noteapp. For pictures: `adb shell pm grant com.nzfrankwu.noteapp android.permission.READ_MEDIA_IMAGES`, then `am start -a android.intent.action.SEND -t image/png --eu android.intent.extra.STREAM content://media/external/images/media/<id> -n com.nzfrankwu.noteapp/.MainActivity` (ids from `content query --uri content://media/external/images/media --projection _id:_display_name`). `am` can't send a URI list, so SEND_MULTIPLE is untested by script.
 - **Multi-window on the emulator:** `adb shell am start --windowingMode 6 -n com.nzfrankwu.noteapp/.MainActivity` puts Noteapp's task in multi-window mode (not a neat split, but `isInMultiWindowMode` is true), which is enough to test the MediaProjection path. Android 16's prompt shows "Share entire screen" because we pass `createConfigForDefaultDisplay()`.
 - **Compose `GraphicsLayer.toImageBitmap()` gives a HARDWARE bitmap:** `getPixel` crashes on it; copy it (`ScreenCapture.readable`).
 - **Test pictures:** `screenshots/make_test_png.py out.png W H [--alpha]`; push to `/sdcard/Pictures/` and send `MEDIA_SCANNER_SCAN_FILE` so the Recent grid sees them. The emulator's photo permission dialog offers "Allow limited access / Allow all / Don't allow".
