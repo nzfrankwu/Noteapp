@@ -112,8 +112,8 @@ The user added more to this phase:
   - add or change the note, delete
   - tap → open at the page/spot
   - ★ check-in
-- [ ] **4.9 Chips on task cards** (`TaskCard`: optional `notebooks` + `onOpenNotebook`) in Home Due soon and folder task lists; one `observeAllLinks()` flow per screen.
-- [ ] **4.10 Tile ⋮ "Link to task…"** (`FolderLibrary.LibraryRow` → the task picker, this course's tasks).
+- [x] **4.9 Chips on task cards** (16 Nov, hands-off): one app-wide `observeAllLinks()` flow, provided to every `TaskCard` through `LocalTaskNotebooks` (set in `NoteAppRoot`), so Due soon, folder lists and the Calendar day panel all show chips (at most 3, then "+N"). (`TaskCard`: optional `notebooks` + `onOpenNotebook`) in Home Due soon and folder task lists; one `observeAllLinks()` flow per screen.
+- [x] **4.10 Tile ⋮ "Link to task…"** (16 Nov, hands-off): `FolderViewModel(links = …)`, reusing `LinkTaskSheet`. (`FolderLibrary.LibraryRow` → the task picker, this course's tasks).
 - [ ] **4.11 Tablet check**: ask first; back up with `tablet_snapshot.sh` and compare before/after. This install upgrades the database to v6.
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest, then ask to merge into `main`.
 

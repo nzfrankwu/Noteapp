@@ -103,6 +103,8 @@ fun LibraryRow(
     onDeleteNotebook: (NotebookListItem) -> Unit,
     /** The course the folder belongs to: subfolder icons take its colour. */
     courseCode: String? = null,
+    /** "Link to task…" in a notebook tile's menu (Phase 4), or null to leave it out. */
+    onLinkNotebook: ((NotebookListItem) -> Unit)? = null,
 ) {
     val folderTint = courseCode?.let { LocalCourseColors.current.of(it).accent }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.ItemGap)) {
@@ -131,7 +133,8 @@ fun LibraryRow(
                     pageHeight = entry.item.notebook.pageHeight,
                     isPdf = entry.item.isPdf,
                     onOpen = { onOpenNotebook(entry.item.notebook.id) },
-                    actions = listOf(
+                    actions = listOfNotNull(
+                        onLinkNotebook?.let { link -> TileAction("Link to task\u2026") { link(entry.item) } },
                         TileAction("Rename") { onRenameNotebook(entry.item) },
                         TileAction("Delete", destructive = true) { onDeleteNotebook(entry.item) },
                     ),

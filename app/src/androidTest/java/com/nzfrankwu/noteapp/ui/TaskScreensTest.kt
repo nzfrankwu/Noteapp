@@ -336,4 +336,21 @@ class TaskScreensTest {
         assertEquals(page3, opened!!.second)
         assertEquals(spot, opened!!.third)
     }
+
+    @Test
+    fun taskCard_showsLinkedNotebookChips_thatOpenTheNotebook() {
+        val id = addTask("Lab 3")
+        val task = runBlocking { tasks.getTask(id) }!!
+        var opened: String? = null
+        val linked = com.nzfrankwu.noteapp.ui.components.TaskNotebooks(
+            mapOf(id to listOf(com.nzfrankwu.noteapp.data.db.LinkedNotebook(id, "nb-1", "Lab notes"))),
+        ) { opened = it }
+        showOnTablet {
+            androidx.compose.runtime.CompositionLocalProvider(com.nzfrankwu.noteapp.ui.components.LocalTaskNotebooks provides linked) {
+                com.nzfrankwu.noteapp.ui.components.TaskCard(task, "ELECTENG 204", Instant.now(), java.time.ZoneId.systemDefault(), onClick = {}, onStatusChange = {})
+            }
+        }
+        compose.onNodeWithTag("notebook-chip-Lab notes").performClick()
+        compose.waitUntil(5_000) { opened == "nb-1" }
+    }
 }

@@ -192,7 +192,16 @@ fun NoteAppRoot(
     }
 
     Box(Modifier.fillMaxSize()) {
-        androidx.compose.runtime.CompositionLocalProvider(com.nzfrankwu.noteapp.ui.components.LocalThumbnails provides container.thumbnails) {
+        // Every task's linked notebooks, for the chips on task cards (PHASE-4.md 4.9): one query for the whole app.
+        val taskNotebooks by remember { container.linkRepository.observeAllLinks() }
+            .collectAsStateWithLifecycle(initialValue = emptyMap())
+        val cardNotebooks = remember(taskNotebooks) {
+            com.nzfrankwu.noteapp.ui.components.TaskNotebooks(taskNotebooks) { notebookId -> backStack.add(NotebookRoute(notebookId)) }
+        }
+        androidx.compose.runtime.CompositionLocalProvider(
+            com.nzfrankwu.noteapp.ui.components.LocalThumbnails provides container.thumbnails,
+            com.nzfrankwu.noteapp.ui.components.LocalTaskNotebooks provides cardNotebooks,
+        ) {
         NavDisplay(
             backStack = backStack,
             onBack = ::back,
@@ -303,7 +312,7 @@ fun NoteAppRoot(
                 entry<FolderRoute> { route ->
                     FolderScreen(
                         viewModel = viewModel {
-                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport)
+                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport, links = container.linkRepository)
                         },
                         onBack = ::back,
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },

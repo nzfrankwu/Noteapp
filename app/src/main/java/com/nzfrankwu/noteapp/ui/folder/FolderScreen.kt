@@ -136,6 +136,15 @@ fun FolderScreen(
     }
     val importing by viewModel.importing.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
+    // "Link to task…" from a notebook tile (PHASE-4.md 4.10).
+    val linking by viewModel.linking.collectAsStateWithLifecycle()
+    val linkChoices by viewModel.linkChoices.collectAsStateWithLifecycle()
+    val linkedMessage by viewModel.linked.collectAsStateWithLifecycle()
+    LaunchedEffect(linkedMessage) {
+        val text = linkedMessage ?: return@LaunchedEffect
+        snackbar.showSnackbar(text)
+        viewModel.linkedShown()
+    }
     if (importing) ImportingDialog()
     var chosenTab by rememberSaveable { mutableStateOf(FolderTab.TASKS) }
     // Without a linked course there's nothing to put on a calendar: Tasks only.
@@ -299,6 +308,7 @@ fun FolderScreen(
                                 onRenameNotebook = viewModel::startRenameNotebook,
                                 onDeleteNotebook = viewModel::deleteNotebook,
                                 courseCode = courseCode,
+                                onLinkNotebook = if (viewModel.canLink) viewModel::startLinkNotebook else null,
                             )
                         }
                     }
@@ -320,6 +330,15 @@ fun FolderScreen(
     }
 
     FolderDialogs(dialog, viewModel, item?.folder?.name.orEmpty(), courseCode, coursesWithoutFolder)
+    if (linking != null) {
+        com.nzfrankwu.noteapp.ui.notebook.LinkTaskSheet(
+            choices = linkChoices,
+            now = java.time.Instant.now(),
+            zone = viewModel.zone(),
+            onPick = viewModel::linkNotebookTo,
+            onCancel = viewModel::cancelLinkNotebook,
+        )
+    }
 }
 
 /** The Tasks heading and the course's task sections (top-level folders only). */
