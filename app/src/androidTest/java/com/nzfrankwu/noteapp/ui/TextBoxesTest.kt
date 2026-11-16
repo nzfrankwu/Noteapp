@@ -47,6 +47,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 
 /** Text boxes in the editor (PHASE-5.md 5.3): placing, typing, styling, editing, deleting, undo. */
+@OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class TextBoxesTest {
     @get:Rule
@@ -76,9 +77,9 @@ class TextBoxesTest {
     @After
     fun tearDown() = scope.cancel()
 
-    private fun show() {
+    private fun show(settings: InkToolSettings = InkToolSettings()) {
         compose.runOnUiThread {
-            viewModel = NotebookViewModel(notebookId, notebooks, files, InMemoryInkSettings(InkToolSettings()), scope)
+            viewModel = NotebookViewModel(notebookId, notebooks, files, InMemoryInkSettings(settings), scope)
         }
         compose.setContent {
             NoteAppTheme {
@@ -199,12 +200,28 @@ class TextBoxesTest {
     }
 
     @Test
-    fun holdingAFingerOnABox_selectsItWithTheLasso_forDuplicateAndDelete() {
+    fun holdingAFingerOnABox_typesInIt() {
         show()
+        typeNewBox("Hold")
+        done()
+        compose.onNodeWithTag("text-button").performClick() // T off
+        compose.onNodeWithTag("notebook-canvas").performTouchInput { longClick(Offset(centerX, centerY - 120f)) }
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("text-box-field"), 3_000)
+        compose.onNodeWithTag("text-box-field").performTextInput(" to edit")
+        done()
+        assertEquals(listOf("Hold to edit"), texts().map { it.text })
+    }
+
+    @Test
+    fun aLassoTapOnABox_selectsIt_forDuplicateAndDelete() {
+        // With "Draw with finger" on, the test's finger works like the pen.
+        show(InkToolSettings(drawWithFinger = true))
         typeNewBox("Pick me up")
         done()
-        compose.onNodeWithTag("notebook-canvas").performTouchInput { longClick(Offset(centerX, centerY - 120f)) }
+        compose.onNodeWithTag("text-button").performClick() // T off
+        compose.runOnUiThread { viewModel.pickTool(com.nzfrankwu.noteapp.domain.ink.EditorTool.LASSO) }
         compose.waitForIdle()
+        tapPage()
         compose.onNodeWithTag("lasso-menu").assertExists()
         compose.onNodeWithTag("text-box-field").assertDoesNotExist()
         compose.onNodeWithTag("lasso-duplicate").performClick()

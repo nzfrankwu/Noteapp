@@ -99,9 +99,9 @@ These additions are written into IDEA.md §2.8 and the Phase 5 row of §5; the u
 
 ## Feedback round 1 (17 Nov 2026, on Phase 4 and text boxes)
 Done before split view, hands-off. The user's answers to my questions are in brackets.
-- [ ] **FB1 The bookmark sheet shows which task is picked.** The picked row gets a check mark and a stronger highlight.
-- [ ] **FB2 Long press a text box with a finger to edit it** (as well as tapping it). The lasso still selects boxes: a lasso tap or loop, or the pen held on a box.
-- [ ] **FB3 Search and filters in both task pickers** ("Link to a task" and the bookmark sheet):
+- [x] **FB1 The bookmark sheet shows which task is picked** (17 Nov): a check-circle icon, a primary-container background, bold title, and "For: <task>" beside Save. The picked row gets a check mark and a stronger highlight.
+- [x] **FB2 Long press a text box with a finger to edit it** (17 Nov) (as well as tapping it). The lasso still selects boxes: a lasso tap or loop, or the pen held on a box.
+- [x] **FB3 Search and filters in both task pickers** (17 Nov; `LinkChoices.filter`, `TaskSearch` in `TaskLinkViews.kt`; the course chip opens a menu; tests in `LinkChoicesTest` and `NotebookEditorTest`) ("Link to a task" and the bookmark sheet):
   - a search field (task title or course code)
   - **course:** this course (default), all other courses, or one chosen course; with no course, "All courses"
   - **due:** "Due soon" (default: due date still ahead, plus undated tasks) or "Already due" (due date passed, latest first); done tasks show in both, marked done [user]

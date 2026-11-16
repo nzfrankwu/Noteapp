@@ -589,6 +589,7 @@ fun NotebookScreen(
                     others = com.nzfrankwu.noteapp.data.TaskChoices(
                         all.inCourse.filter { it.task.id !in linkedIds },
                         all.others.filter { it.task.id !in linkedIds },
+                        all.courseId,
                     ),
                     note = request.note,
                     now = nowInstant(),

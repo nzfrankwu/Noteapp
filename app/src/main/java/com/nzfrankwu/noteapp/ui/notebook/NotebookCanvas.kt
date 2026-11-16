@@ -1100,8 +1100,11 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         val c = view.camera ?: return@launch
                         // A finger held on a picture picks it (F31); on PDF text it selects the word,
                         // and keeps dragging its end (PHASE-4.md 4.7); elsewhere it offers Paste (F12).
+                        val now = snapshot()
                         when {
-                            selectPictureAt(at, snapshot(), c) -> Unit
+                            // A finger held on a text box types in it (PHASE-5.md FB2).
+                            view.lasso == null && startTextEditing(view, viewModel, now.strip, now.pages, at, allowNew = false) -> Unit
+                            selectPictureAt(at, now, c) -> Unit
                             run {
                                 // The first hold on a big PDF reads its text, which can take a moment.
                                 readingText = true

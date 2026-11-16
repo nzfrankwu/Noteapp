@@ -7,6 +7,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performTextInput
@@ -281,6 +284,49 @@ class NotebookEditorTest {
         assertEquals(null, entry.spot)
         // Bookmarking linked the notebook too, so the chip shows the task.
         compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("linked-task-chip"), 5_000)
+    }
+
+    @Test
+    fun taskPickers_searchAndFilter_andTheBookmarkSheetShowsThePickedTask() {
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks)
+        runBlocking {
+            val folders = FolderRepository(db)
+            val maths = (folders.createFolder("Maths", "MATHS 208") as FolderResult.Success).folderId
+            folders.createFolder("Physics", "PHYSICS 101")
+            val courses = db.courseDao().getAll().associateBy { it.code }
+            val tasks = com.nzfrankwu.noteapp.data.TaskRepository(db)
+            val now = java.time.Instant.now()
+            tasks.createTask(com.nzfrankwu.noteapp.data.TaskDraft("Problem set 4", courses.getValue("MATHS 208").id, dueAt = now.plus(java.time.Duration.ofDays(3))))
+            tasks.createTask(com.nzfrankwu.noteapp.data.TaskDraft("Old quiz", courses.getValue("MATHS 208").id, dueAt = now.minus(java.time.Duration.ofDays(2))))
+            tasks.createTask(com.nzfrankwu.noteapp.data.TaskDraft("Lab 1", courses.getValue("PHYSICS 101").id, dueAt = now.plus(java.time.Duration.ofDays(1))))
+            notebookId = (notebooks.createNotebook(maths, "Calculus") as NotebookResult.Success).id
+        }
+        show(InkToolSettings(drawWithFinger = true), links)
+
+        compose.onNodeWithContentDescription("Notebook options").performClick()
+        compose.onNodeWithTag("menu-link-task").performClick()
+        // This course, due soon.
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("pick-task-Problem set 4"), 5_000)
+        compose.onNodeWithTag("pick-task-Old quiz").assertDoesNotExist()
+        compose.onNodeWithTag("pick-task-Lab 1").assertDoesNotExist()
+        compose.onNodeWithTag("filter-past").performClick()
+        compose.onNodeWithTag("pick-task-Old quiz").assertExists()
+        compose.onNodeWithTag("pick-task-Problem set 4").assertDoesNotExist()
+        compose.onNodeWithTag("filter-soon").performClick()
+        compose.onNodeWithTag("filter-course").performClick()
+        compose.onNodeWithTag("course-option-All other courses").performClick()
+        compose.onNodeWithTag("pick-task-Lab 1").assertExists()
+        compose.onNodeWithTag("task-search").performTextInput("nothing like this")
+        compose.onNodeWithText("No tasks match.").assertExists()
+        compose.onNodeWithTag("picker-cancel").performClick()
+
+        // The bookmark sheet: the picked task is marked.
+        compose.onNodeWithTag("bookmark-page").performClick()
+        compose.onNodeWithTag("pick-task-Problem set 4").assertIsNotSelected()
+        compose.onNodeWithTag("pick-task-Problem set 4").performClick()
+        compose.onNodeWithTag("pick-task-Problem set 4").assertIsSelected()
+        compose.onNodeWithTag("bookmark-for").assertTextEquals("For: Problem set 4")
+        compose.onNodeWithTag("bookmark-save").assertIsEnabled()
     }
 
     // ---- Phase 4: selecting PDF text ----

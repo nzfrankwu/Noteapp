@@ -87,6 +87,59 @@ class LinkChoicesTest {
         assertEquals(listOf("other"), choices.others.map { it.task.id })
     }
 
+    // ---- Search and filters (PHASE-5.md FB3) ----
+
+    private val now = t0.plusSeconds(500)
+    private val pickable = LinkChoices.tasks(
+        "c1",
+        listOf(
+            task("Lab 3 report", "c1", due = t0.plusSeconds(900)),
+            task("Tutorial 5", "c1", due = t0.plusSeconds(100)), // already due
+            task("Reading", "c1"),
+            task("Quiz 2", "c1", due = t0, status = TaskStatus.DONE), // done and past
+            task("Assignment 1", "c2", due = t0.plusSeconds(2000)),
+            task("Tutorial 9", "c2", due = t0.plusSeconds(200)),
+            task("Essay", "c3", due = t0.plusSeconds(800)),
+        ),
+        emptySet(),
+    )
+
+    private fun ids(filter: TaskFilter) = LinkChoices.filter(pickable, filter, now).map { it.task.id }
+
+    @Test
+    fun theDefault_isThisCourseDueSoon_withUndatedTasks() {
+        assertEquals(listOf("Lab 3 report", "Reading"), ids(TaskFilter()))
+    }
+
+    @Test
+    fun alreadyDue_isPastDueDates_latestFirst_doneIncluded() {
+        assertEquals(listOf("Tutorial 5", "Quiz 2"), ids(TaskFilter(due = DueFilter.PAST)))
+    }
+
+    @Test
+    fun otherCourses_andOneCourse() {
+        assertEquals(listOf("Essay", "Assignment 1"), ids(TaskFilter(course = CourseFilter.OtherCourses)))
+        assertEquals(listOf("Tutorial 9"), ids(TaskFilter(course = CourseFilter.OtherCourses, due = DueFilter.PAST)))
+        assertEquals(listOf("Assignment 1"), ids(TaskFilter(course = CourseFilter.One("c2", "c2"))))
+        assertEquals(listOf("c2", "c3"), LinkChoices.courses(pickable).map { it.courseId })
+    }
+
+    @Test
+    fun search_matchesEveryWord_inTitleOrCourseCode_anyCase() {
+        assertEquals(listOf("Lab 3 report"), ids(TaskFilter(query = "  REPORT lab ")))
+        assertEquals(listOf("Essay"), ids(TaskFilter(query = "c3", course = CourseFilter.OtherCourses)))
+        assertEquals(emptyList<String>(), ids(TaskFilter(query = "tutorial"))) // only past ones match
+        assertEquals(listOf("Tutorial 5"), ids(TaskFilter(query = "tutorial", due = DueFilter.PAST)))
+    }
+
+    @Test
+    fun withoutACourse_thisCourseAndOtherCourses_bothShowEverything() {
+        val noCourse = LinkChoices.tasks(null, pickable.all, emptySet())
+        val soon = LinkChoices.filter(noCourse, TaskFilter(), now).map { it.task.id }.toSet()
+        assertEquals(setOf("Lab 3 report", "Reading", "Assignment 1", "Essay"), soon)
+        assertEquals(soon, LinkChoices.filter(noCourse, TaskFilter(course = CourseFilter.OtherCourses), now).map { it.task.id }.toSet())
+    }
+
     @Test
     fun tasks_withoutACourse_areAllOthers() {
         val choices = LinkChoices.tasks(null, listOf(task("a", "c1"), task("b", null)), emptySet())

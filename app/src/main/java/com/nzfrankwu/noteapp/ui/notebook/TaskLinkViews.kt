@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
@@ -30,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -38,6 +36,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nzfrankwu.noteapp.R
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import com.nzfrankwu.noteapp.data.CourseFilter
+import com.nzfrankwu.noteapp.data.DueFilter
+import com.nzfrankwu.noteapp.data.LinkChoices
+import com.nzfrankwu.noteapp.data.TaskFilter
 import com.nzfrankwu.noteapp.data.TaskChoices
 import com.nzfrankwu.noteapp.data.db.TaskWithCourse
 import com.nzfrankwu.noteapp.domain.DaysLeft
@@ -45,7 +55,6 @@ import com.nzfrankwu.noteapp.ui.components.CourseTag
 import com.nzfrankwu.noteapp.ui.components.DaysLeftText
 import com.nzfrankwu.noteapp.ui.components.PickerDialog
 import com.nzfrankwu.noteapp.ui.components.PickerEmpty
-import com.nzfrankwu.noteapp.ui.components.PickerHeading
 import com.nzfrankwu.noteapp.ui.theme.EditorBarButton
 import com.nzfrankwu.noteapp.ui.theme.EditorBarIcon
 import java.time.Instant
@@ -128,73 +137,144 @@ fun LinkedTaskChip(
     }
 }
 
-/** "Link to a task": this course's tasks first, then "Other tasks ▸". Already linked tasks aren't offered. */
+/**
+ * "Link to a task" (PHASE-5.md FB3): a search field, the course and due-date filters, and the
+ * matching tasks. Already linked tasks aren't offered.
+ */
 @Composable
 fun LinkTaskSheet(choices: TaskChoices, now: Instant, zone: ZoneId, onPick: (TaskWithCourse) -> Unit, onCancel: () -> Unit) {
+    var filter by remember { mutableStateOf(TaskFilter()) }
+    val shown = LinkChoices.filter(choices, filter, now)
     PickerDialog(title = "Link to a task", testTag = "link-task-sheet", onCancel = onCancel) {
-        taskChoices(choices, now, zone, onPick, emptyText = "No other tasks to link.")
+        item(key = "search") { TaskSearch(filter, { filter = it }, choices) }
+        if (shown.isEmpty()) {
+            item(key = "empty") { PickerEmpty(if (choices.isEmpty) "No other tasks to link." else "No tasks match.") }
+        }
+        items(shown, key = { "t-" + it.task.id }) { TaskPickRow(it, now, zone) { onPick(it) } }
     }
 }
 
-/** The task rows the task pickers share: [TaskChoices.inCourse], then a fold-out "Other tasks". */
-fun LazyListScope.taskChoices(
-    choices: TaskChoices,
-    now: Instant,
-    zone: ZoneId,
-    onPick: (TaskWithCourse) -> Unit,
-    emptyText: String,
-    inCourseHeading: String = "This course",
-) {
-    if (choices.isEmpty) {
-        item(key = "empty") { PickerEmpty(emptyText) }
-        return
-    }
-    if (choices.inCourse.isNotEmpty()) {
-        item(key = "course-h") { PickerHeading(inCourseHeading, 0) }
-        items(choices.inCourse, key = { "c-" + it.task.id }) { TaskPickRow(it, now, zone) { onPick(it) } }
-    }
-    if (choices.others.isNotEmpty()) {
-        item(key = "others") { OtherTasks(choices, now, zone, onPick) }
-    }
-}
-
+/**
+ * The task pickers' search field and filters (PHASE-5.md FB3): course (this course, all other
+ * courses, or one course) and due date (due soon, or already due).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun OtherTasks(choices: TaskChoices, now: Instant, zone: ZoneId, onPick: (TaskWithCourse) -> Unit) {
-    var show by remember(choices.inCourse.isEmpty()) { mutableStateOf(choices.inCourse.isEmpty()) }
-    Column {
+fun TaskSearch(filter: TaskFilter, onFilter: (TaskFilter) -> Unit, choices: TaskChoices, modifier: Modifier = Modifier) {
+    val noCourse = choices.courseId == null
+    val thisCode = choices.inCourse.firstOrNull()?.courseCode ?: "This course"
+    fun label(c: CourseFilter): String = when (c) {
+        CourseFilter.ThisCourse -> if (noCourse) "All courses" else thisCode
+        CourseFilter.OtherCourses -> if (noCourse) "All courses" else "All other courses"
+        is CourseFilter.One -> c.code
+    }
+    val courses = remember(choices) { LinkChoices.courses(choices) }
+    Column(modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+        OutlinedTextField(
+            value = filter.query,
+            onValueChange = { onFilter(filter.copy(query = it)) },
+            placeholder = { Text("Search tasks") },
+            leadingIcon = { Icon(painterResource(R.drawable.ic_search), contentDescription = null) },
+            trailingIcon = if (filter.query.isEmpty()) null else {
+                {
+                    IconButton(onClick = { onFilter(filter.copy(query = "")) }) {
+                        Icon(painterResource(R.drawable.ic_close), contentDescription = "Clear the search")
+                    }
+                }
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().testTag("task-search"),
+        )
         Row(
-            Modifier.fillMaxWidth().clickable { show = !show }.padding(vertical = 12.dp, horizontal = 4.dp).testTag("other-tasks"),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Other tasks", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Icon(
-                painterResource(R.drawable.ic_chevron_right),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp).rotate(if (show) 90f else 0f),
+            var open by remember { mutableStateOf(false) }
+            Box {
+                FilterChip(
+                    selected = true,
+                    onClick = { open = true },
+                    label = { Text(label(filter.course), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 200.dp)) },
+                    trailingIcon = { Icon(painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    modifier = Modifier.testTag("filter-course"),
+                )
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    val options = buildList {
+                        add(CourseFilter.ThisCourse)
+                        if (!noCourse) add(CourseFilter.OtherCourses)
+                        addAll(courses)
+                    }
+                    options.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(label(option)) },
+                            onClick = { open = false; onFilter(filter.copy(course = option)) },
+                            trailingIcon = if (option == filter.course) {
+                                { Icon(painterResource(R.drawable.ic_check), contentDescription = "Chosen") }
+                            } else {
+                                null
+                            },
+                            modifier = Modifier.testTag("course-option-${label(option)}"),
+                        )
+                    }
+                }
+            }
+            FilterChip(
+                selected = filter.due == DueFilter.SOON,
+                onClick = { onFilter(filter.copy(due = DueFilter.SOON)) },
+                label = { Text("Due soon") },
+                modifier = Modifier.testTag("filter-soon"),
+            )
+            FilterChip(
+                selected = filter.due == DueFilter.PAST,
+                onClick = { onFilter(filter.copy(due = DueFilter.PAST)) },
+                label = { Text("Already due") },
+                modifier = Modifier.testTag("filter-past"),
             )
         }
-        if (show) choices.others.forEach { TaskPickRow(it, now, zone) { onPick(it) } }
     }
 }
 
+/**
+ * One task in a picker: its title, course and days left (or "Done"). [selected] (the bookmark
+ * sheet's choice, FB1) shows a check mark and a stronger background.
+ */
 @Composable
-fun TaskPickRow(item: TaskWithCourse, now: Instant, zone: ZoneId, onClick: () -> Unit) {
+fun TaskPickRow(item: TaskWithCourse, now: Instant, zone: ZoneId, selected: Boolean = false, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .then(if (selected) Modifier.background(MaterialTheme.colorScheme.primaryContainer) else Modifier)
             .clickable(onClick = onClick)
-            .padding(start = 4.dp, top = 10.dp, bottom = 10.dp, end = 8.dp)
+            .padding(start = 8.dp, top = 10.dp, bottom = 10.dp, end = 8.dp)
+            .semantics { this.selected = selected }
             .testTag("pick-task-${item.task.title}"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Icon(painterResource(R.drawable.ic_task), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Icon(
+            painterResource(if (selected) R.drawable.ic_check_circle else R.drawable.ic_task),
+            contentDescription = if (selected) "Chosen" else null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp),
+        )
         Column(Modifier.weight(1f)) {
-            Text(item.task.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                item.task.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else null,
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 CourseTag(item.courseCode, style = MaterialTheme.typography.labelMedium)
-                DaysLeftText(item.task, now, zone)
+                if (item.task.status.isFinished) {
+                    Text("Done", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    DaysLeftText(item.task, now, zone)
+                }
             }
         }
     }
