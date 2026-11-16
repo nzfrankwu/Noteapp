@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 3 done: 3.1–3.9, feedback F30–F36, end-of-phase review fixed; waiting on the user's OK to merge into `main`, and on the IDEA.md edit). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 3 merged into `main`, `7de0c06`; next: plan Phase 4 with the user). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -16,8 +16,8 @@ _Last updated: 16 Nov 2026 (Phase 3 done: 3.1–3.9, feedback F30–F36, end-of-
 ## Next steps (in order)
 
 1. **Phase 3 is finished.** Feedback F30–F36 is done and on the tablet (`55dbb3b`). The end-of-phase `/code-review` found 10 things, all fixed (list in PHASE-3.md); unit tests and the full emulator suite (**214 tests**) pass. The review fixes are **not on the tablet yet** (ask before installing; back up first).
-2. **Waiting on the user:** approval to merge `phase-3` into `main`; OK for the IDEA.md §2.7/§5 edit (wording in REPORT.md and ISSUES.md).
-   - After the merge: Phase 4 (read IDEA.md §5 for what it is, and write `PHASE-4.md` with the user).
+2. **Merged into `main` (16 Nov, `7de0c06`)** with the user's OK. IDEA.md §2.7/§5 updated (snip built in Phase 3), user's OK.
+3. **Next: plan Phase 4 (Linking)** with the user in planning mode: IDEA.md §2.4 and §5 (link notebooks/files ↔ tasks; course folder view with notes + tasks together). Write `PHASE-4.md`, branch `phase-4` from `main`.
 3. Key Phase 3 decisions (details in `PHASE-3.md`):
    - PdfBox-Android is approved for PDF export.
    - The image menu shows recent photos; the photo-access permission is approved.
@@ -38,8 +38,6 @@ _Last updated: 16 Nov 2026 (Phase 3 done: 3.1–3.9, feedback F30–F36, end-of-
 - **Never install an older build than the tablet has** (it's now heading to database v3): Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
 
 ## Waiting on the user
-
-- **IDEA.md §2.7 and §5 (snip moved to Phase 3):** the plan said to update them at 3.9, but the tool refused to edit IDEA.md (CLAUDE.md: never change it without asking). Ask the user to OK the edit (text in REPORT.md), or make it themselves.
 
 - **Phase 2 on the tablet** (installed 15 Nov; the user is checking it):
   - writing with the OPPO Pencil 2: lag, pressure, palm rejection
