@@ -736,8 +736,9 @@ private fun FloatingToolbar(
 }
 
 /**
- * The menu under the lasso's selection (F12): Resize, Duplicate, Copy, Cut, Delete. There's no
- * Done: touching the page outside the selection lets it go (F15).
+ * The menu under the lasso's selection (F12), as icons (PHASE-4.md 4.4): Resize, Crop (one
+ * picture), Bookmark, Duplicate, Copy, Cut, Delete. There's no Done: touching the page outside
+ * the selection lets it go (F15).
  */
 @Composable
 private fun LassoMenu(
@@ -749,6 +750,8 @@ private fun LassoMenu(
     onCopy: (LassoState.Selected) -> Unit,
     onCut: (LassoState.Selected) -> Unit,
     onDelete: (LassoState.Selected) -> Unit,
+    /** Bookmark the selection's spot for a task (Phase 4), or null when bookmarks aren't available. */
+    onBookmark: ((LassoState.Selected) -> Unit)? = null,
 ) {
     val sel = view.lasso as? LassoState.Selected ?: return
     val cam = view.camera ?: return
@@ -758,27 +761,23 @@ private fun LassoMenu(
     val bx = cam.toScreenX(strip.pageLeft(sel.pageIndex) + box[0])
         .coerceIn(8f, (view.viewSize.width - menuWidth - 8f).coerceAtLeast(8f))
     val by = (cam.toScreenY(strip.pageTop(sel.pageIndex) + box[3]) + gap).coerceAtMost(view.viewSize.height - 160f)
-    Surface(
-        modifier = Modifier
+    val items = buildList {
+        add(IconMenuItem(R.drawable.ic_open_in_full, if (sel.handles) "Resize (on)" else "Resize", "lasso-resize", selected = sel.handles) { onResize(sel) })
+        // One picture on its own can be cropped (F33).
+        if (sel.strokes.isEmpty() && sel.images.size == 1) add(IconMenuItem(R.drawable.ic_crop, "Crop", "lasso-crop") { onCrop(sel) })
+        if (onBookmark != null) add(IconMenuItem(R.drawable.ic_bookmark_add, "Bookmark for a task", "lasso-bookmark") { onBookmark(sel) })
+        add(IconMenuItem(R.drawable.ic_library_add, "Duplicate", "lasso-duplicate") { onDuplicate(sel) })
+        add(IconMenuItem(R.drawable.ic_content_copy, "Copy", "lasso-copy") { onCopy(sel) })
+        add(IconMenuItem(R.drawable.ic_content_cut, "Cut", "lasso-cut") { onCut(sel) })
+        add(IconMenuItem(R.drawable.ic_delete, "Delete", "lasso-delete", destructive = true) { onDelete(sel) })
+    }
+    IconMenu(
+        items,
+        Modifier
             .offset { IntOffset(bx.roundToInt(), by.roundToInt()) }
             .onSizeChanged { menuWidth = it.width }
             .testTag("lasso-menu"),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = 6.dp,
-    ) {
-        Row {
-            TextButton(onClick = { onResize(sel) }) { Text(if (sel.handles) "Resize ✓" else "Resize") }
-            // One picture on its own can be cropped (F33).
-            if (sel.strokes.isEmpty() && sel.images.size == 1) {
-                TextButton(onClick = { onCrop(sel) }, modifier = Modifier.testTag("lasso-crop")) { Text("Crop") }
-            }
-            TextButton(onClick = { onDuplicate(sel) }) { Text("Duplicate") }
-            TextButton(onClick = { onCopy(sel) }) { Text("Copy") }
-            TextButton(onClick = { onCut(sel) }) { Text("Cut") }
-            TextButton(onClick = { onDelete(sel) }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-        }
-    }
+    )
 }
 
 /** The Paste bubble where a finger was held (F12). */
@@ -786,16 +785,12 @@ private fun LassoMenu(
 private fun PasteBubble(view: EditorViewState, onPaste: (androidx.compose.ui.geometry.Offset) -> Unit) {
     val at = view.pasteAt ?: return
     val lift = with(LocalDensity.current) { 56.dp.toPx() }
-    Surface(
-        modifier = Modifier
-            .offset { IntOffset((at.x - 40f).roundToInt(), (at.y - lift).roundToInt().coerceAtLeast(0)) }
+    IconMenu(
+        listOf(IconMenuItem(R.drawable.ic_content_paste, "Paste", "paste-button") { onPaste(at) }),
+        Modifier
+            .offset { IntOffset((at.x - 28f).roundToInt(), (at.y - lift).roundToInt().coerceAtLeast(0)) }
             .testTag("paste-bubble"),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.inverseSurface,
-        shadowElevation = 6.dp,
-    ) {
-        TextButton(onClick = { onPaste(at) }) { Text("Paste", color = MaterialTheme.colorScheme.inverseOnSurface) }
-    }
+    )
 }
 
 /**

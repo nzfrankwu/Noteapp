@@ -99,7 +99,7 @@ The user added more to this phase:
   - the task picker `ui/notebook/LinkTaskSheet.kt`
   - `onOpenTask` from `entry<NotebookRoute>`
   - ★ check-in
-- [ ] **4.4 Icon menus**: `IconMenu.kt`; LassoMenu and the Paste bubble become icons with tooltips. Screenshots light and dark. ★ quick look
+- [x] **4.4 Icon menus** (16 Nov, hands-off): `ui/notebook/IconMenu.kt`; lasso icons Resize (open-in-full) · Crop · Duplicate · Copy · Cut · Delete (light red); Paste is a one-icon pill. Hold an icon for its name. Test tags `lasso-resize`, `lasso-crop`, `lasso-copy`, … , `paste-button`.: `IconMenu.kt`; LassoMenu and the Paste bubble become icons with tooltips. Screenshots light and dark. ★ quick look
 - [ ] **4.5 Bookmarks in the editor**: the 🔖 top-bar button, 🔖 in the lasso menu, and the bookmark sheet (task picker + note; reuses `LinkTaskSheet`).
 - [ ] 🔺 **4.6 PDF text layer**: `data/PdfText.kt` (words, lines, coordinate mapping incl. turned pages), the cache, emulator tests with PDFs made by `PdfDocument`. Then `domain/ink/TextSelection.kt` with unit tests.
 - [ ] 🔺 **4.7 Finger text selection**
