@@ -22,6 +22,8 @@ ink = "1.0.0"
 pdfboxAndroid = "2.0.27.0"
 
 [libraries]
+# Already in the app through Jetpack Ink; declared because our own pen layer uses it (F30).
+androidx-input-motionprediction = { group = "androidx.input", name = "input-motionprediction", version = "1.0.0" }
 pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfboxAndroid" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

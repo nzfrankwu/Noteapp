@@ -154,6 +154,9 @@ class EditorViewState {
     /** Counts touches on the page (pen or finger); the tool's settings panel closes on the next one (F27, F29). */
     var pageTouches by mutableIntStateOf(0)
 
+    /** Hands finished strokes from the pen layer to the page layers without a flash (F30). */
+    val handoff = InkHandoff()
+
     /** Where a finger was held to paste (screen pixels): shows the Paste bubble (F12). */
     var pasteAt by mutableStateOf<Offset?>(null)
 
@@ -281,15 +284,20 @@ fun NotebookCanvas(
     val current by rememberUpdatedState(Snapshot(strip, pages, settings))
     var eraserAt by remember { mutableStateOf<Offset?>(null) }
 
-    val onStrokesFinished: (List<Stroke>) -> Unit = remember(viewModel) {
-        { strokes ->
+    val onStrokesFinished: (Map<androidx.ink.authoring.InProgressStrokeId, Stroke>) -> Unit = remember(viewModel, view) {
+        { finished ->
             val snap = current
-            strokes.groupBy { stroke ->
+            finished.entries.groupBy { (_, stroke) ->
                 val first = StrokeInput().also { stroke.inputs.populate(0, it) }
                 snap.strip.pageAt(first.x)
             }.forEach { (index, group) ->
-                val page = snap.pages.getOrNull(index) ?: return@forEach
-                viewModel.addStrokes(page.id, group.map { InkBrushes.toSaved(it, snap.strip.pageLeft(index), snap.strip.pageTop(index)) })
+                val page = snap.pages.getOrNull(index)
+                val saved = group.map { (wetId, stroke) ->
+                    InkBrushes.toSaved(stroke, snap.strip.pageLeft(index), snap.strip.pageTop(index))
+                        // The pen layer keeps drawing it until its page has (F30: no flash).
+                        .also { view.handoff.expect(it.id, wetId) }
+                }
+                if (page != null) viewModel.addStrokes(page.id, saved)
             }
         }
     }
@@ -512,18 +520,22 @@ fun NotebookCanvas(
             }
         }
         // 4. The stroke being written (Jetpack Ink's low-latency layer).
-        InkLayer(inputs, onStrokesFinished)
+        InkLayer(inputs, view.handoff, onStrokesFinished)
     }
 }
 
 /** The pen layer. Its inputs never change identity, so it isn't rebuilt (which would cancel a stroke). */
 @Composable
-private fun InkLayer(inputs: InkLayerInputs, onStrokesFinished: (List<Stroke>) -> Unit) {
+private fun InkLayer(
+    inputs: InkLayerInputs,
+    handoff: InkHandoff,
+    onStrokesFinished: (Map<androidx.ink.authoring.InProgressStrokeId, Stroke>) -> Unit,
+) {
     val nextBrush = remember(inputs) { { inputs.brush } }
-    InProgressStrokes(
-        defaultBrush = null,
+    WetInkLayer(
         nextBrush = nextBrush,
         pointerEventToWorldTransform = inputs.transform,
+        handoff = handoff,
         onStrokesFinished = onStrokesFinished,
     )
 }
@@ -1079,3 +1091,4 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPdfLayer(
         filterQuality = FilterQuality.Medium,
     )
 }
+
