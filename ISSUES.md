@@ -56,7 +56,7 @@ _None known._
 
 ## Done
 
-- **Phase 4 built (16 Nov, hands-off), steps 4.1–4.10:** links between tasks and notebooks, page bookmarks, PDF text selection, icon menus, card chips. End-of-phase review: 10 findings, all fixed (list in PHASE-4.md). Installed on the tablet 16 Nov (v5 → v6, compare PASS). Waiting on the user's tablet check and the merge.
+- **Phase 4 built (16 Nov, hands-off), steps 4.1–4.10:** links between tasks and notebooks, page bookmarks, PDF text selection, icon menus, card chips. End-of-phase review: 10 findings, all fixed (list in PHASE-4.md). Installed on the tablet 16 Nov (v5 → v6, compare PASS) and merged into `main` (`aa342b5`).
 - **Phase 4 step 4.1, database version 6 (16 Nov, hands-off):** two new, empty tables for task ↔ notebook links and page bookmarks. Deleting a task removes its links and bookmarks, and Undo brings them back. Real v5 → v6 upgrade on the emulator: every row and page file unchanged. Nothing visible yet.
 - **Phase 3 merged into `main` (16 Nov, `7de0c06`).** Phase 4 planned the same day (`PHASE-4.md`): links, page bookmarks, PDF text selection, icon menus.
 - **IDEA.md §2.7 and §5 (16 Nov):** snip noted as built in Phase 3 (user's OK).

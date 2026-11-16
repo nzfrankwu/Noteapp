@@ -128,7 +128,7 @@ The user added more to this phase:
     8. The pickers duplicated "Add to Noteapp"'s rows: shared in `ui/components/Pickers.kt`.
     9. No screen test for PDF text gestures: two added (hold → menu → Highlight → Undo; no menu on a plain page).
     10. Portrait and dark mode weren't checked: checked. While doing that, the text menu was moved so it centres on the part of the selection on screen.
-  - Still to do: ask the user to approve the merge into `main` (after the tablet check, 4.11).
+  - Merged into `main` with the user's OK on 16 Nov (`aa342b5`). **Phase 4 is finished.**
 
 ## Verification
 - **Every step:** `gradlew.bat assembleDebug testDebugUnitTest`, plus `connectedDebugAndroidTest` with `ANDROID_SERIAL=emulator-5554` (the tablet is often plugged in).

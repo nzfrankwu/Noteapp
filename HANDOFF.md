@@ -1,29 +1,26 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 4 done and reviewed; installed on the tablet (v6, compare PASS); waiting on the user's tablet check and the merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 4 merged into `main` with the user's OK; next is planning Phase 5). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phases 1, 1b, 2 and 3 are done and merged into `main`** (Phase 3 merged 16 Nov, `7de0c06`). History in `PHASE-1.md` … `PHASE-3.md` and `ISSUES.md`.
-- **Current phase: Phase 4, Linking.** The plan is **`PHASE-4.md`** (decisions, design, checklist 4.0–4.11). It covers:
+- **Phases 1, 1b, 2, 3 and 4 are done and merged into `main`** (Phase 4 merged 16 Nov, `aa342b5`). History in `PHASE-1.md` … `PHASE-4.md` and `ISSUES.md`.
+- **Next phase: Phase 5** (IDEA.md §5), not planned yet. Phase 4 (Linking, `PHASE-4.md`) covered:
   - linking notebooks ↔ tasks
   - page bookmarks for tasks, with quick notes
   - selecting PDF text with a finger (Copy, Highlight, Underline, Bookmark)
   - the pop-up menus becoming icon pills
 - **IDEA.md** §2.4, §2.6 and §5 were updated for bookmarks and text selection (user's OK, 16 Nov).
-- **Branch:** `phase-4` (from `main`), pushed after each step.
-- **Mode:** **Hands-off** for Phase 4 (the user said "start phase 4, hands off" on 16 Nov). Back to "Working together" unless the user says otherwise.
+- **Branch:** `main`. Start a `phase-5` branch from it when Phase 5 begins.
+- **Mode:** "Working together" (default) unless the user says otherwise. Phase 4 was hands-off.
 - **The tablet runs Phase 4** (the build of `266f99b`), database **version 6** (installed 16 Nov; before/after compare PASS: every row and all 159 page files unchanged). Backup in `backups/tablet-2026-11-16-before-v6/` (with the page files). Never install a build older than v6 on it: Room can't downgrade.
 - **The emulator runs Phase 4** (database v6).
 - Unit tests and the full emulator suite (**241 tests**) pass at the end of Phase 4.
 
 ## Next steps (in order)
 
-1. **Phase 4 steps 4.1–4.10 are done** (hands-off, 16 Nov; details and decisions in PHASE-4.md). The end-of-phase `/code-review` found 10 things, all fixed. The full emulator suite passes. `REPORT.md` has the summary for the user.
-2. **Waiting on the user:**
-   - **4.11 done on our side** (installed, compare PASS). The user is trying it on the tablet (steps in `REPORT.md`).
-   - **The OK to merge `phase-4` into `main`.**
-3. Then plan Phase 5 (text boxes, in-app split view).
+1. **Phase 4 is done, on the tablet and merged** (16 Nov). The user may still report tablet feedback from the test steps in `REPORT.md` (hold time, handle size): fix on a small branch if so.
+2. **Plan Phase 5** (text boxes, in-app split view): write `PHASE-5.md` with the user, describing new screens before coding (CLAUDE.md §2.10 rule).
 4. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture
    - pre-draw the next page
