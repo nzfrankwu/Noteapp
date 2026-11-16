@@ -206,8 +206,9 @@ class NotebookViewModel(
                 val page = pages.value.firstOrNull { it.id == pageId }
                 val pdfBack = page?.let { p -> pdfFileOf(p)?.let { f -> pdf.wholePage(f, p.pdfPage ?: 0, size, PREVIEW_WIDTH_PX / size.width) } }
                 val pictures = ink.images(pageId).mapNotNull { img -> imageBitmaps[img.asset]?.let { img to it.asAndroidBitmap() } }
-                val picture = if (strokes.isEmpty() && pdfBack == null && pictures.isEmpty()) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
-                    renderPreview(strokes, size.width, size.height, pdfBack?.bitmap, pictures)
+                val texts = ink.texts(pageId).toList()
+                val picture = if (strokes.isEmpty() && pdfBack == null && pictures.isEmpty() && texts.isEmpty()) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
+                    renderPreview(strokes, size.width, size.height, pdfBack?.bitmap, pictures, texts)
                 }
                 // Changed while it was drawn: draw it again (the loop comes back to it).
                 if ((pageEdits[pageId] ?: 0) == edits) previews[pageId] = picture
@@ -218,6 +219,7 @@ class NotebookViewModel(
     private fun renderPreview(
         strokes: List<InkStroke>, pageWidth: Float, pageHeight: Float, pdfPage: Bitmap? = null,
         pictures: List<Pair<com.nzfrankwu.noteapp.domain.ink.InkImage, Bitmap>> = emptyList(),
+        texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList(),
     ): ImageBitmap {
         val scale = PREVIEW_WIDTH_PX / pageWidth
         val bitmap = Bitmap.createBitmap(PREVIEW_WIDTH_PX.toInt(), (pageHeight * scale).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
@@ -226,6 +228,7 @@ class NotebookViewModel(
             canvas.drawBitmap(pdfPage, null, android.graphics.Rect(0, 0, bitmap.width, bitmap.height), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
         }
         InkSketch.drawImages(canvas, pictures, scale)
+        com.nzfrankwu.noteapp.data.TextBoxLayout.drawAll(canvas, texts, scale)
         InkSketch.draw(canvas, strokes, scale, widthFactor = PREVIEW_LINE_FACTOR, minWidth = 0.7f)
         return bitmap.asImageBitmap()
     }
@@ -848,7 +851,8 @@ class NotebookViewModel(
         val pdfFile = pdfFileOf(first)
         val pdfPage = first.pdfPage ?: 0
         val images = ink.images(first.id).mapNotNull { img -> runCatching { img to files.assetFile(notebookId, img.asset) }.getOrNull() }
-        return { t.render(notebookId, paper, size.width, size.height, strokes, pdfFile, pdfPage, images) }
+        val texts = ink.texts(first.id).toList()
+        return { t.render(notebookId, paper, size.width, size.height, strokes, pdfFile, pdfPage, images, texts) }
     }
 
     /** Redraws the tile picture (e.g. after the first page changed). */

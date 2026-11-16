@@ -31,6 +31,11 @@ import kotlinx.coroutines.flow.first
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
 
+    init {
+        // The text boxes' font (Phase 5): the same on screen, in tiles and in exported PDFs.
+        com.nzfrankwu.noteapp.data.TextBoxLayout.install(appContext.assets)
+    }
+
     val database: NoteAppDatabase by lazy { NoteAppDatabase.create(appContext) }
 
     val folderRepository: FolderRepository by lazy { FolderRepository(database) }

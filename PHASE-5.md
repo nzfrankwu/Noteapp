@@ -57,7 +57,7 @@ These additions are written into IDEA.md §2.8 and the Phase 5 row of §5; the u
   - **Back** leaves split view altogether.
 - **Snip between the panes:** the screenshot button captures both panes, you crop, then **"Insert into: [left] / [right]"**, defaulting to the pane last written in (IDEA.md §2.7).
 - **Copy and paste between notebooks:** the lasso's Copy/Cut becomes app-wide; pasting into another notebook copies the pictures into that notebook's own files.
-- **A bundled font** (Noto Sans regular and bold, OFL licence, under 1 MB), so the screen, thumbnails and exported PDF break lines in the same places on any tablet.
+- **The font** is Liberation Sans (OFL), already inside the app with PdfBox-Android (changed from Noto Sans in 5.2: nothing to download or add), so the screen, thumbnails and exported PDF break lines in the same places on any tablet. Bold is drawn thicker.
 
 ## Design (data safety, IDEA.md §5a)
 - **No database change in this phase.** Text boxes live in the page files with strokes and pictures.
@@ -81,7 +81,7 @@ These additions are written into IDEA.md §2.8 and the Phase 5 row of §5; the u
   - codec format 3, `NotebookFiles.read/write`
   - `InkEdit.AddTexts` / `RemoveTexts` / `ReplaceTexts` with undo/redo
   - unit tests: round trip, old formats, byte-identical pages without text, damaged files, undo/redo
-- [ ] **5.2 Drawing text:** `TextBoxLayout`, page layers, thumbnails, hit-testing. Unit-test the line breaks and heights.
+- [x] **5.2 Drawing text** (16 Nov, hands-off). Changed from the plan: the font is **Liberation Sans, which PdfBox-Android already puts in the app** (no download, no new file); bold is "fake bold" (thicker strokes), so bold and normal break lines identically. `data/TextBoxLayout.kt` (StaticLayout at 8× page units, line spacing 1.15, cached) draws the page, previews and tiles and gives the PDF its lines. 7 emulator tests in `TextBoxLayoutTest`. Was: `TextBoxLayout`, page layers, thumbnails, hit-testing. Unit-test the line breaks and heights.
 - [ ] **5.3 Placing and editing:** the T button, text mode, tap-to-place, tap-to-edit, the text bar, the width handle, keeping the box above the keyboard.
 - [ ] **5.4 Lasso and clipboard for text:** select, move, scale, Duplicate, Copy, Cut, Delete, Bookmark.
 - [ ] 🔺 **5.5 PDF export of text:** embedded font subset, each line where it is on screen (selectable text); boxes with characters the font lacks are drawn as a picture. Emulator test reads the text back with `PdfText`. ★

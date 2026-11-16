@@ -62,6 +62,7 @@ import androidx.ink.brush.Brush
 import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import androidx.ink.strokes.Stroke
 import androidx.ink.strokes.StrokeInput
+import com.nzfrankwu.noteapp.data.TextBoxLayout
 import com.nzfrankwu.noteapp.data.db.Notebook
 import com.nzfrankwu.noteapp.data.db.Page
 import com.nzfrankwu.noteapp.domain.ink.Camera
@@ -166,6 +167,12 @@ class EditorViewState {
 
     /** Selected PDF text (PHASE-4.md 4.7), or null. */
     var textSel by mutableStateOf<TextSel?>(null)
+
+    /**
+     * Text boxes not drawn on the page right now (Phase 5): the one being typed in (the editor
+     * shows it) and any the lasso holds (the overlay shows them where they're dragged).
+     */
+    var hiddenTexts by mutableStateOf<Set<String>>(emptySet())
 
     /** Where a finger was held to paste (screen pixels): shows the Paste bubble (F12). */
     var pasteAt by mutableStateOf<Offset?>(null)
@@ -446,6 +453,20 @@ fun NotebookCanvas(
                 clipRect(left, top, left + w, top + h) {
                     for (image in viewModel.ink.images(page.id)) {
                         if (held == null || image.id !in held) drawPicture(image, viewModel.imageBitmaps[image.asset], left, top, s)
+                    }
+                    // Text boxes, above the pictures and under the ink (Phase 5). A box being
+                    // typed in or held by the lasso is drawn by the editor/overlay instead.
+                    val boxes = viewModel.ink.texts(page.id)
+                    if (boxes.isNotEmpty()) {
+                        val hidden = view.hiddenTexts
+                        val shownBoxes = if (hidden.isEmpty()) boxes else boxes.filter { it.id !in hidden }
+                        drawIntoCanvas { c ->
+                            val nc = c.nativeCanvas
+                            nc.save()
+                            nc.translate(left, top)
+                            TextBoxLayout.drawAll(nc, shownBoxes, s)
+                            nc.restore()
+                        }
                     }
                 }
                 // Until the page's ink is drawn in full, its quick preview stands in (soft, F8).
