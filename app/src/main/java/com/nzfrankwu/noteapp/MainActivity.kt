@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
     private val shareRequest = MutableStateFlow<SharedText?>(null)
 
     /** PDFs or pictures shared into Noteapp, already copied into the inbox (PHASE-3.md 3.8). */
-    private val fileShareRequest = MutableStateFlow<com.nzfrankwu.noteapp.data.SharedFiles?>(null)
+    private val fileShareRequest get() = (application as NoteAppApplication).container.pendingShare
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +42,9 @@ class MainActivity : ComponentActivity() {
         // Only on a fresh start: after rotation the task page is already on the back stack.
         if (savedInstanceState == null) {
             // Copies left in the inbox by a share that was never finished (the app was closed).
-            if (!isFileShare(intent)) java.io.File(filesDir, com.nzfrankwu.noteapp.data.SharedImport.INBOX_DIR).deleteRecursively()
+            if (!isFileShare(intent) && fileShareRequest.value == null) {
+                java.io.File(filesDir, com.nzfrankwu.noteapp.data.SharedImport.INBOX_DIR).deleteRecursively()
+            }
             takeRequests(intent)
         }
         // Each time the app comes to the front: sync with Canvas if the last sync was over 15

@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (3.1–3.9 done and pushed; installed on the tablet, upgrade check passed; waiting on the user's tablet testing and the IDEA.md edit). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 3 done: 3.1–3.9, feedback F30–F36, end-of-phase review fixed; waiting on the user's OK to merge into `main`, and on the IDEA.md edit). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -15,10 +15,9 @@ _Last updated: 16 Nov 2026 (3.1–3.9 done and pushed; installed on the tablet, 
 
 ## Next steps (in order)
 
-1. **Tablet feedback batch 1 (F30–F34) is done** (16 Nov, pushed; details in PHASE-3.md). Installed on the tablet the same day (backup in `backups/tablet-2026-11-16-before-F34/`). **Waiting on the user:** more tablet testing and feedback; OK for the IDEA.md §2.7/§5 edit (wording in REPORT.md and ISSUES.md). The v4 → v5 upgrade on the tablet already passed (16 Nov).
-2. Then the **end-of-phase `/code-review`**, fixes, rebuild and retest, and ask to merge into `main`.
-   - 3.8 left: `data/ShareTargets`, `ui/share/ShareSheet`, `MainActivity.takeFileShare / isFileShare`, the sheet block in `NoteAppRoot` (after `fun back()`), `AppContainer.sharedImport`.
-   - 3.9 left: `capture/ScreenCaptureService` + `ScreenCapture`, `ui/notebook/SnipOverlay`, `NotebookViewModel.insertSnip`.
+1. **Phase 3 is finished.** Feedback F30–F36 is done and on the tablet (`55dbb3b`). The end-of-phase `/code-review` found 10 things, all fixed (list in PHASE-3.md); unit tests and the full emulator suite (**214 tests**) pass. The review fixes are **not on the tablet yet** (ask before installing; back up first).
+2. **Waiting on the user:** approval to merge `phase-3` into `main`; OK for the IDEA.md §2.7/§5 edit (wording in REPORT.md and ISSUES.md).
+   - After the merge: Phase 4 (read IDEA.md §5 for what it is, and write `PHASE-4.md` with the user).
 3. Key Phase 3 decisions (details in `PHASE-3.md`):
    - PdfBox-Android is approved for PDF export.
    - The image menu shows recent photos; the photo-access permission is approved.
@@ -139,7 +138,7 @@ _Last updated: 16 Nov 2026 (3.1–3.9 done and pushed; installed on the tablet, 
   - `kotlinx.serialization` is at 1.9.0 (the newest for Kotlin 2.2, which comes with AGP 9.5.1). It must stay at or above Room's needs, or `MigrationTest` crashes.
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
 - **Real upgrade test, scripted (3.1):** `screenshots/upgrade_v5.sh <old APK as a Windows path>` installs the old build, makes sample data and a 51-page notebook, snapshots, installs the new build, snapshots again; then `python compare_dbs.py upgrade-v5/before upgrade-v5/after` compares every row and the page files' md5s. Pass the APK as `C:\...`: the script sets `MSYS_NO_PATHCONV=1`, so adb can't read `/c/...` paths.
-- **The pen layer is ours now (F30):** `ui/notebook/WetInkLayer.kt` replaces Ink's Compose `InProgressStrokes`; finished strokes are removed by `InkHandoff` after the page layer draws them (`drawStrokes` calls `handoff.drawn`). Debugging timing: log in `onStrokesFinished` and in `drawStrokes`.
+- **The pen layer is ours now (F30):** `ui/notebook/WetInkLayer.kt` replaces Ink's Compose `InProgressStrokes`; finished strokes are removed by `InkHandoff` after the page layer draws them (`drawStrokes` calls `handoff.drawn`). Its counting lives in `domain/ink/HandoffBook` (unit-tested). Debugging timing: log in `onStrokesFinished` and in `drawStrokes`.
 - **`folders.course_id` is unique:** subfolders store NULL there (they inherit the course through `parent_id`). Test data with a subfolder must use NULL.
 - **Sharing into Noteapp on the emulator:** open a PDF from Files (Downloads) → "Open with" → Noteapp. For pictures: `adb shell pm grant com.nzfrankwu.noteapp android.permission.READ_MEDIA_IMAGES`, then `am start -a android.intent.action.SEND -t image/png --eu android.intent.extra.STREAM content://media/external/images/media/<id> -n com.nzfrankwu.noteapp/.MainActivity` (ids from `content query --uri content://media/external/images/media --projection _id:_display_name`). `am` can't send a URI list, so SEND_MULTIPLE is untested by script.
 - **Multi-window on the emulator:** `adb shell am start --windowingMode 6 -n com.nzfrankwu.noteapp/.MainActivity` puts Noteapp's task in multi-window mode (not a neat split, but `isInMultiWindowMode` is true), which is enough to test the MediaProjection path. Android 16's prompt shows "Share entire screen" because we pass `createConfigForDefaultDisplay()`.

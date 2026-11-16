@@ -309,6 +309,7 @@ fun NotebookCanvas(
                         piece.mapped(1f, 0f, 0f, -snap.strip.pageLeft(index), -snap.strip.pageTop(index), scaleSize = false)
                 }
             }
+            byPage.keys.forEach { viewModel.prepareToDraw(snap.pages[it].id) } // so it can draw them (and the pen layer let go)
             viewModel.addStrokesAcross(byPage.entries.associate { (index, strokes) -> snap.pages[index].id to strokes })
         }
     }
@@ -833,7 +834,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                                 val x = cam.toWorldX(change.position.x) - pl
                                 val y = cam.toWorldY(change.position.y) - snap.strip.pageTop(sel.pageIndex)
                                 // Corners always keep the shape (F35); the side handles stretch one way.
-                                onLasso(sel.copy(target = LassoBox.dragged(sel.target, grabbed, x, y, keepShape = true)))
+                                onLasso(sel.copy(target = LassoBox.dragged(sel.target, grabbed, x, y, keepShape = keepsShape(sel))))
                             }
                         }
                         PenMode.LASSO_ROTATE -> {
@@ -932,7 +933,9 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                 } else {
                     tapMoved = true // a pinch is not a tap
                     pinched = true
-                    fingerDrag = null // two fingers zoom, even over a selection
+                    // Two fingers zoom, even over a selection: keep any move made so far.
+                    if (fingerDrag != null) (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
+                    fingerDrag = null
                 }
                 velocity.addPosition(change.uptimeMillis, change.position)
                 continue
@@ -1006,7 +1009,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     } else {
                         val x = cam.toWorldX(now.x) - snap.strip.pageLeft(sel.pageIndex)
                         val y = cam.toWorldY(now.y) - snap.strip.pageTop(sel.pageIndex)
-                        sel.copy(target = LassoBox.dragged(sel.target, handle, x, y, keepShape = true))
+                        sel.copy(target = LassoBox.dragged(sel.target, handle, x, y, keepShape = keepsShape(sel)))
                     },
                 )
             }
@@ -1036,6 +1039,12 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
         }
     }
 }
+
+/**
+ * Whether a corner handle keeps the selection's shape: always for pictures (F35: they only grow
+ * or shrink) and outside Resize mode; Resize's corners stretch writing freely (Phase 2).
+ */
+private fun keepsShape(sel: LassoState.Selected): Boolean = !sel.handles || sel.images.isNotEmpty()
 
 /** A finger dragging the lasso's selection: by [handle] (resize), or by its middle (move) when null. */
 private class FingerDrag(val handle: BoxHandle?)

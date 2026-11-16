@@ -50,6 +50,12 @@ class AppContainer(context: Context) {
         com.nzfrankwu.noteapp.data.PdfImport(notebookRepository, notebookFiles, thumbnails)
     }
 
+    /**
+     * PDFs or pictures shared into Noteapp and waiting for "Add to Noteapp" (copied into the
+     * inbox). Kept here, not in the screen, so turning the tablet doesn't lose it.
+     */
+    val pendingShare = kotlinx.coroutines.flow.MutableStateFlow<com.nzfrankwu.noteapp.data.SharedFiles?>(null)
+
     /** PDFs and pictures shared into Noteapp from other apps. */
     val sharedImport: com.nzfrankwu.noteapp.data.SharedImport by lazy {
         com.nzfrankwu.noteapp.data.SharedImport(notebookRepository, notebookFiles, com.nzfrankwu.noteapp.data.ImageImport(notebookFiles), pdfImport)

@@ -57,7 +57,16 @@ object RecentImages {
             putInt(ContentResolver.QUERY_ARG_OFFSET, offset)
         }
         return try {
-            resolver.query(collection, arrayOf(MediaStore.Images.Media._ID), args, null)?.use { c ->
+            val cursor = if (Build.VERSION.SDK_INT >= 30) {
+                resolver.query(collection, arrayOf(MediaStore.Images.Media._ID), args, null)
+            } else {
+                // Before Android 11 the gallery ignores the paging arguments; ask in its sort order instead.
+                resolver.query(
+                    collection, arrayOf(MediaStore.Images.Media._ID), null, null,
+                    "${MediaStore.Images.Media.DATE_ADDED} DESC LIMIT $limit OFFSET $offset",
+                )
+            }
+            cursor?.use { c ->
                 val idCol = c.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
                 buildList { while (c.moveToNext()) add(ContentUris.withAppendedId(collection, c.getLong(idCol))) }
             }.orEmpty()

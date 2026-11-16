@@ -73,12 +73,15 @@ fun SnipOverlay(picture: ImageBitmap, onCancel: () -> Unit, onConfirm: (IntArray
         }
         fun clamped(b: FloatArray): FloatArray {
             var (l, t, r, bt) = b
-            if (r - l < minSide) r = l + minSide
-            if (bt - t < minSide) bt = t + minSide
-            val w = r - l
-            val h = bt - t
+            // The smallest box, but never bigger than the picture (a long, thin screenshot).
+            val minW = min(minSide, dstW)
+            val minH = min(minSide, dstH)
+            if (r - l < minW) r = l + minW
+            if (bt - t < minH) bt = t + minH
+            val w = (r - l).coerceAtMost(dstW)
+            val h = (bt - t).coerceAtMost(dstH)
             l = l.coerceIn(dstX, dstX + dstW - w); t = t.coerceIn(dstY, dstY + dstH - h)
-            return floatArrayOf(l, t, l + w.coerceAtMost(dstW), t + h.coerceAtMost(dstH))
+            return floatArrayOf(l, t, l + w, t + h)
         }
         val handleRadius = with(density) { 9.dp.toPx() }
         val grabRadius = with(density) { 28.dp.toPx() }

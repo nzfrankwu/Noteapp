@@ -123,7 +123,8 @@ fun ImageMenu(
         if (access == PhotoAccess.NONE) { photos.clear(); endReached = false; return@LaunchedEffect }
         if (!nearEnd || endReached) return@LaunchedEffect
         val more = withContext(Dispatchers.IO) { RecentImages.page(resolver, photos.size, PAGE_SIZE) }
-        photos.addAll(more.filter { it !in photos })
+        val known = photos.toHashSet()
+        photos.addAll(more.filter { it !in known })
         if (more.size < PAGE_SIZE) endReached = true
     }
     LaunchedEffect(access) {

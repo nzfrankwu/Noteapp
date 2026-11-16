@@ -138,7 +138,8 @@ The goal is to let the user import lecture PDFs, write on them, drop images onto
 - [x] **F35. Corner handles keep the shape** in resize mode too (a picture only grows or shrinks); the side handles still stretch one way. The crop box's corners stay free.
 - [x] **F36. Writing across the edge between two pages** was cut off at the edge (a stroke belonged to the page it started on, and pages clip their ink). `PageSplit` cuts a finished stroke where it crosses into another page, one piece per page meeting exactly at the edge; `NotebookInk.addAcross` makes it one undo step; `InkHandoff` waits for every piece before the pen layer lets go.
 
-- [ ] **End of phase:** `/code-review`, fix, rebuild and retest (unit tests + full emulator suite), then ask the user to approve merging into `main`.
+- [x] **End of phase:** `/code-review` (high, 16 Nov): 10 findings, all fixed. Crop screen crash on a very long, thin picture; a finger move lost when a second finger pinched; export put ink in the wrong place on PDF pages with their own rotation (`PdfExport.pageToPdf`); "PDF" tag stayed after deleting a notebook's PDF pages; a shared file lost when the screen turned (`AppContainer.pendingShare`); the pen layer could hold a stroke for a page not yet ready (it's now asked to get ready; timeout 2 s); the fresh last page judged by the wrong piece of a split stroke; recent photos paging before Android 11; F35 also locked writing's corners in resize mode (now pictures only); the handoff counting now in `domain/ink/HandoffBook` with tests. Unit tests and the full emulator suite (214) pass.
+- [ ] **Merge into `main`:** waiting on the user's approval.
 
 ## Files to change (main ones)
 - Database: `data/db/Page.kt`, `NoteAppDatabase.kt` (VERSION 5), `Migrations.kt`, `app/schemas/5.json`; tests `SchemaHistoryTest`, `MigrationTest`.

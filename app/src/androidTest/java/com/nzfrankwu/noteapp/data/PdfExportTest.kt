@@ -120,6 +120,38 @@ class PdfExportTest {
         assertTrue("Ink on the blank page", isDark(blank.getPixel(400, 500)))
     }
 
+    /** A portrait page turned a quarter (or more) by the PDF's own /Rotate, as scanners and some slides do. */
+    private fun turnedPdf(rotation: Int): ByteArray {
+        val doc = PdfDocument()
+        val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
+        page.canvas.drawText("Turned", 60f, 80f, Paint().apply { textSize = 28f; color = Color.BLACK })
+        doc.finishPage(page)
+        val plain = ByteArrayOutputStream().also { doc.writeTo(it); doc.close() }.toByteArray()
+        return PDDocument.load(plain).use { pd ->
+            pd.getPage(0).rotation = rotation
+            ByteArrayOutputStream().also { pd.save(it) }.toByteArray()
+        }
+    }
+
+    @Test
+    fun aTurnedPage_getsItsInkWhereItWasWritten() = runBlocking {
+        for (rotation in listOf(90, 180, 270)) {
+            val id = (PdfImport(notebooks, files).import(folderId, "Turned $rotation") { turnedPdf(rotation).inputStream() } as PdfImportResult.Success).notebookId
+            val page = notebooks.getPages(id).single()
+            val shown = page.size(notebooks.getNotebook(id)!!)
+            // A short line near the top-left corner of the page as it's shown.
+            files.write(id, page.id, listOf(line("a", 40f, 200f, 60f)))
+            val out = File(root, "turned-$rotation.pdf")
+            PdfExport(files).export(notebooks.getNotebook(id)!!, notebooks.getPages(id), out, InkBrushes::exportShape)
+
+            val bmp = render(out, 0)
+            assertEquals("Shown size kept ($rotation)", shown.width, bmp.width.toFloat(), 1f)
+            assertTrue("Ink top-left ($rotation)", isDark(bmp.getPixel(120, 60)))
+            assertTrue("Not top-right ($rotation)", !isDark(bmp.getPixel(bmp.width - 120, 60)))
+            assertTrue("Not bottom-left ($rotation)", !isDark(bmp.getPixel(120, bmp.height - 60)))
+        }
+    }
+
     @Test
     fun highlighter_isSeeThrough() = runBlocking {
         val id = (notebooks.createNotebook(folderId, "Plain") as NotebookResult.Success).id

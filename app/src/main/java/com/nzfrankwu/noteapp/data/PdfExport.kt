@@ -74,8 +74,10 @@ class PdfExport(
                     doc.addPage(pdfPage)
                 }
                 PDPageContentStream(doc, pdfPage, PDPageContentStream.AppendMode.APPEND, true, true).use { cs ->
-                    // Our page units run down from the top-left corner; PDF's run up from the bottom-left.
-                    cs.transform(Matrix(1f, 0f, 0f, -1f, box.lowerLeftX, box.lowerLeftY + box.height))
+                    // Our page units run down from the top-left corner of the page AS SHOWN (turned
+                    // by its /Rotate, as PdfRenderer shows it); PDF's run up from the bottom-left of
+                    // the unturned page.
+                    cs.transform(pageToPdf(box, original?.rotation ?: 0))
                     if (original == null) drawPaper(cs, page.template ?: notebook.template, size.width, size.height)
                     for (image in content.images) drawImage(doc, cs, notebook.id, image)
                     drawInk(doc, cs, content.strokes, shapeOf)
@@ -92,6 +94,20 @@ class PdfExport(
         } finally {
             runCatching { doc.close() }
             sources.values.forEach { runCatching { it?.close() } }
+        }
+    }
+
+    /** The matrix from our top-down units on the page as shown to the PDF's own units. */
+    private fun pageToPdf(box: PDRectangle, rotation: Int): Matrix {
+        val x0 = box.lowerLeftX
+        val y0 = box.lowerLeftY
+        val w = box.width
+        val h = box.height
+        return when (((rotation % 360) + 360) % 360) {
+            90 -> Matrix(0f, 1f, 1f, 0f, x0, y0)
+            180 -> Matrix(-1f, 0f, 0f, 1f, x0 + w, y0)
+            270 -> Matrix(0f, -1f, -1f, 0f, x0 + w, y0 + h)
+            else -> Matrix(1f, 0f, 0f, -1f, x0, y0 + h)
         }
     }
 

@@ -542,7 +542,8 @@ class NotebookViewModel(
         val stability = settings.value.stability
         ink.addAcross(ok.mapValues { (_, strokes) -> strokes.map { Smoothing.smoothed(it, stability) } })
         ok.keys.forEach { changed(it) }
-        addPageAfterIfLast(ok.keys.last())
+        val order = pages.value.withIndex().associate { (i, p) -> p.id to i }
+        addPageAfterIfLast(ok.keys.maxBy { order[it] ?: -1 })
     }
 
     private var addingNextPage = false
