@@ -325,7 +325,11 @@ private fun SplitPanes(
         val total = with(density) { (if (sideBySide) maxWidth else maxHeight).toPx() }
         val gap = with(density) { DividerThickness.toPx() }
         var dragRatio by remember { mutableStateOf<Float?>(null) }
-        val shown = SplitLayout.dragged(dragRatio ?: ratio)
+        // Where the divider rests. Set straight away on letting go, so the panes don't jump back to the
+        // old saved place for a moment while the new one is being stored; follows the store otherwise.
+        var resting by remember { mutableStateOf(ratio) }
+        LaunchedEffect(ratio) { resting = ratio }
+        val shown = SplitLayout.dragged(dragRatio ?: resting)
         val firstPx = ((total - gap) * shown).roundToInt()
         val secondPx = (total - gap).roundToInt() - firstPx
         val closing = dragRatio?.let { r -> if (SplitLayout.closing(r)) (if (r < 0.5f) PaneSide.FIRST else PaneSide.SECOND) else null }
@@ -381,12 +385,12 @@ private fun SplitPanes(
                         .onGloballyPositioned { handleCoords = it }
                         .pointerInput(sideBySide, total) {
                             detectDragGestures(
-                                onDragStart = { dragRatio = ratio },
+                                onDragStart = { dragRatio = resting },
                                 onDragEnd = {
                                     val r = dragRatio
                                     dragRatio = null
                                     when (val release = r?.let { SplitLayout.release(it) }) {
-                                        is DividerRelease.Keep -> onRatio(release.ratio)
+                                        is DividerRelease.Keep -> { resting = release.ratio; onRatio(release.ratio) }
                                         is DividerRelease.Close -> onClose(release.side)
                                         null -> Unit
                                     }
@@ -409,22 +413,17 @@ private fun SplitPanes(
                         .semantics { contentDescription = "Split screen options; drag to resize" }
                         .testTag("split-handle"),
                 ) {
-                    // Its own size, sticking out of the thin divider (FB8), with a light rim to show on the dark line.
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = EditorBarButton,
-                        modifier = Modifier
-                            .then(if (sideBySide) Modifier.requiredSize(HandleThickness, HandleLength) else Modifier.requiredSize(HandleLength, HandleThickness))
-                            .shadow(3.dp, RoundedCornerShape(50))
-                            .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(50)),
+                    // As thin as the divider line itself (the user's choice): a lighter stretch of the
+                    // line with three small dots, so it reads as a handle.
+                    androidx.compose.foundation.Canvas(
+                        Modifier.then(if (sideBySide) Modifier.requiredSize(DividerThickness, HandleLength) else Modifier.requiredSize(HandleLength, DividerThickness)),
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painterResource(R.drawable.ic_more_vert),
-                                contentDescription = null,
-                                tint = EditorBarIcon,
-                                modifier = Modifier.size(14.dp).then(if (sideBySide) Modifier else Modifier.rotate(90f)),
-                            )
+                        drawRoundRect(HandleColor, cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.minDimension / 2))
+                        val r = size.minDimension * 0.22f
+                        val step = r * 3.2f
+                        for (k in -1..1) {
+                            val c = if (sideBySide) Offset(size.width / 2, size.height / 2 + k * step) else Offset(size.width / 2 + k * step, size.height / 2)
+                            drawCircle(EditorBarIcon, radius = r, center = c)
                         }
                     }
                 }
@@ -508,9 +507,9 @@ private fun DragGhost(item: NotebookListItem, at: Offset, area: Rect, splitMode:
 /** Thin, so the notebooks get the room (FB8); the ⋮ handle stands out from it. */
 private val DividerThickness = 6.dp
 
-/** The ⋮ handle: slim (the user found 24 dp too wide), and long enough to grab. */
-private val HandleThickness = 12.dp
+/** The ⋮ handle: as thin as the divider (the user's choice), and long enough to see. */
 private val HandleLength = 48.dp
+private val HandleColor = Color(0xFF6B6F76)
 
 /** Where a finger can grab the handle: wider than it looks. */
 private val HandleTouchThickness = 40.dp

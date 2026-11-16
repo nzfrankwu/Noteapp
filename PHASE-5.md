@@ -138,6 +138,10 @@ Done hands-off.
 - [x] **FB12 Course folders: tasks on the left, notes on the right** (the notes panel keeps 58% of the width; ＋ sits over the notes, so their list keeps room at the bottom).
 - [x] **FB13 A much slimmer divider handle**: 12 × 48 dp (was 24 × 56), with a 40 × 64 dp invisible touch area so it's still easy to grab.
 
+## Feedback round 4 (17 Nov 2026)
+- [x] **FB14 The handle is as thin as the divider** (6 dp): a lighter stretch of the line with three dots, drawn on a Canvas; the 40 × 64 dp touch area stays.
+- [x] **FB15 No jump after letting go of the divider**: the panes showed the old saved split for a moment while the new one was stored (DataStore). The divider now keeps a local resting place, set on release and following the store afterwards; a drag also starts from it (the gesture had kept an out-of-date value). Checked with frames captured right after letting go.
+
 ## Verification
 - **Every step:** `gradlew.bat assembleDebug testDebugUnitTest`, plus `connectedDebugAndroidTest` with `ANDROID_SERIAL=emulator-5554` (a run wipes the emulator's app data; rebuild it with `screenshots/p4setup.sh`).
 - **Emulator screen tests:**
