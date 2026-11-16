@@ -135,7 +135,7 @@ class NotebookViewModel(
             if (pageStatus[page.id] == PageStatus.Ready) continue
             when (read) {
                 PageRead.Missing -> ink.load(page.id, emptyList()).also { pageStatus[page.id] = PageStatus.Ready }
-                is PageRead.Ok -> ink.load(page.id, read.strokes, read.images).also { pageStatus[page.id] = PageStatus.Ready }
+                is PageRead.Ok -> ink.load(page.id, read.strokes, read.images, read.texts).also { pageStatus[page.id] = PageStatus.Ready }
                 is PageRead.Damaged -> pageStatus[page.id] = PageStatus.Damaged(read.reason)
             }
             version++
@@ -666,7 +666,8 @@ class NotebookViewModel(
     private fun afterUndoRedo(edit: InkEdit, undoing: Boolean) {
         when (edit) {
             is InkEdit.Add, is InkEdit.Remove, is InkEdit.Replace,
-            is InkEdit.AddImages, is InkEdit.RemoveImages, is InkEdit.ReplaceImages, is InkEdit.Group,
+            is InkEdit.AddImages, is InkEdit.RemoveImages, is InkEdit.ReplaceImages,
+            is InkEdit.AddTexts, is InkEdit.RemoveTexts, is InkEdit.ReplaceTexts, is InkEdit.Group,
             -> edit.changedPages.forEach { changed(it) }
             is InkEdit.AddPage -> viewModelScope.launch {
                 if (undoing) notebooks.deletePage(edit.pageId) else notebooks.restorePage(edit.pageId, edit.index)
@@ -791,8 +792,8 @@ class NotebookViewModel(
     fun saveNow(): Job? {
         if (dirty.isEmpty()) return null
         saveJob?.cancel()
-        // Strokes AND pictures: a save must never drop a page's pictures.
-        val toSave = dirty.associateWith { ink.strokes(it).toList() to ink.images(it).toList() }
+        // Everything on the page (strokes, pictures, text boxes): a save must never drop any of it.
+        val toSave = dirty.associateWith { ink.content(it) }
         dirty.clear()
         // The tile shows the first page: redraw it only when that page changed.
         val thumbnail = if (pages.value.firstOrNull()?.id in toSave) thumbnailJob() else null
@@ -802,7 +803,7 @@ class NotebookViewModel(
                 for ((pageId, content) in toSave) {
                     // A failed write is retried here, in the scope that outlives the screen, so a
                     // save made while leaving the notebook still gets its retries.
-                    if (writeWithRetries(pageId, content.first, content.second)) {
+                    if (writeWithRetries(pageId, content)) {
                         saved += pageId
                     } else {
                         withContext(Dispatchers.Main) {
@@ -820,11 +821,11 @@ class NotebookViewModel(
     }
 
     /** Writes a page's file, trying again after short pauses if it fails. True once it's saved. */
-    private suspend fun writeWithRetries(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage>): Boolean {
+    private suspend fun writeWithRetries(pageId: String, content: com.nzfrankwu.noteapp.domain.ink.PageContent): Boolean {
         for (pause in SAVE_RETRY_PAUSES_MS) {
             delay(pause)
             try {
-                withContext(io) { files.write(notebookId, pageId, strokes, images) }
+                withContext(io) { files.write(notebookId, pageId, content.strokes, content.images, content.texts) }
                 return true
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e

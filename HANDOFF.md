@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 5 planned and started, hands-off; on step 5.1). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 5, hands-off; 5.1 done, on step 5.2). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -20,7 +20,7 @@ _Last updated: 16 Nov 2026 (Phase 5 planned and started, hands-off; on step 5.1)
 
 ## Next steps (in order)
 
-1. **Phase 5, step 5.1** (🔺 page file format 3 with text boxes), then 5.2 onwards in order (PHASE-5.md).
+1. **Phase 5:** 5.0 and 5.1 done (page format 3 with text boxes, `8a093a4` → next commit). Next: **5.2 drawing text** (bundled Noto Sans font, `TextBoxLayout`), then 5.3 onwards (PHASE-5.md).
 2. Phase 4 tablet feedback (hold time, handle size) may still come from the user: fix it on `phase-5` if so.
 4. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture

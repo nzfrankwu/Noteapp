@@ -73,10 +73,10 @@ These additions are written into IDEA.md §2.8 and the Phase 5 row of §5; the u
 - **App-wide clipboard** in `AppContainer`; pasting pictures into another notebook copies their files.
 
 ## Steps (branch `phase-5` from `main`; ★ = check-in, 🔺 = difficult)
-- [ ] **5.0** Write `PHASE-5.md`, update IDEA.md (§2.8, §5), HANDOFF.md and ISSUES.md. Commit.
+- [x] **5.0** Write `PHASE-5.md`, update IDEA.md (§2.8, §5), HANDOFF.md and ISSUES.md. Commit.
 
 **Text boxes**
-- [ ] 🔺 **5.1 Text box data:**
+- [x] 🔺 **5.1 Text box data** (16 Nov, hands-off). `domain/ink/InkText.kt` keeps the box's last laid-out `height`, so hit-testing and the lasso need no Android text layout. The text is stored as length + UTF-8 bytes (no 64 KB `writeUTF` limit), at most 20,000 characters. `NotebookInk.commitText(before, after)` turns one editing session into one undo step (new → AddTexts, emptied → RemoveTexts, changed → ReplaceTexts). The editor saves `ink.content(page)`, so a save always includes every kind of item. 18 unit tests in `PageTextsTest`.
   - `InkText` (like `InkImage`), `PageContent.texts`
   - codec format 3, `NotebookFiles.read/write`
   - `InkEdit.AddTexts` / `RemoveTexts` / `ReplaceTexts` with undo/redo

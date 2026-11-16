@@ -48,10 +48,10 @@ class PageImagesTest {
     @Test
     fun aNewerFormat_isRefused_neverMisread() {
         val bytes = PageInkCodec.encode(strokes, listOf(photo))
-        bytes[5] = 3
+        bytes[5] = (PageInkCodec.VERSION + 1).toByte()
         try {
             PageInkCodec.decodePage(bytes)
-            fail("A version 3 file must be refused")
+            fail("A newer format must be refused")
         } catch (e: PageFileException) {
             assertTrue(e.message!!.contains("newer"))
         }
