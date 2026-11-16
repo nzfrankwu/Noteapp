@@ -8,8 +8,6 @@ _None known._
 
 ## Open questions
 
-- **IDEA.md §2.7 and §5: OK to note that snip moved to Phase 3?** Proposed text: in §2.7, "Built in Phase 3 (moved from Phase 5 in Nov 2026): capture → crop → insert, alone or in split screen. Snip between NoteApp's own split notebooks stays in Phase 5."; in the §5 table, add screen capture/snip to Phase 3 and keep only "snip between split notebooks" in Phase 5.
-
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
 ## Follow-ups / tech debt
@@ -57,6 +55,7 @@ _None known._
 
 ## Done
 
+- **IDEA.md §2.7 and §5 (16 Nov):** snip noted as built in Phase 3 (user's OK).
 - **F36 (16 Nov):** a stroke written across the edge between two pages is no longer cut off: it's split at the edge, one piece per page (one undo step). Strokes written before the fix stay cut.
 - **End-of-phase review, Phase 3 (16 Nov):** 10 findings fixed (details in PHASE-3.md): crop crash on very long screenshots, a finger move lost on pinch, export of PDF pages that have their own rotation, a stale "PDF" tag, a share lost on rotation, the pen layer waiting on an unready page, the fresh last page after a split stroke, recent photos before Android 11, F35's corners (pictures only), and tests for the pen handoff.
 - **F35 (16 Nov):** in resize mode the corner handles keep a picture's shape; the side handles still stretch. Writing alone keeps free corners in resize mode, as in Phase 2.
