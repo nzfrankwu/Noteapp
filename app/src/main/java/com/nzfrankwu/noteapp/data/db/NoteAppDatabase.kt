@@ -8,13 +8,16 @@ import androidx.room.TypeConverters
 
 /**
  * NoteApp's on-device database: the single source of truth for courses, folders, tasks,
- * notebooks and pages. Screens watch it live, and Canvas sync writes into it. Handwriting itself
+ * notebooks, pages, and the links and bookmarks between tasks and notebooks. Screens watch it live, and Canvas sync writes into it. Handwriting itself
  * is saved in per-page files next to it (see NotebookFiles).
  *
  * Changing any table means a new [VERSION] plus a migration; see Migrations.kt.
  */
 @Database(
-    entities = [Course::class, Folder::class, Task::class, Notebook::class, Page::class],
+    entities = [
+        Course::class, Folder::class, Task::class, Notebook::class, Page::class,
+        TaskNotebookLink::class, TaskBookmark::class,
+    ],
     version = NoteAppDatabase.VERSION,
     exportSchema = true,
 )
@@ -24,10 +27,11 @@ abstract class NoteAppDatabase : RoomDatabase() {
     abstract fun folderDao(): FolderDao
     abstract fun taskDao(): TaskDao
     abstract fun notebookDao(): NotebookDao
+    abstract fun linkDao(): LinkDao
 
     companion object {
         /** The current database version. See Migrations.kt before changing it. */
-        const val VERSION = 5
+        const val VERSION = 6
 
         /** File name inside the app's private storage. Must never change (it would "lose" the data). */
         const val FILE_NAME = "noteapp.db"

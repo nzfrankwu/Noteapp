@@ -51,4 +51,7 @@ object Dimens {
 
     /** Height of a tile's picture area (the page thumbnail or the folder icon). */
     val LibraryTileThumbHeight = 170.dp
+
+    /** A linked notebook's tile on the task screen. */
+    val LinkedTileWidth = 160.dp
 }

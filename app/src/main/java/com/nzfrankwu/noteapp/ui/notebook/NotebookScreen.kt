@@ -44,7 +44,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -76,6 +80,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nzfrankwu.noteapp.BuildConfig
 import com.nzfrankwu.noteapp.R
+import com.nzfrankwu.noteapp.domain.ink.TextSelection
 import com.nzfrankwu.noteapp.domain.PageTemplate
 import com.nzfrankwu.noteapp.domain.ink.EditorTool
 import com.nzfrankwu.noteapp.domain.ink.InkToolSettings
@@ -99,6 +104,11 @@ fun NotebookScreen(
     viewModel: NotebookViewModel,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens a linked task's page (Phase 4). */
+    onOpenTask: (String) -> Unit = {},
+    /** A page to open at (a bookmark, Phase 4): its ID, and the spot to zoom to (null = the whole page). */
+    openAtPage: String? = null,
+    openAtSpot: com.nzfrankwu.noteapp.domain.PageSpot? = null,
 ) {
     val notebook by viewModel.notebook.collectAsStateWithLifecycle()
     val pages by viewModel.pages.collectAsStateWithLifecycle()
@@ -110,9 +120,13 @@ fun NotebookScreen(
     var showSettings by remember { mutableStateOf(false) }
     // Back closes the settings panel, then lets go of a lasso selection, before leaving.
     // (Read through derivedStateOf: dragging a selection must not recompose this screen.)
-    val hasSelection by remember(view) { derivedStateOf { view.lasso != null } }
+    val hasSelection by remember(view) { derivedStateOf { view.lasso != null || view.textSel != null } }
     BackHandler(enabled = showSettings || hasSelection) {
-        if (showSettings) showSettings = false else view.lasso = null
+        when {
+            showSettings -> showSettings = false
+            view.textSel != null -> view.textSel = null
+            else -> view.lasso = null
+        }
     }
     // Touching the page (pen or finger) closes the tool's settings panel (F27, F29).
     LaunchedEffect(view) {
@@ -146,6 +160,29 @@ fun NotebookScreen(
         }
     }
 
+    // Links to tasks (PHASE-4.md 4.3): the chip by Back, and "Link to a task".
+    val links = viewModel.links
+    val linkedTasks by (links?.tasks ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList()) }).collectAsStateWithLifecycle()
+    var linkingTask by rememberSaveable { mutableStateOf(false) }
+    // Link notices, cleared as soon as they're taken (so one never shows twice).
+    LaunchedEffect(links) {
+        links ?: return@LaunchedEffect
+        links.notice.filterNotNull().collectLatest { notice ->
+            links.noticeShown()
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(
+                notice.text,
+                actionLabel = if (notice.undo != null) "Undo" else null,
+                duration = if (notice.undo != null) SnackbarDuration.Long else SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) notice.undo?.invoke()
+        }
+    }
+    val zone = remember { java.time.ZoneId.systemDefault() }
+    fun nowInstant(): java.time.Instant = java.time.Instant.now()
+    // A bookmark being saved (PHASE-4.md 4.5): its page, spot and prefilled note.
+    var bookmarking by remember { mutableStateOf<BookmarkRequest?>(null) }
+
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveNow() }
     LaunchedEffect(message) {
         message?.let { snackbar.showSnackbar(it); viewModel.messageShown() }
@@ -155,6 +192,9 @@ fun NotebookScreen(
         if (damaged > 0) snackbar.showSnackbar("A page couldn't be read. Its file is kept safe and won't be changed.")
     }
     LaunchedEffect(settings.tool) { if (settings.tool != EditorTool.LASSO) view.lasso = null }
+    // Selected text remembers its page's place, which moves when pages are added or deleted.
+    val pageIds = pages.map { it.id }
+    LaunchedEffect(pageIds) { view.textSel = null }
     // The pen's side button, when it arrives as a key (the OPPO Pencil 2's does).
     DisposableEffect(viewModel) {
         val click: () -> Unit = { viewModel.penButtonClicked() }
@@ -170,8 +210,20 @@ fun NotebookScreen(
     val viewSize = view.viewSize
     var fittedFor by remember { mutableStateOf(IntSize.Zero) }
     var savedPage by rememberSaveable { mutableIntStateOf(0) }
+    var openedAtBookmark by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(viewSize, strip != null && pages.isNotEmpty()) {
         if (strip == null || pages.isEmpty() || viewSize.width == 0 || fittedFor == viewSize) return@LaunchedEffect
+        // Opened at a bookmark: that page, zoomed to its spot (once; afterwards it's like any other page).
+        val bookmarked = if (!openedAtBookmark && view.camera == null) pages.indexOfFirst { it.id == openAtPage } else -1
+        if (bookmarked >= 0) {
+            val w = viewSize.width.toFloat()
+            val h = viewSize.height.toFloat()
+            view.camera = openAtSpot?.takeIf { it.isValid }?.let { strip.focus(bookmarked, it.left, it.top, it.width, it.height, w, h) }
+                ?: strip.fit(settings.fitMode, bookmarked, w, h)
+            openedAtBookmark = true
+            fittedFor = viewSize
+            return@LaunchedEffect
+        }
         val page = (view.camera?.let { strip.currentPage(it, fittedFor.width.toFloat()) } ?: savedPage)
             .coerceIn(0, pages.size - 1)
         view.camera = strip.fit(settings.fitMode, page, viewSize.width.toFloat(), viewSize.height.toFloat())
@@ -298,6 +350,51 @@ fun NotebookScreen(
                         viewModel.deleteSelection(sel.pageId, sel.strokes.mapTo(HashSet()) { it.id }, sel.images.mapTo(HashSet()) { it.id })
                         view.lasso = null
                     },
+                    onBookmark = if (links == null) null else { sel ->
+                        val b = sel.box()
+                        bookmarking = BookmarkRequest(
+                            sel.pageId, sel.pageIndex + 1,
+                            spot = com.nzfrankwu.noteapp.domain.PageSpot(b[0], b[1], b[2] - b[0], b[3] - b[1]),
+                            note = "",
+                        )
+                    },
+                )
+                TextMenu(
+                    view, strip,
+                    onCopy = { sel ->
+                        val clip = android.content.ClipData.newPlainText("PDF text", TextSelection.copyText(sel.text, sel.range))
+                        context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(clip)
+                        view.textSel = null
+                        // Android 13+ shows its own "Copied" confirmation.
+                        if (android.os.Build.VERSION.SDK_INT < 33) scope.launch { snackbar.showSnackbar("Copied.") }
+                    },
+                    onHighlight = { sel ->
+                        val style = settings.highlighter
+                        val strokes = TextSelection.strokes(
+                            TextSelection.highlightMarks(sel.text, sel.range), com.nzfrankwu.noteapp.domain.ink.InkTool.HIGHLIGHTER,
+                            style.colorArgb, size = null,
+                        ) { java.util.UUID.randomUUID().toString() }
+                        viewModel.addTextMarks(sel.pageId, strokes)
+                        view.textSel = null
+                    },
+                    onUnderline = { sel ->
+                        // The pen in use, or else the first pen: its colour, at a neat steady width.
+                        val style = settings.penStyle(settings.tool)?.takeIf { settings.tool.penSlot != null } ?: settings.pens.first()
+                        val strokes = TextSelection.strokes(
+                            TextSelection.underlineMarks(sel.text, sel.range, UNDERLINE_WIDTH), com.nzfrankwu.noteapp.domain.ink.InkTool.PEN_STEADY,
+                            style.colorArgb, size = UNDERLINE_WIDTH,
+                        ) { java.util.UUID.randomUUID().toString() }
+                        viewModel.addTextMarks(sel.pageId, strokes)
+                        view.textSel = null
+                    },
+                    onBookmark = if (links == null) null else { sel ->
+                        bookmarking = BookmarkRequest(
+                            sel.pageId, sel.pageIndex + 1,
+                            spot = TextSelection.spotOf(sel.text, sel.range),
+                            note = com.nzfrankwu.noteapp.domain.Bookmarks.noteFromSelectedText(TextSelection.copyText(sel.text, sel.range)),
+                        )
+                        view.textSel = null
+                    },
                 )
                 PasteBubble(view) { at ->
                     view.pasteAt = null
@@ -363,7 +460,33 @@ fun NotebookScreen(
                 },
                 menuOpen = menuOpen,
                 onMenuOpen = { menuOpen = it },
+                onBookmark = if (links == null) null else {
+                    {
+                        val index = pageNow()
+                        pages.getOrNull(index)?.let { bookmarking = BookmarkRequest(it.id, index + 1, spot = null, note = "") }
+                    }
+                },
+                taskChip = {
+                    if (links != null) {
+                        LinkedTaskChip(
+                            tasks = linkedTasks,
+                            now = nowInstant(),
+                            zone = zone,
+                            onOpenTask = { viewModel.saveNow(); onOpenTask(it) },
+                            onUnlink = links::unlink,
+                            onLinkTask = { linkingTask = true },
+                        )
+                    }
+                },
             ) {
+                if (links != null && linkedTasks.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("Link to a task…") },
+                        onClick = { menuOpen = false; linkingTask = true },
+                        modifier = Modifier.testTag("menu-link-task"),
+                    )
+                    HorizontalDivider()
+                }
                 Text(
                     "Paper",
                     style = MaterialTheme.typography.labelLarge,
@@ -442,6 +565,38 @@ fun NotebookScreen(
                 )
             }
             ExportDialogs(viewModel, nb?.title.orEmpty())
+            val request = bookmarking
+            if (request != null && links != null) {
+                val linked by links.tasks.collectAsStateWithLifecycle()
+                val all by links.allChoices.collectAsStateWithLifecycle()
+                val linkedIds = linked.mapTo(HashSet()) { it.task.id }
+                BookmarkSheet(
+                    pageNumber = request.pageNumber,
+                    linked = linked,
+                    others = com.nzfrankwu.noteapp.data.TaskChoices(
+                        all.inCourse.filter { it.task.id !in linkedIds },
+                        all.others.filter { it.task.id !in linkedIds },
+                    ),
+                    note = request.note,
+                    now = nowInstant(),
+                    zone = zone,
+                    onSave = { task, note ->
+                        bookmarking = null
+                        links.addBookmark(task, request.pageId, note, request.spot)
+                    },
+                    onCancel = { bookmarking = null },
+                )
+            }
+            if (linkingTask && links != null) {
+                val choices by links.choices.collectAsStateWithLifecycle()
+                LinkTaskSheet(
+                    choices = choices,
+                    now = nowInstant(),
+                    zone = zone,
+                    onPick = { linkingTask = false; links.link(it) },
+                    onCancel = { linkingTask = false },
+                )
+            }
             if (addMenuOpen) {
                 AddPageDialog(
                     current = pages.getOrNull(addAfter)?.template ?: nb?.template ?: PageTemplate.DEFAULT,
@@ -535,6 +690,9 @@ fun NotebookScreen(
         }
     }
 }
+
+/** A bookmark waiting for its task and note: page [pageId] (number [pageNumber]), at [spot] or the whole page. */
+data class BookmarkRequest(val pageId: String, val pageNumber: Int, val spot: com.nzfrankwu.noteapp.domain.PageSpot?, val note: String)
 
 /** A picture being cropped: where it is, and its full picture file. */
 private class CropTarget(val pageIndex: Int, val pageId: String, val image: com.nzfrankwu.noteapp.domain.ink.InkImage, val picture: android.graphics.Bitmap)
@@ -683,8 +841,9 @@ private fun FloatingToolbar(
 }
 
 /**
- * The menu under the lasso's selection (F12): Resize, Duplicate, Copy, Cut, Delete. There's no
- * Done: touching the page outside the selection lets it go (F15).
+ * The menu under the lasso's selection (F12), as icons (PHASE-4.md 4.4): Resize, Crop (one
+ * picture), Bookmark, Duplicate, Copy, Cut, Delete. There's no Done: touching the page outside
+ * the selection lets it go (F15).
  */
 @Composable
 private fun LassoMenu(
@@ -696,6 +855,8 @@ private fun LassoMenu(
     onCopy: (LassoState.Selected) -> Unit,
     onCut: (LassoState.Selected) -> Unit,
     onDelete: (LassoState.Selected) -> Unit,
+    /** Bookmark the selection's spot for a task (Phase 4), or null when bookmarks aren't available. */
+    onBookmark: ((LassoState.Selected) -> Unit)? = null,
 ) {
     val sel = view.lasso as? LassoState.Selected ?: return
     val cam = view.camera ?: return
@@ -705,44 +866,86 @@ private fun LassoMenu(
     val bx = cam.toScreenX(strip.pageLeft(sel.pageIndex) + box[0])
         .coerceIn(8f, (view.viewSize.width - menuWidth - 8f).coerceAtLeast(8f))
     val by = (cam.toScreenY(strip.pageTop(sel.pageIndex) + box[3]) + gap).coerceAtMost(view.viewSize.height - 160f)
-    Surface(
-        modifier = Modifier
+    val items = buildList {
+        add(IconMenuItem(R.drawable.ic_open_in_full, if (sel.handles) "Resize (on)" else "Resize", "lasso-resize", selected = sel.handles) { onResize(sel) })
+        // One picture on its own can be cropped (F33).
+        if (sel.strokes.isEmpty() && sel.images.size == 1) add(IconMenuItem(R.drawable.ic_crop, "Crop", "lasso-crop") { onCrop(sel) })
+        if (onBookmark != null) add(IconMenuItem(R.drawable.ic_bookmark_add, "Bookmark for a task", "lasso-bookmark") { onBookmark(sel) })
+        add(IconMenuItem(R.drawable.ic_library_add, "Duplicate", "lasso-duplicate") { onDuplicate(sel) })
+        add(IconMenuItem(R.drawable.ic_content_copy, "Copy", "lasso-copy") { onCopy(sel) })
+        add(IconMenuItem(R.drawable.ic_content_cut, "Cut", "lasso-cut") { onCut(sel) })
+        add(IconMenuItem(R.drawable.ic_delete, "Delete", "lasso-delete", destructive = true) { onDelete(sel) })
+    }
+    IconMenu(
+        items,
+        Modifier
             .offset { IntOffset(bx.roundToInt(), by.roundToInt()) }
             .onSizeChanged { menuWidth = it.width }
             .testTag("lasso-menu"),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = 6.dp,
-    ) {
-        Row {
-            TextButton(onClick = { onResize(sel) }) { Text(if (sel.handles) "Resize ✓" else "Resize") }
-            // One picture on its own can be cropped (F33).
-            if (sel.strokes.isEmpty() && sel.images.size == 1) {
-                TextButton(onClick = { onCrop(sel) }, modifier = Modifier.testTag("lasso-crop")) { Text("Crop") }
-            }
-            TextButton(onClick = { onDuplicate(sel) }) { Text("Duplicate") }
-            TextButton(onClick = { onCopy(sel) }) { Text("Copy") }
-            TextButton(onClick = { onCut(sel) }) { Text("Cut") }
-            TextButton(onClick = { onDelete(sel) }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-        }
-    }
+    )
 }
+
+/**
+ * The menu for selected PDF text (PHASE-4.md 4.7), as icons: Copy, Highlight, Underline, Bookmark.
+ * It sits above the selection, or below it when there's no room above.
+ */
+@Composable
+private fun TextMenu(
+    view: EditorViewState,
+    strip: PageStrip,
+    onCopy: (TextSel) -> Unit,
+    onHighlight: (TextSel) -> Unit,
+    onUnderline: (TextSel) -> Unit,
+    onBookmark: ((TextSel) -> Unit)?,
+) {
+    val sel = view.textSel ?: return
+    val cam = view.camera ?: return
+    val density = LocalDensity.current
+    val gap = with(density) { 12.dp.toPx() }
+    val menuHeight = with(density) { 48.dp.toPx() }
+    var menuWidth by remember { mutableIntStateOf(0) }
+    val rects = TextSelection.lineRects(sel.text, sel.range)
+    val pl = strip.pageLeft(sel.pageIndex)
+    val pt = strip.pageTop(sel.pageIndex)
+    // Centred on the part of the selection that's on screen.
+    val screenW = view.viewSize.width.toFloat()
+    val left = cam.toScreenX(pl + rects.minOf { it[0] }).coerceIn(0f, screenW)
+    val right = cam.toScreenX(pl + rects.maxOf { it[2] }).coerceIn(0f, screenW)
+    val top = cam.toScreenY(pt + rects.first()[1])
+    val bottom = cam.toScreenY(pt + rects.last()[3]) + TEXT_KNOB_RADIUS * 2 + 4f
+    val mx = ((left + right) / 2 - menuWidth / 2f).coerceIn(8f, (view.viewSize.width - menuWidth - 8f).coerceAtLeast(8f))
+    // Above the text, clear of the floating buttons; else below the handles.
+    val above = top - gap - menuHeight
+    val my = if (above > with(density) { 72.dp.toPx() }) above else (bottom + gap).coerceAtMost(view.viewSize.height - menuHeight - 8f)
+    val items = buildList {
+        add(IconMenuItem(R.drawable.ic_content_copy, "Copy", "text-copy") { onCopy(sel) })
+        add(IconMenuItem(R.drawable.ic_highlighter, "Highlight", "text-highlight") { onHighlight(sel) })
+        add(IconMenuItem(R.drawable.ic_format_underlined, "Underline", "text-underline") { onUnderline(sel) })
+        if (onBookmark != null) add(IconMenuItem(R.drawable.ic_bookmark_add, "Bookmark for a task", "text-bookmark") { onBookmark(sel) })
+    }
+    IconMenu(
+        items,
+        Modifier
+            .offset { IntOffset(mx.roundToInt(), my.roundToInt()) }
+            .onSizeChanged { menuWidth = it.width }
+            .testTag("text-menu"),
+    )
+}
+
+/** Underlines made from selected text: a neat steady line this wide (page units). */
+private const val UNDERLINE_WIDTH = 1.2f
 
 /** The Paste bubble where a finger was held (F12). */
 @Composable
 private fun PasteBubble(view: EditorViewState, onPaste: (androidx.compose.ui.geometry.Offset) -> Unit) {
     val at = view.pasteAt ?: return
     val lift = with(LocalDensity.current) { 56.dp.toPx() }
-    Surface(
-        modifier = Modifier
-            .offset { IntOffset((at.x - 40f).roundToInt(), (at.y - lift).roundToInt().coerceAtLeast(0)) }
+    IconMenu(
+        listOf(IconMenuItem(R.drawable.ic_content_paste, "Paste", "paste-button") { onPaste(at) }),
+        Modifier
+            .offset { IntOffset((at.x - 28f).roundToInt(), (at.y - lift).roundToInt().coerceAtLeast(0)) }
             .testTag("paste-bubble"),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.inverseSurface,
-        shadowElevation = 6.dp,
-    ) {
-        TextButton(onClick = { onPaste(at) }) { Text("Paste", color = MaterialTheme.colorScheme.inverseOnSurface) }
-    }
+    )
 }
 
 /**

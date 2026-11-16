@@ -24,6 +24,7 @@ class SchemaHistoryTest {
         3 to "c46f5206b09771b08f5070500a2fe591", // Phase 1b: courses.archived_at
         4 to "a64c218ee32b0a66128cb5539c44d312", // Phase 2: subfolders, notebooks, pages
         5 to "89e756841cb2c3e2e68f5239b5327971", // Phase 3: page sizes, PDF pages
+        6 to "6372421640f9306234ce83b64b287d14", // Phase 4: task-notebook links, bookmarks
     )
 
     // Unit tests run with the app module folder as the working directory.

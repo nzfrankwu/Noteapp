@@ -78,6 +78,9 @@ import com.nzfrankwu.noteapp.domain.ink.PressureErase
 import com.nzfrankwu.noteapp.domain.ink.PressHold
 import com.nzfrankwu.noteapp.domain.ink.StillTimer
 import com.nzfrankwu.noteapp.domain.ink.Straighten
+import com.nzfrankwu.noteapp.domain.ink.PageText
+import com.nzfrankwu.noteapp.domain.ink.TextRange
+import com.nzfrankwu.noteapp.domain.ink.TextSelection
 import com.nzfrankwu.noteapp.ui.components.drawPaperPattern
 import com.nzfrankwu.noteapp.ui.theme.DeskDark
 import com.nzfrankwu.noteapp.ui.theme.DeskLight
@@ -161,6 +164,9 @@ class EditorViewState {
     /** Hands finished strokes from the pen layer to the page layers without a flash (F30). */
     val handoff = InkHandoff()
 
+    /** Selected PDF text (PHASE-4.md 4.7), or null. */
+    var textSel by mutableStateOf<TextSel?>(null)
+
     /** Where a finger was held to paste (screen pixels): shows the Paste bubble (F12). */
     var pasteAt by mutableStateOf<Offset?>(null)
 
@@ -233,6 +239,20 @@ class EditorViewState {
         /** Faster than this (pixels per second), pages flying past show only their preview (F8). */
         const val FAST_SCROLL_SPEED = 2_500f
     }
+}
+
+/** Selected words of a PDF page (PHASE-4.md 4.7): page [pageIndex] ([pageId]), its [text], and the [range]. */
+data class TextSel(val pageIndex: Int, val pageId: String, val text: PageText, val range: TextRange)
+
+/** The two handles of a text selection. */
+enum class TextHandle { START, END }
+
+/** Where a text handle's knob is drawn: [x], [y] in screen pixels (the knob hangs below the text). */
+fun textHandleKnob(sel: TextSel, handle: TextHandle, strip: PageStrip, cam: Camera): Offset {
+    val h = TextSelection.handles(sel.text, sel.range)
+    val x = if (handle == TextHandle.START) h[0] else h[2]
+    val y = if (handle == TextHandle.START) h[1] else h[3]
+    return Offset(cam.toScreenX(strip.pageLeft(sel.pageIndex) + x), cam.toScreenY(strip.pageTop(sel.pageIndex) + y) + TEXT_KNOB_RADIUS + 2f)
 }
 
 /** The pen layer's matrix and brush, kept in one stable object so the pen layer isn't rebuilt mid-stroke. */
@@ -515,6 +535,22 @@ fun NotebookCanvas(
                 }
                 null -> Unit
             }
+            view.textSel?.let { sel ->
+                val pl = strip.pageLeft(sel.pageIndex)
+                val pt = strip.pageTop(sel.pageIndex)
+                for (r in TextSelection.lineRects(sel.text, sel.range)) {
+                    val l = cam.toScreenX(pl + r[0]); val t = cam.toScreenY(pt + r[1])
+                    drawRect(TextTint, Offset(l, t), Size(cam.toScreenX(pl + r[2]) - l, cam.toScreenY(pt + r[3]) - t))
+                }
+                for (handle in TextHandle.entries) {
+                    val knob = textHandleKnob(sel, handle, strip, cam)
+                    val words = sel.text.words
+                    val word = if (handle == TextHandle.START) words[sel.range.first] else words[sel.range.last]
+                    val top = cam.toScreenY(pt + word.top)
+                    drawLine(SelectionBlue, Offset(knob.x, top), Offset(knob.x, knob.y), strokeWidth = 3f)
+                    drawCircle(SelectionBlue, TEXT_KNOB_RADIUS, knob)
+                }
+            }
             view.straight?.let { line ->
                 val alpha = if (line.tool.isHighlighter) com.nzfrankwu.noteapp.domain.ink.HighlightOpacity.of(line.colorArgb) else 1f
                 drawLine(
@@ -561,6 +597,11 @@ private data class Snapshot(
 
 private const val HANDLE_RADIUS = 14f
 
+/** A text handle's knob, and how far from it a touch still grabs it (screen pixels). */
+const val TEXT_KNOB_RADIUS = 13f
+private const val TEXT_KNOB_GRAB = 44f
+private val TextTint = Color(0x552F6BDB)
+
 /** How far above the box the rotate handle sits (screen pixels, F14). */
 private const val ROTATE_HANDLE_GAP = 56f
 
@@ -583,7 +624,7 @@ private const val TAP_MS = 300L
 private const val DOUBLE_TAP_MS = 320L
 
 /** What a stylus (or the debug finger) is doing between down and up. */
-private enum class PenMode { INK, STRAIGHT, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, LASSO_ROTATE, BLOCKED }
+private enum class PenMode { INK, STRAIGHT, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, LASSO_ROTATE, TEXT_HANDLE, BLOCKED }
 
 private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGestures(
     snapshot: () -> Snapshot,
@@ -642,6 +683,49 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
         val movedImages = sel.transformedImages()
         viewModel.replaceSelection(sel.pageId, moved, movedImages)
         onLasso(LassoState.Selected.of(sel.pageIndex, sel.pageId, moved, movedImages, handles = sel.handles))
+    }
+
+    // Selecting PDF text (PHASE-4.md 4.7): which handle a finger or the pen is dragging, and
+    // whether a held finger's page text is being read (lifting the finger then doesn't cancel it).
+    var textDrag: TextHandle? = null
+    var readingText = false
+
+    /** The text handle whose knob is under screen point [p], if any. */
+    fun textHandleAt(p: Offset, snap: Snapshot, cam: Camera): TextHandle? {
+        val sel = view.textSel ?: return null
+        return TextHandle.entries
+            .map { it to (textHandleKnob(sel, it, snap.strip, cam) - p).getDistance() }
+            .filter { it.second < TEXT_KNOB_GRAB }
+            .minByOrNull { it.second }?.first
+    }
+
+    /** Moves [handle] to the word nearest screen point [p]; returns the handle now held (they swap when they cross). */
+    fun dragTextHandle(handle: TextHandle, p: Offset, snap: Snapshot, cam: Camera): TextHandle {
+        val sel = view.textSel ?: return handle
+        // The finger is on the knob, below the text: aim a little above it.
+        val x = cam.toWorldX(p.x) - snap.strip.pageLeft(sel.pageIndex)
+        val y = cam.toWorldY(p.y - TEXT_KNOB_RADIUS * 2) - snap.strip.pageTop(sel.pageIndex)
+        val i = TextSelection.closestWord(sel.text, x, y) ?: return handle
+        val r = sel.range
+        val (range, held) = when (handle) {
+            TextHandle.START -> if (i <= r.last) TextRange(i, r.last) to TextHandle.START else TextRange(r.last, i) to TextHandle.END
+            TextHandle.END -> if (i >= r.first) TextRange(r.first, i) to TextHandle.END else TextRange(i, r.first) to TextHandle.START
+        }
+        if (range != r) view.textSel = sel.copy(range = range)
+        return held
+    }
+
+    /** Selects the PDF word under screen point [at] (reading the page's text if needed). True if there was one. */
+    suspend fun selectTextAt(at: Offset, snap: Snapshot, cam: Camera): Boolean {
+        val index = snap.strip.pageAt(cam.toWorldX(at.x))
+        val page = snap.pages.getOrNull(index)?.takeIf { it.isPdf } ?: return false
+        val text = viewModel.pageText(page)
+        val x = cam.toWorldX(at.x) - snap.strip.pageLeft(index)
+        val y = cam.toWorldY(at.y) - snap.strip.pageTop(index)
+        val word = TextSelection.wordAt(text, x, y, TextSelection.HOLD_SLOP / cam.scale.coerceAtMost(1f)) ?: return false
+        onLasso(null)
+        view.textSel = TextSel(index, page.id, text, TextRange(word, word))
+        return true
     }
 
     /** Selects the topmost picture under screen point [at], switching to the lasso. True if there was one. */
@@ -744,7 +828,11 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     val page = snap.pages.getOrNull(pageIndex)
                     val tool = snap.settings.tool
                     val selected = view.lasso as? LassoState.Selected
+                    // The pen can drag a text selection's handles; touching anywhere else lets the selection go.
+                    val textHandle = textHandleAt(change.position, snap, cam)
+                    if (textHandle == null) view.textSel = null
                     penMode = when {
+                        textHandle != null -> PenMode.TEXT_HANDLE.also { textDrag = textHandle }
                         page == null || !viewModel.isEditable(page.id) -> PenMode.BLOCKED
                         change.type == PointerType.Eraser || tool == EditorTool.ERASER -> PenMode.ERASE
                         tool == EditorTool.LASSO && selected != null && onRotateHandle(change.position, selected, snap, cam) -> PenMode.LASSO_ROTATE
@@ -845,6 +933,10 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                                 onLasso(sel.copy(angle = angle))
                             }
                         }
+                        PenMode.TEXT_HANDLE -> {
+                            change.consume()
+                            textDrag?.let { textDrag = dragTextHandle(it, change.position, snap, cam) }
+                        }
                         PenMode.BLOCKED -> change.consume()
                     }
                     penLast = change.position
@@ -884,6 +976,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         else -> Unit
                     }
                     if (penMode != PenMode.INK) change.consume()
+                    if (penMode == PenMode.TEXT_HANDLE) textDrag = null
                     penId = null
                     penLast = null
                     onEraser(null)
@@ -915,7 +1008,8 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     lock = AxisLock()
                     velocity.resetTracking()
                     pinched = false
-                    fingerDrag = (view.lasso as? LassoState.Selected)?.let { sel ->
+                    textDrag = textHandleAt(change.position, snap, cam)
+                    fingerDrag = if (textDrag != null) null else (view.lasso as? LassoState.Selected)?.let { sel ->
                         when {
                             sel.handles && handleAt(change.position, sel, snap, cam) != null -> FingerDrag(handleAt(change.position, sel, snap, cam))
                             insideSelection(change.position, sel, snap, cam) -> FingerDrag(null)
@@ -925,10 +1019,23 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     val at = change.position
                     longPress = motionScope.launch {
                         delay(LONG_PRESS_MS)
-                        if (touches.size != 1 || tapMoved || penId != null || fingerDrag != null) return@launch
+                        if (touches.size != 1 || tapMoved || penId != null || fingerDrag != null || textDrag != null) return@launch
                         val c = view.camera ?: return@launch
-                        // A finger held on a picture picks it (F31); elsewhere it offers Paste (F12).
-                        if (!selectPictureAt(at, snapshot(), c) && viewModel.clipboard != null) view.pasteAt = at
+                        // A finger held on a picture picks it (F31); on PDF text it selects the word,
+                        // and keeps dragging its end (PHASE-4.md 4.7); elsewhere it offers Paste (F12).
+                        when {
+                            selectPictureAt(at, snapshot(), c) -> Unit
+                            run {
+                                // The first hold on a big PDF reads its text, which can take a moment.
+                                readingText = true
+                                try {
+                                    selectTextAt(at, snapshot(), c)
+                                } finally {
+                                    readingText = false
+                                }
+                            } -> if (touches.size == 1 && !tapMoved) textDrag = TextHandle.END
+                            viewModel.clipboard != null -> view.pasteAt = at
+                        }
                     }
                 } else {
                     tapMoved = true // a pinch is not a tap
@@ -936,12 +1043,18 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     // Two fingers zoom, even over a selection: keep any move made so far.
                     if (fingerDrag != null) (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
                     fingerDrag = null
+                    textDrag = null
                 }
                 velocity.addPosition(change.uptimeMillis, change.position)
                 continue
             }
             if (!change.pressed) {
-                longPress?.cancel()
+                if (!readingText) longPress?.cancel()
+                if (textDrag != null && touches.size == 1) {
+                    textDrag = null
+                    touches.remove(change.id)
+                    continue
+                }
                 if (fingerDrag != null && touches.size == 1) {
                     fingerDrag = null
                     touches.remove(change.id)
@@ -968,6 +1081,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     }
                 }
                 if (isTap) {
+                    view.textSel = null // a tap lets selected text go
                     // A tap outside the lasso's selection lets it go (F15; the pen does too).
                     (view.lasso as? LassoState.Selected)?.let { sel ->
                         if (!insideSelection(change.position, sel, snap, cam) && handleAt(change.position, sel, snap, cam) == null &&
@@ -990,6 +1104,22 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                 longPress?.cancel()
             }
             if (touches.size == 1) velocity.addPosition(change.uptimeMillis, change.position)
+        }
+
+        // ---- A finger dragging a text handle (PHASE-4.md 4.7) ----
+        val held = textDrag
+        if (held != null && touches.size == 1 && penId == null) {
+            val id = touches.keys.first()
+            val now = event.changes.firstOrNull { it.id == id }?.position
+            if (now != null && now != touches.getValue(id)) {
+                touches[id] = now
+                if ((now - tapDownPos).getDistance() > TAP_SLOP) {
+                    tapMoved = true
+                    longPress?.cancel()
+                }
+                textDrag = dragTextHandle(held, now, snap, cam)
+            }
+            continue
         }
 
         // ---- A finger dragging the selection (F32) ----

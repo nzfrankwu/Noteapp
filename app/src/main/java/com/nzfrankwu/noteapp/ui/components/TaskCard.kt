@@ -18,6 +18,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import com.nzfrankwu.noteapp.R
+import com.nzfrankwu.noteapp.data.db.LinkedNotebook
 import com.nzfrankwu.noteapp.data.db.Task
 import com.nzfrankwu.noteapp.domain.DateText
 import com.nzfrankwu.noteapp.domain.TaskRules
@@ -27,9 +36,18 @@ import java.time.Instant
 import java.time.ZoneId
 
 /**
+ * Every task's linked notebooks (by task ID) and how to open one, for the chips on task cards
+ * (PHASE-4.md 4.9). Provided once for the whole app; screens and tests without it show no chips.
+ */
+class TaskNotebooks(val byTask: Map<String, List<LinkedNotebook>>, val open: (notebookId: String) -> Unit)
+
+val LocalTaskNotebooks = compositionLocalOf { TaskNotebooks(emptyMap()) {} }
+
+/**
  * One task in a list: title, course, when it's due, and its status tag.
  * Tapping the card opens the task; tapping the status tag changes the status in place.
  * Overdue tasks get a red badge; a missed "My target date" says "Past target".
+ * Linked notebooks show as small chips under it; tapping one opens that notebook (Phase 4).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -57,19 +75,70 @@ fun TaskCard(
         color = MaterialTheme.colorScheme.surface,
     ) {
         val padding = Modifier.padding(horizontal = Dimens.TilePadding, vertical = Dimens.TaskCardVerticalPadding)
+        val linked = LocalTaskNotebooks.current
+        val notebooks = linked.byTask[task.id].orEmpty()
         if (compact) {
             Column(padding, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 TaskCardDetails(task, courseCode, now, zone, showCourse)
+                NotebookChips(notebooks, linked.open)
                 StatusChip(task.status, onStatusChange)
             }
         } else {
             Row(padding, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.ItemGap)) {
-                Column(Modifier.weight(1f)) { TaskCardDetails(task, courseCode, now, zone, showCourse) }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    TaskCardDetails(task, courseCode, now, zone, showCourse)
+                    NotebookChips(notebooks, linked.open)
+                }
                 StatusChip(task.status, onStatusChange)
             }
         }
     }
 }
+
+/** The task's linked notebooks as small chips (at most [MAX_CHIPS], then "+N"). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NotebookChips(notebooks: List<LinkedNotebook>, onOpen: (String) -> Unit) {
+    if (notebooks.isEmpty()) return
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        notebooks.take(MAX_CHIPS).forEach { nb ->
+            // Plain clickable (not Surface(onClick)): no 48 dp minimum height, so cards stay compact.
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier
+                    .clip(MaterialTheme.shapes.small)
+                    .clickable { onOpen(nb.notebookId) }
+                    .testTag("notebook-chip-${nb.title}"),
+            ) {
+                Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painterResource(R.drawable.ic_note), contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(14.dp),
+                    )
+                    Text(
+                        nb.title,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 4.dp).widthIn(max = 200.dp),
+                    )
+                }
+            }
+        }
+        if (notebooks.size > MAX_CHIPS) {
+            Text(
+                "+${notebooks.size - MAX_CHIPS}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.CenterVertically).padding(vertical = 4.dp),
+            )
+        }
+    }
+}
+
+private const val MAX_CHIPS = 3
 
 /** Title, course, badges and dates of a task card. */
 @OptIn(ExperimentalLayoutApi::class)

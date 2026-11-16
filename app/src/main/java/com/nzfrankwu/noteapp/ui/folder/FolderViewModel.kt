@@ -97,7 +97,48 @@ class FolderViewModel(
     private val pdfImport: com.nzfrankwu.noteapp.data.PdfImport? = null,
     private val clock: Clock = Clock.systemDefaultZone(),
     private val zone: ZoneId = ZoneId.systemDefault(),
+    /** Links between notebooks and tasks (Phase 4). Null in tests that don't need them. */
+    private val links: com.nzfrankwu.noteapp.data.LinkRepository? = null,
 ) : ViewModel() {
+
+    /** True when a notebook tile can be linked to a task. */
+    val canLink: Boolean get() = links != null
+
+    /** The notebook "Link to task…" was chosen for (its tile's menu), or null. */
+    private val _linking = MutableStateFlow<com.nzfrankwu.noteapp.data.db.NotebookListItem?>(null)
+    val linking: StateFlow<com.nzfrankwu.noteapp.data.db.NotebookListItem?> = _linking.asStateFlow()
+
+    /** The tasks offered for [linking]: this course's first, then the others (already linked ones left out). */
+    val linkChoices: StateFlow<com.nzfrankwu.noteapp.data.TaskChoices> = if (links == null) {
+        MutableStateFlow(com.nzfrankwu.noteapp.data.TaskChoices(emptyList(), emptyList()))
+    } else {
+        _linking.flatMapLatest { item ->
+            if (item == null) return@flatMapLatest flowOf(com.nzfrankwu.noteapp.data.TaskChoices(emptyList(), emptyList()))
+            combine(links.observeAllTasks(), links.observeTasksForNotebook(item.notebook.id), folders.observePlace(folderId)) { all, linked, place ->
+                com.nzfrankwu.noteapp.data.LinkChoices.tasks(place?.course?.id, all, linked.mapTo(HashSet()) { it.task.id })
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), com.nzfrankwu.noteapp.data.TaskChoices(emptyList(), emptyList()))
+    }
+
+    fun startLinkNotebook(item: com.nzfrankwu.noteapp.data.db.NotebookListItem) { _linking.value = item }
+
+    fun cancelLinkNotebook() { _linking.value = null }
+
+    /** A short message after linking ("Linked … to …"), for the snackbar. */
+    private val _linked = MutableStateFlow<String?>(null)
+    val linked: StateFlow<String?> = _linked.asStateFlow()
+    fun linkedShown() { _linked.value = null }
+
+    fun linkNotebookTo(task: com.nzfrankwu.noteapp.data.db.TaskWithCourse) {
+        val repo = links ?: return
+        val item = _linking.value ?: return
+        _linking.value = null
+        viewModelScope.launch {
+            if (repo.link(task.task.id, item.notebook.id) is com.nzfrankwu.noteapp.data.LinkResult.Success) {
+                _linked.value = "Linked \u201c${item.notebook.title}\u201d to \u201c${task.task.title}\u201d"
+            }
+        }
+    }
 
     /** The folder (null while loading or once deleted). */
     val folder: StateFlow<FolderListItem?> = folders.observeFolder(folderId)

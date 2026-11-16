@@ -29,6 +29,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
@@ -136,6 +138,15 @@ fun FolderScreen(
     }
     val importing by viewModel.importing.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
+    // "Link to task…" from a notebook tile (PHASE-4.md 4.10).
+    val linking by viewModel.linking.collectAsStateWithLifecycle()
+    val linkChoices by viewModel.linkChoices.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) {
+        viewModel.linked.filterNotNull().collectLatest { text ->
+            viewModel.linkedShown()
+            snackbar.showSnackbar(text)
+        }
+    }
     if (importing) ImportingDialog()
     var chosenTab by rememberSaveable { mutableStateOf(FolderTab.TASKS) }
     // Without a linked course there's nothing to put on a calendar: Tasks only.
@@ -299,6 +310,7 @@ fun FolderScreen(
                                 onRenameNotebook = viewModel::startRenameNotebook,
                                 onDeleteNotebook = viewModel::deleteNotebook,
                                 courseCode = courseCode,
+                                onLinkNotebook = if (viewModel.canLink) viewModel::startLinkNotebook else null,
                             )
                         }
                     }
@@ -320,6 +332,15 @@ fun FolderScreen(
     }
 
     FolderDialogs(dialog, viewModel, item?.folder?.name.orEmpty(), courseCode, coursesWithoutFolder)
+    if (linking != null) {
+        com.nzfrankwu.noteapp.ui.notebook.LinkTaskSheet(
+            choices = linkChoices,
+            now = java.time.Instant.now(),
+            zone = viewModel.zone(),
+            onPick = viewModel::linkNotebookTo,
+            onCancel = viewModel::cancelLinkNotebook,
+        )
+    }
 }
 
 /** The Tasks heading and the course's task sections (top-level folders only). */

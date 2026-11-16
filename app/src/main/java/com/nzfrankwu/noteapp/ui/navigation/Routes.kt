@@ -20,9 +20,16 @@ data object CoursesRoute : NavKey
 @Serializable
 data class FolderRoute(val folderId: String) : NavKey
 
-/** A notebook open for writing (Phase 2). */
+/**
+ * A notebook open for writing (Phase 2). With [pageId] it opens at that page, zoomed to [spot]
+ * when given (a bookmark, Phase 4); the defaults keep saved back stacks loading.
+ */
 @Serializable
-data class NotebookRoute(val notebookId: String) : NavKey
+data class NotebookRoute(
+    val notebookId: String,
+    val pageId: String? = null,
+    val spot: com.nzfrankwu.noteapp.domain.PageSpot? = null,
+) : NavKey
 
 /** One task's details. */
 @Serializable

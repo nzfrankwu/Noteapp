@@ -226,4 +226,22 @@ class PageStripTest {
         assertEquals(0f, one.scrollFraction(cam, w), 0.001f)
         assertEquals(cam.offsetX, one.atScrollFraction(cam, 0.8f, w, h).offsetX, 0.01f)
     }
+
+    @Test
+    fun focus_centresTheSpot_andZoomsIn_withinLimits() {
+        val pageFit = strip.fit(FitMode.PAGE, 1, w, h).scale
+        // A small spot on page 2: zoomed in, but no more than FOCUS_MAX_ZOOM times the page fit.
+        val cam = strip.focus(1, 100f, 400f, 50f, 10f, w, h)
+        assertEquals(pageFit * PageStrip.FOCUS_MAX_ZOOM, cam.scale, 0.001f)
+        assertEquals(w / 2, cam.toScreenX(strip.pageLeft(1) + 125f), 1f)
+        assertEquals(h / 2, cam.toScreenY(strip.pageTop(1) + 405f), 1f)
+        // A spot as big as the page: never further out than the page fit.
+        assertEquals(pageFit, strip.focus(1, 0f, 0f, 595f, 842f, w, h).scale, 0.001f)
+    }
+
+    @Test
+    fun focus_nearAnEdge_staysWithinThePages() {
+        val cam = strip.focus(0, 0f, 0f, 30f, 10f, w, h)
+        assertTrue(strip.same(cam, strip.clamp(cam, w, h)))
+    }
 }

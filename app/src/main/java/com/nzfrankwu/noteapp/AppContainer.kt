@@ -39,6 +39,11 @@ class AppContainer(context: Context) {
 
     val notebookRepository: NotebookRepository by lazy { NotebookRepository(database) }
 
+    /** Links between tasks and notebooks, and page bookmarks (Phase 4). */
+    val linkRepository: com.nzfrankwu.noteapp.data.LinkRepository by lazy {
+        com.nzfrankwu.noteapp.data.LinkRepository(database, notebookRepository)
+    }
+
     /** The handwriting: one file per page in the app's private files folder (never the cache). */
     val notebookFiles: NotebookFiles by lazy { NotebookFiles(appContext.filesDir) }
 

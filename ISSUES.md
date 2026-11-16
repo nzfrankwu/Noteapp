@@ -12,6 +12,7 @@ _None known._
 
 ## Follow-ups / tech debt
 
+- **PDF text selection (Phase 4.7):** selects whole words (not single letters). Holding and Highlight have screen tests; dragging the knobs was checked by script on the emulator only. Text in a turned direction (e.g. a sideways label) selects as boxes around each word, but Highlight/Underline draw horizontal lines. Feel with a real finger and the OPPO Pencil needs the tablet.
 - **Add Page menu (F34):** pages added from a PDF (or the whole PDF) aren't an undo step; delete them with ⋮ → Delete this page. A copied-in PDF nobody used is removed if you cancel the page picker.
 - **Pen layer (F30):** our own copy of Jetpack Ink's Compose pen layer (`WetInkLayer`) now feeds the pen; if a future Ink version changes its Compose layer, compare. A finished stroke is drawn by both layers for one frame (invisible for pen; a highlighter may look a touch darker for that frame).
 - **Image menu, not checked yet (Phase 3.5):** Take Photo with the emulator's camera; "Allow limited access" (only some photos) and "Don't allow" paths; HEIC photos (the emulator has none). 
@@ -55,6 +56,9 @@ _None known._
 
 ## Done
 
+- **Phase 4 built (16 Nov, hands-off), steps 4.1–4.10:** links between tasks and notebooks, page bookmarks, PDF text selection, icon menus, card chips. End-of-phase review: 10 findings, all fixed (list in PHASE-4.md). Installed on the tablet 16 Nov (v5 → v6, compare PASS). Waiting on the user's tablet check and the merge.
+- **Phase 4 step 4.1, database version 6 (16 Nov, hands-off):** two new, empty tables for task ↔ notebook links and page bookmarks. Deleting a task removes its links and bookmarks, and Undo brings them back. Real v5 → v6 upgrade on the emulator: every row and page file unchanged. Nothing visible yet.
+- **Phase 3 merged into `main` (16 Nov, `7de0c06`).** Phase 4 planned the same day (`PHASE-4.md`): links, page bookmarks, PDF text selection, icon menus.
 - **IDEA.md §2.7 and §5 (16 Nov):** snip noted as built in Phase 3 (user's OK).
 - **F36 (16 Nov):** a stroke written across the edge between two pages is no longer cut off: it's split at the edge, one piece per page (one undo step). Strokes written before the fix stay cut.
 - **End-of-phase review, Phase 3 (16 Nov):** 10 findings fixed (details in PHASE-3.md): crop crash on very long screenshots, a finger move lost on pinch, export of PDF pages that have their own rotation, a stale "PDF" tag, a share lost on rotation, the pen layer waiting on an unready page, the fresh last page after a split stroke, recent photos before Android 11, F35's corners (pictures only), and tests for the pen handoff.

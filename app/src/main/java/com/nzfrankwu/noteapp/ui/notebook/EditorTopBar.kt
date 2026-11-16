@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
@@ -39,7 +40,7 @@ import com.nzfrankwu.noteapp.ui.theme.EditorBarIconDisabled
 /**
  * The notebook's buttons, floating over the pages (PHASE-2.md F5, F17, like Notein): no bar
  * behind them, so the page can fill the screen. Dark round buttons in both light and dark mode.
- * Back on the left; Undo and Redo in a pill in the middle; Add page and ⋮ on the right.
+ * Back on the left (with the linked task's chip); Undo and Redo in a pill in the middle; Add page and ⋮ on the right.
  * [menu] fills the ⋮ menu. Taps between the buttons reach the page.
  */
 @Composable
@@ -59,16 +60,29 @@ fun EditorTopBar(
     onScreenshot: () -> Unit,
     menuOpen: Boolean,
     onMenuOpen: (Boolean) -> Unit,
+    /** Bookmarks the page on screen for a task (Phase 4), or null to hide the button. */
+    onBookmark: (() -> Unit)? = null,
+    /** The linked task's chip, next to Back (Phase 4). */
+    taskChip: @Composable () -> Unit = {},
     menu: @Composable ColumnScope.() -> Unit,
 ) {
     LightStatusBarIcons()
-    Box(
+    androidx.compose.foundation.layout.BoxWithConstraints(
         Modifier
             .fillMaxWidth()
             .height(BarHeight)
             .padding(horizontal = 12.dp),
     ) {
-        BarButton(R.drawable.ic_arrow_back, "Back", onBack, Modifier.align(Alignment.CenterStart))
+        // The chip stops short of the Undo/Redo pill in the middle (portrait is narrow).
+        val chipMax = (maxWidth / 2 - CenterPillHalfWidth - ButtonSize - 24.dp).coerceAtLeast(0.dp)
+        Row(
+            Modifier.align(Alignment.CenterStart),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BarButton(R.drawable.ic_arrow_back, "Back", onBack)
+            Box(Modifier.widthIn(max = chipMax)) { taskChip() }
+        }
 
         Row(
             Modifier
@@ -95,6 +109,9 @@ fun EditorTopBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (onBookmark != null) {
+                BarButton(R.drawable.ic_bookmark_add, "Bookmark this page for a task", onBookmark, Modifier.testTag("bookmark-page"))
+            }
             BarButton(R.drawable.ic_add, "Add pages, photos or a PDF", onAddMenu, Modifier.testTag("add-menu"))
             BarButton(R.drawable.ic_note_add, "Add a page after this one", onAddPage, Modifier.testTag("add-page"))
             Box {
@@ -156,3 +173,5 @@ private val ButtonRim = Color.White.copy(alpha = 0.18f)
 
 private val BarHeight = 64.dp
 private val ButtonSize = 44.dp
+/** About half the width of the Undo/Redo/Image/Screenshot pill. */
+private val CenterPillHalfWidth = 104.dp

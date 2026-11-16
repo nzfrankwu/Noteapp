@@ -9,12 +9,15 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performTextInput
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.unit.dp
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -80,14 +83,18 @@ class NotebookEditorTest {
         scope.cancel()
     }
 
-    private fun show(settings: InkToolSettings) {
+    private fun show(
+        settings: InkToolSettings,
+        links: com.nzfrankwu.noteapp.data.LinkRepository? = null,
+        onOpenTask: (String) -> Unit = {},
+    ) {
         compose.runOnUiThread {
-            viewModel = NotebookViewModel(notebookId, notebooks, files, InMemoryInkSettings(settings), scope)
+            viewModel = NotebookViewModel(notebookId, notebooks, files, InMemoryInkSettings(settings), scope, linkRepository = links)
         }
         compose.setContent {
             NoteAppTheme {
                 Box(Modifier.size(width = 1100.dp, height = 760.dp)) {
-                    NotebookScreen(viewModel, onBack = {})
+                    NotebookScreen(viewModel, onBack = {}, onOpenTask = onOpenTask)
                 }
             }
         }
@@ -221,5 +228,108 @@ class NotebookEditorTest {
         compose.onNodeWithText("2 / 2").assertExists()
         compose.onNodeWithTag("undo").performClick()
         compose.waitUntil(5_000) { viewModel.pages.value.size == 1 }
+    }
+
+    // ---- Phase 4: linked tasks ----
+
+    @Test
+    fun linkToATask_fromTheMenu_showsTheChip_whichOpensTheTask() {
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks)
+        val taskId = runBlocking {
+            FolderRepository(db).createFolder("Maths", "MATHS 208")
+            val courseId = db.courseDao().getAll().single().id
+            val draft = com.nzfrankwu.noteapp.data.TaskDraft("Problem set 4", courseId, dueAt = java.time.Instant.now().plus(java.time.Duration.ofDays(3)))
+            (com.nzfrankwu.noteapp.data.TaskRepository(db).createTask(draft) as com.nzfrankwu.noteapp.data.TaskResult.Success).taskId
+        }
+        var opened: String? = null
+        show(InkToolSettings(drawWithFinger = true), links) { opened = it }
+
+        compose.onNodeWithTag("linked-task-chip").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Notebook options").performClick()
+        compose.onNodeWithTag("menu-link-task").performClick()
+        // The notebook's folder has no course, so "Other tasks" starts open.
+        compose.onNodeWithTag("pick-task-Problem set 4").performClick()
+
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("linked-task-chip"), 5_000)
+        compose.onNodeWithText("Problem set 4 · 3 days left", substring = true).assertExists()
+        compose.onNodeWithTag("linked-task-chip").performClick()
+        compose.onNodeWithTag("linked-task-Problem set 4").performClick()
+        compose.waitUntil(5_000) { opened == taskId }
+    }
+
+    @Test
+    fun bookmarkButton_savesABookmarkOfThePage_forTheChosenTask_withItsNote() {
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks)
+        val taskId = runBlocking {
+            FolderRepository(db).createFolder("Maths", "MATHS 208")
+            val courseId = db.courseDao().getAll().single().id
+            (com.nzfrankwu.noteapp.data.TaskRepository(db).createTask(com.nzfrankwu.noteapp.data.TaskDraft("Problem set 5", courseId))
+                as com.nzfrankwu.noteapp.data.TaskResult.Success).taskId
+        }
+        show(InkToolSettings(drawWithFinger = true), links)
+
+        compose.onNodeWithTag("bookmark-page").performClick()
+        compose.onNodeWithTag("bookmark-save").assertIsNotEnabled() // no task picked yet
+        compose.onNodeWithTag("pick-task-Problem set 5").performClick()
+        compose.onNodeWithTag("bookmark-note").performTextInput("Q3 working")
+        compose.onNodeWithTag("bookmark-save").performClick()
+
+        compose.waitUntil(5_000) { runBlocking { links.observeBookmarksForTask(taskId).first() }.isNotEmpty() }
+        val entry = runBlocking { links.observeBookmarksForTask(taskId).first() }.single().bookmarks.single()
+        assertEquals(1, entry.pageNumber)
+        assertEquals("Q3 working", entry.note)
+        assertEquals(null, entry.spot)
+        // Bookmarking linked the notebook too, so the chip shows the task.
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("linked-task-chip"), 5_000)
+    }
+
+    // ---- Phase 4: selecting PDF text ----
+
+    @Test
+    fun holdingAFingerOnPdfText_selectsIt_andHighlightIsOneUndoableStroke() {
+        // A one-page PDF notebook with a line of real text.
+        val bytes = java.io.ByteArrayOutputStream().also { out ->
+            val doc = android.graphics.pdf.PdfDocument()
+            val page = doc.startPage(android.graphics.pdf.PdfDocument.PageInfo.Builder(842, 595, 1).create())
+            page.canvas.drawText("Transmission lines", 60f, 80f, android.graphics.Paint().apply { textSize = 28f })
+            doc.finishPage(page)
+            doc.writeTo(out)
+            doc.close()
+        }.toByteArray()
+        val size = com.nzfrankwu.noteapp.domain.PageSize(842f, 595f)
+        runBlocking {
+            val folderId = (FolderRepository(db).createFolder("Slides", null) as FolderResult.Success).folderId
+            val id = notebooks.newNotebookId()
+            files.assetFile(id, "pdf-1.pdf").apply { parentFile?.mkdirs(); writeBytes(bytes) }
+            notebooks.createPdfNotebook(id, folderId, "Slides", "pdf-1.pdf", listOf(size))
+            notebookId = id
+        }
+        val word = com.tom_roush.pdfbox.pdmodel.PDDocument.load(bytes).use { com.nzfrankwu.noteapp.data.PdfText.read(it, 0, size) }.words.first()
+        show(InkToolSettings())
+
+        // Where that word is on screen: the page is fitted like the editor fits it.
+        val canvas = compose.onNodeWithTag("notebook-canvas").fetchSemanticsNode().size
+        val strip = com.nzfrankwu.noteapp.domain.ink.PageStrip(listOf(size))
+        val cam = strip.fit(com.nzfrankwu.noteapp.domain.ink.FitMode.DEFAULT, 0, canvas.width.toFloat(), canvas.height.toFloat())
+        val at = Offset(cam.toScreenX(strip.pageLeft(0) + word.centreX), cam.toScreenY(strip.pageTop(0) + word.centreY))
+        compose.onNodeWithTag("notebook-canvas").performTouchInput { longClick(at, durationMillis = 900) }
+
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("text-menu"), 10_000)
+        compose.onNodeWithTag("text-highlight").performClick()
+        compose.waitUntil(5_000) { strokeCount() == 1 }
+        assertTrue(viewModel.ink.strokes(pageId()).single().tool.isHighlighter)
+        compose.onNodeWithTag("text-menu").assertDoesNotExist()
+
+        compose.onNodeWithTag("undo").performClick()
+        compose.waitUntil(5_000) { strokeCount() == 0 }
+    }
+
+    @Test
+    fun holdingAFingerOnAPlainPage_doesntSelectText() {
+        show(InkToolSettings())
+        compose.onNodeWithTag("notebook-canvas").performTouchInput { longClick(center, durationMillis = 900) }
+        compose.waitForIdle()
+        Thread.sleep(500)
+        compose.onNodeWithTag("text-menu").assertDoesNotExist()
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,7 @@ import com.nzfrankwu.noteapp.ui.task.TaskDetailViewModel
 import com.nzfrankwu.noteapp.ui.task.TaskEditorScreen
 import com.nzfrankwu.noteapp.ui.task.TaskEditorViewModel
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -171,7 +173,7 @@ class TaskScreensTest {
     @Test
     fun deleting_handsBackTheTask_soItCanBeRestored() {
         val id = addTask("Throwaway")
-        var deleted: Task? = null
+        var deleted: com.nzfrankwu.noteapp.data.DeleteTaskResult.Deleted? = null
         showOnTablet { TaskDetailScreen(TaskDetailViewModel(id, tasks), onBack = {}, onEdit = {}, onDeleted = { deleted = it }) }
 
         waitFor("Throwaway")
@@ -243,5 +245,112 @@ class TaskScreensTest {
 
         compose.onNodeWithText("Problem set 1").performClick()
         assertNotNull(opened)
+    }
+
+    // ---- Phase 4: linked notebooks ----
+
+    @Test
+    fun linkNotebook_fromTheTask_showsItsTile_andUnlinkOffersUndo() {
+        val id = addTask("Assignment 1")
+        val notebooks = NotebookRepository(db)
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks)
+        val nb = runBlocking { (notebooks.createNotebook(folderId, "Lecture 3") as com.nzfrankwu.noteapp.data.NotebookResult.Success).id }
+        showOnTablet { TaskDetailScreen(TaskDetailViewModel(id, tasks, links = links), onBack = {}, onEdit = {}, onDeleted = {}) }
+
+        waitFor("No notebooks linked yet.")
+        compose.onNodeWithTag("link-notebook").performClick()
+        waitFor("Electromagnetics") // the course folder's notebooks come first
+        compose.onNodeWithTag("pick-notebook-Lecture 3").performClick()
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("tile-Lecture 3"), 5_000)
+        assertEquals(listOf(nb), runBlocking { links.observeNotebooksForTask(id).first() }.map { it.notebook.id })
+
+        compose.onNodeWithContentDescription("Options for Lecture 3").performClick()
+        compose.onNodeWithText("Unlink from this task").performClick()
+        waitFor("No notebooks linked yet.")
+        waitFor("Undo")
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("tile-Lecture 3"), 5_000)
+    }
+
+    @Test
+    fun newNotebookForTheTask_isMadeInTheCourseFolder_linked_andOpened() {
+        val id = addTask("Lab report")
+        val notebooks = NotebookRepository(db)
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks)
+        var opened: String? = null
+        showOnTablet {
+            TaskDetailScreen(
+                TaskDetailViewModel(id, tasks, links = links), onBack = {}, onEdit = {}, onDeleted = {},
+                onOpenNotebook = { nbId, _, _ -> opened = nbId },
+            )
+        }
+        waitFor("No notebooks linked yet.")
+        compose.onNodeWithTag("link-notebook").performClick()
+        compose.onNodeWithTag("new-notebook-for-task").performClick()
+        compose.onNodeWithTag("dialog-confirm").performClick() // the name starts as the task's
+        compose.waitUntil(5_000) { opened != null }
+        val nb = runBlocking { notebooks.getNotebook(opened!!) }!!
+        assertEquals("Lab report", nb.title)
+        assertEquals(folderId, nb.folderId)
+        assertEquals(listOf(nb.id), runBlocking { links.observeNotebooksForTask(id).first() }.map { it.notebook.id })
+    }
+
+    @Test
+    fun bookmarks_showGroupedInPageOrder_noteCanChange_deleteOffersUndo_andTapOpensThePage() {
+        val id = addTask("Assignment 2")
+        val notebooks = NotebookRepository(db)
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks)
+        val spot = com.nzfrankwu.noteapp.domain.PageSpot(10f, 20f, 100f, 30f)
+        val page3 = runBlocking {
+            val nb = (notebooks.createNotebook(folderId, "Lecture 4") as com.nzfrankwu.noteapp.data.NotebookResult.Success).id
+            notebooks.addPage(nb, 1); notebooks.addPage(nb, 2)
+            val pages = notebooks.getPages(nb).map { it.id }
+            links.addBookmark(id, pages[2], "Ohm's law", spot)
+            links.addBookmark(id, pages[0], null)
+            pages[2]
+        }
+        var opened: Triple<String, String?, com.nzfrankwu.noteapp.domain.PageSpot?>? = null
+        showOnTablet {
+            TaskDetailScreen(
+                TaskDetailViewModel(id, tasks, links = links), onBack = {}, onEdit = {}, onDeleted = {},
+                onOpenNotebook = { nb, page, at -> opened = Triple(nb, page, at) },
+            )
+        }
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("bookmark-3-Ohm's law"), 5_000)
+        compose.onNodeWithTag("bookmark-1-").assertExists() // p. 1 has no note
+        compose.onNodeWithText("No note").assertExists()
+
+        compose.onNodeWithContentDescription("Edit the note on p. 1").performScrollTo().performClick()
+        compose.onNodeWithTag("bookmark-note-edit").performTextInput("Intro")
+        compose.onNodeWithTag("bookmark-note-save").performClick()
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("bookmark-1-Intro"), 5_000)
+
+        compose.onNodeWithContentDescription("Delete the bookmark on p. 1").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("bookmark-1-Intro")).fetchSemanticsNodes().isEmpty() }
+        waitFor("Undo")
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("bookmark-1-Intro"), 5_000)
+
+        compose.onNodeWithTag("bookmark-3-Ohm's law").performScrollTo().performClick()
+        compose.waitUntil(5_000) { opened != null }
+        assertEquals(page3, opened!!.second)
+        assertEquals(spot, opened!!.third)
+    }
+
+    @Test
+    fun taskCard_showsLinkedNotebookChips_thatOpenTheNotebook() {
+        val id = addTask("Lab 3")
+        val task = runBlocking { tasks.getTask(id) }!!
+        var opened: String? = null
+        val linked = com.nzfrankwu.noteapp.ui.components.TaskNotebooks(
+            mapOf(id to listOf(com.nzfrankwu.noteapp.data.db.LinkedNotebook(id, "nb-1", "Lab notes"))),
+        ) { opened = it }
+        showOnTablet {
+            androidx.compose.runtime.CompositionLocalProvider(com.nzfrankwu.noteapp.ui.components.LocalTaskNotebooks provides linked) {
+                com.nzfrankwu.noteapp.ui.components.TaskCard(task, "ELECTENG 204", Instant.now(), java.time.ZoneId.systemDefault(), onClick = {}, onStatusChange = {})
+            }
+        }
+        compose.onNodeWithTag("notebook-chip-Lab notes").performClick()
+        compose.waitUntil(5_000) { opened == "nb-1" }
     }
 }

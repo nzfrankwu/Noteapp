@@ -192,7 +192,16 @@ fun NoteAppRoot(
     }
 
     Box(Modifier.fillMaxSize()) {
-        androidx.compose.runtime.CompositionLocalProvider(com.nzfrankwu.noteapp.ui.components.LocalThumbnails provides container.thumbnails) {
+        // Every task's linked notebooks, for the chips on task cards (PHASE-4.md 4.9): one query for the whole app.
+        val taskNotebooks by remember { container.linkRepository.observeAllLinks() }
+            .collectAsStateWithLifecycle(initialValue = emptyMap())
+        val cardNotebooks = remember(taskNotebooks) {
+            com.nzfrankwu.noteapp.ui.components.TaskNotebooks(taskNotebooks) { notebookId -> backStack.add(NotebookRoute(notebookId)) }
+        }
+        androidx.compose.runtime.CompositionLocalProvider(
+            com.nzfrankwu.noteapp.ui.components.LocalThumbnails provides container.thumbnails,
+            com.nzfrankwu.noteapp.ui.components.LocalTaskNotebooks provides cardNotebooks,
+        ) {
         NavDisplay(
             backStack = backStack,
             onBack = ::back,
@@ -263,10 +272,12 @@ fun NoteAppRoot(
             }
             entry<TaskRoute> { route ->
                     TaskDetailScreen(
-                        viewModel = viewModel { TaskDetailViewModel(route.taskId, container.taskRepository) },
+                        viewModel = viewModel { TaskDetailViewModel(route.taskId, container.taskRepository, links = container.linkRepository) },
                         onBack = ::back,
+                        onOpenNotebook = { notebookId, pageId, spot -> backStack.add(NotebookRoute(notebookId, pageId, spot)) },
                         onEdit = { backStack.add(TaskEditRoute(taskId = route.taskId)) },
-                        onDeleted = { task ->
+                        onDeleted = { deleted ->
+                            val task = deleted.task
                             back()
                             scope.launch {
                                 snackbar.currentSnackbarData?.dismiss()
@@ -276,7 +287,7 @@ fun NoteAppRoot(
                                     withDismissAction = true,
                                     duration = SnackbarDuration.Long,
                                 )
-                                if (result == SnackbarResult.ActionPerformed) container.taskRepository.restoreTask(task)
+                                if (result == SnackbarResult.ActionPerformed) container.taskRepository.restoreTask(deleted)
                             }
                         },
                     )
@@ -301,7 +312,7 @@ fun NoteAppRoot(
                 entry<FolderRoute> { route ->
                     FolderScreen(
                         viewModel = viewModel {
-                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport)
+                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport, links = container.linkRepository)
                         },
                         onBack = ::back,
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
@@ -335,9 +346,13 @@ fun NoteAppRoot(
                             NotebookViewModel(
                                 route.notebookId, container.notebookRepository, container.notebookFiles,
                                 container.inkSettings, container.appScope, container.thumbnails,
+                                linkRepository = container.linkRepository,
                             )
                         },
                         onBack = ::back,
+                        onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
+                        openAtPage = route.pageId,
+                        openAtSpot = route.spot,
                     )
                 }
                 entry<CoursesRoute> {
