@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -195,6 +196,28 @@ class TextBoxesTest {
         tapPage(dy = 200f)
         compose.onNodeWithTag("text-box-field").assertDoesNotExist()
         assertEquals(listOf("Finished by a tap"), texts().map { it.text })
+    }
+
+    @Test
+    fun holdingAFingerOnABox_selectsItWithTheLasso_forDuplicateAndDelete() {
+        show()
+        typeNewBox("Pick me up")
+        done()
+        compose.onNodeWithTag("notebook-canvas").performTouchInput { longClick(Offset(centerX, centerY - 120f)) }
+        compose.waitForIdle()
+        compose.onNodeWithTag("lasso-menu").assertExists()
+        compose.onNodeWithTag("text-box-field").assertDoesNotExist()
+        compose.onNodeWithTag("lasso-duplicate").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("Pick me up", "Pick me up"), texts().map { it.text })
+        assertEquals(2, texts().map { it.id }.toSet().size)
+        // The copy is selected now: Delete takes it away, leaving the first.
+        compose.onNodeWithTag("lasso-delete").performClick()
+        compose.waitForIdle()
+        assertEquals(1, texts().size)
+        compose.onNodeWithTag("undo").performClick()
+        compose.waitForIdle()
+        assertEquals(2, texts().size)
     }
 
     @Test

@@ -110,6 +110,8 @@ sealed interface LassoState {
         val angle: Float = 0f,
         /** Pictures in the selection (Phase 3), moved and resized with the strokes. */
         val images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(),
+        /** Text boxes in the selection (Phase 5), moved and scaled with the rest. */
+        val texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList(),
     ) : LassoState {
         /** The selection box after the move/resize so far (page units), before any [angle]. */
         fun box(): FloatArray = target
@@ -120,17 +122,24 @@ sealed interface LassoState {
 
         fun transformedImages(): List<com.nzfrankwu.noteapp.domain.ink.InkImage> = images.map { LassoBox.mapImage(it, bounds, target, angle) }
 
+        fun transformedTexts(): List<com.nzfrankwu.noteapp.domain.ink.InkText> = texts.map { LassoBox.mapText(it, bounds, target, angle) }
+
         /** The handles shown: just the bottom-right corner, or all eight after Resize. */
         fun shownHandles(): List<BoxHandle> = if (handles) BoxHandle.entries else listOf(BoxHandle.BOTTOM_RIGHT)
 
         companion object {
-            /** A fresh selection of [strokes] and [images] (none moved yet); null if both are empty. */
+            /** A fresh selection of [strokes], [images] and [texts] (none moved yet); null if all are empty. */
             fun of(
                 pageIndex: Int, pageId: String, strokes: List<InkStroke>,
                 images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(), handles: Boolean = false,
-            ): Selected? = InkGeometry.boundsOf(strokes, images)?.let {
-                // Pictures alone open in resize mode (F32): all eight handles and the rotate handle.
-                Selected(pageIndex, pageId, strokes, it, handles = handles || (strokes.isEmpty() && images.isNotEmpty()), images = images)
+                texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList(),
+            ): Selected? = InkGeometry.boundsOf(strokes, images, texts)?.let {
+                // Pictures or text boxes alone open in resize mode (F32): all eight handles and the rotate handle.
+                Selected(
+                    pageIndex, pageId, strokes, it,
+                    handles = handles || (strokes.isEmpty() && (images.isNotEmpty() || texts.isNotEmpty())),
+                    images = images, texts = texts,
+                )
             }
         }
     }
@@ -464,7 +473,8 @@ fun NotebookCanvas(
                     // typed in or held by the lasso is drawn by the editor/overlay instead.
                     val boxes = viewModel.ink.texts(page.id)
                     if (boxes.isNotEmpty()) {
-                        val hidden = view.hiddenTexts
+                        val heldTexts = (view.lasso as? LassoState.Selected)?.takeIf { it.pageId == page.id }?.texts.orEmpty()
+                        val hidden = if (heldTexts.isEmpty()) view.hiddenTexts else view.hiddenTexts + heldTexts.map { it.id }
                         val shownBoxes = if (hidden.isEmpty()) boxes else boxes.filter { it.id !in hidden }
                         drawIntoCanvas { c ->
                             val nc = c.nativeCanvas
@@ -530,6 +540,15 @@ fun NotebookCanvas(
                     val box = lasso.box()
                     for (image in lasso.transformedImages()) {
                         drawPicture(image, viewModel.imageBitmaps[image.asset], cam.toScreenX(strip.pageLeft(lasso.pageIndex)), cam.toScreenY(strip.pageTop(lasso.pageIndex)), cam.scale)
+                    }
+                    if (lasso.texts.isNotEmpty()) {
+                        drawIntoCanvas { c ->
+                            val nc = c.nativeCanvas
+                            nc.save()
+                            nc.translate(cam.toScreenX(strip.pageLeft(lasso.pageIndex)), cam.toScreenY(strip.pageTop(lasso.pageIndex)))
+                            TextBoxLayout.drawAll(nc, lasso.transformedTexts(), cam.scale)
+                            nc.restore()
+                        }
                     }
                     val pl = strip.pageLeft(lasso.pageIndex)
                     val pt = strip.pageTop(lasso.pageIndex)
@@ -710,8 +729,8 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
         if (!sel.changed) return
         val moved = sel.transformed()
         val movedImages = sel.transformedImages()
-        viewModel.replaceSelection(sel.pageId, moved, movedImages)
-        onLasso(LassoState.Selected.of(sel.pageIndex, sel.pageId, moved, movedImages, handles = sel.handles))
+        val movedTexts = viewModel.replaceSelection(sel.pageId, moved, movedImages, sel.transformedTexts())
+        onLasso(LassoState.Selected.of(sel.pageIndex, sel.pageId, moved, movedImages, handles = sel.handles, texts = movedTexts))
     }
 
     // Selecting PDF text (PHASE-4.md 4.7): which handle a finger or the pen is dragging, and
@@ -761,10 +780,17 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
     fun selectPictureAt(at: Offset, snap: Snapshot, cam: Camera): Boolean {
         val index = snap.strip.pageAt(cam.toWorldX(at.x))
         val page = snap.pages.getOrNull(index) ?: return false
-        val image = viewModel.imageAt(page.id, cam.toWorldX(at.x) - snap.strip.pageLeft(index), cam.toWorldY(at.y) - snap.strip.pageTop(index))
-            ?: return false
+        val x = cam.toWorldX(at.x) - snap.strip.pageLeft(index)
+        val y = cam.toWorldY(at.y) - snap.strip.pageTop(index)
+        // A text box lies above the pictures, so it's picked first (Phase 5).
+        val text = viewModel.textAt(page.id, x, y)
+        val image = if (text == null) viewModel.imageAt(page.id, x, y) ?: return false else null
         if (snap.settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
-        onLasso(LassoState.Selected.of(index, page.id, emptyList(), listOf(image)))
+        view.textMode = false
+        onLasso(
+            if (text != null) LassoState.Selected.of(index, page.id, emptyList(), texts = listOf(text))
+            else LassoState.Selected.of(index, page.id, emptyList(), listOf(image!!)),
+        )
         return true
     }
 
@@ -992,13 +1018,22 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                                 val ys = FloatArray(loop.ys.size) { loop.ys[it] - pt }
                                 val extent = (xs.max() - xs.min()) + (ys.max() - ys.min())
                                 if (extent * cam.scale < LASSO_TAP_PX) {
-                                    // A lasso tap: the topmost picture under the pen (PHASE-3.md 3.6).
-                                    val image = viewModel.imageAt(page.id, xs.first(), ys.first())
-                                    onLasso(image?.let { LassoState.Selected.of(loop.pageIndex, page.id, emptyList(), listOf(it)) })
+                                    // A lasso tap: the text box under the pen (they're above pictures),
+                                    // else the topmost picture (PHASE-3.md 3.6).
+                                    val text = viewModel.textAt(page.id, xs.first(), ys.first())
+                                    val image = if (text == null) viewModel.imageAt(page.id, xs.first(), ys.first()) else null
+                                    onLasso(
+                                        when {
+                                            text != null -> LassoState.Selected.of(loop.pageIndex, page.id, emptyList(), texts = listOf(text))
+                                            image != null -> LassoState.Selected.of(loop.pageIndex, page.id, emptyList(), listOf(image))
+                                            else -> null
+                                        },
+                                    )
                                 } else {
                                     val picked = viewModel.strokesInLoop(page.id, xs, ys)
                                     val images = viewModel.imagesInLoop(page.id, xs, ys)
-                                    onLasso(LassoState.Selected.of(loop.pageIndex, page.id, picked, images))
+                                    val texts = viewModel.textsInLoop(page.id, xs, ys)
+                                    onLasso(LassoState.Selected.of(loop.pageIndex, page.id, picked, images, texts = texts))
                                 }
                             } else {
                                 onLasso(null)
@@ -1223,7 +1258,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
  * Whether a corner handle keeps the selection's shape: always for pictures (F35: they only grow
  * or shrink) and outside Resize mode; Resize's corners stretch writing freely (Phase 2).
  */
-private fun keepsShape(sel: LassoState.Selected): Boolean = !sel.handles || sel.images.isNotEmpty()
+private fun keepsShape(sel: LassoState.Selected): Boolean = !sel.handles || sel.images.isNotEmpty() || sel.texts.isNotEmpty()
 
 /** A finger dragging the lasso's selection: by [handle] (resize), or by its middle (move) when null. */
 private class FingerDrag(val handle: BoxHandle?)

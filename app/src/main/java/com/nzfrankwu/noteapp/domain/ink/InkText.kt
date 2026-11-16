@@ -24,6 +24,9 @@ data class InkText(
 
     fun contains(x: Float, y: Float): Boolean = x in left..right && y in top..bottom
 
+    /** The box as [left, top, right, bottom]. */
+    fun bounds(): FloatArray = floatArrayOf(left, top, right, bottom)
+
     /** The same box moved by ([dx], [dy]). */
     fun movedBy(dx: Float, dy: Float): InkText = copy(left = left + dx, top = top + dy)
 

@@ -202,6 +202,55 @@ class PageTextsTest {
         assertEquals(InkText.MIN_WIDTH, note.scaledAbout(0f, 0f, 0.01f).width, 0f)
     }
 
+    // ---- The lasso (5.4) ----
+
+    @Test
+    fun theLassoLoop_picksABoxItTouchesOrSurrounds() {
+        // note: 40..340 × 60..76
+        val around = floatArrayOf(30f, 350f, 350f, 30f) to floatArrayOf(50f, 50f, 90f, 90f)
+        assertTrue(InkGeometry.textInLoop(note, around.first, around.second))
+        val crossing = floatArrayOf(100f, 120f, 120f, 100f) to floatArrayOf(40f, 40f, 100f, 100f)
+        assertTrue(InkGeometry.textInLoop(note, crossing.first, crossing.second))
+        val inside = floatArrayOf(100f, 120f, 110f) to floatArrayOf(65f, 65f, 70f)
+        assertTrue(InkGeometry.textInLoop(note, inside.first, inside.second))
+        val away = floatArrayOf(400f, 450f, 450f, 400f) to floatArrayOf(400f, 400f, 450f, 450f)
+        assertTrue(!InkGeometry.textInLoop(note, away.first, away.second))
+    }
+
+    @Test
+    fun selectionBounds_includeTextBoxes() {
+        val box = InkGeometry.boundsOf(emptyList(), emptyList(), listOf(note, heading))!!
+        assertArrayEquals(floatArrayOf(40f, 60f, 340f, 448f), box, 0.001f)
+    }
+
+    @Test
+    fun movingTheSelection_movesTheBox() {
+        val from = floatArrayOf(40f, 60f, 340f, 76f)
+        val moved = LassoBox.mapText(note, from, LassoBox.moved(from, 15f, 30f))
+        assertEquals(note.copy(left = 55f, top = 90f), moved)
+    }
+
+    @Test
+    fun scalingTheSelection_scalesTheTextEvenly() {
+        val from = floatArrayOf(40f, 60f, 340f, 76f)
+        val to = floatArrayOf(40f, 60f, 640f, 92f) // twice as big, from the top-left corner
+        val big = LassoBox.mapText(note, from, to)
+        assertEquals(24f, big.size, 0.001f)
+        assertEquals(600f, big.width, 0.001f)
+        assertEquals(40f, big.left, 0.001f)
+        assertEquals(60f, big.top, 0.001f)
+    }
+
+    @Test
+    fun turningTheSelection_keepsTextUpright() {
+        val from = floatArrayOf(40f, 60f, 340f, 76f)
+        val turned = LassoBox.mapText(note, from, from, angle = 1.2f)
+        // Its centre is the selection's centre, so it stays put, and the box isn't tilted.
+        assertEquals(note.left, turned.left, 0.01f)
+        assertEquals(note.top, turned.top, 0.01f)
+        assertEquals(note.size, turned.size, 0f)
+    }
+
     @Test
     fun sizeSteps() {
         assertEquals(14f, InkText.larger(12f), 0f)

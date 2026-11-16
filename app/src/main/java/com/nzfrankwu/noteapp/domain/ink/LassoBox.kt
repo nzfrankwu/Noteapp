@@ -96,6 +96,29 @@ object LassoBox {
      * [image] (inside [from]) placed into [to] like [map] places strokes: its centre moves with
      * the box, its size stretches with it, and it turns by [angle] about [to]'s centre.
      */
+    /**
+     * A text box moved and scaled with the selection (Phase 5). Text stays upright: turning the
+     * selection moves the box's centre round with the rest but doesn't tilt the text. It scales
+     * evenly (place, width, height and font size), so its lines break in the same places.
+     */
+    fun mapText(text: InkText, from: FloatArray, to: FloatArray, angle: Float = 0f): InkText {
+        val sx = scaleX(from, to)
+        val sy = scaleY(from, to)
+        val factor = kotlin.math.sqrt(sx * sy)
+        val fcx = (from[0] + from[2]) / 2; val fcy = (from[1] + from[3]) / 2
+        val tcx = (to[0] + to[2]) / 2; val tcy = (to[1] + to[3]) / 2
+        val dx = (text.left + text.width / 2 - fcx) * sx
+        val dy = (text.top + text.height / 2 - fcy) * sy
+        val c = cos(angle); val s = sin(angle)
+        val cx = tcx + dx * c - dy * s
+        val cy = tcy + dx * s + dy * c
+        val size = (text.size * factor).coerceIn(InkText.MIN_SIZE, InkText.MAX_SIZE)
+        val k = size / text.size // the width follows the size, so a clamped size doesn't rewrap
+        val w = (text.width * k).coerceAtLeast(InkText.MIN_WIDTH)
+        val h = text.height * k
+        return text.copy(left = cx - w / 2, top = cy - h / 2, width = w, height = h, size = size)
+    }
+
     fun mapImage(image: InkImage, from: FloatArray, to: FloatArray, angle: Float = 0f): InkImage {
         val sx = scaleX(from, to)
         val sy = scaleY(from, to)

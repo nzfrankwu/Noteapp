@@ -124,13 +124,33 @@ object InkGeometry {
     }
 
     /** The smallest box around [strokes] and [images] (left, top, right, bottom), or null if both are empty. */
-    fun boundsOf(strokes: Collection<InkStroke>, images: Collection<InkImage>): FloatArray? {
+    fun boundsOf(strokes: Collection<InkStroke>, images: Collection<InkImage>, texts: Collection<InkText> = emptyList()): FloatArray? {
         var box = boundsOf(strokes)
-        for (img in images) {
-            val b = img.bounds()
+        for (b in images.map { it.bounds() } + texts.map { it.bounds() }) {
             box = if (box == null) b else floatArrayOf(minOf(box[0], b[0]), minOf(box[1], b[1]), maxOf(box[2], b[2]), maxOf(box[3], b[3]))
         }
         return box
+    }
+
+    /**
+     * Whether a lasso loop picks the text box (Phase 5): like a picture, a corner inside the loop,
+     * the loop passing through the box, or an edge crossing the loop.
+     */
+    fun textInLoop(text: InkText, loopXs: FloatArray, loopYs: FloatArray): Boolean {
+        if (loopXs.size < 3) return false
+        val c = floatArrayOf(text.left, text.top, text.right, text.top, text.right, text.bottom, text.left, text.bottom)
+        for (i in 0 until 4) if (pointInPolygon(c[2 * i], c[2 * i + 1], loopXs, loopYs)) return true
+        for (i in loopXs.indices) if (text.contains(loopXs[i], loopYs[i])) return true
+        for (i in 0 until 4) {
+            val ax = c[2 * i]; val ay = c[2 * i + 1]
+            val bx = c[(2 * i + 2) % 8]; val by = c[(2 * i + 3) % 8]
+            var j = loopXs.size - 1
+            for (k in loopXs.indices) {
+                if (segmentsCross(ax, ay, bx, by, loopXs[j], loopYs[j], loopXs[k], loopYs[k])) return true
+                j = k
+            }
+        }
+        return false
     }
 
     private fun segmentsCross(

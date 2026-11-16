@@ -340,20 +340,20 @@ fun NotebookScreen(
                         }
                     },
                     onDuplicate = { sel ->
-                        val copies = viewModel.duplicate(sel.pageId, sel.strokes, sel.images)
-                        view.lasso = LassoState.Selected.of(sel.pageIndex, sel.pageId, copies.strokes, copies.images, handles = sel.handles) ?: sel
+                        val copies = viewModel.duplicate(sel.pageId, sel.strokes, sel.images, sel.texts)
+                        view.lasso = LassoState.Selected.of(sel.pageIndex, sel.pageId, copies.strokes, copies.images, handles = sel.handles, texts = copies.texts) ?: sel
                     },
                     onCopy = { sel ->
-                        viewModel.copy(sel.strokes, sel.images)
+                        viewModel.copy(sel.strokes, sel.images, sel.texts)
                         scope.launch { snackbar.showSnackbar("Copied. Hold a finger on a page to paste.") }
                     },
                     onCut = { sel ->
-                        viewModel.cut(sel.pageId, sel.strokes, sel.images)
+                        viewModel.cut(sel.pageId, sel.strokes, sel.images, sel.texts)
                         view.lasso = null
                         scope.launch { snackbar.showSnackbar("Cut. Hold a finger on a page to paste.") }
                     },
                     onDelete = { sel ->
-                        viewModel.deleteSelection(sel.pageId, sel.strokes.mapTo(HashSet()) { it.id }, sel.images.mapTo(HashSet()) { it.id })
+                        viewModel.deleteSelection(sel.pageId, sel.strokes.mapTo(HashSet()) { it.id }, sel.images.mapTo(HashSet()) { it.id }, sel.texts.mapTo(HashSet()) { it.id })
                         view.lasso = null
                     },
                     onBookmark = if (links == null) null else { sel ->
@@ -410,10 +410,10 @@ fun NotebookScreen(
                     val index = strip.pageAt(wx)
                     val page = pages.getOrNull(index) ?: return@PasteBubble
                     val pasted = viewModel.paste(page.id, wx - strip.pageLeft(index), cam.toWorldY(at.y) - strip.pageTop(index))
-                    if (pasted.strokes.isNotEmpty() || pasted.images.isNotEmpty()) {
+                    if (!pasted.isEmpty) {
                         // Pasted things come selected, ready to move (that needs the lasso).
                         if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
-                        view.lasso = LassoState.Selected.of(index, page.id, pasted.strokes, pasted.images)
+                        view.lasso = LassoState.Selected.of(index, page.id, pasted.strokes, pasted.images, texts = pasted.texts)
                     }
                 }
                 PageScroller(view, strip, pages.size)
@@ -884,7 +884,7 @@ private fun LassoMenu(
     val items = buildList {
         add(IconMenuItem(R.drawable.ic_open_in_full, if (sel.handles) "Resize (on)" else "Resize", "lasso-resize", selected = sel.handles) { onResize(sel) })
         // One picture on its own can be cropped (F33).
-        if (sel.strokes.isEmpty() && sel.images.size == 1) add(IconMenuItem(R.drawable.ic_crop, "Crop", "lasso-crop") { onCrop(sel) })
+        if (sel.strokes.isEmpty() && sel.texts.isEmpty() && sel.images.size == 1) add(IconMenuItem(R.drawable.ic_crop, "Crop", "lasso-crop") { onCrop(sel) })
         if (onBookmark != null) add(IconMenuItem(R.drawable.ic_bookmark_add, "Bookmark for a task", "lasso-bookmark") { onBookmark(sel) })
         add(IconMenuItem(R.drawable.ic_library_add, "Duplicate", "lasso-duplicate") { onDuplicate(sel) })
         add(IconMenuItem(R.drawable.ic_content_copy, "Copy", "lasso-copy") { onCopy(sel) })
