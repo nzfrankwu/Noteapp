@@ -126,7 +126,7 @@ The goal is to let the user import lecture PDFs, write on them, drop images onto
    - Confirm: crop, save as an image asset, and insert it on the current page, selected.
    - An all-black capture shows "That app doesn't allow screenshots".
    - Test on the emulator in split screen with Chrome.
-- [ ] **3.10 Tablet and data-safety check.**
+- [ ] **3.10 Tablet and data-safety check.** _Installed 16 Nov (user OK'd; build of `5513838`). Before: copied the tablet's database + all 139 notebook files to `backups/tablet-db-2026-11-16-before-v5/` (git-ignored). Upgrade v4 → v5 PASSED: 10 courses, 5 folders, 124 tasks, 4 notebooks, 143 pages, every old value unchanged, new columns empty, 139 page files byte-identical, no crash. **Left: the user tries a real lecture PDF, pictures, export, sharing and the screenshot tool on the tablet.**_
    - Before installing on the tablet, copy its database (HANDOFF.md steps, ask first), then confirm the v4 → v5 upgrade keeps all 10 courses, 4 folders and 124 tasks, and every notebook.
    - The user tries a real lecture PDF, images, export and sharing on the tablet.
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest (unit tests + full emulator suite), then ask the user to approve merging into `main`.

@@ -1,21 +1,21 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (3.1–3.9 done and pushed; the IDEA.md edit and the tablet install (3.10) wait on the user). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (3.1–3.9 done and pushed; installed on the tablet, upgrade check passed; waiting on the user's tablet testing and the IDEA.md edit). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phase 1, Phase 1b and Phase 2 (Handwriting notebooks): all done and merged into `main`** (Phase 2 merged 16 Nov, `5971e43`). Their history is in `PHASE-1.md`, `PHASE-1B.md`, `PHASE-2.md` and `ISSUES.md`.
-- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu), 3.6 (lasso with pictures) 3.7 (Export as PDF), 3.8 (Share to Noteapp) and 3.9 (screenshot tool) are done**. Next: 3.10 (tablet, ask first), then the end-of-phase review.
+- **Current phase: Phase 3, Images & PDFs.** The plan is **`PHASE-3.md`** (decisions, design, layout drafts, checklist 3.1–3.10). **Steps 3.1 (database v5), 3.2 (pages of different sizes) 3.3 (Import a PDF), 3.4 (pictures in the page model), 3.5 (the image menu), 3.6 (lasso with pictures) 3.7 (Export as PDF), 3.8 (Share to Noteapp) and 3.9 (screenshot tool) are done**. 3.10: installed on the tablet and the upgrade check passed; the user's own testing is next, then the end-of-phase review.
 - **Branch:** `phase-3` (from `main`), pushed after each step.
 - **Mode:** the user ran hands-off on 16 Nov, then came back and OK'd 3.8's sheet layout ("Yes, build it"). Default to "Working together" unless told otherwise.
-- **The tablet runs the final Phase 2 build** (same code as `main` at `5971e43`), database **version 4**. Never install a build older than v4 on it: Room can't downgrade.
+- **The tablet runs the Phase 3 build of `5513838`** (installed 16 Nov), database **version 5**. Never install a build older than v5 on it: Room can't downgrade. Its v4 database and notebook files are backed up in `backups/tablet-db-2026-11-16-before-v5/` (git-ignored, local only).
 - **Done:** 2.1 (database v4), 2.2–2.3 (subfolders and notebook tiles), 2.4–2.10 (the editor), 2.11 (thumbnails), **2.12 (performance; verified on the emulator, 15 Nov)**: two full pages scroll at a median 19 ms a frame (was 150 ms), render thread about 1 ms. Rotating now keeps the current page (`rememberSaveable` in `NotebookScreen`).
 - **End-of-phase `/code-review` done (15 Nov):** 8 findings, 7 fixed (save retries even after leaving, no crash from a DB error after saving, lasso cleared by the eraser end / add page / delete page, newest highlighter chunk in its own layer under the page picture, add-page race, garbled `Migrations.kt` comments). The 8th (deleted notebooks left without a folder when their folder is deleted) is a Phase 6 follow-up in ISSUES.md.
 - Unit tests and the full emulator suite (**182 tests**) pass after the fixes.
 
 ## Next steps (in order)
 
-1. **Waiting on the user:** OK for the IDEA.md §2.7/§5 edit (wording in REPORT.md and ISSUES.md), and OK to install on the tablet (3.10: copy its database first, check counts after the v4 → v5 upgrade).
+1. **Waiting on the user:** their tablet testing of Phase 3 (steps in REPORT.md) and feedback; OK for the IDEA.md §2.7/§5 edit (wording in REPORT.md and ISSUES.md). The v4 → v5 upgrade on the tablet already passed (16 Nov).
 2. Then the **end-of-phase `/code-review`**, fixes, rebuild and retest, and ask to merge into `main`.
    - 3.8 left: `data/ShareTargets`, `ui/share/ShareSheet`, `MainActivity.takeFileShare / isFileShare`, the sheet block in `NoteAppRoot` (after `fun back()`), `AppContainer.sharedImport`.
    - 3.9 left: `capture/ScreenCaptureService` + `ScreenCapture`, `ui/notebook/SnipOverlay`, `NotebookViewModel.insertSnip`.
@@ -118,6 +118,7 @@ _Last updated: 16 Nov 2026 (3.1–3.9 done and pushed; the IDEA.md edit and the 
   - That run **uninstalls and reinstalls the app on the emulator**, which wipes its data. Recreate sample data before taking screenshots: Settings → "Use fake Canvas (debug)", then Home → "Link courses" → "Create folder" ×3.
   - One test class only: add `"-Pandroid.testInstrumentationRunnerArguments.class=<full class name>"`.
   - Results are in `app/build/outputs/androidTest-results/connected/debug/*.xml`. Gradle `-q` prints nothing on success.
+- **Tablet snapshot script:** `tablet_snapshot.sh <dir> [with-files]` (force-stop, copy db/-wal/-shm via run-as, md5 of every notebook file, optional tar of `files/notebooks`); rewrite it if the scratchpad is gone. Compare with `python screenshots/compare_dbs.py <before> <after>` (counts only). Ask the user before running it.
 - **Tablet:** if `adb devices` doesn't list it, run `adb kill-server` then `adb start-server`. Install with `adb -s <tablet serial> install -r app/build/outputs/apk/debug/app-debug.apk`. Check the serial with `adb devices -l`; it's the OPD2405.
 - **Emulator stylus handwriting is off** (`settings put secure stylus_handwriting_enabled 0`). Its "Try out your stylus" tutorial swallowed scripted typing.
 - **To tap UI by text in scripts:**
