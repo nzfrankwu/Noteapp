@@ -111,6 +111,11 @@ class NotebookInk(private val maxUndo: Int = 200) {
         recordAll(edits)
     }
 
+    /** Draws strokes on several pages as ONE undo step (a stroke split at a page edge, F36). */
+    fun addAcross(byPage: Map<String, List<InkStroke>>) {
+        recordAll(byPage.filterValues { it.isNotEmpty() }.map { (pageId, strokes) -> InkEdit.Add(pageId, strokes) })
+    }
+
     /** Adds strokes and pictures as ONE undo step (the lasso's Paste and Duplicate). */
     fun add(pageId: String, strokes: List<InkStroke>, images: List<InkImage>) {
         recordAll(

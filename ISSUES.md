@@ -57,6 +57,7 @@ _None known._
 
 ## Done
 
+- **F36 (16 Nov):** a stroke written across the edge between two pages is no longer cut off: it's split at the edge, one piece per page (one undo step). Strokes written before the fix stay cut.
 - **F35 (16 Nov):** in resize mode the corner handles keep a picture's (or writing's) shape; the side handles still stretch.
 - **Tablet feedback batch 1 (Phase 3, F30–F34), 16 Nov.** No flash when the pen lifts; hold a picture to select it; pictures select in resize mode and drag with a finger; Crop for pictures; a second ＋ "Add Page" menu (page style, photos, camera, pages from a PDF, a whole PDF).
 - **Phase 3 step 3.8 (16 Nov):** Share to Noteapp (layout OK'd by the user): share or "Open with" a PDF → pick a folder; pictures → add to a notebook (new pages at the end) or a new notebook in a folder.

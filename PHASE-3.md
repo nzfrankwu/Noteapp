@@ -136,6 +136,7 @@ The goal is to let the user import lecture PDFs, write on them, drop images onto
 - [x] **F33. Crop** in the lasso menu for a single picture: the crop screen (`SnipOverlay`, now with margins) starts round the whole picture; Confirm saves the kept part as a new file in place (`InkImage.cropped`), one undo step.
 - [x] **F34. Second ＋ button: "Add Page"** like Notein (user's screenshot): Cancel · Add Page · Add, page styles, Import from Photo Library / Add from Camera (each a page), Add Page from PDF (`PdfPagePicker` thumbnails), Add the entire PDF (`NotebookRepository.insertPdfPages`, one transaction). Template Library left out (the user's call).
 - [x] **F35. Corner handles keep the shape** in resize mode too (a picture only grows or shrinks); the side handles still stretch one way. The crop box's corners stay free.
+- [x] **F36. Writing across the edge between two pages** was cut off at the edge (a stroke belonged to the page it started on, and pages clip their ink). `PageSplit` cuts a finished stroke where it crosses into another page, one piece per page meeting exactly at the edge; `NotebookInk.addAcross` makes it one undo step; `InkHandoff` waits for every piece before the pen layer lets go.
 
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest (unit tests + full emulator suite), then ask the user to approve merging into `main`.
 

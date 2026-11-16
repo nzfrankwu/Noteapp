@@ -44,8 +44,11 @@ import androidx.input.motionprediction.MotionEventPredictor
 class InkHandoff {
     private val handler = Handler(Looper.getMainLooper())
 
-    /** Saved stroke ID → the pen layer's ID for the same stroke. Main thread only. */
+    /** Saved stroke (or piece) ID → the pen layer's ID for the stroke it came from. Main thread only. */
     private val waiting = HashMap<String, InProgressStrokeId>()
+
+    /** How many saved pieces of each pen-layer stroke haven't been drawn yet (F36: split across pages). */
+    private val piecesLeft = HashMap<InProgressStrokeId, Int>()
 
     @Volatile var hasWaiting: Boolean = false
         private set
@@ -53,23 +56,38 @@ class InkHandoff {
     /** The pen layer to tell (set by [WetInkLayer]). */
     internal var view: InProgressStrokesView? = null
 
-    /** The pen layer's stroke [wetId] is now saved as [savedId]: stop drawing it once it's been drawn. */
-    fun expect(savedId: String, wetId: InProgressStrokeId) {
-        waiting[savedId] = wetId
+    /**
+     * The pen layer's stroke [wetId] is now saved as [savedIds] (one, or a piece per page when it
+     * crossed a page edge): stop drawing it once every piece has been drawn.
+     */
+    fun expect(savedIds: List<String>, wetId: InProgressStrokeId) {
+        if (savedIds.isEmpty()) {
+            runCatching { view?.removeFinishedStrokes(setOf(wetId)) }
+            return
+        }
+        for (id in savedIds) waiting[id] = wetId
+        piecesLeft[wetId] = savedIds.size
         hasWaiting = true
-        // In case it's never drawn (e.g. its page couldn't take it), stop anyway after a moment.
-        handler.postDelayed({ release(savedId) }, TIMEOUT_MS)
+        // In case one is never drawn (e.g. its page couldn't take it), stop anyway after a moment.
+        handler.postDelayed({ releaseStroke(wetId) }, TIMEOUT_MS)
     }
 
-    /** A page layer just drew the stroke [savedId]. Called while drawing. */
+    /** A page layer just drew the stroke (or piece) [savedId]. Called while drawing. */
     fun drawn(savedId: String) {
-        if (savedId !in waiting) return
+        val wetId = waiting.remove(savedId) ?: return
+        hasWaiting = waiting.isNotEmpty()
+        val left = (piecesLeft[wetId] ?: 1) - 1
+        if (left > 0) {
+            piecesLeft[wetId] = left
+            return
+        }
         // One more frame, so the page layer's drawing is on screen before the pen layer lets go.
-        Choreographer.getInstance().postFrameCallback { release(savedId) }
+        Choreographer.getInstance().postFrameCallback { releaseStroke(wetId) }
     }
 
-    private fun release(savedId: String) {
-        val wetId = waiting.remove(savedId) ?: return
+    private fun releaseStroke(wetId: InProgressStrokeId) {
+        if (piecesLeft.remove(wetId) == null) return
+        waiting.values.removeAll { it == wetId }
         hasWaiting = waiting.isNotEmpty()
         runCatching { view?.removeFinishedStrokes(setOf(wetId)) }
     }

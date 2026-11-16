@@ -529,6 +529,22 @@ class NotebookViewModel(
         addPageAfterIfLast(pageId)
     }
 
+    /**
+     * New strokes on several pages at once (one stroke split where it crossed a page edge, F36):
+     * one undo step. Pages that can't take writing right now are left out.
+     */
+    fun addStrokesAcross(byPage: Map<String, List<InkStroke>>) {
+        val ok = byPage.filter { (pageId, strokes) -> isEditable(pageId) && strokes.isNotEmpty() }
+        if (ok.size <= 1) {
+            ok.entries.firstOrNull()?.let { (pageId, strokes) -> addStrokes(pageId, strokes) }
+            return
+        }
+        val stability = settings.value.stability
+        ink.addAcross(ok.mapValues { (_, strokes) -> strokes.map { Smoothing.smoothed(it, stability) } })
+        ok.keys.forEach { changed(it) }
+        addPageAfterIfLast(ok.keys.last())
+    }
+
     private var addingNextPage = false
 
     /**

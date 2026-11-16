@@ -70,6 +70,7 @@ import com.nzfrankwu.noteapp.domain.ink.InkGeometry
 import com.nzfrankwu.noteapp.domain.ink.BoxHandle
 import com.nzfrankwu.noteapp.domain.ink.LassoBox
 import com.nzfrankwu.noteapp.domain.ink.InkStroke
+import com.nzfrankwu.noteapp.domain.ink.PageSplit
 import com.nzfrankwu.noteapp.domain.ink.InkTool
 import com.nzfrankwu.noteapp.domain.ink.InkToolSettings
 import com.nzfrankwu.noteapp.domain.ink.PageStrip
@@ -290,18 +291,25 @@ fun NotebookCanvas(
     val onStrokesFinished: (Map<androidx.ink.authoring.InProgressStrokeId, Stroke>) -> Unit = remember(viewModel, view) {
         { finished ->
             val snap = current
-            finished.entries.groupBy { (_, stroke) ->
-                val first = StrokeInput().also { stroke.inputs.populate(0, it) }
-                snap.strip.pageAt(first.x)
-            }.forEach { (index, group) ->
-                val page = snap.pages.getOrNull(index)
-                val saved = group.map { (wetId, stroke) ->
-                    InkBrushes.toSaved(stroke, snap.strip.pageLeft(index), snap.strip.pageTop(index))
-                        // The pen layer keeps drawing it until its page has (F30: no flash).
-                        .also { view.handoff.expect(it.id, wetId) }
+            val byPage = LinkedHashMap<Int, MutableList<InkStroke>>()
+            for ((wetId, stroke) in finished) {
+                // In desk units first, then cut where it crosses from page to page (F36): each page
+                // keeps its own piece, moved into its own units.
+                val desk = InkBrushes.toSaved(stroke, 0f, 0f)
+                val pieces = PageSplit.split(
+                    desk,
+                    pageAt = snap.strip::pageAt,
+                    edgeBetween = { a, b -> if (b > a) snap.strip.pageLeft(b) - snap.strip.gap / 2 else snap.strip.pageLeft(a) - snap.strip.gap / 2 },
+                    newId = { java.util.UUID.randomUUID().toString() },
+                ).filter { (index, _) -> snap.pages.getOrNull(index) != null }
+                // The pen layer keeps drawing it until every piece is drawn by its page (F30: no flash).
+                view.handoff.expect(pieces.map { it.second.id }, wetId)
+                for ((index, piece) in pieces) {
+                    byPage.getOrPut(index) { ArrayList() } +=
+                        piece.mapped(1f, 0f, 0f, -snap.strip.pageLeft(index), -snap.strip.pageTop(index), scaleSize = false)
                 }
-                if (page != null) viewModel.addStrokes(page.id, saved)
             }
+            viewModel.addStrokesAcross(byPage.entries.associate { (index, strokes) -> snap.pages[index].id to strokes })
         }
     }
 
