@@ -55,6 +55,7 @@ _None known._
 
 ## Done
 
+- **Phase 4 step 4.1, database version 6 (16 Nov, hands-off):** two new, empty tables for task ↔ notebook links and page bookmarks. Deleting a task removes its links and bookmarks, and Undo brings them back. Real v5 → v6 upgrade on the emulator: every row and page file unchanged. Nothing visible yet.
 - **Phase 3 merged into `main` (16 Nov, `7de0c06`).** Phase 4 planned the same day (`PHASE-4.md`): links, page bookmarks, PDF text selection, icon menus.
 - **IDEA.md §2.7 and §5 (16 Nov):** snip noted as built in Phase 3 (user's OK).
 - **F36 (16 Nov):** a stroke written across the edge between two pages is no longer cut off: it's split at the edge, one piece per page (one undo step). Strokes written before the fix stay cut.

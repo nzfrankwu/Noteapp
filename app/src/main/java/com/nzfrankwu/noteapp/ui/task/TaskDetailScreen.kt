@@ -67,7 +67,7 @@ import java.time.ZoneId
 /**
  * One task: name, course, status (tap to change), dates, link, Canvas description, your notes,
  * and (Phase 2) linked notebooks. Edit and Delete are in the top bar. Deleting closes the
- * screen; [onDeleted] gets the deleted task so the app can offer Undo.
+ * screen; [onDeleted] gets the deleted task (with its links and bookmarks) so the app can offer Undo.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,7 +75,7 @@ fun TaskDetailScreen(
     viewModel: TaskDetailViewModel,
     onBack: () -> Unit,
     onEdit: () -> Unit,
-    onDeleted: (Task) -> Unit,
+    onDeleted: (com.nzfrankwu.noteapp.data.DeleteTaskResult.Deleted) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()

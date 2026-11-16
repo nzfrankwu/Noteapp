@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 4 planned with the user; PHASE-4.md written; next is 4.1 database v6). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 16 Nov 2026 (Phase 4 hands-off run: 4.1 done; next is 4.2). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -12,14 +12,14 @@ _Last updated: 16 Nov 2026 (Phase 4 planned with the user; PHASE-4.md written; n
   - the pop-up menus becoming icon pills
 - **IDEA.md** §2.4, §2.6 and §5 were updated for bookmarks and text selection (user's OK, 16 Nov).
 - **Branch:** `phase-4` (from `main`), pushed after each step.
-- **Mode:** "Working together" (check-ins at the ★ steps).
+- **Mode:** **Hands-off** (user said "start phase 4, hands off", 16 Nov): no check-ins; commit and push after each step; anything needing the user goes in `REPORT.md` and `ISSUES.md`.
 - **The tablet runs the build of `55dbb3b`** (Phase 3 + F30–F36), database **version 5**. The Phase 3 review fixes (`5f5cd71`) are not on it yet. Never install a build older than v5 on it: Room can't downgrade.
 - Unit tests and the full emulator suite (**214 tests**) passed at the end of Phase 3.
 
 ## Next steps (in order)
 
-1. 🔺 **4.1 Database v6 + LinkRepository** (tables `task_notebook_links` and `task_bookmarks`; details in PHASE-4.md). It's a 🔺 step: tell the user before starting, so they can pick a stronger model or effort.
-2. Then 4.2 → 4.11 in order, with check-ins at the ★ steps.
+1. **4.1 done** (database v6: `task_notebook_links`, `task_bookmarks`; `data/LinkRepository.kt`; `domain/Bookmarks.kt`). The emulator now has a v6 app; **the tablet is still v5**.
+2. Next: 4.2 → 4.10 in order (hands-off, no check-ins). 4.11 (tablet install) needs the user's OK.
 3. Follow-ups from earlier phases (in ISSUES.md, not blocking): very deep zoom has no page picture; pre-draw the next page; a big lasso move pauses on release; tune the pen widths after real use (F22); deleted notebooks left without a folder (Phase 6).
 4. Still unreported tablet checks: a reminder arriving with the app swiped away (ColorOS); "Last synced" moving on its own (background sync).
 
@@ -89,7 +89,7 @@ _Last updated: 16 Nov 2026 (Phase 4 planned with the user; PHASE-4.md written; n
 
 | Folder | What's in it |
 |---|---|
-| `data/db/` | Room database **v5** (pages: `width`, `height`, `pdf_file`, `pdf_page`): `Course` (+`archivedAt`), `Folder` (+`parentId`), `Task` (+`availableAt`), `Notebook`, `Page`, DAOs, `FolderPlace`, `Migrations.kt` (`MIGRATION_1_2` … `MIGRATION_4_5`) |
+| `data/db/` | Room database **v6** (`TaskNotebookLink`, `TaskBookmark`, `LinkDao` in `TaskLinks.kt`/`LinkDao.kt`) (pages: `width`, `height`, `pdf_file`, `pdf_page`): `Course` (+`archivedAt`), `Folder` (+`parentId`), `Task` (+`availableAt`), `Notebook`, `Page`, DAOs, `FolderPlace`, `Migrations.kt` (`MIGRATION_1_2` … `MIGRATION_5_6`) |
 | `data/` | Repositories (`FolderRepository`, `TaskRepository`, `NotebookRepository`), `NotebookFiles` (page files), `Thumbnails`, `InkSettings` / `CanvasSettings` / `ViewSettings` (DataStore), `QuickAdd` |
 | `domain/ink/` | Plain-Kotlin handwriting logic: `InkStroke`, `PageInkCodec` (file format), `NotebookInk` (undo/redo), `InkGeometry` (eraser, lasso), `PageStrip` (fit/zoom), `EditorTools` (tools, palette, pen button, press-hard, straighten, smoothing) |
 | `ui/notebook/` | The editor: `NotebookScreen`, `NotebookCanvas` (drawing, gestures, lasso), `InkToolbar`, `InkBrushes` (our strokes ↔ Jetpack Ink), `NotebookViewModel` (loading, saving) |
@@ -130,6 +130,7 @@ _Last updated: 16 Nov 2026 (Phase 4 planned with the user; PHASE-4.md written; n
 - **Pinned versions:**
   - `kotlinx.serialization` is at 1.9.0 (the newest for Kotlin 2.2, which comes with AGP 9.5.1). It must stay at or above Room's needs, or `MigrationTest` crashes.
   - Libraries built for Kotlin 2.3+ won't fit until Kotlin is upgraded.
+- **Real upgrade test v5 → v6 (4.1):** `screenshots/upgrade_v6.sh <Windows path of screenshots/app-v5.apk>` (the v5 APK built from `main` is kept there).
 - **Real upgrade test, scripted (3.1):** `screenshots/upgrade_v5.sh <old APK as a Windows path>` installs the old build, makes sample data and a 51-page notebook, snapshots, installs the new build, snapshots again; then `python compare_dbs.py upgrade-v5/before upgrade-v5/after` compares every row and the page files' md5s. Pass the APK as `C:\...`: the script sets `MSYS_NO_PATHCONV=1`, so adb can't read `/c/...` paths.
 - **The pen layer is ours now (F30):** `ui/notebook/WetInkLayer.kt` replaces Ink's Compose `InProgressStrokes`; finished strokes are removed by `InkHandoff` after the page layer draws them (`drawStrokes` calls `handoff.drawn`). Its counting lives in `domain/ink/HandoffBook` (unit-tested). Debugging timing: log in `onStrokesFinished` and in `drawStrokes`.
 - **`folders.course_id` is unique:** subfolders store NULL there (they inherit the course through `parent_id`). Test data with a subfolder must use NULL.

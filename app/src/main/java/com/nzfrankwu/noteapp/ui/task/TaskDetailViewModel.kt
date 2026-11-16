@@ -39,8 +39,8 @@ class TaskDetailViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TaskDetailState.Loading)
 
     /** Set when the task was deleted from this screen; the screen closes and offers Undo. */
-    private val _deleted = MutableStateFlow<Task?>(null)
-    val deleted: StateFlow<Task?> = _deleted.asStateFlow()
+    private val _deleted = MutableStateFlow<DeleteTaskResult.Deleted?>(null)
+    val deleted: StateFlow<DeleteTaskResult.Deleted?> = _deleted.asStateFlow()
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
@@ -58,7 +58,7 @@ class TaskDetailViewModel(
     fun delete() {
         viewModelScope.launch {
             when (val result = tasks.deleteTask(taskId)) {
-                is DeleteTaskResult.Deleted -> _deleted.value = result.task
+                is DeleteTaskResult.Deleted -> _deleted.value = result
                 is DeleteTaskResult.Failure -> _message.value = when (result.error) {
                     TaskError.CanvasTaskCantBeDeleted ->
                         "Canvas assignments can't be deleted, because the next sync would bring them back. Mark it Done instead."

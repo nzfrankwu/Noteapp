@@ -171,7 +171,7 @@ class TaskScreensTest {
     @Test
     fun deleting_handsBackTheTask_soItCanBeRestored() {
         val id = addTask("Throwaway")
-        var deleted: Task? = null
+        var deleted: com.nzfrankwu.noteapp.data.DeleteTaskResult.Deleted? = null
         showOnTablet { TaskDetailScreen(TaskDetailViewModel(id, tasks), onBack = {}, onEdit = {}, onDeleted = { deleted = it }) }
 
         waitFor("Throwaway")

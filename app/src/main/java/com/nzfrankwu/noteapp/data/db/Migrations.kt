@@ -101,10 +101,46 @@ val MIGRATION_4_5: Migration = object : Migration(4, 5) {
     }
 }
 
+/**
+ * Version 5 → 6 (Phase 4, step 4.1): links between tasks and notebooks, and page bookmarks.
+ * Two new, empty tables:
+ *  - `task_notebook_links`: which notebooks belong to which tasks (one row per pair)
+ *  - `task_bookmarks`: a page bookmarked for a task, with an optional note and spot
+ *
+ * No existing table is touched, so every course, folder, task, notebook and page stays exactly as
+ * it was. The SQL matches Room's schema 6 exactly (app/schemas/.../6.json); MigrationTest checks that.
+ */
+val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `task_notebook_links` (`task_id` TEXT NOT NULL, `notebook_id` TEXT NOT NULL, " +
+                "`created_at` INTEGER NOT NULL, PRIMARY KEY(`task_id`, `notebook_id`), " +
+                "FOREIGN KEY(`task_id`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`notebook_id`) REFERENCES `notebooks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_task_notebook_links_notebook_id` ON `task_notebook_links` (`notebook_id`)",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `task_bookmarks` (`id` TEXT NOT NULL, `task_id` TEXT NOT NULL, " +
+                "`notebook_id` TEXT NOT NULL, `page_id` TEXT NOT NULL, `note` TEXT, `spot_left` REAL, `spot_top` REAL, " +
+                "`spot_width` REAL, `spot_height` REAL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`task_id`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`notebook_id`) REFERENCES `notebooks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`page_id`) REFERENCES `pages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_task_bookmarks_task_id` ON `task_bookmarks` (`task_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_task_bookmarks_notebook_id` ON `task_bookmarks` (`notebook_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_task_bookmarks_page_id` ON `task_bookmarks` (`page_id`)")
+    }
+}
+
 /** Every migration, oldest first. Keep this list at the bottom of the file (see above). */
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
     MIGRATION_3_4,
     MIGRATION_4_5,
+    MIGRATION_5_6,
 )

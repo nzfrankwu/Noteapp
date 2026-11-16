@@ -83,7 +83,7 @@ The user added more to this phase:
 
 ## Steps (branch `phase-4` from `main`; ★ = check-in, 🔺 = difficult)
 - [x] **4.0** Write `PHASE-4.md` from this plan, update IDEA.md (§2.4, §2.6, §5; OK'd), and update HANDOFF.md and ISSUES.md. Commit.
-- [ ] 🔺 **4.1 Database v6 + LinkRepository**
+- [x] 🔺 **4.1 Database v6 + LinkRepository** (16 Nov, hands-off). Spot columns are named `spot_left/top/width/height` (`left` is an SQL keyword). Unlinking a notebook also removes that task's bookmarks in it (Undo puts both back). Real v5 → v6 upgrade on the emulator: every row and all 50 page files unchanged.
   - entities, DAOs, the migration, `6.json`, the SchemaHistoryTest hash
   - MigrationTest: both tables in the column-order list, `migration5To6`, and "v5 data survives" with `insertVersion5Data`
   - repository tests: link/unlink, duplicates ignored, deleted notebooks/pages hidden, bookmark order, the cascades, and task delete → Undo restores everything

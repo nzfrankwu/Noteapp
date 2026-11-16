@@ -80,7 +80,7 @@ class MigrationTest {
         helper.createDatabase(testDbName, 1).close()
         val upgraded = helper.runMigrationsAndValidate(testDbName, NoteAppDatabase.VERSION, true, *ALL_MIGRATIONS)
         val fresh = helper.createDatabase(freshDbName, NoteAppDatabase.VERSION)
-        for (table in listOf("courses", "folders", "tasks", "notebooks", "pages")) {
+        for (table in listOf("courses", "folders", "tasks", "notebooks", "pages", "task_notebook_links", "task_bookmarks")) {
             assertEquals("Columns of $table", columnsOf(fresh, table), columnsOf(upgraded, table))
         }
         upgraded.close()
@@ -394,7 +394,102 @@ class MigrationTest {
         db.close()
     }
 
+    // ---- Version 5 → 6: task-notebook links and bookmarks ----
+
+    /**
+     * Every row and every value saved by version 5 (PDF pages too) is still there after 5 → 6,
+     * untouched, and the two new tables start empty.
+     */
+    @Test
+    fun migration5To6_keepsEveryValue_andAddsEmptyLinkTables() {
+        val before = helper.createDatabase(testDbName, 5).let { old ->
+            insertVersion5Data(old)
+            version5Columns.mapValues { (table, columns) -> rowsOf(old, table, columns) }.also { old.close() }
+        }
+
+        val db = helper.runMigrationsAndValidate(testDbName, 6, true, MIGRATION_5_6)
+
+        for ((table, columns) in version5Columns) {
+            assertEquals("Rows of $table after migrating", before.getValue(table), rowsOf(db, table, columns))
+        }
+        db.query("SELECT COUNT(*) FROM task_notebook_links").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        db.query("SELECT COUNT(*) FROM task_bookmarks").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        db.query("PRAGMA foreign_key_check").use { assertFalse("Broken links between tables", it.moveToFirst()) }
+        db.close()
+    }
+
+    /**
+     * After updating, the current app sees version 5's data as before and can link an old task to
+     * an old notebook, bookmark an old PDF page, and delete and restore the task with them.
+     */
+    @Test
+    fun dataSavedByVersion5_survivesUpdatingToTheCurrentVersion_andTakesLinksAndBookmarks() {
+        helper.createDatabase(testDbName, 5).apply {
+            insertVersion5Data(this)
+            close()
+        }
+
+        val db = openWithAllMigrations()
+        runBlocking {
+            val notebooks = NotebookRepository(db, newId = idsFrom("x"))
+            val pages = notebooks.getPages("n2")
+            assertEquals(listOf("pp1", "pp2"), pages.map { it.id })
+            assertEquals("pdf-a.pdf", pages[1].pdfFile)
+            assertEquals(1, pages[1].pdfPage)
+            assertEquals(792f, pages[1].height)
+            assertEquals(listOf("pg1", "pg2"), notebooks.getPages("n1").map { it.id })
+
+            val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks, newId = idsFrom("b"))
+            val tasks = com.nzfrankwu.noteapp.data.TaskRepository(db)
+            assertEquals(com.nzfrankwu.noteapp.data.LinkResult.Success("n1"), links.link("t2", "n1"))
+            assertEquals(
+                com.nzfrankwu.noteapp.data.LinkResult.Success("b0"),
+                links.addBookmark("t2", "pp2", "Slide 2", com.nzfrankwu.noteapp.domain.PageSpot(10f, 20f, 30f, 40f)),
+            )
+            val groups = links.observeBookmarksForTask("t2").first()
+            assertEquals(2, groups.single().bookmarks.single().pageNumber)
+            assertEquals(setOf("n1", "n2"), links.observeNotebooksForTask("t2").first().map { it.notebook.id }.toSet())
+
+            val deleted = tasks.deleteTask("t2") as com.nzfrankwu.noteapp.data.DeleteTaskResult.Deleted
+            assertEquals(2, deleted.links.size)
+            tasks.restoreTask(deleted)
+            assertEquals(1, links.observeBookmarksForTask("t2").first().single().bookmarks.size)
+
+            val task = requireRow(db.taskDao().getById("t1"))
+            assertEquals(TaskStatus.STUCK, task.status)
+            assertEquals("Ask about Q4", task.notes)
+        }
+        db.close()
+    }
+
     // ---- Helpers ----
+
+    /**
+     * Rows as version 5 saved them: version 4's rows plus a PDF notebook with two pages of
+     * different sizes. FROZEN to version 5's tables on purpose: never update this SQL for new versions.
+     */
+    private fun insertVersion5Data(db: SupportSQLiteDatabase) {
+        insertVersion4Data(db) // version 4's tables are part of version 5 (columns were added)
+        db.execSQL(
+            "INSERT INTO notebooks (id, folder_id, title, template, page_width, page_height, created_at, " +
+                "updated_at, deleted_at) VALUES ('n2', 'f1', 'Slides', 'lined', 842.0, 595.0, 6000, 6000, NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO pages (id, notebook_id, position, template, created_at, updated_at, deleted_at, width, height, " +
+                "pdf_file, pdf_page) VALUES ('pp1', 'n2', 0, NULL, 6000, 6000, NULL, 842.0, 595.0, 'pdf-a.pdf', 0)",
+        )
+        db.execSQL(
+            "INSERT INTO pages (id, notebook_id, position, template, created_at, updated_at, deleted_at, width, height, " +
+                "pdf_file, pdf_page) VALUES ('pp2', 'n2', 1, NULL, 6000, 6100, NULL, 612.0, 792.0, 'pdf-a.pdf', 1)",
+        )
+    }
+
+    /** Version 5's columns: version 4's plus the pages' size and PDF columns. FROZEN like [insertVersion5Data]. */
+    private val version5Columns: Map<String, List<String>> by lazy {
+        version4Columns.mapValues { (table, columns) ->
+            if (table == "pages") columns + listOf("width", "height", "pdf_file", "pdf_page") else columns
+        }
+    }
 
     /**
      * Rows as version 4 saved them: version 3's rows plus a subfolder of "ELECTENG 204", a

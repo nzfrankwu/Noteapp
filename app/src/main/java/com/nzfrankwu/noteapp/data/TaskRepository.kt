@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import com.nzfrankwu.noteapp.data.db.Course
 import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 import com.nzfrankwu.noteapp.data.db.Task
+import com.nzfrankwu.noteapp.data.db.TaskBookmark
+import com.nzfrankwu.noteapp.data.db.TaskNotebookLink
 import com.nzfrankwu.noteapp.data.db.TaskWithCourse
 import com.nzfrankwu.noteapp.domain.Links
 import com.nzfrankwu.noteapp.domain.TaskSource
@@ -38,9 +40,16 @@ sealed interface TaskResult {
     data class Failure(val error: TaskError) : TaskResult
 }
 
-/** Result of deleting: the deleted task is returned so the screen can offer Undo. */
+/**
+ * Result of deleting: the deleted task is returned, with its notebook links and bookmarks (the
+ * database removes those with it), so the screen can offer Undo.
+ */
 sealed interface DeleteTaskResult {
-    data class Deleted(val task: Task) : DeleteTaskResult
+    data class Deleted(
+        val task: Task,
+        val links: List<TaskNotebookLink> = emptyList(),
+        val bookmarks: List<TaskBookmark> = emptyList(),
+    ) : DeleteTaskResult
     data class Failure(val error: TaskError) : DeleteTaskResult
 }
 
@@ -56,6 +65,8 @@ class TaskRepository(
 ) {
     private val taskDao = db.taskDao()
     private val courseDao = db.courseDao()
+    private val linkDao = db.linkDao()
+    private val notebookDao = db.notebookDao()
 
     /** Every task with its course code, archived courses included (e.g. inside a course folder). */
     fun observeAllWithCourse(): Flow<List<TaskWithCourse>> = taskDao.observeAllWithCourse()
@@ -129,22 +140,46 @@ class TaskRepository(
         TaskResult.Success(taskId)
     }
 
-    /** Deletes a task and returns it, so the screen can offer Undo ([restoreTask]). */
+    /**
+     * Deletes a task and returns it with its links and bookmarks (removed with it), so the screen
+     * can offer Undo ([restoreTask]).
+     */
     suspend fun deleteTask(taskId: String): DeleteTaskResult = db.withTransaction {
         val task = taskDao.getById(taskId) ?: return@withTransaction DeleteTaskResult.Failure(TaskError.NotFound)
         if (task.source == TaskSource.CANVAS && !task.removedFromCanvas) {
             return@withTransaction DeleteTaskResult.Failure(TaskError.CanvasTaskCantBeDeleted)
         }
-        taskDao.delete(task)
-        DeleteTaskResult.Deleted(task)
+        val links = linkDao.getLinksForTask(taskId)
+        val bookmarks = linkDao.getBookmarksForTask(taskId)
+        taskDao.delete(task) // the database removes its links and bookmarks too (ON DELETE CASCADE)
+        DeleteTaskResult.Deleted(task, links, bookmarks)
     }
 
-    /** Undo for [deleteTask]: puts the exact same task back (same ID and dates). */
-    suspend fun restoreTask(task: Task) = db.withTransaction {
+    /** Undo for [deleteTask]: puts back everything [deleteTask] returned. */
+    suspend fun restoreTask(deleted: DeleteTaskResult.Deleted) = restoreTask(deleted.task, deleted.links, deleted.bookmarks)
+
+    /**
+     * Undo for [deleteTask]: puts the exact same task back (same ID and dates), with its [links]
+     * and [bookmarks]. Links to notebooks, and bookmarks on pages, that no longer exist at all are
+     * skipped. (Deleted notebooks and pages are only hidden, so their links come back too.)
+     */
+    suspend fun restoreTask(
+        task: Task,
+        links: List<TaskNotebookLink> = emptyList(),
+        bookmarks: List<TaskBookmark> = emptyList(),
+    ) = db.withTransaction {
         if (taskDao.getById(task.id) != null) return@withTransaction
         // If its course was deleted in the meantime, bring the task back without a course.
         val courseStillThere = task.courseId?.let { courseDao.getById(it) } != null
         taskDao.insert(if (courseStillThere || task.courseId == null) task else task.copy(courseId = null))
+        for (link in links) {
+            if (link.taskId == task.id && notebookDao.getNotebook(link.notebookId) != null) linkDao.insertLink(link)
+        }
+        for (bookmark in bookmarks) {
+            val page = notebookDao.getPage(bookmark.pageId) ?: continue
+            if (bookmark.taskId != task.id || page.notebookId != bookmark.notebookId) continue
+            if (linkDao.getBookmark(bookmark.id) == null) linkDao.insertBookmark(bookmark)
+        }
     }
 
     private suspend fun validate(draft: TaskDraft): TaskError? = when {

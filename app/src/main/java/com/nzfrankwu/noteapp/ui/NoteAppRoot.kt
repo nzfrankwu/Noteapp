@@ -266,7 +266,8 @@ fun NoteAppRoot(
                         viewModel = viewModel { TaskDetailViewModel(route.taskId, container.taskRepository) },
                         onBack = ::back,
                         onEdit = { backStack.add(TaskEditRoute(taskId = route.taskId)) },
-                        onDeleted = { task ->
+                        onDeleted = { deleted ->
+                            val task = deleted.task
                             back()
                             scope.launch {
                                 snackbar.currentSnackbarData?.dismiss()
@@ -276,7 +277,7 @@ fun NoteAppRoot(
                                     withDismissAction = true,
                                     duration = SnackbarDuration.Long,
                                 )
-                                if (result == SnackbarResult.ActionPerformed) container.taskRepository.restoreTask(task)
+                                if (result == SnackbarResult.ActionPerformed) container.taskRepository.restoreTask(deleted)
                             }
                         },
                     )
