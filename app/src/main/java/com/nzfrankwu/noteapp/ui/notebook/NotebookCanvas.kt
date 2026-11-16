@@ -123,7 +123,10 @@ sealed interface LassoState {
             fun of(
                 pageIndex: Int, pageId: String, strokes: List<InkStroke>,
                 images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(), handles: Boolean = false,
-            ): Selected? = InkGeometry.boundsOf(strokes, images)?.let { Selected(pageIndex, pageId, strokes, it, handles = handles, images = images) }
+            ): Selected? = InkGeometry.boundsOf(strokes, images)?.let {
+                // Pictures alone open in resize mode (F32): all eight handles and the rotate handle.
+                Selected(pageIndex, pageId, strokes, it, handles = handles || (strokes.isEmpty() && images.isNotEmpty()), images = images)
+            }
         }
     }
 }
@@ -617,8 +620,31 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
     var lock = AxisLock()
     val velocity = VelocityTracker()
     var pinched = false
-    // Press and hold a finger to paste (F12).
+    // Press and hold a finger to paste (F12), or to pick the picture under it (F31).
     var longPress: Job? = null
+    var penDownAt = 0L
+    // A finger dragging the lasso's selection (F32): which handle, or null to move it.
+    var fingerDrag: FingerDrag? = null
+
+    /** Saves a moved, resized or turned selection and selects the result. */
+    fun commitSelection(sel: LassoState.Selected) {
+        if (!sel.changed) return
+        val moved = sel.transformed()
+        val movedImages = sel.transformedImages()
+        viewModel.replaceSelection(sel.pageId, moved, movedImages)
+        onLasso(LassoState.Selected.of(sel.pageIndex, sel.pageId, moved, movedImages, handles = sel.handles))
+    }
+
+    /** Selects the topmost picture under screen point [at], switching to the lasso. True if there was one. */
+    fun selectPictureAt(at: Offset, snap: Snapshot, cam: Camera): Boolean {
+        val index = snap.strip.pageAt(cam.toWorldX(at.x))
+        val page = snap.pages.getOrNull(index) ?: return false
+        val image = viewModel.imageAt(page.id, cam.toWorldX(at.x) - snap.strip.pageLeft(index), cam.toWorldY(at.y) - snap.strip.pageTop(index))
+            ?: return false
+        if (snap.settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
+        onLasso(LassoState.Selected.of(index, page.id, emptyList(), listOf(image)))
+        return true
+    }
 
     while (true) {
         val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -651,6 +677,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                 // ---- Pen ----
                 if (change.changedToDownIgnoreConsumed() && penId == null) {
                     penId = change.id
+                    penDownAt = change.uptimeMillis
                     penStart = change.position
                     penLast = change.position
                     penIsFinger = !isPen
@@ -680,6 +707,14 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         while (true) {
                             delay(HOLD_CHECK_MS)
                             if (penId != watchedPen || penMode != PenMode.INK) break
+                            val held = android.os.SystemClock.uptimeMillis() - penDownAt
+                            if (held >= LONG_PRESS_MS && (lastScreen - penStart).getDistance() < TAP_SLOP) {
+                                val c0 = view.camera ?: break
+                                if (selectPictureAt(penStart, snapshot(), c0)) {
+                                    penMode = PenMode.LASSO_MOVE // the next sample is consumed, which cancels the dot
+                                    break
+                                }
+                            }
                             val quiet = android.os.SystemClock.uptimeMillis() - lastPenTime
                             if (quiet < HOLD_CHECK_MS) continue // samples are still arriving
                             val now = snapshot()
@@ -835,14 +870,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             }
                         }
                         PenMode.LASSO_MOVE, PenMode.LASSO_RESIZE, PenMode.LASSO_ROTATE -> {
-                            (view.lasso as? LassoState.Selected)?.let { sel ->
-                                if (sel.changed) {
-                                    val moved = sel.transformed()
-                                    val movedImages = sel.transformedImages()
-                                    viewModel.replaceSelection(sel.pageId, moved, movedImages)
-                                    onLasso(LassoState.Selected.of(sel.pageIndex, sel.pageId, moved, movedImages, handles = sel.handles))
-                                }
-                            }
+                            (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
                         }
                         else -> Unit
                     }
@@ -878,22 +906,37 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     lock = AxisLock()
                     velocity.resetTracking()
                     pinched = false
-                    if (viewModel.clipboard != null) {
-                        val at = change.position
-                        longPress = motionScope.launch {
-                            delay(LONG_PRESS_MS)
-                            if (touches.size == 1 && !tapMoved && penId == null) view.pasteAt = at
+                    fingerDrag = (view.lasso as? LassoState.Selected)?.let { sel ->
+                        when {
+                            sel.handles && handleAt(change.position, sel, snap, cam) != null -> FingerDrag(handleAt(change.position, sel, snap, cam))
+                            insideSelection(change.position, sel, snap, cam) -> FingerDrag(null)
+                            else -> null
                         }
+                    }
+                    val at = change.position
+                    longPress = motionScope.launch {
+                        delay(LONG_PRESS_MS)
+                        if (touches.size != 1 || tapMoved || penId != null || fingerDrag != null) return@launch
+                        val c = view.camera ?: return@launch
+                        // A finger held on a picture picks it (F31); elsewhere it offers Paste (F12).
+                        if (!selectPictureAt(at, snapshot(), c) && viewModel.clipboard != null) view.pasteAt = at
                     }
                 } else {
                     tapMoved = true // a pinch is not a tap
                     pinched = true
+                    fingerDrag = null // two fingers zoom, even over a selection
                 }
                 velocity.addPosition(change.uptimeMillis, change.position)
                 continue
             }
             if (!change.pressed) {
                 longPress?.cancel()
+                if (fingerDrag != null && touches.size == 1) {
+                    fingerDrag = null
+                    touches.remove(change.id)
+                    (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
+                    continue
+                }
                 // The lift can be a little further on than the last move: apply that bit too.
                 val lastPos = touches[change.id]
                 if (lastPos != null && touches.size == 1 && !pinched && (change.position - lastPos).getDistance() > 0.5f) {
@@ -938,6 +981,30 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
             if (touches.size == 1) velocity.addPosition(change.uptimeMillis, change.position)
         }
 
+        // ---- A finger dragging the selection (F32) ----
+        val drag = fingerDrag
+        if (drag != null && touches.size == 1 && penId == null) {
+            val id = touches.keys.first()
+            val now = event.changes.firstOrNull { it.id == id }?.position
+            val before = touches.getValue(id)
+            val sel = view.lasso as? LassoState.Selected
+            if (now != null && sel != null && now != before) {
+                touches[id] = now
+                if ((now - tapDownPos).getDistance() > TAP_SLOP) tapMoved = true
+                val handle = drag.handle
+                onLasso(
+                    if (handle == null) {
+                        sel.copy(target = LassoBox.moved(sel.target, (now.x - before.x) / cam.scale, (now.y - before.y) / cam.scale))
+                    } else {
+                        val x = cam.toWorldX(now.x) - snap.strip.pageLeft(sel.pageIndex)
+                        val y = cam.toWorldY(now.y) - snap.strip.pageTop(sel.pageIndex)
+                        sel.copy(target = LassoBox.dragged(sel.target, handle, x, y, keepShape = !sel.handles))
+                    },
+                )
+            }
+            continue
+        }
+
         // ---- Pan and pinch-zoom with the fingers that moved ----
         if (touches.isNotEmpty() && penId == null) {
             val before = touches.values.toList()
@@ -961,6 +1028,9 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
         }
     }
 }
+
+/** A finger dragging the lasso's selection: by [handle] (resize), or by its middle (move) when null. */
+private class FingerDrag(val handle: BoxHandle?)
 
 /** A straight line in progress (F11), in desk units, with the pen it's drawn with. */
 data class StraightLine(
