@@ -338,17 +338,7 @@ fun FolderScreen(
                     horizontalArrangement = Arrangement.spacedBy(Dimens.PaneGap),
                 ) {
                     // Two shaded panels, like Home's Due soon.
-                    androidx.compose.material3.Surface(
-                        modifier = Modifier.width(notesWidth).fillMaxHeight(),
-                        shape = MaterialTheme.shapes.extraLarge,
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                    ) {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize().testTag("folder-content"),
-                            contentPadding = PaddingValues(Dimens.PanelPadding),
-                            verticalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
-                        ) { library(libraryColumns(notesWidth - Dimens.PanelPadding * 2, Dimens.CourseTileMinWidth)) }
-                    }
+                    // Tasks on the left, notes on the right (the user's choice, 17 Nov).
                     androidx.compose.material3.Surface(
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         shape = MaterialTheme.shapes.extraLarge,
@@ -356,10 +346,21 @@ fun FolderScreen(
                     ) {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().testTag("folder-tasks"),
-                            // Room at the bottom so the last task isn't hidden under ＋.
-                            contentPadding = PaddingValues(start = Dimens.PanelPadding, end = Dimens.PanelPadding, top = Dimens.PanelPadding - Dimens.PaneGap, bottom = 88.dp),
+                            contentPadding = PaddingValues(start = Dimens.PanelPadding, end = Dimens.PanelPadding, top = Dimens.PanelPadding - Dimens.PaneGap, bottom = Dimens.PanelPadding),
                             verticalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
                         ) { tasks() }
+                    }
+                    androidx.compose.material3.Surface(
+                        modifier = Modifier.width(notesWidth).fillMaxHeight(),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().testTag("folder-content"),
+                            // Room at the bottom so the last row isn't hidden under ＋.
+                            contentPadding = PaddingValues(start = Dimens.PanelPadding, end = Dimens.PanelPadding, top = Dimens.PanelPadding, bottom = 88.dp),
+                            verticalArrangement = Arrangement.spacedBy(Dimens.ItemGap),
+                        ) { library(libraryColumns(notesWidth - Dimens.PanelPadding * 2, Dimens.CourseTileMinWidth)) }
                     }
                 }
             } else {

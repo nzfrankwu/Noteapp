@@ -134,6 +134,10 @@ Done hands-off.
 - [x] **FB10 Image and Screenshot side by side** in the top bar (then Text).
 - [x] **FB11 Open in Canvas**: the Canvas Student app (`com.instructure.candroid`) if it can open the page, else a Chrome tab over Noteapp (`androidx.browser` 1.8.0, user's OK 17 Nov), else any browser. The Chrome tab uses Chrome's own sign-in, never Noteapp's Canvas cookies. Not tried with the real Canvas app (the emulator has none).
 
+## Feedback round 3 (17 Nov 2026)
+- [x] **FB12 Course folders: tasks on the left, notes on the right** (the notes panel keeps 58% of the width; ＋ sits over the notes, so their list keeps room at the bottom).
+- [x] **FB13 A much slimmer divider handle**: 12 × 48 dp (was 24 × 56), with a 40 × 64 dp invisible touch area so it's still easy to grab.
+
 ## Verification
 - **Every step:** `gradlew.bat assembleDebug testDebugUnitTest`, plus `connectedDebugAndroidTest` with `ANDROID_SERIAL=emulator-5554` (a run wipes the emulator's app data; rebuild it with `screenshots/p4setup.sh`).
 - **Emulator screen tests:**

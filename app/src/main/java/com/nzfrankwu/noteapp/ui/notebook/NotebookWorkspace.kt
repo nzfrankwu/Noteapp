@@ -373,14 +373,11 @@ private fun SplitPanes(
         ) {
             var menu by remember { mutableStateOf(false) }
             Box {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = EditorBarButton,
+                // The touch area is bigger than the slim pill drawn in it, so a finger finds it easily.
+                Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        // Its own size, sticking out of the thin divider (FB8), with a light rim to show on the dark line.
-                        .then(if (sideBySide) Modifier.requiredSize(24.dp, 56.dp) else Modifier.requiredSize(56.dp, 24.dp))
-                        .shadow(3.dp, RoundedCornerShape(50))
-                        .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(50))
+                        .then(if (sideBySide) Modifier.requiredSize(HandleTouchThickness, HandleTouchLength) else Modifier.requiredSize(HandleTouchLength, HandleTouchThickness))
                         .onGloballyPositioned { handleCoords = it }
                         .pointerInput(sideBySide, total) {
                             detectDragGestures(
@@ -408,17 +405,27 @@ private fun SplitPanes(
                                 }
                             }
                         }
-                        .clickable { menu = true }
+                        .clickable(interactionSource = null, indication = null) { menu = true }
                         .semantics { contentDescription = "Split screen options; drag to resize" }
                         .testTag("split-handle"),
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painterResource(R.drawable.ic_more_vert),
-                            contentDescription = null,
-                            tint = EditorBarIcon,
-                            modifier = Modifier.size(20.dp).then(if (sideBySide) Modifier else Modifier.rotate(90f)),
-                        )
+                    // Its own size, sticking out of the thin divider (FB8), with a light rim to show on the dark line.
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = EditorBarButton,
+                        modifier = Modifier
+                            .then(if (sideBySide) Modifier.requiredSize(HandleThickness, HandleLength) else Modifier.requiredSize(HandleLength, HandleThickness))
+                            .shadow(3.dp, RoundedCornerShape(50))
+                            .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(50)),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painterResource(R.drawable.ic_more_vert),
+                                contentDescription = null,
+                                tint = EditorBarIcon,
+                                modifier = Modifier.size(14.dp).then(if (sideBySide) Modifier else Modifier.rotate(90f)),
+                            )
+                        }
                     }
                 }
                 if (menu) {
@@ -500,5 +507,13 @@ private fun DragGhost(item: NotebookListItem, at: Offset, area: Rect, splitMode:
 
 /** Thin, so the notebooks get the room (FB8); the ⋮ handle stands out from it. */
 private val DividerThickness = 6.dp
+
+/** The ⋮ handle: slim (the user found 24 dp too wide), and long enough to grab. */
+private val HandleThickness = 12.dp
+private val HandleLength = 48.dp
+
+/** Where a finger can grab the handle: wider than it looks. */
+private val HandleTouchThickness = 40.dp
+private val HandleTouchLength = 64.dp
 private val DividerColor = Color(0xFF1E1F22)
 private val DropTint = Color(0x332F6BDB)
