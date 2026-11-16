@@ -183,6 +183,15 @@ class LinkRepository(
         dao.insertBookmark(bookmark)
     }
 
+    /** Every folder, for the pickers. */
+    fun observeAllFolders(): Flow<List<com.nzfrankwu.noteapp.data.db.Folder>> = folderDao.observeAll()
+
+    /** Every notebook (not deleted), for the pickers. */
+    fun observeAllNotebooks(): Flow<List<com.nzfrankwu.noteapp.data.db.Notebook>> = notebookDao.observeAllActive()
+
+    /** Every task with its course, for the task picker. */
+    fun observeAllTasks(): Flow<List<TaskWithCourse>> = taskDao.observeAllWithCourse()
+
     /** Bookmarks on the notebook's pages (not deleted), updating live. */
     fun observeBookmarksInNotebook(notebookId: String): Flow<List<TaskBookmark>> = dao.observeBookmarksInNotebook(notebookId)
 }

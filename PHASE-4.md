@@ -89,7 +89,7 @@ The user added more to this phase:
   - repository tests: link/unlink, duplicates ignored, deleted notebooks/pages hidden, bookmark order, the cascades, and task delete → Undo restores everything
   - unit tests for `domain/Bookmarks`
   - a real upgrade check on the emulator (old APK from `main`)
-- [ ] **4.2 Task screen: linked notebooks**
+- [x] **4.2 Task screen: linked notebooks** (16 Nov, hands-off; no check-in). The picker is a dialog in the same style as "Add to Noteapp"; the course folder's notebooks come first under folder headings, then "Other folders". Unlinking offers Undo.
   - tiles (reuse `LibraryTiles.NotebookTile`), unlink in the tile's ⋮
   - `ui/task/LinkNotebookSheet.kt`, "New notebook for this task"
   - `onOpenNotebook` in `entry<TaskRoute>`

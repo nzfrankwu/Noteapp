@@ -35,6 +35,7 @@ import com.nzfrankwu.noteapp.ui.task.TaskDetailViewModel
 import com.nzfrankwu.noteapp.ui.task.TaskEditorScreen
 import com.nzfrankwu.noteapp.ui.task.TaskEditorViewModel
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -243,5 +244,53 @@ class TaskScreensTest {
 
         compose.onNodeWithText("Problem set 1").performClick()
         assertNotNull(opened)
+    }
+
+    // ---- Phase 4: linked notebooks ----
+
+    @Test
+    fun linkNotebook_fromTheTask_showsItsTile_andUnlinkOffersUndo() {
+        val id = addTask("Assignment 1")
+        val notebooks = NotebookRepository(db)
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks)
+        val nb = runBlocking { (notebooks.createNotebook(folderId, "Lecture 3") as com.nzfrankwu.noteapp.data.NotebookResult.Success).id }
+        showOnTablet { TaskDetailScreen(TaskDetailViewModel(id, tasks, links = links), onBack = {}, onEdit = {}, onDeleted = {}) }
+
+        waitFor("No notebooks linked yet.")
+        compose.onNodeWithTag("link-notebook").performClick()
+        waitFor("Electromagnetics") // the course folder's notebooks come first
+        compose.onNodeWithTag("pick-notebook-Lecture 3").performClick()
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("tile-Lecture 3"), 5_000)
+        assertEquals(listOf(nb), runBlocking { links.observeNotebooksForTask(id).first() }.map { it.notebook.id })
+
+        compose.onNodeWithContentDescription("Options for Lecture 3").performClick()
+        compose.onNodeWithText("Unlink from this task").performClick()
+        waitFor("No notebooks linked yet.")
+        waitFor("Undo")
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("tile-Lecture 3"), 5_000)
+    }
+
+    @Test
+    fun newNotebookForTheTask_isMadeInTheCourseFolder_linked_andOpened() {
+        val id = addTask("Lab report")
+        val notebooks = NotebookRepository(db)
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks)
+        var opened: String? = null
+        showOnTablet {
+            TaskDetailScreen(
+                TaskDetailViewModel(id, tasks, links = links), onBack = {}, onEdit = {}, onDeleted = {},
+                onOpenNotebook = { nbId, _, _ -> opened = nbId },
+            )
+        }
+        waitFor("No notebooks linked yet.")
+        compose.onNodeWithTag("link-notebook").performClick()
+        compose.onNodeWithTag("new-notebook-for-task").performClick()
+        compose.onNodeWithTag("dialog-confirm").performClick() // the name starts as the task's
+        compose.waitUntil(5_000) { opened != null }
+        val nb = runBlocking { notebooks.getNotebook(opened!!) }!!
+        assertEquals("Lab report", nb.title)
+        assertEquals(folderId, nb.folderId)
+        assertEquals(listOf(nb.id), runBlocking { links.observeNotebooksForTask(id).first() }.map { it.notebook.id })
     }
 }

@@ -3,6 +3,7 @@ package com.nzfrankwu.noteapp.domain
 import java.time.Instant
 
 /** A rectangle on a page, in page units (1/72 inch): the spot a bookmark points at. */
+@kotlinx.serialization.Serializable
 data class PageSpot(val left: Float, val top: Float, val width: Float, val height: Float) {
     val isValid: Boolean
         get() = listOf(left, top, width, height).all { it.isFinite() } && width > 0f && height > 0f

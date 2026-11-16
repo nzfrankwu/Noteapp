@@ -263,8 +263,9 @@ fun NoteAppRoot(
             }
             entry<TaskRoute> { route ->
                     TaskDetailScreen(
-                        viewModel = viewModel { TaskDetailViewModel(route.taskId, container.taskRepository) },
+                        viewModel = viewModel { TaskDetailViewModel(route.taskId, container.taskRepository, links = container.linkRepository) },
                         onBack = ::back,
+                        onOpenNotebook = { notebookId, pageId, spot -> backStack.add(NotebookRoute(notebookId, pageId, spot)) },
                         onEdit = { backStack.add(TaskEditRoute(taskId = route.taskId)) },
                         onDeleted = { deleted ->
                             val task = deleted.task
