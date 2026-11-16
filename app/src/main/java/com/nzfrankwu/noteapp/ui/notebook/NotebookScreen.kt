@@ -110,13 +110,43 @@ fun NotebookScreen(
     openAtPage: String? = null,
     openAtSpot: com.nzfrankwu.noteapp.domain.PageSpot? = null,
 ) {
+    val pane = remember(viewModel) { PaneState(viewModel) }
+    NotebookEditor(
+        panes = listOf(pane),
+        active = pane,
+        onBack = onBack,
+        modifier = modifier,
+        onOpenTask = onOpenTask,
+    ) { show -> show(pane, Modifier.fillMaxSize(), openAtPage, openAtSpot) }
+}
+
+/**
+ * The editor around one or two notebooks ([panes], PHASE-5.md 5.6): the floating buttons, the
+ * toolbar, the menus, sheets and dialogs, all working on the [active] pane. [panesArea] lays the
+ * panes out (one filling the screen, or two split); it's given a function that draws one pane.
+ */
+@Composable
+internal fun NotebookEditor(
+    panes: List<PaneState>,
+    active: PaneState,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    onOpenTask: (String) -> Unit = {},
+    /** Extra items at the top of the ⋮ menu (split view's own). */
+    extraMenu: @Composable androidx.compose.foundation.layout.ColumnScope.(close: () -> Unit) -> Unit = {},
+    /** A button next to Back (the recent notebooks panel, 5.7). */
+    leftButton: @Composable () -> Unit = {},
+    /** Things drawn over the panes, under the floating buttons (the recent panel, 5.7). */
+    overlay: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {},
+    panesArea: @Composable (show: @Composable (PaneState, Modifier, String?, com.nzfrankwu.noteapp.domain.PageSpot?) -> Unit) -> Unit,
+) {
+    val viewModel = active.viewModel
+    val view = active.view
     val notebook by viewModel.notebook.collectAsStateWithLifecycle()
     val pages by viewModel.pages.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-    val message by viewModel.message.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    val view = remember { EditorViewState() }
     var showSettings by remember { mutableStateOf(false) }
     // Back closes the settings panel, then lets go of a lasso selection, before leaving.
     // (Read through derivedStateOf: dragging a selection must not recompose this screen.)
@@ -130,25 +160,27 @@ fun NotebookScreen(
             else -> view.lasso = null
         }
     }
-    // Touching the page (pen or finger) closes the tool's settings panel (F27, F29).
-    LaunchedEffect(view) {
-        var seen = view.pageTouches
-        snapshotFlow { view.pageTouches }.collect { if (it != seen) { seen = it; showSettings = false } }
+    // Touching any page (pen or finger) closes the tool's settings panel (F27, F29).
+    for (p in panes) {
+        LaunchedEffect(p) {
+            var seen = p.view.pageTouches
+            snapshotFlow { p.view.pageTouches }.collect { if (it != seen) { seen = it; showSettings = false } }
+        }
     }
     var menuOpen by remember { mutableStateOf(false) }
     var imageMenuOpen by remember { mutableStateOf(false) }
-    // The screenshot tool (PHASE-3.md 3.9): the still picture being cropped, and a capture of the pages.
+    // The screenshot tool (PHASE-3.md 3.9): the still picture being cropped.
     var snip by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     // The "Add Page" menu (F34), and a PDF whose pages are being chosen.
     var addMenuOpen by remember { mutableStateOf(false) }
     var choosingPdf by remember { mutableStateOf<NotebookViewModel.CopiedPdf?>(null) }
     var pdfWhole by remember { mutableStateOf(false) }
     var addAfter by remember { mutableIntStateOf(0) }
-    // A picture being cropped (F33).
-    var cropping by remember { mutableStateOf<CropTarget?>(null) }
-    var capturing by remember { mutableStateOf(false) }
-    val pagesLayer = androidx.compose.ui.graphics.rememberGraphicsLayer()
+    // A picture being cropped (F33), in the pane it's in.
+    var cropping by remember { mutableStateOf<Pair<PaneState, CropTarget>?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    // The launchers below answer later: they work on the pane that's active then.
+    val activeNow by rememberUpdatedState(active)
     // Android's screen-capture prompt (split screen); then the capture service takes one frame.
     val askToCapture = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
@@ -166,135 +198,32 @@ fun NotebookScreen(
     val links = viewModel.links
     val linkedTasks by (links?.tasks ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList()) }).collectAsStateWithLifecycle()
     var linkingTask by rememberSaveable { mutableStateOf(false) }
-    // Link notices, cleared as soon as they're taken (so one never shows twice).
-    LaunchedEffect(links) {
-        links ?: return@LaunchedEffect
-        links.notice.filterNotNull().collectLatest { notice ->
-            links.noticeShown()
-            snackbar.currentSnackbarData?.dismiss()
-            val result = snackbar.showSnackbar(
-                notice.text,
-                actionLabel = if (notice.undo != null) "Undo" else null,
-                duration = if (notice.undo != null) SnackbarDuration.Long else SnackbarDuration.Short,
-            )
-            if (result == SnackbarResult.ActionPerformed) notice.undo?.invoke()
-        }
-    }
     val zone = remember { java.time.ZoneId.systemDefault() }
     fun nowInstant(): java.time.Instant = java.time.Instant.now()
-    // A bookmark being saved (PHASE-4.md 4.5): its page, spot and prefilled note.
-    var bookmarking by remember { mutableStateOf<BookmarkRequest?>(null) }
+    // A bookmark being saved (PHASE-4.md 4.5): its pane, page, spot and prefilled note.
+    var bookmarking by remember { mutableStateOf<Pair<PaneState, BookmarkRequest>?>(null) }
 
-    // A text box being typed in is kept too when the app goes to the background (Phase 5).
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { finishTextEditing(view, viewModel); viewModel.saveNow() }
-    DisposableEffect(view, viewModel) { onDispose { finishTextEditing(view, viewModel) } }
-    LaunchedEffect(message) {
-        message?.let { snackbar.showSnackbar(it); viewModel.messageShown() }
-    }
-    val damaged = viewModel.pageStatus.values.count { it is PageStatus.Damaged }
-    LaunchedEffect(damaged) {
-        if (damaged > 0) snackbar.showSnackbar("A page couldn't be read. Its file is kept safe and won't be changed.")
-    }
-    LaunchedEffect(settings.tool) { if (settings.tool != EditorTool.LASSO) view.lasso = null }
-    // Selected text remembers its page's place, which moves when pages are added or deleted.
-    val pageIds = pages.map { it.id }
-    LaunchedEffect(pageIds) { view.textSel = null }
     // The pen's side button, when it arrives as a key (the OPPO Pencil 2's does).
-    DisposableEffect(viewModel) {
-        val click: () -> Unit = { viewModel.penButtonClicked() }
+    DisposableEffect(Unit) {
+        val click: () -> Unit = { activeNow.viewModel.penButtonClicked() }
         PenButtonKeyEvents.onClick = click
         onDispose { if (PenButtonKeyEvents.onClick === click) PenButtonKeyEvents.onClick = null }
     }
 
     val nb = notebook
-    val sizes = nb?.let { n -> pages.map { it.size(n) } }
-    val strip = remember(sizes) { sizes?.let { PageStrip(it) } }
-    // Fit the page once the screen size is known, and refit the same page after rotating.
-    // Rotating rebuilds the screen, so the page being viewed is kept in saved state.
-    val viewSize = view.viewSize
-    var fittedFor by remember { mutableStateOf(IntSize.Zero) }
-    var savedPage by rememberSaveable { mutableIntStateOf(0) }
-    var openedAtBookmark by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(viewSize, strip != null && pages.isNotEmpty()) {
-        if (strip == null || pages.isEmpty() || viewSize.width == 0 || fittedFor == viewSize) return@LaunchedEffect
-        // Opened at a bookmark: that page, zoomed to its spot (once; afterwards it's like any other page).
-        val bookmarked = if (!openedAtBookmark && view.camera == null) pages.indexOfFirst { it.id == openAtPage } else -1
-        if (bookmarked >= 0) {
-            val w = viewSize.width.toFloat()
-            val h = viewSize.height.toFloat()
-            view.camera = openAtSpot?.takeIf { it.isValid }?.let { strip.focus(bookmarked, it.left, it.top, it.width, it.height, w, h) }
-                ?: strip.fit(settings.fitMode, bookmarked, w, h)
-            openedAtBookmark = true
-            fittedFor = viewSize
-            return@LaunchedEffect
-        }
-        val page = (view.camera?.let { strip.currentPage(it, fittedFor.width.toFloat()) } ?: savedPage)
-            .coerceIn(0, pages.size - 1)
-        view.camera = strip.fit(settings.fitMode, page, viewSize.width.toFloat(), viewSize.height.toFloat())
-        fittedFor = viewSize
-    }
-    LaunchedEffect(strip) {
-        if (strip == null) return@LaunchedEffect
-        snapshotFlow { view.camera?.let { strip.currentPage(it, view.viewSize.width.toFloat()) } }
-            .collect { if (it != null) savedPage = it }
-    }
-
-    /** The page in the middle of the screen right now (read when a button is tapped). */
-    fun pageNow(): Int = view.camera?.let { strip?.currentPage(it, view.viewSize.width.toFloat()) } ?: 0
-
-    // The bookmark pen picked part of a page (PHASE-5.md FB5): a picture of it as it looks on
-    // screen (the pen's loop is gone first), then the bookmark sheet.
-    LaunchedEffect(view, strip) {
-        snapshotFlow { view.bookmarkArea }.filterNotNull().collect { area ->
-            view.bookmarkArea = null
-            val s = strip ?: return@collect
-            val cam = view.camera ?: return@collect
-            val b = area.box
-            capturing = true
-            androidx.compose.runtime.withFrameNanos { }
-            androidx.compose.runtime.withFrameNanos { }
-            val full = runCatching { pagesLayer.toImageBitmap().asAndroidBitmap() }.getOrNull()
-            capturing = false
-            val picture = full?.let { bmp ->
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                    cropForBookmark(
-                        bmp,
-                        cam.toScreenX(s.pageLeft(area.pageIndex) + b[0]), cam.toScreenY(s.pageTop(area.pageIndex) + b[1]),
-                        cam.toScreenX(s.pageLeft(area.pageIndex) + b[2]), cam.toScreenY(s.pageTop(area.pageIndex) + b[3]),
-                    )
-                }
-            }
-            if (links == null) return@collect
-            bookmarking = BookmarkRequest(
-                area.pageId, area.pageIndex + 1,
-                spot = com.nzfrankwu.noteapp.domain.PageSpot(b[0], b[1], b[2] - b[0], b[3] - b[1]),
-                note = "",
-                picture = picture,
-            )
-        }
-    }
 
     // "Add Page" (F34): photos and camera pictures become pages of their own; PDFs add their pages.
-    val latestStrip by androidx.compose.runtime.rememberUpdatedState(strip)
-    // Shows page [index] once the page list has caught up with pages just added (so it's fitted to its own size).
-    fun showPage(index: Int) {
-        scope.launch {
-            val s = kotlinx.coroutines.withTimeoutOrNull(2_000) {
-                androidx.compose.runtime.snapshotFlow { latestStrip }.first { it != null && it.pageCount > index }
-            } ?: latestStrip ?: return@launch
-            view.animateTo(scope, s.fit(settings.fitMode, index.coerceAtMost(s.pageCount - 1), view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
-        }
-    }
     fun addPicturePages(uris: List<android.net.Uri>) {
         val resolver = context.contentResolver
+        val p = activeNow
         scope.launch {
             var at = addAfter
             var failed = 0
             for (uri in uris) {
-                if (viewModel.insertImageAsPage(at) { openPicture(resolver, uri) } != null) at++ else failed++
+                if (p.viewModel.insertImageAsPage(at) { openPicture(resolver, uri) } != null) at++ else failed++
             }
             uris.filter { it.scheme == "file" }.forEach { runCatching { java.io.File(it.path!!).delete() } }
-            if (at > addAfter) showPage(addAfter + 1)
+            if (at > addAfter) p.showPage(scope, addAfter + 1, settings)
             if (failed > 0) snackbar.showSnackbar(if (failed == 1) "A picture couldn't be read." else "$failed pictures couldn't be read.")
         }
     }
@@ -313,12 +242,13 @@ fun NotebookScreen(
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val resolver = context.contentResolver
+        val p = activeNow
         scope.launch {
-            val pdf = viewModel.copyPdfIn({ resolver.openInputStream(uri) }) { message -> scope.launch { snackbar.showSnackbar(message) } }
+            val pdf = p.viewModel.copyPdfIn({ resolver.openInputStream(uri) }) { message -> scope.launch { snackbar.showSnackbar(message) } }
                 ?: return@launch
             if (pdfWhole) {
                 // "Add the entire PDF": every page, after the page on screen.
-                if (viewModel.insertPdfPages(addAfter, pdf, pdf.sizes.indices.toList()) > 0) showPage(addAfter + 1)
+                if (p.viewModel.insertPdfPages(addAfter, pdf, pdf.sizes.indices.toList()) > 0) p.showPage(scope, addAfter + 1, settings)
             } else {
                 choosingPdf = pdf
             }
@@ -326,8 +256,10 @@ fun NotebookScreen(
     }
 
     fun leave() {
-        finishTextEditing(view, viewModel)
-        viewModel.saveNow()
+        for (p in panes) {
+            p.finishTyping()
+            p.viewModel.saveNow()
+        }
         onBack()
     }
 
@@ -335,136 +267,49 @@ fun NotebookScreen(
     // No top bar (F17, like Notein): the pages fill the screen up to the status bar, and the
     // buttons float over them.
     Box(modifier.fillMaxSize().background(if (dark) DeskDark else DeskLight).statusBarsPadding()) {
-        Box(Modifier.fillMaxSize()) {
-            if (nb != null && pages.isNotEmpty()) {
-                Box(
-                    Modifier.fillMaxSize().drawWithContent {
-                        // While capturing, the pages are recorded into a layer that can be read back.
-                        if (capturing) {
-                            pagesLayer.record { this@drawWithContent.drawContent() }
-                            drawLayer(pagesLayer)
-                        } else {
-                            drawContent()
-                        }
-                    },
-                ) {
-                    NotebookCanvas(viewModel = viewModel, notebook = nb, pages = pages, settings = settings, view = view)
-                }
+        var areaSize by remember { mutableStateOf(IntSize.Zero) }
+        Box(Modifier.fillMaxSize().onSizeChanged { areaSize = it }) {
+            panesArea { p, m, openAtPage, openAtSpot ->
+                NotebookPane(
+                    pane = p,
+                    settings = settings,
+                    snackbar = snackbar,
+                    onBookmark = if (p.viewModel.links == null) null else { request -> bookmarking = p to request },
+                    onCrop = { target -> cropping = p to target },
+                    modifier = m,
+                    openAtPage = openAtPage,
+                    openAtSpot = openAtSpot,
+                )
             }
+            overlay()
             FloatingToolbar(
                 settings = settings,
-                viewSize = viewSize,
+                viewSize = areaSize,
                 showSettings = showSettings,
                 onShowSettings = { showSettings = it },
                 viewModel = viewModel,
-                onToolPicked = { finishTextEditing(view, viewModel); view.textMode = false },
-            )
-            if (strip != null) {
-                LassoMenu(
-                    view, strip,
-                    onResize = { sel -> view.lasso = sel.copy(handles = !sel.handles) },
-                    onCrop = { sel ->
-                        val image = sel.images.single()
-                        scope.launch {
-                            val full = viewModel.loadFullPicture(image)
-                            if (full == null) snackbar.showSnackbar("That picture couldn't be read.")
-                            else cropping = CropTarget(sel.pageIndex, sel.pageId, image, full)
-                        }
-                    },
-                    onDuplicate = { sel ->
-                        val copies = viewModel.duplicate(sel.pageId, sel.strokes, sel.images, sel.texts)
-                        view.lasso = LassoState.Selected.of(sel.pageIndex, sel.pageId, copies.strokes, copies.images, handles = sel.handles, texts = copies.texts) ?: sel
-                    },
-                    onCopy = { sel ->
-                        viewModel.copy(sel.strokes, sel.images, sel.texts)
-                        scope.launch { snackbar.showSnackbar("Copied. Hold a finger on a page to paste.") }
-                    },
-                    onCut = { sel ->
-                        viewModel.cut(sel.pageId, sel.strokes, sel.images, sel.texts)
-                        view.lasso = null
-                        scope.launch { snackbar.showSnackbar("Cut. Hold a finger on a page to paste.") }
-                    },
-                    onDelete = { sel ->
-                        viewModel.deleteSelection(sel.pageId, sel.strokes.mapTo(HashSet()) { it.id }, sel.images.mapTo(HashSet()) { it.id }, sel.texts.mapTo(HashSet()) { it.id })
-                        view.lasso = null
-                    },
-                    onBookmark = if (links == null) null else { sel ->
-                        val b = sel.box()
-                        bookmarking = BookmarkRequest(
-                            sel.pageId, sel.pageIndex + 1,
-                            spot = com.nzfrankwu.noteapp.domain.PageSpot(b[0], b[1], b[2] - b[0], b[3] - b[1]),
-                            note = "",
-                        )
-                    },
-                )
-                TextMenu(
-                    view, strip,
-                    onCopy = { sel ->
-                        val clip = android.content.ClipData.newPlainText("PDF text", TextSelection.copyText(sel.text, sel.range))
-                        context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(clip)
-                        view.textSel = null
-                        // Android 13+ shows its own "Copied" confirmation.
-                        if (android.os.Build.VERSION.SDK_INT < 33) scope.launch { snackbar.showSnackbar("Copied.") }
-                    },
-                    onHighlight = { sel ->
-                        val style = settings.highlighter
-                        val strokes = TextSelection.strokes(
-                            TextSelection.highlightMarks(sel.text, sel.range), com.nzfrankwu.noteapp.domain.ink.InkTool.HIGHLIGHTER,
-                            style.colorArgb, size = null,
-                        ) { java.util.UUID.randomUUID().toString() }
-                        viewModel.addTextMarks(sel.pageId, strokes)
-                        view.textSel = null
-                    },
-                    onUnderline = { sel ->
-                        // The pen in use, or else the first pen: its colour, at a neat steady width.
-                        val style = settings.penStyle(settings.tool)?.takeIf { settings.tool.penSlot != null } ?: settings.pens.first()
-                        val strokes = TextSelection.strokes(
-                            TextSelection.underlineMarks(sel.text, sel.range, UNDERLINE_WIDTH), com.nzfrankwu.noteapp.domain.ink.InkTool.PEN_STEADY,
-                            style.colorArgb, size = UNDERLINE_WIDTH,
-                        ) { java.util.UUID.randomUUID().toString() }
-                        viewModel.addTextMarks(sel.pageId, strokes)
-                        view.textSel = null
-                    },
-                    onBookmark = if (links == null) null else { sel ->
-                        bookmarking = BookmarkRequest(
-                            sel.pageId, sel.pageIndex + 1,
-                            spot = TextSelection.spotOf(sel.text, sel.range),
-                            note = com.nzfrankwu.noteapp.domain.Bookmarks.noteFromSelectedText(TextSelection.copyText(sel.text, sel.range)),
-                        )
-                        view.textSel = null
-                    },
-                )
-                TextBoxEditor(view, strip, viewModel)
-                PasteBubble(view) { at ->
-                    view.pasteAt = null
-                    val cam = view.camera ?: return@PasteBubble
-                    val wx = cam.toWorldX(at.x)
-                    val index = strip.pageAt(wx)
-                    val page = pages.getOrNull(index) ?: return@PasteBubble
-                    val pasted = viewModel.paste(page.id, wx - strip.pageLeft(index), cam.toWorldY(at.y) - strip.pageTop(index))
-                    if (!pasted.isEmpty) {
-                        // Pasted things come selected, ready to move (that needs the lasso).
-                        if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
-                        view.lasso = LassoState.Selected.of(index, page.id, pasted.strokes, pasted.images, texts = pasted.texts)
+                onToolPicked = {
+                    for (p in panes) {
+                        p.finishTyping()
+                        p.view.textMode = false
                     }
-                }
-                PageScroller(view, strip, pages.size)
-            }
+                },
+            )
             // ---- Floating buttons (F17) ----
             EditorTopBar(
                 canUndo = viewModel.canUndo,
                 canRedo = viewModel.canRedo,
                 onBack = ::leave,
-                onUndo = { finishTextEditing(view, viewModel); view.lasso = null; viewModel.undo() },
-                onRedo = { finishTextEditing(view, viewModel); view.lasso = null; viewModel.redo() },
+                onUndo = { active.finishTyping(); view.lasso = null; viewModel.undo() },
+                onRedo = { active.finishTyping(); view.lasso = null; viewModel.redo() },
                 textMode = view.textMode,
                 onText = {
-                    finishTextEditing(view, viewModel)
+                    active.finishTyping()
                     view.lasso = null
                     view.textMode = !view.textMode
                 },
                 onImage = { imageMenuOpen = !imageMenuOpen; menuOpen = false },
-                onAddMenu = { view.lasso = null; imageMenuOpen = false; menuOpen = false; addAfter = pageNow(); addMenuOpen = true },
+                onAddMenu = { view.lasso = null; imageMenuOpen = false; menuOpen = false; addAfter = active.pageNow(); addMenuOpen = true },
                 onScreenshot = {
                     imageMenuOpen = false
                     menuOpen = false
@@ -483,11 +328,7 @@ fun NotebookScreen(
                     } else {
                         // Noteapp alone: a picture of the pages themselves (no prompt).
                         scope.launch {
-                            capturing = true
-                            androidx.compose.runtime.withFrameNanos { }
-                            androidx.compose.runtime.withFrameNanos { }
-                            snip = runCatching { com.nzfrankwu.noteapp.capture.ScreenCapture.readable(pagesLayer.toImageBitmap().asAndroidBitmap()) }.getOrNull()
-                            capturing = false
+                            snip = active.capture()?.let { runCatching { com.nzfrankwu.noteapp.capture.ScreenCapture.readable(it) }.getOrNull() }
                             if (snip == null) snackbar.showSnackbar("The screenshot couldn't be taken.")
                         }
                     }
@@ -495,11 +336,13 @@ fun NotebookScreen(
                 imageMenuOpen = imageMenuOpen,
                 onAddPage = {
                     view.lasso = null // a selection remembers its page's place, which moves
+                    val p = active
                     scope.launch {
-                        val at = pageNow() + 1
-                        if (viewModel.addPage(at) != null && strip != null) {
-                            val grown = strip.withPageAdded(at)
-                            view.animateTo(scope, grown.fit(settings.fitMode, at, view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
+                        val at = p.pageNow() + 1
+                        val s = p.strip
+                        if (p.viewModel.addPage(at) != null && s != null) {
+                            val grown = s.withPageAdded(at)
+                            p.view.animateTo(scope, grown.fit(settings.fitMode, at, p.view.viewSize.width.toFloat(), p.view.viewSize.height.toFloat()))
                         }
                     }
                 },
@@ -507,10 +350,11 @@ fun NotebookScreen(
                 onMenuOpen = { menuOpen = it },
                 onBookmark = if (links == null) null else {
                     {
-                        val index = pageNow()
-                        pages.getOrNull(index)?.let { bookmarking = BookmarkRequest(it.id, index + 1, spot = null, note = "") }
+                        val index = active.pageNow()
+                        pages.getOrNull(index)?.let { bookmarking = active to BookmarkRequest(it.id, index + 1, spot = null, note = "") }
                     }
                 },
+                leftButton = leftButton,
                 taskChip = {
                     if (links != null) {
                         LinkedTaskChip(
@@ -524,6 +368,7 @@ fun NotebookScreen(
                     }
                 },
             ) {
+                extraMenu { menuOpen = false }
                 if (links != null && linkedTasks.isEmpty()) {
                     DropdownMenuItem(
                         text = { Text("Link to a task…") },
@@ -561,7 +406,7 @@ fun NotebookScreen(
                     onClick = {
                         menuOpen = false
                         view.lasso = null
-                        pages.getOrNull(pageNow())?.let { viewModel.deletePage(it.id) }
+                        pages.getOrNull(active.pageNow())?.let { viewModel.deletePage(it.id) }
                         scope.launch { snackbar.showSnackbar("Page deleted. Tap Undo to bring it back.") }
                     },
                 )
@@ -580,23 +425,25 @@ fun NotebookScreen(
                     onInsert = { uris, asNewPage ->
                         imageMenuOpen = false
                         val resolver = context.contentResolver
-                        val at = pageNow()
+                        val p = active
+                        val at = p.pageNow()
                         scope.launch {
                             val sources = uris.map { uri -> { openPicture(resolver, uri) } }
                             if (asNewPage) {
-                                val pageId = viewModel.insertImageAsPage(at, sources.first())
+                                val pageId = p.viewModel.insertImageAsPage(at, sources.first())
+                                val s = p.strip
                                 if (pageId == null) snackbar.showSnackbar("That picture couldn't be read.")
-                                else if (strip != null) {
-                                    val grown = strip.withPageAdded(at + 1)
-                                    view.animateTo(scope, grown.fit(settings.fitMode, at + 1, view.viewSize.width.toFloat(), view.viewSize.height.toFloat()))
+                                else if (s != null) {
+                                    val grown = s.withPageAdded(at + 1)
+                                    p.view.animateTo(scope, grown.fit(settings.fitMode, at + 1, p.view.viewSize.width.toFloat(), p.view.viewSize.height.toFloat()))
                                 }
                             } else {
-                                val placed = viewModel.insertImages(at, sources)
-                                val pageId = pages.getOrNull(at)?.id
+                                val placed = p.viewModel.insertImages(at, sources)
+                                val pageId = p.pages.getOrNull(at)?.id
                                 if (placed.isNotEmpty() && pageId != null) {
                                     // New pictures come selected, ready to move or resize (PHASE-3.md).
-                                    if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
-                                    view.lasso = LassoState.Selected.of(at, pageId, emptyList(), placed)
+                                    if (settings.tool != EditorTool.LASSO) p.viewModel.pickTool(EditorTool.LASSO)
+                                    p.view.lasso = LassoState.Selected.of(at, pageId, emptyList(), placed)
                                 }
                                 if (placed.size < uris.size) {
                                     snackbar.showSnackbar(if (placed.isEmpty()) "That picture couldn't be read." else "${uris.size - placed.size} pictures couldn't be read.")
@@ -609,11 +456,11 @@ fun NotebookScreen(
                     modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp),
                 )
             }
-            ExportDialogs(viewModel, nb?.title.orEmpty())
-            val request = bookmarking
-            if (request != null && links != null) {
-                val linked by links.tasks.collectAsStateWithLifecycle()
-                val all by links.allChoices.collectAsStateWithLifecycle()
+            for (p in panes) ExportDialogs(p.viewModel, p.viewModel.notebook.value?.title.orEmpty())
+            bookmarking?.let { (p, request) ->
+                val paneLinks = p.viewModel.links ?: return@let
+                val linked by paneLinks.tasks.collectAsStateWithLifecycle()
+                val all by paneLinks.allChoices.collectAsStateWithLifecycle()
                 val linkedIds = linked.mapTo(HashSet()) { it.task.id }
                 BookmarkSheet(
                     pageNumber = request.pageNumber,
@@ -629,8 +476,8 @@ fun NotebookScreen(
                     onSave = { task, note ->
                         bookmarking = null
                         scope.launch {
-                            val image = request.picture?.let { viewModel.saveBookmarkPicture(it) }
-                            links.addBookmark(task, request.pageId, note, request.spot, image)
+                            val image = request.picture?.let { p.viewModel.saveBookmarkPicture(it) }
+                            paneLinks.addBookmark(task, request.pageId, note, request.spot, image)
                         }
                     },
                     onCancel = { bookmarking = null },
@@ -654,8 +501,11 @@ fun NotebookScreen(
                     onChoice = { choice ->
                         addMenuOpen = false
                         when (choice) {
-                            is AddPageChoice.Blank -> scope.launch {
-                                if (viewModel.addPage(addAfter + 1, template = choice.template) != null) showPage(addAfter + 1)
+                            is AddPageChoice.Blank -> {
+                                val p = active
+                                scope.launch {
+                                    if (p.viewModel.addPage(addAfter + 1, template = choice.template) != null) p.showPage(scope, addAfter + 1, settings)
+                                }
                             }
                             AddPageChoice.Photos -> pickPagePhotos.launch(
                                 androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly),
@@ -673,21 +523,22 @@ fun NotebookScreen(
                 )
             }
             choosingPdf?.let { pdf ->
+                val p = active
                 PdfPagePicker(
                     pageCount = pdf.sizes.size,
                     aspect = { pdf.sizes[it].width / pdf.sizes[it].height },
-                    thumbnail = { i, px -> viewModel.pdfThumbnail(pdf, i, px) },
-                    onDismiss = { choosingPdf = null; viewModel.discardPdf(pdf) },
+                    thumbnail = { i, px -> p.viewModel.pdfThumbnail(pdf, i, px) },
+                    onDismiss = { choosingPdf = null; p.viewModel.discardPdf(pdf) },
                     onAdd = { chosen ->
                         choosingPdf = null
                         scope.launch {
-                            val added = viewModel.insertPdfPages(addAfter, pdf, chosen)
-                            if (added > 0) showPage(addAfter + 1)
+                            val added = p.viewModel.insertPdfPages(addAfter, pdf, chosen)
+                            if (added > 0) p.showPage(scope, addAfter + 1, settings)
                         }
                     },
                 )
             }
-            cropping?.let { target ->
+            cropping?.let { (p, target) ->
                 val image = remember(target) { target.picture.asImageBitmap() }
                 SnipOverlay(
                     picture = image,
@@ -696,11 +547,11 @@ fun NotebookScreen(
                     onConfirm = { box ->
                         cropping = null
                         scope.launch {
-                            val cropped = viewModel.cropImage(target.pageId, target.image, target.picture, box)
+                            val cropped = p.viewModel.cropImage(target.pageId, target.image, target.picture, box)
                             if (cropped == null) {
                                 snackbar.showSnackbar("The picture couldn't be cropped.")
                             } else {
-                                view.lasso = LassoState.Selected.of(target.pageIndex, target.pageId, emptyList(), listOf(cropped))
+                                p.view.lasso = LassoState.Selected.of(target.pageIndex, target.pageId, emptyList(), listOf(cropped))
                             }
                         }
                     },
@@ -713,19 +564,20 @@ fun NotebookScreen(
                     onCancel = { snip = null },
                     onConfirm = { box ->
                         snip = null
-                        val at = pageNow()
+                        val p = active
+                        val at = p.pageNow()
                         scope.launch {
                             val cropped = android.graphics.Bitmap.createBitmap(picture, box[0], box[1], box[2] - box[0], box[3] - box[1])
                             if (com.nzfrankwu.noteapp.capture.ScreenCapture.isAllBlack(cropped)) {
                                 snackbar.showSnackbar("That app doesn't allow screenshots, so this part came out black.")
                                 return@launch
                             }
-                            val placed = viewModel.insertSnip(at, cropped)
-                            val pageId = pages.getOrNull(at)?.id
+                            val placed = p.viewModel.insertSnip(at, cropped)
+                            val pageId = p.pages.getOrNull(at)?.id
                             if (placed.isNotEmpty() && pageId != null) {
                                 // The snip comes selected, ready to drag (PHASE-3.md).
-                                if (settings.tool != EditorTool.LASSO) viewModel.pickTool(EditorTool.LASSO)
-                                view.lasso = LassoState.Selected.of(at, pageId, emptyList(), placed)
+                                if (settings.tool != EditorTool.LASSO) p.viewModel.pickTool(EditorTool.LASSO)
+                                p.view.lasso = LassoState.Selected.of(at, pageId, emptyList(), placed)
                             } else {
                                 snackbar.showSnackbar("The screenshot couldn't be added.")
                             }
@@ -733,7 +585,7 @@ fun NotebookScreen(
                     },
                 )
             }
-            if (viewModel.insertingImages) {
+            if (panes.any { it.viewModel.insertingImages }) {
                 androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter).testTag("inserting-images"))
             }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
@@ -752,7 +604,7 @@ data class BookmarkRequest(
 )
 
 /** A picture being cropped: where it is, and its full picture file. */
-private class CropTarget(val pageIndex: Int, val pageId: String, val image: com.nzfrankwu.noteapp.domain.ink.InkImage, val picture: android.graphics.Bitmap)
+class CropTarget(val pageIndex: Int, val pageId: String, val image: com.nzfrankwu.noteapp.domain.ink.InkImage, val picture: android.graphics.Bitmap)
 
 /** Exported PDFs wait here (cache) to be shared or saved; see res/xml/file_paths.xml. */
 private const val EXPORT_DIR = "exports"
@@ -905,7 +757,7 @@ private fun FloatingToolbar(
  * the selection lets it go (F15).
  */
 @Composable
-private fun LassoMenu(
+internal fun LassoMenu(
     view: EditorViewState,
     strip: PageStrip,
     onResize: (LassoState.Selected) -> Unit,
@@ -949,7 +801,7 @@ private fun LassoMenu(
  * It sits above the selection, or below it when there's no room above.
  */
 @Composable
-private fun TextMenu(
+internal fun TextMenu(
     view: EditorViewState,
     strip: PageStrip,
     onCopy: (TextSel) -> Unit,
@@ -992,11 +844,11 @@ private fun TextMenu(
 }
 
 /** Underlines made from selected text: a neat steady line this wide (page units). */
-private const val UNDERLINE_WIDTH = 1.2f
+internal const val UNDERLINE_WIDTH = 1.2f
 
 /** The Paste bubble where a finger was held (F12). */
 @Composable
-private fun PasteBubble(view: EditorViewState, onPaste: (androidx.compose.ui.geometry.Offset) -> Unit) {
+internal fun PasteBubble(view: EditorViewState, onPaste: (androidx.compose.ui.geometry.Offset) -> Unit) {
     val at = view.pasteAt ?: return
     val lift = with(LocalDensity.current) { 56.dp.toPx() }
     IconMenu(
@@ -1014,7 +866,7 @@ private fun PasteBubble(view: EditorViewState, onPaste: (androidx.compose.ui.geo
  * hidden it doesn't take touches, so writing near the bottom isn't blocked.
  */
 @Composable
-private fun BoxScope.PageScroller(view: EditorViewState, strip: PageStrip, pageCount: Int) {
+internal fun BoxScope.PageScroller(view: EditorViewState, strip: PageStrip, pageCount: Int) {
     if (pageCount == 0) return
     // Only changes (and re-lays-out the label) when the middle page does, not on every scroll step.
     val current by remember(view, strip) {
@@ -1122,7 +974,7 @@ private const val SCROLLER_FADE_MS = 1_500L
  * pixels), cut to the picture, at most [com.nzfrankwu.noteapp.domain.ink.BookmarkPen.MAX_PICTURE_SIDE]
  * pixels on its longer side. Null if none of it is on screen.
  */
-private fun cropForBookmark(full: android.graphics.Bitmap, left: Float, top: Float, right: Float, bottom: Float): android.graphics.Bitmap? {
+internal fun cropForBookmark(full: android.graphics.Bitmap, left: Float, top: Float, right: Float, bottom: Float): android.graphics.Bitmap? {
     val l = left.toInt().coerceIn(0, full.width)
     val t = top.toInt().coerceIn(0, full.height)
     val r = kotlin.math.ceil(right).toInt().coerceIn(0, full.width)

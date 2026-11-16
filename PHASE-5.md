@@ -88,7 +88,7 @@ These additions are written into IDEA.md §2.8 and the Phase 5 row of §5; the u
 
 **Split view**
 - **Stopped here for the user's feedback** (16 Nov): the user asked to review Phase 4 and the text boxes (5.1–5.5) before split view.
-- [ ] 🔺 **5.6 Editor split into pane + shared controls:** nothing visible changes; `NotebookEditorTest` must all pass.
+- [x] 🔺 **5.6 Editor split into pane + shared controls** (17 Nov, hands-off): `PaneState` + `NotebookPane` (`ui/notebook/NotebookPane.kt`: canvas, capture layer, lasso/text/text-box menus, Paste, scroller, fitting, bookmark pen capture, per-notebook snackbars); `NotebookEditor` in `NotebookScreen.kt` is the host (top bar, toolbar, sheets, dialogs) working on the active pane, with `panesArea`, `leftButton`, `overlay` and `extraMenu` slots for split view. `NotebookScreen(viewModel)` is a one-pane editor. All 264 emulator tests pass unchanged. Was: nothing visible changes; `NotebookEditorTest` must all pass.
 - [ ] **5.7 Recent notebooks panel:** the panel button, the recent list (unit-tested), tiles, tap to open.
 - [ ] 🔺 **5.8 Two notebooks split:** the route, two ViewModels, the active outline, both modes, the divider with its rules and ⋮ menu, Back.
 - [ ] **5.9 Drag from the panel:** drag-and-drop with lit drop zones, replace on drop, tile ⋮ "Open beside this one", screen tests. ★

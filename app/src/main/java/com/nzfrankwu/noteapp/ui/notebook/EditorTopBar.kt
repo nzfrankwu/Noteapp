@@ -67,6 +67,8 @@ fun EditorTopBar(
     onBookmark: (() -> Unit)? = null,
     /** The linked task's chip, next to Back (Phase 4). */
     taskChip: @Composable () -> Unit = {},
+    /** A button just right of Back (the recent notebooks panel, PHASE-5.md 5.7). */
+    leftButton: @Composable () -> Unit = {},
     menu: @Composable ColumnScope.() -> Unit,
 ) {
     LightStatusBarIcons()
@@ -84,6 +86,7 @@ fun EditorTopBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BarButton(R.drawable.ic_arrow_back, "Back", onBack)
+            leftButton()
             Box(Modifier.widthIn(max = chipMax)) { taskChip() }
         }
 
@@ -128,6 +131,11 @@ fun EditorTopBar(
         }
     }
 }
+
+/** A round dark top-bar button for things outside this file (the recent panel's button, 5.7). */
+@Composable
+fun TopBarIconButton(@DrawableRes icon: Int, description: String, onClick: () -> Unit, modifier: Modifier = Modifier, selected: Boolean = false) =
+    BarButton(icon, description, onClick, modifier, selected = selected)
 
 /** A round dark button with a white icon. [filled] = false sits inside the Undo/Redo pill. */
 @Composable
