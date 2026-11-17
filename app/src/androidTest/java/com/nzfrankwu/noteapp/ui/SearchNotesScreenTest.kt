@@ -104,6 +104,22 @@ class SearchNotesScreenTest {
         assertEquals(Triple(lecture, lecturePage2, "smith chart"), opened)
     }
 
+    /** Messy handwriting: read as "Founer" (no reading says "Fourier"), still found, and listed. */
+    @Test
+    fun messyHandwriting_aLetterOrTwoOff_isStillFound() {
+        val page3 = runBlocking { (notebooks.addPage(lecture, 2) as NotebookResult.Success).id }
+        store.putHandwriting(
+            page3, lecture,
+            listOf(NoteTextStore.HandLine(listOf("Founer series", "Fouver senes"), 100f, 130f)),
+            key = "test",
+        )
+        show()
+        compose.onNodeWithTag("search-field").performTextInput("fourier series")
+        compose.waitUntilAtLeastOneExists(hasText("In your notes (1)"), 5_000)
+        compose.onNodeWithText("Lecture 7 · page 3").assertExists()
+        compose.onNodeWithText("Founer series").assertExists() // what was read is shown
+    }
+
     @Test
     fun findInThisNotebook_listsOnlyItsPages() {
         show(notebookId = lecture)

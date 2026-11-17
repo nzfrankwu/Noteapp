@@ -119,9 +119,11 @@ class NoteTextIndexerTest {
     private class FakeReader(var ready: Boolean = true) : HandwritingReader {
         var reads = 0
         override suspend fun prepare() = ready
-        override suspend fun read(line: com.nzfrankwu.noteapp.domain.ink.HandwritingLines.Line): String {
+        val contexts = mutableListOf<String>()
+        override suspend fun read(line: com.nzfrankwu.noteapp.domain.ink.HandwritingLines.Line, before: String): List<String> {
             reads++
-            return if (line.top < 150f) "Smith chart notes" else "Fourier series"
+            contexts += before
+            return if (line.top < 150f) listOf("Smith chart notes", "Smlth chart notes") else listOf("Fourier series", "Founer series")
         }
     }
 
@@ -144,6 +146,9 @@ class NoteTextIndexerTest {
         assertEquals(page, hit.pageId)
         assertEquals("Smith chart notes\nFourier series", hit.handText)
         assertEquals("100.0,120.0;200.0,220.0", hit.handLines)
+        assertEquals("Smith chart notes | Smlth chart notes\nFourier series | Founer series", hit.handAlt)
+        assertEquals("each line gets the line above as context", listOf("", "Smith chart notes"), reader.contexts)
+        assertEquals("other readings are searched too", 1, store.search(listOf("founer")).size)
         assertEquals("typed", hit.boxText) // the text box is kept alongside
         assertEquals(2, reader.reads)
 

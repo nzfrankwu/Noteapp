@@ -8,6 +8,8 @@ _None known._
 
 ## Open questions
 
+- **Handwriting corrections (later, your call):** a screen to see what Noteapp read on a page and fix words, remembered for search. Only worth it if search still misses your writing after the messy-handwriting changes.
+
 - **Phase 7, waiting on you (18 Nov, hands-off stop):**
   - **Privacy page:** `site/privacy.html` now mentions handwriting search (on-device, model downloaded from Google). Publish it to the website (`gh-pages`)? Also worth checking ML Kit's own terms for anonymous usage statistics before publishing the app.
   - **7.11 editor speed** skipped in hands-off: it changes how pages draw their ink and can't be measured on the emulator (deep zoom needs a pinch; the lasso pause needs the real pen). To do together with the tablet.
@@ -87,6 +89,8 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Messy handwriting (18 Nov):** search now keeps up to 5 readings of each handwritten line, forgives a letter or two in longer words (handwriting only), and reads each line with the line above as context. Real quality needs your notes on the tablet.
 
 - **Phase 7 code review (18 Nov, hands-off):** 10 findings, 9 fixed (list in PHASE-7.md), 1 kept on purpose (the theme is read once before the first frame). 619 unit and 333 emulator tests pass.
 

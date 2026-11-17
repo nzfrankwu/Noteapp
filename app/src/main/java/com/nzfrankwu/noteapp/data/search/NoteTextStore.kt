@@ -40,12 +40,18 @@ class NoteTextStore(context: Context, name: String? = FILE_NAME) :
         val handText: String? = null,
         /** Each handwriting line's band, "top,bottom;top,bottom…", in the same order as [handText]'s lines. */
         val handLines: String? = null,
+        /** Every reading of each handwriting line ("a | b | c"), one line each, like [handText]. */
+        val handAlt: String? = null,
     )
+
+    /** One handwriting line as stored: its readings (most likely first) and its band on the page. */
+    data class HandLine(val readings: List<String>, val top: Float, val bottom: Float)
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE page_text (page_id TEXT PRIMARY KEY NOT NULL, notebook_id TEXT NOT NULL, " +
-                "pdf_text TEXT, box_text TEXT, pdf_key TEXT, box_key TEXT, hand_text TEXT, hand_lines TEXT, hand_key TEXT)",
+                "pdf_text TEXT, box_text TEXT, pdf_key TEXT, box_key TEXT, hand_text TEXT, hand_lines TEXT, hand_key TEXT, " +
+                "hand_alt TEXT)",
         )
         db.execSQL("CREATE INDEX page_text_notebook ON page_text (notebook_id)")
     }
@@ -91,15 +97,34 @@ class NoteTextStore(context: Context, name: String? = FILE_NAME) :
 
     /** A page's handwriting: its lines' text, their bands ("top,bottom" each) and the key it was read from. */
     @Synchronized
-    fun putHandwriting(pageId: String, notebookId: String, lines: List<Pair<String, Pair<Float, Float>>>, key: String) {
+    fun putHandwriting(pageId: String, notebookId: String, lines: List<HandLine>, key: String) {
+        val read = lines.filter { it.readings.isNotEmpty() }
         upsert(
             writableDatabase, pageId, notebookId,
             ContentValues().apply {
-                put("hand_text", lines.joinToString("\n") { it.first }.ifEmpty { null })
-                put("hand_lines", lines.joinToString(";") { "${it.second.first},${it.second.second}" }.ifEmpty { null })
+                put("hand_text", read.joinToString("\n") { it.readings.first() }.ifEmpty { null })
+                put("hand_alt", read.joinToString("\n") { it.readings.joinToString(" | ") }.ifEmpty { null })
+                put("hand_lines", read.joinToString(";") { "${it.top},${it.bottom}" }.ifEmpty { null })
                 put("hand_key", key)
             },
         )
+    }
+
+    /**
+     * Every page with handwriting (in [notebookId] only when given), for forgiving matching of
+     * messy writing, which SQL can't do.
+     */
+    @Synchronized
+    fun handwritten(notebookId: String? = null): List<Hit> {
+        val where = if (notebookId != null) "hand_alt IS NOT NULL AND notebook_id = ?" else "hand_alt IS NOT NULL"
+        val args = if (notebookId != null) arrayOf(notebookId) else null
+        return readableDatabase.rawQuery(
+            "SELECT page_id, notebook_id, pdf_text, box_text, hand_text, hand_lines, hand_alt FROM page_text WHERE $where", args,
+        ).use { c ->
+            buildList {
+                while (c.moveToNext()) add(Hit(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4), c.getString(5), c.getString(6)))
+            }
+        }
     }
 
     private fun upsert(db: SQLiteDatabase, pageId: String, notebookId: String, values: ContentValues) {
@@ -133,7 +158,7 @@ class NoteTextStore(context: Context, name: String? = FILE_NAME) :
         val where = ArrayList<String>()
         val args = ArrayList<String>()
         for (w in words) {
-            where += "(COALESCE(pdf_text, '') || ' ' || COALESCE(box_text, '') || ' ' || COALESCE(hand_text, '')) LIKE ? ESCAPE '\\'"
+            where += "(COALESCE(pdf_text, '') || ' ' || COALESCE(box_text, '') || ' ' || COALESCE(hand_alt, '')) LIKE ? ESCAPE '\\'"
             args += "%" + w.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         }
         if (notebookId != null) {
@@ -141,18 +166,18 @@ class NoteTextStore(context: Context, name: String? = FILE_NAME) :
             args += notebookId
         }
         // Pages with the words together ("slide 3") first, so the limit never cuts those.
-        val text = "(COALESCE(pdf_text, '') || ' ' || COALESCE(box_text, '') || ' ' || COALESCE(hand_text, ''))"
+        val text = "(COALESCE(pdf_text, '') || ' ' || COALESCE(box_text, '') || ' ' || COALESCE(hand_alt, ''))"
         val order = if (words.size > 1) {
             args += "%" + words.joinToString(" ") { it.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") } + "%"
             "ORDER BY CASE WHEN $text LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END"
         } else {
             ""
         }
-        val sql = "SELECT page_id, notebook_id, pdf_text, box_text, hand_text, hand_lines FROM page_text " +
+        val sql = "SELECT page_id, notebook_id, pdf_text, box_text, hand_text, hand_lines, hand_alt FROM page_text " +
             "WHERE ${where.joinToString(" AND ")} $order LIMIT $limit"
         return readableDatabase.rawQuery(sql, args.toTypedArray()).use { c ->
             buildList {
-                while (c.moveToNext()) add(Hit(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4), c.getString(5)))
+                while (c.moveToNext()) add(Hit(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4), c.getString(5), c.getString(6)))
             }
         }
     }
@@ -160,6 +185,6 @@ class NoteTextStore(context: Context, name: String? = FILE_NAME) :
     companion object {
         const val FILE_NAME = "search.db"
         /** Bump to start the cache again (e.g. when what's stored changes). */
-        const val VERSION = 2 // 2: handwriting (7.10)
+        const val VERSION = 3 // 2: handwriting (7.10); 3: every reading of each line
     }
 }

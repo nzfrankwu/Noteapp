@@ -24,8 +24,11 @@ interface HandwritingReader {
      */
     suspend fun prepare(): Boolean
 
-    /** The text of one line, or null if nothing could be read. */
-    suspend fun read(line: HandwritingLines.Line): String?
+    /**
+     * The possible readings of one line, most likely first (empty if nothing could be read).
+     * [before] is the text just before it (the line above), which helps the recogniser.
+     */
+    suspend fun read(line: HandwritingLines.Line, before: String = ""): List<String>
 }
 
 /**
@@ -65,8 +68,8 @@ class MlKitHandwriting(
         return true
     }
 
-    override suspend fun read(line: HandwritingLines.Line): String? {
-        val r = recognizer ?: return null
+    override suspend fun read(line: HandwritingLines.Line, before: String): List<String> {
+        val r = recognizer ?: return emptyList()
         val ink = Ink.builder()
         var start = 0L
         for (stroke in line.strokes) {
@@ -76,13 +79,17 @@ class MlKitHandwriting(
             start += (stroke.times.lastOrNull() ?: 0) + STROKE_GAP_MS
         }
         val area = WritingArea(line.right - line.left + 40f, line.bottom - line.top + 20f)
-        val context = RecognitionContext.builder().setPreContext("").setWritingArea(area).build()
-        val result = runCatching { r.recognize(ink.build(), context).await() }.getOrNull() ?: return null
-        return result.candidates.firstOrNull()?.text?.trim()?.ifEmpty { null }
+        // The line above as context (ML Kit uses up to the last 20 characters).
+        val context = RecognitionContext.builder().setPreContext(before.takeLast(PRE_CONTEXT)).setWritingArea(area).build()
+        val result = runCatching { r.recognize(ink.build(), context).await() }.getOrNull() ?: return emptyList()
+        // Messy writing: the right reading is often 2nd or 3rd, so keep a few (search looks at all).
+        return result.candidates.mapNotNull { it.text?.trim()?.ifEmpty { null } }.distinct().take(MAX_READINGS)
     }
 
     private companion object {
         const val STROKE_GAP_MS = 120L
+        const val PRE_CONTEXT = 20
+        const val MAX_READINGS = 5
     }
 }
 

@@ -9,7 +9,7 @@ import com.nzfrankwu.noteapp.domain.ink.HandwritingLines
 import com.nzfrankwu.noteapp.domain.ink.InkStroke
 import com.nzfrankwu.noteapp.domain.ink.InkTool
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,10 +51,15 @@ class MlKitHandwritingTest {
     @Test
     fun theRecogniser_downloadsItsModel_andReadsALine() = runBlocking {
         val reader = MlKitHandwriting()
-        assumeTrue("The handwriting model couldn't be downloaded here (no Wi-Fi or Play services)", reader.prepare())
+        // prepare() asks for the download and returns at once: wait up to 2 minutes for it.
+        val ready = kotlinx.coroutines.withTimeoutOrNull(120_000) {
+            while (!reader.prepare()) kotlinx.coroutines.delay(2_000)
+            true
+        } == true
+        assumeTrue("The handwriting model couldn't be downloaded here (no Wi-Fi or Play services)", ready)
         val line = HandwritingLines.group(outlineStrokes("hello")).single()
-        val text = reader.read(line)
-        Log.i("MlKitHandwritingTest", "read: $text")
-        assertNotNull(text)
+        val readings = reader.read(line)
+        Log.i("MlKitHandwritingTest", "read: $readings")
+        assertTrue("some readings", readings.isNotEmpty())
     }
 }

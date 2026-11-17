@@ -102,8 +102,14 @@ class NoteTextIndexer(
                 if (ready == null) ready = reader.prepare()
                 if (ready != true) return done // not now: try again next run
             }
-            val text = lines.mapNotNull { line -> reader.read(line)?.let { it to (line.top to line.bottom) } }
-            store.putHandwriting(page.id, page.notebookId, text, keys.boxKey ?: "none")
+            // Line by line, top to bottom, each with the line above as context.
+            var before = ""
+            val readLines = lines.map { line ->
+                val readings = reader.read(line, before)
+                readings.firstOrNull()?.let { before = it }
+                NoteTextStore.HandLine(readings, line.top, line.bottom)
+            }
+            store.putHandwriting(page.id, page.notebookId, readLines, keys.boxKey ?: "none")
             done++
         }
         return done

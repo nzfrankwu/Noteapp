@@ -76,6 +76,12 @@ Phases 1–6 are merged into `main` (`c4b9e7a`) and the tablet runs the Phase 6 
   - Search: a handwriting-only match shows a pen icon and opens zoomed to that line's band (`NoteHit.spot` → `NotebookRoute.spot`).
   - Tests: 5 unit (`HandwritingLinesTest`), 2 indexer tests with a fake reader, 1 real ML Kit test (`MlKitHandwritingTest`: the model downloaded on the emulator and read outlined "hello" as "heldo"; skipped when it can't download). **Real check in the app on the emulator:** "TO" written with the stylus → recognised "TO" → search "to" → "In your notes" → opens at the line (`screenshots/p7/710-*.png`). Found on the way: a "T" bar was put on its own line (fixed, test added).
   - `site/privacy.html` has a "Handwriting search" line. **Not published:** the live page (`gh-pages`) is the user's call.
+  - **Messy handwriting (18 Nov, the user asked; ML Kit can't be trained on one person's writing):**
+    1. Up to 5 readings per line are kept (`hand_alt`, "a | b | c"), and search looks at all of them. Example from the real model: outlined "hello" read as heldo, heddo, **hello**, hedoo, herdo.
+    2. Forgiving matching for handwriting only (`domain/FuzzyWords`): a word of 4–6 letters may be 1 letter off, 7+ letters 2 off; 1–3 letters exact. Such "close" pages are listed after exact ones, showing what was read.
+    3. Each line is read with the line above as context (`RecognitionContext.preContext`, last 20 characters).
+    - Not possible: giving ML Kit a word list (no API). A "correct what it read" screen is a possible later step.
+    - `NoteTextStore` v3 (the cache starts again and every page is read again once). Tests: 3 unit (`FuzzyWordsTest`), indexer and screen tests updated/added; full suite 622 unit / 334 emulator pass.
 - [ ] **7.11 Editor speed.** A picture of just the visible part at very deep zoom; pre-draw the next page; no pause after a big lasso move. Measure with `screenshots/framestats.py`. ★
   - Full suite after 7.7: 605 unit tests, 321 emulator tests pass (18 Nov).
   - Skipped in the hands-off run (18 Nov): the fixes change how pages draw their ink (`StrokeDrawables`, `PageInkLayers`, the lasso commit in `NotebookCanvas.commitSelection`) and can't be measured on the emulator. Idea for the lasso pause: moved strokes are rebuilt one by one on the main thread in `StrokeDrawables.get`; build them in the background before the selection is let go.

@@ -79,6 +79,8 @@ data class NoteHit(
     val together: Boolean = false,
     /** Found only in handwriting (7.10): shown with a pen icon, and opened zoomed to [spot]. */
     val handwritten: Boolean = false,
+    /** Found only by forgiving matching (a letter or two off, messy handwriting): listed last. */
+    val close: Boolean = false,
     /** Where to zoom when it opens (a handwriting line's band), or null. */
     val spot: com.nzfrankwu.noteapp.domain.PageSpot? = null,
 )
@@ -124,8 +126,16 @@ class SearchViewModel(
         val words = SearchIndex.words(query)
         if (words.isEmpty()) return emptyList()
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            val hits = store.search(words, notebookId, limit = MAX_NOTE_HITS)
-            val byNotebook = hits.groupBy { it.notebookId }
+            val exact = store.search(words, notebookId, limit = MAX_NOTE_HITS)
+            // Messy handwriting: pages whose handwriting is a letter or two off every word.
+            val exactIds = exact.mapTo(HashSet()) { it.pageId }
+            val close = store.handwritten(notebookId).filter { h ->
+                h.pageId !in exactIds && com.nzfrankwu.noteapp.domain.FuzzyWords.matchesAll(
+                    words, listOfNotNull(h.pdfText, h.boxText, h.handAlt).joinToString("\n"),
+                )
+            }.take(MAX_NOTE_HITS)
+            val closeIds = close.mapTo(HashSet()) { it.pageId }
+            val byNotebook = (exact + close).groupBy { it.notebookId }
             byNotebook.mapNotNull { (nbId, pageHits) ->
                 val nb = notebooks.getNotebook(nbId)?.takeIf { it.deletedAt == null } ?: return@mapNotNull null
                 val pages = notebooks.getPages(nbId)
@@ -134,30 +144,42 @@ class SearchViewModel(
                     val n = number[h.pageId] ?: return@mapNotNull null
                     val typed = listOfNotNull(h.pdfText, h.boxText).joinToString("\n")
                     val inTyped = words.all { typed.contains(it, ignoreCase = true) }
-                    val text = if (inTyped) typed else listOfNotNull(typed.ifEmpty { null }, h.handText).joinToString("\n")
+                    val text = if (inTyped) typed else listOfNotNull(typed.ifEmpty { null }, h.handAlt ?: h.handText).joinToString("\n")
                     val page = pages.first { it.id == h.pageId }
+                    val line = if (inTyped) -1 else handwritingLine(h, words)
                     NoteHit(
                         nbId, nb.title, h.pageId, n, h.pdfText != null,
-                        SearchIndex.snippet(if (inTyped) typed else h.handText ?: text, words),
+                        // For handwriting: the most likely reading of the line found.
+                        if (inTyped) SearchIndex.snippet(typed, words)
+                        else h.handText?.split('\n')?.getOrNull(line) ?: SearchIndex.snippet(h.handText, words),
                         SearchIndex.hasPhrase(text, words),
                         handwritten = !inTyped,
-                        spot = if (inTyped) null else handwritingSpot(h, words, page.size(nb).width),
+                        close = h.pageId in closeIds,
+                        spot = if (inTyped) null else handwritingSpot(h, line, page.size(nb).width),
                     )
                 }.sortedBy { it.pageNumber }
             }.sortedByDescending { it.first.updatedAt }.flatMap { it.second }
-                // Pages with the words together first; otherwise notebook by notebook, page by page.
-                .sortedBy { if (it.together) 0 else 1 }
+                // Pages with the words together first, close (forgiving) matches last; otherwise
+                // notebook by notebook, page by page.
+                .sortedBy { if (it.close) 2 else if (it.together) 0 else 1 }
         }
     }
 
-    /** The band of the first handwriting line holding the search words (the whole page width). */
-    private fun handwritingSpot(hit: com.nzfrankwu.noteapp.data.search.NoteTextStore.Hit, words: List<String>, pageWidth: Float): com.nzfrankwu.noteapp.domain.PageSpot? {
-        val lines = hit.handText?.split('\n') ?: return null
+    /**
+     * The handwriting line holding the search words: every word in one line's readings, else the
+     * first word, counting forgiving matches too; -1 if none.
+     */
+    private fun handwritingLine(hit: com.nzfrankwu.noteapp.data.search.NoteTextStore.Hit, words: List<String>): Int {
+        val lines = (hit.handAlt ?: hit.handText)?.split('\n') ?: return -1
+        return lines.indexOfFirst { com.nzfrankwu.noteapp.domain.FuzzyWords.matchesAll(words, it) }
+            .takeIf { it >= 0 } ?: lines.indexOfFirst { com.nzfrankwu.noteapp.domain.FuzzyWords.matchesAll(words.take(1), it) }
+    }
+
+    /** The band of handwriting line [index] (the whole page width), or null. */
+    private fun handwritingSpot(hit: com.nzfrankwu.noteapp.data.search.NoteTextStore.Hit, index: Int, pageWidth: Float): com.nzfrankwu.noteapp.domain.PageSpot? {
         val bands = hit.handLines?.split(';')?.map { band ->
             band.split(',').mapNotNull { it.toFloatOrNull() }
         } ?: return null
-        val index = lines.indexOfFirst { line -> words.all { line.contains(it, ignoreCase = true) } }
-            .takeIf { it >= 0 } ?: lines.indexOfFirst { it.contains(words[0], ignoreCase = true) }
         val band = bands.getOrNull(index)?.takeIf { it.size == 2 } ?: return null
         val pad = (band[1] - band[0]) * 2f
         return com.nzfrankwu.noteapp.domain.PageSpot(0f, (band[0] - pad).coerceAtLeast(0f), pageWidth, band[1] - band[0] + 2 * pad)
