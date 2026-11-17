@@ -83,6 +83,8 @@ _None known._
 
 ## Done
 
+- **Phase 7 step 7.1, database version 8 (18 Nov, hands-off):** Submitted is merged into Done. Updating turns every Submitted task into Done; nothing else changes. Courses got an empty `color` column for step 7.7. Real v7 → v8 upgrade on the emulator: PASS.
+
 - **Phase 7 planned (17 Nov):** `PHASE-7.md`, working-together mode. Decided with the user: search over names, tasks, PDF text, text boxes and handwriting (ML Kit, English); custom tags dropped and **Submitted merged into Done**; new settings (reminder times, course colours, default paper, light/dark); the Phase 6 review leftovers and editor speed leftovers are in. IDEA.md §2.2, §2.3, §2.11 (new), §3.3 and §5 updated with the user's OK. Version history stays "later"; the Home Drive nudge stays an open question.
 
 - **Spare test account's Drive cleaned up (17 Nov):** the user deleted the Noteapp folder that got part of a backup of their real notes during the account mix-up.

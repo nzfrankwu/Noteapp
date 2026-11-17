@@ -11,15 +11,15 @@ import java.time.Instant
  *
  * - Canvas-owned fields (title, course, due date, description, link, "available from") follow Canvas.
  * - Your fields (status, target date, notes) are never overwritten, except auto-status:
- *   when Canvas shows a NEW submission, the task moves forward to Submitted (never backwards,
- *   never over Done). Moving it back yourself afterwards sticks, because the same submission
+ *   when Canvas shows a NEW submission, the task moves forward to Done (never backwards,
+ *   never when it's already Done). Moving it back yourself afterwards sticks, because the same submission
  *   doesn't trigger again.
  * - Assignments missing from Canvas are marked "removed from Canvas", never deleted, and only
  *   after a complete fetch of that course.
  */
 object CanvasMerge {
 
-    /** A task for an assignment seen for the first time. Already submitted on Canvas → Submitted. */
+    /** A task for an assignment seen for the first time. Already submitted on Canvas → Done. */
     fun newTask(assignment: CanvasAssignment, courseId: String, id: String, now: Instant): Task = Task(
         id = id,
         title = assignment.name,
@@ -27,7 +27,7 @@ object CanvasMerge {
         dueAt = assignment.dueAt,
         url = assignment.htmlUrl,
         descriptionHtml = assignment.descriptionHtml,
-        status = if (assignment.submission?.isSubmitted == true) TaskStatus.SUBMITTED else TaskStatus.NOT_STARTED,
+        status = if (assignment.submission?.isSubmitted == true) TaskStatus.DONE else TaskStatus.NOT_STARTED,
         targetAt = null,
         notes = null,
         source = TaskSource.CANVAS,
@@ -66,8 +66,8 @@ object CanvasMerge {
     }
 
     /**
-     * Status after a sync. Moves to Submitted only for a NEW submission (one not seen before),
-     * and only forward: Submitted and Done are left alone.
+     * Status after a sync. Moves to Done only for a NEW submission (one not seen before),
+     * and only forward: a Done task is left alone.
      */
     fun autoStatus(existing: Task, submission: CanvasSubmission?): TaskStatus {
         if (submission == null || !submission.isSubmitted) return existing.status
@@ -79,7 +79,7 @@ object CanvasMerge {
         } else {
             !seenBefore.isSubmitted // no times to compare: new if it wasn't submitted last time
         }
-        return if (isNewSubmission) TaskStatus.SUBMITTED else existing.status
+        return if (isNewSubmission) TaskStatus.DONE else existing.status
     }
 
     /**

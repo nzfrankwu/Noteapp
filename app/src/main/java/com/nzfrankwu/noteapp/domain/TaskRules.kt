@@ -20,7 +20,7 @@ object TaskRules {
     /** The date used for sorting and reminders: "My target date" if set, otherwise the due date. */
     fun effectiveDate(task: TaskLike): Instant? = task.targetAt ?: task.dueAt
 
-    /** Overdue = the real due date has passed and it isn't Submitted/Done. Target dates never make a task overdue. */
+    /** Overdue = the real due date has passed and it isn't Done. Target dates never make a task overdue. */
     fun isOverdue(task: TaskLike, now: Instant): Boolean {
         val due = task.dueAt ?: return false
         return !task.status.isFinished && due < now
@@ -69,7 +69,7 @@ data class TaskSection<T>(val group: DueGroup, val tasks: List<T>)
  * - Otherwise it's placed by its effective date (target date if set, else due date), in local time.
  *   A target date that has already passed (but not the due date) counts as Today.
  * - "This week" runs from the day after tomorrow to Sunday (weeks start on Monday).
- * - Submitted/Done tasks are left out unless [includeFinished]; then they go in Finished.
+ * - Done tasks are left out unless [includeFinished]; then they go in Finished.
  * - Within a section: Overdue by due date; others by effective date, then title. No due date by title.
  */
 object TaskGrouping {

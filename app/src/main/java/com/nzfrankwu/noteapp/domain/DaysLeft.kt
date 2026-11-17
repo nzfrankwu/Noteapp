@@ -48,7 +48,7 @@ data class DaysLeft(val days: Long, val overdue: Boolean) {
 
         /**
          * The days left for [task], or null when there's nothing to show: no due date, or the task is
-         * Submitted/Done. Only the real due date counts ("My target date" never does), and days are
+         * Done. Only the real due date counts ("My target date" never does), and days are
          * local calendar days, so daylight-saving changes don't shift the count.
          */
         fun of(task: TaskLike, now: Instant, zone: ZoneId): DaysLeft? {

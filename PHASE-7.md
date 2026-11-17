@@ -8,7 +8,7 @@ Work happens on branch `phase-7`; it's merged into `main` at the end, with the u
 ## Why
 Phases 1–6 are merged into `main` (`c4b9e7a`) and the tablet runs the Phase 6 build (database v7) with Drive backup working. IDEA.md §5 lists Phase 7 as polish: search, partial eraser, custom tags, per-page templates, settings and performance tuning.
 
-**Mode:** working together (the user's choice, 17 Nov): one feature at a time, a check-in with screenshots after each, wait for the user's OK, push after the OK.
+**Mode:** planned as working together (17 Nov); the user switched to **hands-off** on 18 Nov ("start, hands off mode"). Check-ins (★) are skipped and listed in REPORT.md; steps that need the user (a new screen layout without a reference, a big new library, the tablet) are left for them.
 
 ## Decided with the user (17 Nov 2026)
 - **Search finds:** names and tasks, PDF text, text boxes **and handwriting**. Handwriting uses Google's ML Kit handwriting recognition (approved in principle; still ask before adding it at 7.10), **English only**.
@@ -49,10 +49,7 @@ Phases 1–6 are merged into `main` (`c4b9e7a`) and the tablet runs the Phase 6 
 
 ## Steps (branch `phase-7` from `main`; ★ = check-in, 🔺 = difficult)
 - [x] **7.0** This plan; IDEA.md (§2.2, §2.3, new §2.11 Search, §3.3, §5), HANDOFF.md, ISSUES.md.
-- [ ] 🔺 **7.1 Database v8.** Submitted → Done (above) and `courses.color`.
-  - Follow the checklist at the top of `Migrations.kt` (`SchemaHistoryTest`, `MigrationTest`, `MigrationListTest`, `DataSafetyRulesTest`).
-  - Real v7 → v8 upgrade on the emulator: `compare_dbs.py`, only the intended status rows differ; every page file identical.
-  - ★ (nothing else visible except Submitted gone from the status picker)
+- [x] 🔺 **7.1 Database v8** (18 Nov, hands-off). `MIGRATION_7_8`: `submitted` → `done` (nothing else in the row changes, not even `updated_at`), `courses.color` (null). `TaskStatus.SUBMITTED` is gone; `TaskStatus.LEGACY_KEYS` reads "submitted" as Done. Canvas auto-status sets Done. `CourseColorChoice` holds the 7 colour keys (frozen by `StoredKeysTest`). 2 new `MigrationTest`s (only the status changes; old data reads after updating). **Real v7 → v8 upgrade on the emulator: PASS** (`screenshots/upgrade_v8.sh`, `compare_dbs.py … --v8`: the 1 Submitted task became Done, every other row and all 50 page files unchanged). The v7 APK is kept as `screenshots/app-v7.apk`. 576 unit tests, 312 emulator tests.
 - [ ] 🔺 **7.2 Backup follow-ups.** The lock (above); md5 cache by path + size + modified time for write-once files; kept snapshot lists cached by Drive file id; Home strip "Open Settings" scrolls to Backup. Tests on `FakeDrive`, including a purge while an upload runs. ★
 - [ ] **7.3 Per-page paper + default paper.** Editor ⋮ → "This page's paper" (undoable; `NotebookRepository.setPageTemplate`); `RecentPanel` and thumbnails use the page's own paper; Settings → Notebooks → "Paper for new notebooks". ★
 - [ ] 🔺 **7.4 Partial eraser.** (above) Unit tests for cutting (middle, ends, several holes, a dot, pressure kept) and undo; an editor test erasing across a line. ★

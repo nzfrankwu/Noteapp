@@ -22,7 +22,7 @@ data class PlannedReminder(val taskId: String, val offset: ReminderOffset, val a
  * - Based on the effective date: "My target date" if set, otherwise the due date.
  * - "1 day before" keeps the same clock time on the previous day (so across a daylight-saving
  *   change it's 23 or 25 hours earlier, as people expect). "2 hours before" is exactly 2 hours.
- * - None for Submitted/Done tasks or tasks with no date at all, and none in the past.
+ * - None for Done tasks or tasks with no date at all, and none in the past.
  */
 object ReminderPlanner {
     fun plan(taskId: String, task: TaskLike, now: Instant, zone: ZoneId): List<PlannedReminder> {

@@ -42,7 +42,7 @@ class RemindersTest {
 
     @Test
     fun finishedTasks_getNoReminders() {
-        assertTrue(plan(T(dueAt = local("2026-11-21T23:59"), status = TaskStatus.SUBMITTED)).isEmpty())
+        assertTrue(plan(T(dueAt = local("2026-11-21T23:59"), status = TaskStatus.DONE)).isEmpty())
         assertTrue(plan(T(dueAt = local("2026-11-21T23:59"), status = TaskStatus.DONE)).isEmpty())
     }
 

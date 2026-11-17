@@ -49,7 +49,7 @@ object CalendarRules {
 
     /**
      * The tasks on each day from [from] to [to] (both included), each day ordered by time, then
-     * title. Submitted and Done tasks are left out unless [includeFinished].
+     * title. Done tasks are left out unless [includeFinished].
      */
     fun <T : TaskLike> byDay(
         tasks: List<T>,

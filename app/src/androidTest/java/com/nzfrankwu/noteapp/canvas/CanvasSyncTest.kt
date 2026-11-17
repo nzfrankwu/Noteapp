@@ -121,11 +121,11 @@ class CanvasSyncTest {
     }
 
     @Test
-    fun submittedOnCanvas_movesTaskToSubmitted() = runBlocking {
+    fun submittedOnCanvas_movesTaskToDone() = runBlocking {
         sync.sync()
         canvas.assignments[555] = listOf(assignment(1, submission = CanvasSubmission("submitted", now)), assignment(2))
         sync.sync()
-        assertEquals(TaskStatus.SUBMITTED, taskFor(1).status)
+        assertEquals(TaskStatus.DONE, taskFor(1).status)
         assertEquals(TaskStatus.NOT_STARTED, taskFor(2).status)
     }
 
