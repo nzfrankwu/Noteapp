@@ -113,6 +113,7 @@ class NotebookViewModel(
     private var saveJob: Job? = null
 
     init {
+        com.nzfrankwu.noteapp.data.OpenNotebooks.opened(notebookId)
         files.cleanUpUnfinishedSaves(notebookId)
         viewModelScope.launch {
             var firstPage: String? = null
@@ -976,6 +977,7 @@ class NotebookViewModel(
         // Closed in the background, after any text still being read (never on the main thread).
         if (pdfTextUsed) saveScope.launch { pdfText.closeAll() }
         pdf.close()
+        com.nzfrankwu.noteapp.data.OpenNotebooks.closed(notebookId)
         super.onCleared()
     }
 

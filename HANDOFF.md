@@ -1,33 +1,34 @@
 # Handoff: where things stand
 
-_Last updated: 17 Nov 2026 (Phase 6 planned with the user; working hands-off on branch `phase-6`). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 17 Nov 2026 (Phase 6 steps 6.0–6.5 done hands-off on `phase-6`; Google steps wait for the user). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phases 1, 1b, 2, 3, 4 and 5 are done and merged into `main`** (Phase 5 merged 17 Nov, `09c1449`; the second review's fixes merged 17 Nov, `3ecda09`). History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
-- **Phase 6 (backup) is planned: `PHASE-6.md`** (the user's decisions are at its top). **Branch:** `phase-6`. **Mode: hands-off** (user, 17 Nov).
+- **Phases 1–5 are merged into `main`.** History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
+- **Phase 6 (backup), branch `phase-6`, mode hands-off** (user, 17 Nov). Plan and the user's decisions: `PHASE-6.md`.
+  - **Done:** 6.1 local snapshot (`f62a311`), 6.2 Export everything + 6.3 Import from export (`6cb85bd`; real round trip on the emulator: compare PASS), 6.4 Recently deleted (`1d24106`), 6.5 clean-up of unused files.
+  - **Not on the tablet yet.** No database change in Phase 6 so far (still v7).
 - **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet.
-- **Mode:** "Working together" (the default) unless the user says otherwise. Phases 4 and 5 were hands-off.
-- **The tablet runs `main` with the second review's fixes** (installed 17 Nov with the user's OK; backup `backups/tablet-2026-11-17-before-review2/`; compare PASS: every row, links, bookmarks and all 167 page files unchanged), database **version 7**. Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
-- **The emulator runs Phase 5** (database v7). Unit tests and the full emulator suite (**280 tests**) pass on `main`.
-- **Phase 5 covered** (details in PHASE-5.md):
-  - text boxes (page format 3; PDF export as real text)
-  - the user's 4 feedback rounds FB1–FB15:
-    - the bookmark sheet's ✓
-    - task search and filters
-    - two pens (dark blue and red)
-    - the **bookmark pen**, which saves a picture as the note (database **v7**)
-    - course folders with tasks (left) and notes (right) side by side
-    - Open in Canvas: the Canvas app, else a Chrome tab
-  - split view (side by side or stacked, divider ⋮ menu, drag to close)
-  - the recent notebooks panel with drag-to-split
-  - Copy/Paste and screenshots between the two notebooks
-  - narrow windows
+- **The tablet runs `main`** (Phase 5 + second review), database **version 7**. Never install a build older than v7 on it.
+
+## Phase 6 code map (`app/src/main/java/com/nzfrankwu/noteapp/`)
+
+- `data/StorageLock.kt`: `pages` (page saves; was the editor's `saveLock`) and `backup` (whole backup/restore/purge/clean-up). Never take `pages` then `backup`.
+- `data/backup/`:
+  - `BackupPaths` (what's in a backup; Canvas never), `BackupManifest` (+ `Md5`), `DatabaseCheck` (copy → one file, integrity check, counts)
+  - `LocalSnapshot` (db + `-wal` copied in a write transaction, page files + settings copied, PDFs/pictures read in place)
+  - `ZipBackup` (+ `StagedSet.verify`), `RestoreSwap` (two-phase swap at start-up, `before-restore/<time>/`), `BackupManager` (UI state), `MaintenanceWorker` (daily purge + clean-up)
+- `data/NotebookPurge.kt` (Delete now, 30-day purge), `data/FileCleanup.kt` (+ `CleanupRules`), `data/OpenNotebooks.kt`
+- `ui/settings/BackupSection.kt`, `ui/deleted/RecentlyDeletedScreen.kt` (+ `DeletedText`), Home's "Recently deleted (N)" row (`HomeScreen.folderTiles`)
+- `NoteAppApplication.onCreate` runs `restoreSwap.finishPending()` before anything opens the data.
 
 ## Next steps (in order)
 
-1. **Phase 6, in `PHASE-6.md` order:** 6.1 local snapshot → 6.2 Export everything → 6.3 Import from export → 6.4 Recently deleted → 6.5 clean-up → then the Google steps (6.6 needs the user: Google Cloud setup with their login, and a test Google account signed in on the emulator).
-   - `play-services-auth` is approved (the only new Google library). Never read `<user home>/keys/`; the SHA-1 comes from `gradlew.bat signingReport`.
+1. **6.6 needs the user** (Google Cloud setup with their login; a separate test Google account signed in on the emulator). Guide them step by step: project → enable Drive API → OAuth consent screen (External, scope `drive.file`, publish "In production") → Android OAuth client with `com.nzfrankwu.noteapp` and the SHA-1 from `gradlew.bat signingReport`.
+   - `play-services-auth` is approved (the only new Google library). Never read `<user home>/keys/`.
+2. Meanwhile, work that needs no Google login: 6.8 `DriveClient` over OkHttp with MockWebServer tests, and 6.9's engine against a fake Drive (token provider as an interface).
+   - **A draft of 6.8 is in `drafts/DriveClient.kt.txt`** (written, never compiled or tested). Move it to `data/backup/drive/DriveClient.kt`, build, and write MockWebServer tests.
+   - **Check first:** the full emulator suite was started after 6.5 but the session ended before it finished. Rerun it (`$env:ANDROID_SERIAL="emulator-5554"`) and fix anything red before going on.
 2. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own

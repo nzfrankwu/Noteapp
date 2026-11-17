@@ -19,7 +19,7 @@ _None known._
 
 - **Open in Canvas (Phase 5 FB11):** not tried with the real Canvas Student app: whether it opens the university's assignment links (else the Chrome tab takes over) needs the tablet.
 - **Split view (Phase 5.8):** each notebook opened in a pane keeps its view model until you leave the notebook screen (cheap, but many swaps in one visit keep many notebooks in memory). A real side-by-side split with another app needs the tablet.
-- **Bookmark pen (Phase 5 FB5):** deleting a bookmark keeps its picture file (so Undo works), and nothing removes it later yet; a clean-up of unused bookmark pictures belongs with backup (Phase 6). The picture is what's on screen, so a rectangle drawn partly off screen gets only the part on screen.
+- **Bookmark pen (Phase 5 FB5):** deleting a bookmark keeps its picture file (so Undo works); the daily clean-up (Phase 6.5) removes it 30 days later. The picture is what's on screen, so a rectangle drawn partly off screen gets only the part on screen.
 - **Text boxes (Phase 5.1–5.5):**
   - A box moved or enlarged past the page's edge is cut off there (like pictures); it isn't pulled back onto the page.
   - In an exported PDF, a box with a character the font lacks (emoji, Chinese, a tab) is a picture, so its text can't be selected there.
@@ -37,7 +37,7 @@ _None known._
 - **Export (Phase 3.7):** PDF pages with a `/Rotate` or a crop box offset aren't tested; ink is placed using the crop box. The app is about 9 MB bigger (debug) with PdfBox; check the release size.
 - **Pictures while selected (Phase 3.6):** a selected picture is drawn above the ink until it's let go (it's in the selection layer); the rotate handle turns pictures too but a non-square picture turned and then stretched sideways is only approximately right (the stretch follows the box, not the picture's own axes).
 - **PDF pages, things not checked yet (Phase 3.3):** the sharp deep-zoom part (`pdfDetail`) needs a two-finger pinch, which the emulator scripts can't do; check on the tablet. Jumping far with the page scroller shows the page white for a moment before its picture arrives (plain notebooks also have no preview that far away). PDFs with rotated pages (`/Rotate`) aren't tested. Android 15+ can open password-protected PDFs with a password; we just refuse them for now.
-- **Imported PDFs and images are never deleted (Phase 3 decision):** a notebook's `pdf-*.pdf` and `images/*` files stay even when their pages or images are deleted, so Undo and Phase 6's "Recently deleted" can bring them back. Clean-up of files nothing uses is a Phase 6/7 job.
+- **Imported PDFs and images (Phase 3 decision, Phase 6.5):** a notebook's `pdf-*.pdf` and `images/*` files stay when their pages or images are deleted, so Undo works; the daily clean-up removes them once nothing has used them for 30 days (by file age, so a picture inserted long ago and removed today can go at the next clean-up unless the notebook is open).
 - **Steady pen width vs the pressure pen (F22):** at the same Thickness, the Off/Low/Medium pens may look thinner or thicker than the Full pen at your usual pressure (the emulator only has full pressure). Tune the multipliers in `InkBrushes.roundPen` after trying it on the tablet; changing them changes how existing strokes of those kinds look, so give a new key if notes already use them.
 - **Notebook editor, small things to revisit (Phase 2):**
   - Ink still being written shows on top of the toolbar if you write under it; it drops behind once you lift the pen.

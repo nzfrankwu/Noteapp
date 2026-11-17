@@ -131,4 +131,16 @@ interface NotebookDao {
     /** Removes a deleted page's row for good (its bookmarks go with it). Only ever a deleted page. */
     @Query("DELETE FROM pages WHERE id = :id AND deleted_at IS NOT NULL")
     suspend fun deletePageForGood(id: String): Int
+
+    /** Every notebook's ID, deleted or not (the clean-up of unused files). */
+    @Query("SELECT id FROM notebooks")
+    suspend fun getAllIds(): List<String>
+
+    /** The PDF files any page of the notebook shows, deleted pages too (the clean-up of unused files). */
+    @Query("SELECT DISTINCT pdf_file FROM pages WHERE notebook_id = :notebookId AND pdf_file IS NOT NULL")
+    suspend fun getPdfFiles(notebookId: String): List<String>
+
+    /** The bookmark pen pictures of the notebook's bookmarks (the clean-up of unused files). */
+    @Query("SELECT image FROM task_bookmarks WHERE notebook_id = :notebookId AND image IS NOT NULL")
+    suspend fun getBookmarkImages(notebookId: String): List<String>
 }

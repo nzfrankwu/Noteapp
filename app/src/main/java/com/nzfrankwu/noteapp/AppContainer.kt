@@ -118,8 +118,12 @@ class AppContainer(context: Context) {
         com.nzfrankwu.noteapp.data.NotebookPurge(database, notebookFiles)
     }
 
-    /** Removes files nothing uses any more (PHASE-6.md 6.5); null until it's built. */
-    val fileCleanup: com.nzfrankwu.noteapp.data.FileCleanup? = null
+    /** Removes files nothing uses any more (PHASE-6.md 6.5). */
+    val fileCleanup: com.nzfrankwu.noteapp.data.FileCleanup by lazy {
+        com.nzfrankwu.noteapp.data.FileCleanup(database, appContext.filesDir, inUse = {
+            com.nzfrankwu.noteapp.data.OpenNotebooks.ids() + listOfNotNull(editorClipboard.content?.notebookId)
+        })
+    }
 
     /** Swaps a checked backup in at start-up (PHASE-6.md, "Restore"). */
     val restoreSwap: com.nzfrankwu.noteapp.data.backup.RestoreSwap by lazy {

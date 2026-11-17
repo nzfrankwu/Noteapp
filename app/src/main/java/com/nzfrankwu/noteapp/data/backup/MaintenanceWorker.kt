@@ -19,7 +19,7 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
         val container = (applicationContext as NoteAppApplication).container
         return try {
             container.notebookPurge.purgeExpired()
-            container.fileCleanup?.run()
+            container.fileCleanup.run()
             Result.success()
         } catch (e: Exception) {
             Result.retry()
