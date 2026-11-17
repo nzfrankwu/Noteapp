@@ -20,7 +20,8 @@ import java.time.Duration
  * - its notebook isn't open in the editor, and isn't where the copy/paste clipboard came from
  * - every page file of the notebook could be read (one damaged page file: the notebook is skipped)
  *
- * Holds [StorageLock.backup], so it never runs during a backup or a restore.
+ * Holds [StorageLock.backup], so it never runs while a backup takes its snapshot, an export or a
+ * restore, and skips notebooks a Drive upload still reads ([com.nzfrankwu.noteapp.data.backup.BackupPins]).
  */
 class FileCleanup(
     private val db: NoteAppDatabase,
@@ -49,7 +50,7 @@ class FileCleanup(
         val dirs = File(root, NotebookFiles.DIR).listFiles { f -> f.isDirectory }.orEmpty()
         for (dir in dirs) {
             val id = dir.name
-            if (id in busy) continue
+            if (id in busy || com.nzfrankwu.noteapp.data.backup.BackupPins.isPinned(id)) continue
             val all = dir.walkTopDown().filter { it.isFile }.toList()
             if (id !in known) {
                 // A notebook that no longer exists (purged, or an import that failed halfway).

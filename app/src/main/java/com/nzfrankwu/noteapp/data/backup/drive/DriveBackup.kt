@@ -3,6 +3,7 @@ package com.nzfrankwu.noteapp.data.backup.drive
 import com.nzfrankwu.noteapp.data.StorageLock
 import com.nzfrankwu.noteapp.data.backup.BackupException
 import com.nzfrankwu.noteapp.data.backup.BackupManifest
+import com.nzfrankwu.noteapp.data.backup.BackupPins
 import com.nzfrankwu.noteapp.data.backup.BackupPaths
 import com.nzfrankwu.noteapp.data.backup.Md5
 import com.nzfrankwu.noteapp.data.backup.Snapshot
@@ -28,17 +29,33 @@ import java.time.format.DateTimeFormatter
  *
  * A snapshot exists only once every file it lists is safely in Drive (Drive's own md5 matched),
  * so a run that stops halfway leaves every earlier snapshot whole. Unchanged files are never
- * uploaded again. Kept: the newest snapshot plus the newest of each of the last 7 days; files no
+ * uploaded again.
+ *
+ * Only taking the local snapshot holds [StorageLock.backup] (Phase 7, 7.2), so the upload, which
+ * can take half an hour on a slow connection, doesn't hold up Export, Delete now, the purge or a
+ * restore. The notebooks whose PDFs and pictures it reads in place are pinned ([BackupPins]) until
+ * it ends, so nothing deletes those files under it. Kept: the newest snapshot plus the newest of each of the last 7 days; files no
  * kept snapshot uses go after a day (never sooner, so a run still uploading never loses its files).
  */
 class DriveBackup(
     private val drive: DriveApi,
-    /** Takes a consistent local snapshot into the folder given (called with [StorageLock.backup] held). */
+    /**
+     * Takes a consistent local snapshot into the folder given (called with [StorageLock.backup]
+     * held; its [Snapshot.readInPlace] notebooks are pinned before the lock is let go).
+     */
     private val takeSnapshot: suspend (File) -> Snapshot,
     /** A scratch folder (in the cache); emptied after every run. */
     private val stagingDir: File,
     private val clock: Clock = Clock.systemDefaultZone(),
+    /**
+     * Kept snapshots' file lists, by Drive file id (they never change once written), so tidying
+     * up doesn't download them all again every run. Null = always download.
+     */
+    private val listCache: File? = null,
 ) {
+    /** One Drive run at a time (the storage lock no longer covers the upload). */
+    private val oneRun = kotlinx.coroutines.sync.Mutex()
+
     data class Result(
         val snapshot: RemoteSnapshot,
         val uploadedFiles: Int,
@@ -60,10 +77,13 @@ class DriveBackup(
      * a fresh install must never replace a real backup before the person had the chance to restore it.
      */
     suspend fun backUp(onProgress: (String, Float?) -> Unit = { _, _ -> }): Result? = withContext(Dispatchers.IO) {
-        StorageLock.backup.withLock {
+        oneRun.withLock {
+            var pinned = emptySet<String>()
             try {
                 onProgress("Preparing the backup…", null)
-                val snapshot = takeSnapshot(File(stagingDir, "snapshot"))
+                val snapshot = StorageLock.backup.withLock {
+                    takeSnapshot(File(stagingDir, "snapshot")).also { pinned = BackupPins.pin(it.readInPlace) }
+                }
                 val folders = folders(create = true)!!
                 if (snapshot.manifest.counts.notebooks == 0 && drive.listFiles(folders.snapshots.id).any { it.toSnapshot() != null }) {
                     return@withLock null
@@ -103,6 +123,9 @@ class DriveBackup(
                     throw BackupException("The backup's file list got damaged on the way to Google Drive. Noteapp will try again.")
                 }
                 val mine = RemoteSnapshot(written.id, written.name, manifest.createdAt, written.sizeBytes)
+                listCache?.let { cache ->
+                    runCatching { cache.mkdirs(); listFile.copyTo(File(cache, "${written.id}.json"), overwrite = true) }
+                }
 
                 // 3. Tidy up. The backup is already safe, so problems here only wait for the next run.
                 val tidy = try {
@@ -121,6 +144,7 @@ class DriveBackup(
                     removedFiles = tidy?.removedFiles ?: 0,
                 )
             } finally {
+                BackupPins.unpin(pinned)
                 stagingDir.deleteRecursively()
             }
         }
@@ -197,11 +221,10 @@ class DriveBackup(
         val used = HashSet<String>()
         val scratch = File(stagingDir, "lists").apply { mkdirs() }
         for (file in remaining) {
-            val listFile = File(scratch, file.id)
-            drive.download(file.id, listFile)
             // If any kept snapshot can't be read, nothing is removed: better a full Drive than a broken backup.
-            used += BackupManifest.fromJson(listFile.readText()).files.map { it.md5 }
+            used += fileList(file, scratch).files.map { it.md5 }
         }
+        forgetListsExcept(remaining.map { it.id }.toSet())
         val cutoff = clock.instant().minus(BLOB_GRACE)
         var removedFiles = 0
         var stored = remaining.sumOf { it.sizeBytes }
@@ -221,6 +244,25 @@ class DriveBackup(
             }
         }
         return Tidy(stored, removedSnapshots, removedFiles)
+    }
+
+    /** A snapshot's file list: from [listCache] when it's there and readable, else downloaded (and cached). */
+    private suspend fun fileList(file: DriveFile, scratch: File): BackupManifest {
+        val cached = listCache?.let { File(it, "${file.id}.json") }
+        if (cached != null && cached.isFile) {
+            val manifest = runCatching { BackupManifest.fromJson(cached.readText()) }.getOrNull()
+            if (manifest != null) return manifest
+            cached.delete()
+        }
+        val listFile = File(scratch, file.id)
+        drive.download(file.id, listFile)
+        val manifest = BackupManifest.fromJson(listFile.readText())
+        if (cached != null) runCatching { cached.parentFile?.mkdirs(); listFile.copyTo(cached, overwrite = true) }
+        return manifest
+    }
+
+    private fun forgetListsExcept(ids: Set<String>) {
+        listCache?.listFiles()?.forEach { if (it.name.removeSuffix(".json") !in ids) it.delete() }
     }
 
     private suspend fun folders(create: Boolean): Folders? {

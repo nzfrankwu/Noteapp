@@ -142,6 +142,7 @@ class AppContainer(context: Context) {
             databaseFile = appContext.getDatabasePath(NoteAppDatabase.FILE_NAME),
             filesDir = appContext.filesDir,
             appVersion = BuildConfig.VERSION_NAME,
+            md5Cache = com.nzfrankwu.noteapp.data.backup.Md5Cache(java.io.File(appContext.cacheDir, "backup-md5.txt")),
         )
     }
 
@@ -171,6 +172,7 @@ class AppContainer(context: Context) {
             drive = com.nzfrankwu.noteapp.data.backup.drive.DriveClient(googleAuth),
             takeSnapshot = { localSnapshot.take(it) },
             stagingDir = java.io.File(appContext.cacheDir, "drive-staging"),
+            listCache = java.io.File(appContext.cacheDir, "drive-lists"),
         )
     }
 

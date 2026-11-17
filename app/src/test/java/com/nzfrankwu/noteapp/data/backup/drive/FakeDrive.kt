@@ -29,6 +29,8 @@ class FakeDrive(var now: () -> Instant = { Instant.parse("2026-11-17T10:00:00Z")
     private var nextId = 1
     var uploads = mutableListOf<String>() // names, in order
     var downloads = 0
+    /** Called at the start of every upload (e.g. to look at the storage lock). */
+    var onUpload: (() -> Unit)? = null
     val replaced = mutableListOf<String>()
     val revisionCleanups = mutableListOf<String>()
 
@@ -76,6 +78,7 @@ class FakeDrive(var now: () -> Instant = { Instant.parse("2026-11-17T10:00:00Z")
             }
             failUploadNumber = n - 1
         }
+        onUpload?.invoke()
         uploads += name
         val item = Item("id${nextId++}", name, parentId, mimeType, file.readBytes(), appProperties, now())
         if (lieAboutMd5) item.reportedMd5 = "0".repeat(32)

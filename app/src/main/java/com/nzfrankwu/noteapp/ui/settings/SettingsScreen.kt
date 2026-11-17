@@ -21,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.nzfrankwu.noteapp.reminders.Notifications
 import androidx.compose.material3.MaterialTheme
@@ -61,7 +63,19 @@ fun SettingsScreen(
     /** How many notebooks are in Recently deleted (Phase 6). */
     recentlyDeletedCount: Int = 0,
     onOpenRecentlyDeleted: () -> Unit = {},
+    /** A section to scroll to when the screen opens ([com.nzfrankwu.noteapp.ui.navigation.SettingsRoute.BACKUP]). */
+    scrollTo: String? = null,
 ) {
+    val scroll = androidx.compose.foundation.rememberScrollState()
+    var backupTop by remember { androidx.compose.runtime.mutableIntStateOf(-1) }
+    // Only once: coming back to Settings later (or rotating) keeps where you scrolled to.
+    var scrolled by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(scrollTo, backupTop) {
+        if (!scrolled && scrollTo == com.nzfrankwu.noteapp.ui.navigation.SettingsRoute.BACKUP && backupTop >= 0) {
+            scrolled = true
+            scroll.animateScrollTo(backupTop)
+        }
+    }
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
@@ -93,7 +107,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .widthIn(max = Dimens.ReadingMaxWidth)
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scroll)
                     .padding(Dimens.ScreenPadding),
                 verticalArrangement = Arrangement.spacedBy(Dimens.PaneGap),
             ) {
@@ -123,7 +137,12 @@ fun SettingsScreen(
                     SettingsSection("Notebooks") { NotebookSettingsSection(inkSettings, showDebug = BuildConfig.DEBUG) }
                 }
                 if (backup != null) {
-                    SettingsSection("Backup") { BackupSection(backup, drive) }
+                    SettingsSection(
+                        "Backup",
+                        Modifier
+                            .testTag("settings-backup")
+                            .onGloballyPositioned { backupTop = it.positionInParent().y.toInt() },
+                    ) { BackupSection(backup, drive) }
                 }
                 SettingsSection("Recently deleted") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -193,8 +212,8 @@ private fun RemindersSettings(onTestReminder: (() -> Unit)?) {
 }
 
 @Composable
-private fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun SettingsSection(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,

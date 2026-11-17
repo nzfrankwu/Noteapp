@@ -10,8 +10,13 @@ import kotlinx.serialization.Serializable
 @Serializable
 data object HomeRoute : NavKey
 
+/** Settings; [section] (e.g. [BACKUP]) scrolls straight to that section (Phase 7, 7.2). */
 @Serializable
-data object SettingsRoute : NavKey
+data class SettingsRoute(val section: String? = null) : NavKey {
+    companion object {
+        const val BACKUP = "backup"
+    }
+}
 
 /** Settings → Courses: archive or bring back courses. */
 @Serializable

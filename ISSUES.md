@@ -21,12 +21,9 @@ _None known._
   - The PDF copies have no status of their own: if one notebook can't be drawn, or Drive fails while updating the copies, nothing is shown (the full backup already succeeded; the next run tries again).
   - Two tablets backing up to the same Google account would share one backup folder (each run keeps the other's newer snapshots, and unused files wait a day before they go), but restore lists them together. One tablet is the plan; revisit if that changes.
   - Each Drive run lists `Backup/blobs/` (1 request per 1000 files) instead of caching Drive ids locally. Fine for thousands of files; revisit if backups get slow.
-  - **From the end-of-phase review (17 Nov), not fixed yet** (the first, second, third and fifth are planned as Phase 7 step 7.2):
-    - The whole Drive run holds `StorageLock.backup`, upload included. On a slow connection, Delete now, Export everything, the purge and Drive restore wait until it ends (a first backup can take 30+ minutes). Fix idea: hold the lock only for the snapshot, and let the purge/clean-up skip files a run is still uploading. 🔺 data safety.
-    - Every backup md5-hashes every file again, big PDFs included. Fix idea: cache md5 by path + size + modified time for write-once files.
-    - Every backup re-downloads the kept snapshot lists (~8). Fix idea: cache them by Drive file id; they never change.
+  - **From the end-of-phase review (17 Nov), not fixed yet** (the other four were fixed in Phase 7 step 7.2):
     - When one notebook's PDF copy fails, the copies still count as up to date until the next change or the daily run (on purpose, so a broken notebook isn't retried every 30 minutes).
-    - Home's backup strip "Open Settings" opens Settings at the top, not at Backup.
+    - **New in 7.2:** "Delete now" on a notebook while a Drive upload is still reading it removes its rows straight away, but its files stay until the clean-up removes them (a folder of a gone notebook goes once all its files are 30+ days old). Harmless (unused files, not in later backups), just space for a while.
   - "Back up now" isn't an expedited job (that would need its own notification on Android 11 and older), so Android may start it a little later.
 
 - **Open in Canvas (Phase 5 FB11):** not tried with the real Canvas Student app: whether it opens the university's assignment links (else the Chrome tab takes over) needs the tablet.
@@ -82,6 +79,8 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Phase 7 step 7.2, backup follow-ups (18 Nov, hands-off):** a Drive backup no longer makes Delete now, Export everything, the 30-day purge or a restore wait for its upload (only its quick local copy holds the lock; the notebooks it's still uploading are protected another way). Unchanged PDFs aren't re-read every backup, the kept backup lists aren't downloaded again, and Home's "Open Settings" goes straight to Backup.
 
 - **Phase 7 step 7.1, database version 8 (18 Nov, hands-off):** Submitted is merged into Done. Updating turns every Submitted task into Done; nothing else changes. Courses got an empty `color` column for step 7.7. Real v7 → v8 upgrade on the emulator: PASS.
 

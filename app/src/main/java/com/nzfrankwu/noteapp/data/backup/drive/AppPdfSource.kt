@@ -9,6 +9,7 @@ import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
 import com.nzfrankwu.noteapp.data.db.Page
 import com.nzfrankwu.noteapp.ui.notebook.InkBrushes
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 
 /** The app's notebooks for [PdfCopies]: from the database and the saved page files. */
@@ -23,7 +24,11 @@ class AppPdfSource(private val db: NoteAppDatabase, private val files: NotebookF
 
     override suspend fun allIds(): Set<String> = db.notebookDao().getAllIds().toSet()
 
-    override suspend fun export(notebookId: String, out: File) {
+    /**
+     * Holds the storage lock for this one notebook (Phase 7, 7.2), so the purge or the clean-up
+     * can't delete its files halfway through, without holding them up for the whole run.
+     */
+    override suspend fun export(notebookId: String, out: File) = com.nzfrankwu.noteapp.data.StorageLock.backup.withLock {
         val nb = db.notebookDao().getNotebook(notebookId) ?: error("Notebook gone")
         PdfExport(files).export(nb, db.notebookDao().getPages(notebookId), out, InkBrushes::exportShape)
     }

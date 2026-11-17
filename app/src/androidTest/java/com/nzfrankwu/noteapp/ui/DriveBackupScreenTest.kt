@@ -2,6 +2,7 @@ package com.nzfrankwu.noteapp.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -59,6 +60,26 @@ class DriveBackupScreenTest {
         compose.setContent {
             NoteAppTheme { Column { BackupSection(container.backupManager, container.driveConnection) } }
         }
+    }
+
+    /** Phase 7, 7.2: Home's backup strip opens Settings scrolled to Backup. */
+    @Test
+    fun settingsOpenedForBackup_scrollsToTheBackupSection() {
+        compose.setContent {
+            NoteAppTheme {
+                com.nzfrankwu.noteapp.ui.settings.SettingsScreen(
+                    onBack = {},
+                    inkSettings = container.inkSettings,
+                    backup = container.backupManager,
+                    drive = container.driveConnection,
+                    scrollTo = com.nzfrankwu.noteapp.ui.navigation.SettingsRoute.BACKUP,
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("drive-connect").assertIsDisplayed()
+        compose.onNodeWithTag("settings-backup").assertIsDisplayed()
+        compose.onNodeWithTag("open-courses").assertIsNotDisplayed() // scrolled past Canvas and Courses
     }
 
     @Test

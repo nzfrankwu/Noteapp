@@ -233,7 +233,8 @@ fun NoteAppRoot(
                                 driveStatus = container.driveSettings.status,
                             )
                         },
-                        onOpenSettings = { backStack.add(SettingsRoute) },
+                        onOpenSettings = { backStack.add(SettingsRoute()) },
+                        onOpenBackupSettings = { backStack.add(SettingsRoute(SettingsRoute.BACKUP)) },
                         onOpenFolder = { folderId -> backStack.add(FolderRoute(folderId)) },
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                         onAddTask = { backStack.add(TaskEditRoute()) },
@@ -390,9 +391,10 @@ fun NoteAppRoot(
                 entry<CoursesRoute> {
                     CoursesScreen(viewModel = viewModel { CoursesViewModel(container.folderRepository) }, onBack = ::back)
                 }
-                entry<SettingsRoute> {
+                entry<SettingsRoute> { route ->
                     SettingsScreen(
                     onBack = ::back,
+                    scrollTo = route.section,
                     canvas = viewModel {
                         CanvasSettingsViewModel(container.canvasSettings, container.canvasAccount, container.canvasSyncRunner)
                     },

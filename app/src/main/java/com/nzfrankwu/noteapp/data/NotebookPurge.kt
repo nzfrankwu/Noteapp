@@ -13,7 +13,7 @@ import java.time.Duration
  *
  * The rows go first, then the files. If the files can't all be removed (or the app stops halfway),
  * what's left is just unused files, which the clean-up of unused files removes later; never the
- * other way round (rows pointing at missing files). Holds [StorageLock.backup], so a backup in
+ * other way round (rows pointing at missing files). Holds [StorageLock.backup], so a snapshot or export in
  * progress never loses files under it.
  */
 class NotebookPurge(
@@ -26,7 +26,7 @@ class NotebookPurge(
     /** Deletes a notebook that is in Recently deleted, for good. False if it isn't there. */
     suspend fun deleteForGood(notebookId: String): Boolean = StorageLock.backup.withLock {
         val removed = dao.deleteForGood(notebookId) > 0
-        if (removed) withContext(Dispatchers.IO) { files.deleteNotebookFiles(notebookId) }
+        if (removed) deleteFiles(notebookId)
         removed
     }
 
@@ -36,7 +36,7 @@ class NotebookPurge(
         var notebooks = 0
         for (id in dao.getDeletedBefore(cutoff)) {
             if (dao.deleteForGood(id) > 0) {
-                withContext(Dispatchers.IO) { files.deleteNotebookFiles(id) }
+                deleteFiles(id)
                 notebooks++
             }
         }
@@ -48,6 +48,15 @@ class NotebookPurge(
             }
         }
         notebooks to pages
+    }
+
+    /**
+     * A notebook a Drive upload still reads keeps its files for now ([com.nzfrankwu.noteapp.data.backup.BackupPins]);
+     * with its rows gone they're unused files, which the clean-up removes later.
+     */
+    private suspend fun deleteFiles(notebookId: String) {
+        if (com.nzfrankwu.noteapp.data.backup.BackupPins.isPinned(notebookId)) return
+        withContext(Dispatchers.IO) { files.deleteNotebookFiles(notebookId) }
     }
 
     companion object {

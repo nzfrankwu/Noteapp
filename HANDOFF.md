@@ -1,10 +1,10 @@
 # Handoff: where things stand
 
-_Last updated: 18 Nov 2026 (Phase 7, hands-off: 7.1 done). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 18 Nov 2026 (Phase 7, hands-off: 7.1–7.2 done). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phase 7 (Polish) is planned: `PHASE-7.md`, branch `phase-7`** (from `main`). 7.0 and 7.1 are done. **Mode: hands-off since 18 Nov** (the user said "start, hands off mode"): build, test, commit and push every step; leave what needs the user (7.8's new search screen layout, ML Kit at 7.10, pen widths 7.12, the tablet 7.13) in REPORT.md / ISSUES.md.
+- **Phase 7 (Polish) is planned: `PHASE-7.md`, branch `phase-7`** (from `main`). 7.0–7.2 are done. **Mode: hands-off since 18 Nov** (the user said "start, hands off mode"): build, test, commit and push every step; leave what needs the user (7.8's new search screen layout, ML Kit at 7.10, pen widths 7.12, the tablet 7.13) in REPORT.md / ISSUES.md.
   - Decided 17 Nov: search over names, tasks, PDF text, text boxes **and handwriting** (ML Kit, English only; still ask before adding the library at 7.10); **custom tags dropped, Submitted merged into Done** (IDEA.md §2.3/§3.3 updated); new settings: reminder times, course colours, default paper, light/dark; plus the Phase 6 review leftovers and the editor speed leftovers. Version history stays "later".
   - **Database is v8 now (7.1, 18 Nov):** statuses `submitted` → `done`, `courses.color`. The tablet is still v7: installing a Phase 7 build upgrades it (snapshot first, with the user's OK). `screenshots/app-v7.apk` is the v7 build; `screenshots/upgrade_v8.sh` + `compare_dbs.py <before> <after> --v8` is the real upgrade check.
 - **Phases 1–6 are merged into `main`** (Phase 6 on 17 Nov, `c4b9e7a`). History in `PHASE-1.md` … `PHASE-6.md` and `ISSUES.md`.
@@ -19,7 +19,8 @@ _Last updated: 18 Nov 2026 (Phase 7, hands-off: 7.1 done). Keep this file curren
 
 ## Phase 6 code map (`app/src/main/java/com/nzfrankwu/noteapp/`)
 
-- `data/StorageLock.kt`: `pages` (page saves) and `backup` (whole backup/restore/purge/clean-up/Drive run/PDF copies). Never take `pages` then `backup`.
+- `data/StorageLock.kt`: `pages` (page saves) and `backup` (export/restore/purge/clean-up; the Drive run only for its snapshot, PDF copies per notebook). Never take `pages` then `backup`. During a Drive upload, `data/backup/BackupPins` protects the notebooks it reads in place (7.2).
+- **Android refuses hard links in app storage** (SELinux): don't try `Files.createLink` there.
 - `data/backup/`:
   - `BackupPaths` (what's in a backup; Canvas never), `BackupManifest` (+ `Md5`), `DatabaseCheck`, `LocalSnapshot`, `ZipBackup` (+ `StagedSet.verify`), `RestoreSwap` (two-phase swap at start-up), `BackupManager` (export/import/Drive restore UI state), `MaintenanceWorker`
 - `data/backup/drive/`:
@@ -33,7 +34,7 @@ _Last updated: 18 Nov 2026 (Phase 7, hands-off: 7.1 done). Keep this file curren
 
 ## Next steps (in order)
 
-1. **Step 7.2 🔺 backup follow-ups** (in progress), then 7.3, 7.4, 7.5, 7.6, 7.7, 7.11 (hands-off order; 7.8–7.10, 7.12, 7.13 need the user).
+1. **Step 7.3 per-page paper + default paper**, then 7.4, 7.5, 7.6, 7.7, 7.11 (hands-off order; 7.8–7.10, 7.12, 7.13 need the user).
 3. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own
