@@ -1,77 +1,82 @@
 # Handoff: where things stand
 
-_Last updated: 17 Nov 2026 (Phase 5 built, reviewed and installed on the tablet (v7); waiting on the user's tablet check and the OK to merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 17 Nov 2026 (Phase 5 merged into `main` with the user's OK; next session: plan Phase 6). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phases 1, 1b, 2, 3 and 4 are done and merged into `main`** (Phase 4 merged 16 Nov, `aa342b5`). History in `PHASE-1.md` … `PHASE-4.md` and `ISSUES.md`.
-- **Current phase: Phase 5, Productivity extras.** The plan is **`PHASE-5.md`**: text boxes, split view of two notebooks, a recent notebooks panel with drag-to-split, and moving things between the panes. IDEA.md §2.8 and §5 were updated (user's OK by approving the plan, 16 Nov).
-- Phase 4 (Linking, `PHASE-4.md`) covered:
-  - linking notebooks ↔ tasks
-  - page bookmarks for tasks, with quick notes
-  - selecting PDF text with a finger (Copy, Highlight, Underline, Bookmark)
-  - the pop-up menus becoming icon pills
-- **IDEA.md** §2.4, §2.6 and §5 were updated for bookmarks and text selection (user's OK, 16 Nov).
-- **Branch:** `phase-5` (from `main`), pushed after each step.
-- **Mode:** **Hands-off** for Phase 5 (the user said "continue on in hands off mode" on 16 Nov). List every 🔺 step done in REPORT.md.
-- **The tablet runs Phase 5 with feedback rounds 2–4** (the build of `389dc33`), database **version 7** (latest install 17 Nov with the user's OK; compare PASS: every row, all 164 files, links and bookmarks unchanged). Backups in `backups/tablet-2026-11-17-before-v7/`, `…-before-fb2/`, `…-before-fb3/` and `…-before-fb4/` (with the page files). Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
-- **The emulator runs Phase 5** (database v7).
-- Unit tests and the full emulator suite pass at the end of Phase 5 (count in the latest commit message).
+- **Phases 1, 1b, 2, 3, 4 and 5 are done and merged into `main`** (Phase 5 merged 17 Nov, `09c1449`). History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
+- **Branch:** `main`. Start a `phase-6` branch from it when Phase 6 begins.
+- **Mode:** "Working together" (the default) unless the user says otherwise. Phases 4 and 5 were hands-off.
+- **The tablet runs Phase 5 as merged** (the build of `389dc33`, same code as `main`), database **version 7**. Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
+- **The emulator runs Phase 5** (database v7). Unit tests and the full emulator suite (**273 tests**) pass on `main`.
+- **Phase 5 covered** (details in PHASE-5.md):
+  - text boxes (page format 3; PDF export as real text)
+  - the user's 4 feedback rounds FB1–FB15:
+    - the bookmark sheet's ✓
+    - task search and filters
+    - two pens (dark blue and red)
+    - the **bookmark pen**, which saves a picture as the note (database **v7**)
+    - course folders with tasks (left) and notes (right) side by side
+    - Open in Canvas: the Canvas app, else a Chrome tab
+  - split view (side by side or stacked, divider ⋮ menu, drag to close)
+  - the recent notebooks panel with drag-to-split
+  - Copy/Paste and screenshots between the two notebooks
+  - narrow windows
 
 ## Next steps (in order)
 
-1. **Phase 5 is built and reviewed** (17 Nov, hands-off): text boxes (5.1–5.5), the user's feedback round FB1–FB5 (bookmark sheet ✓, long-press edit, task search/filters, two pens, the bookmark pen = database **v7**), the pane/host split (5.6), the recent panel and split view (5.7–5.9), between panes (5.10), narrow windows (5.11). The end-of-phase review's 10 findings are fixed (PHASE-5.md). REPORT.md is the Phase 5 report.
-2. **Waiting on the user:**
-   - **Trying Phase 5 on the tablet** (installed 17 Nov, v7; test steps in REPORT.md).
-   - **The OK to merge `phase-5` into `main`.**
-   - **Feedback rounds 2–4 (FB6–FB15) are done and on the tablet** (17 Nov; PHASE-5.md). The user is trying them.
-3. Then plan **Phase 6** (Google Drive and backup; IDEA.md §5: must be done before real use).
-4. Older follow-ups (ISSUES.md, not blocking):
+1. **Plan Phase 6: Google Drive and backup** (IDEA.md §2.9, §5, §5a). IDEA.md says it **must be finished and tested before the user relies on the app**.
+   - Read IDEA.md §2.9 (what's backed up, Drive layout, PDF copies), §4 (Word/PowerPoint conversion through Drive), §5 (the Phase 6 row) and §5a (data-safety rules).
+   - Write `PHASE-6.md` with the user (working together): describe new screens before coding (CLAUDE.md §2.10), mark 🔺 steps.
+   - **Ask first** (CLAUDE.md): Google sign-in involves the user's login; the Drive/Google libraries are big new libraries. Google sign-in also needs the release signing key (the user's key is in `<user home>/keys/`; never read those files, check with `gradlew.bat signingReport` only).
+   - Things Phase 6 inherits, from ISSUES.md:
+     - unused bookmark pictures (`bookmarks/*.png`) and inserted pictures are never cleaned up
+     - deleted notebooks without a folder
+     - "Recently deleted"
+     - the backup must include page files (formats 1–3), `images/`, `bookmarks/` and PDFs in each notebook's folder, plus the database (v7) and settings, but **never** Canvas cookies or the feed link (IDEA.md §2.9, §3.5)
+2. **Still-unreported tablet checks** (ask when convenient):
+   - a reminder arriving with the app swiped away (ColorOS)
+   - "Last synced" moving on its own
+   - whether **Open in Canvas** opens the Canvas Student app or the Chrome tab
+   - whether writing in a text box with the OPPO Pencil turns into typed text
+3. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture
    - pre-draw the next page
    - a big lasso move pauses on release
    - pen widths (F22)
-   - deleted notebooks without a folder (Phase 6)
-5. Still-unreported tablet checks: a reminder with the app swiped away (ColorOS); "Last synced" moving on its own.
 
-## Phase 4 code map (new)
+## Phase 4–5 code map
 
-- `data/db/TaskLinks.kt`, `LinkDao.kt`: the tables.
-- `data/LinkRepository.kt`, `data/LinkChoices.kt`: the pickers' lists.
-- `data/PdfText.kt`: PDF words.
-- `domain/Bookmarks.kt`, `domain/PdfCoords.kt`, `domain/ink/TextSelection.kt`.
-- `ui/task/LinkNotebookSheet.kt`, `BookmarksSection.kt`.
-- `ui/components/Pickers.kt`, `TaskCard.kt` (`LocalTaskNotebooks`).
-- Phase 5: `ui/notebook/NotebookPane.kt` (`PaneState`), `NotebookWorkspace.kt` (split view), `RecentPanel.kt`, `TextBoxEditing.kt`; `data/TextBoxLayout.kt`; `domain/SplitLayout.kt`, `domain/ink/BookmarkPen.kt`, `domain/ink/InkText.kt`.
-- `ui/notebook/`:
-  - `NotebookLinks.kt`, `TaskLinkViews.kt` (the chip and the task picker)
-  - `BookmarkSheet.kt`, `IconMenu.kt`
-  - `TextSel` / `TextHandle` in `NotebookCanvas.kt`, `TextMenu` in `NotebookScreen.kt`
-- `PageStrip.focus`: opening at a bookmark.
+- **Phase 4 (links, bookmarks, PDF text):**
+  - `data/db/TaskLinks.kt`, `LinkDao.kt`: the tables
+  - `data/LinkRepository.kt`, `data/LinkChoices.kt`: the pickers' lists, and FB3's `filter`
+  - `data/PdfText.kt`: PDF words
+  - `domain/Bookmarks.kt`, `domain/PdfCoords.kt`, `domain/ink/TextSelection.kt`
+  - `ui/task/LinkNotebookSheet.kt`, `BookmarksSection.kt`
+  - `ui/components/Pickers.kt`, `TaskCard.kt` (`LocalTaskNotebooks`)
+  - `ui/notebook/`: `NotebookLinks.kt`; `TaskLinkViews.kt` (the chip, task picker and `TaskSearch`); `BookmarkSheet.kt`; `IconMenu.kt` (`IconMenuButton`)
+  - `PageStrip.focus`: opening at a bookmark
+- **Phase 5 (text boxes, bookmark pen, split view):**
+  - `domain/ink/InkText.kt` and `PageInkCodec.kt` (format 3), `data/TextBoxLayout.kt` (font = PdfBox's Liberation Sans asset), `ui/notebook/TextBoxEditing.kt`
+  - `domain/ink/BookmarkPen.kt` (`MIGRATION_6_7`: `task_bookmarks.image`)
+  - `ui/notebook/NotebookPane.kt` (`PaneState`, one notebook's pages); `NotebookScreen.kt`'s `NotebookEditor` (the shared top bar, toolbar, sheets)
+  - `ui/notebook/NotebookWorkspace.kt` (split view, divider, drag-and-drop; in `entry<NotebookRoute>`), `RecentPanel.kt`, `EditorClipboard.kt`
+  - `domain/SplitLayout.kt` (divider rules, `dropTarget`, `RecentNotebooks`)
+  - `data/ViewSettings.kt` (`EditorViewStore`: the recent list, split mode and ratio)
+  - `ui/components/OpenLink.kt` (`openInCanvas`)
 
 ## Tablet database safety copy
 
-- **`backups/tablet-db-2026-11-15-before-v2/`**, **`…-before-v3/`** and **`…-before-v4/`** (git-ignored, local only) hold the tablet's database from just before the B.3 and B.8 upgrades. It contains personal Canvas names but no secrets. Keep it until Phase 1b is merged and the user is happy; never commit it.
-- How it was made, for next time (ask the user first):
-  - force-stop the app
-  - `adb -s <tablet> exec-out run-as com.nzfrankwu.noteapp cat databases/<f>` for `noteapp.db`, `-wal` and `-shm`
-  - check it by opening a copy with Python's `sqlite3`, printing counts only
-- **Never install an older build than the tablet has** (it's now heading to database v3): Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
+- **Backups** (git-ignored, local only, personal Canvas names but no secrets; never commit):
+  - `backups/tablet-2026-11-17-before-v7/`: just before the v6 → v7 upgrade, with the page files
+  - `…-before-fb2/`, `…-before-fb3/`, `…-before-fb4/`: later installs, with the page files
+  - older ones (v2–v6) too
+- **How:** `screenshots/tablet_snapshot.sh <dir> [with-files]`, then `python screenshots/compare_dbs.py <before> <after>`. Ask the user before touching the tablet.
+- **Never install an older build than the tablet has** (now database v7): Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
 
 ## Waiting on the user
 
-- **Phase 2 on the tablet** (installed 15 Nov; the user is checking it):
-  - writing with the OPPO Pencil 2: lag, pressure, palm rejection
-  - the pen's side button: does one click switch to the lasso and back?
-  - press hard to erase: is 90% the right level?
-  - a long notebook stays smooth (editor ⋮ → "Add 50 pages of test writing (debug)")
-
-- **Tablet testing** of B.1–B.6 (installed; see `REPORT.md` for the steps).
-- **Tablet checks not yet reported:**
-  - a test reminder arriving with the app swiped away (ColorOS)
-  - "Last synced" moving on its own over several hours (background sync)
-
-  Ask about these when convenient.
+- **Nothing blocking.** Next is planning Phase 6 together.
 - **Their Canvas sign-in on the tablet works** (go/no-go passed 15 Nov). Their real courses and assignments are on the tablet.
 
 ## Decisions to remember
