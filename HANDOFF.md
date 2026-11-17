@@ -13,7 +13,7 @@ _Last updated: 17 Nov 2026, evening (Phase 6: everything that needs no Google lo
   - **Not on the tablet yet.**
   - Tests after 6.13: **562 unit tests and the full emulator suite (306) pass.**
 - **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet. `connectedDebugAndroidTest` **uninstalls the app afterwards** (emulator data gone; rerun `screenshots/p4setup.sh`).
-- **The tablet runs `main`** (Phase 5 + second review), database **version 7**. Never install a build older than v7 on it.
+- **The tablet runs `phase-6`** (`9612434`, installed 17 Nov with the user's OK; snapshot before and after: compare PASS), database **version 7**. Never install a build older than v7 on it.
 
 ## Phase 6 code map (`app/src/main/java/com/nzfrankwu/noteapp/`)
 
