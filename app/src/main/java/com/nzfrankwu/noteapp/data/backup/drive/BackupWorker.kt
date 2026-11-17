@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit
 class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val container = (applicationContext as NoteAppApplication).container
-        val outcome = container.driveBackupRunner.run { _, progress ->
+        val outcome = container.driveBackupRunner.run(withPdfs = inputData.getBoolean(WITH_PDFS, false)) { _, progress ->
             if (progress != null) setProgressAsync(workDataOf(PROGRESS to progress))
         }
         return when (outcome) {
@@ -39,6 +39,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         const val DAILY = "backup-daily"
         const val NOW = "backup-now"
         const val PROGRESS = "progress"
+        private const val WITH_PDFS = "with_pdfs"
         val ALL = listOf(SOON, DAILY, NOW)
         private const val MAX_ATTEMPTS = 5
 
@@ -50,6 +51,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         /** The daily backup (call after connecting, on app start while connected, and when Wi-Fi only changes). */
         fun scheduleDaily(context: Context, wifiOnly: Boolean) {
             val request = PeriodicWorkRequestBuilder<BackupWorker>(1, TimeUnit.DAYS)
+                .setInputData(workDataOf(WITH_PDFS to true))
                 .setConstraints(constraints(wifiOnly))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.MINUTES)
                 .build()
@@ -73,6 +75,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
          */
         fun now(context: Context) {
             val request = OneTimeWorkRequestBuilder<BackupWorker>()
+                .setInputData(workDataOf(WITH_PDFS to true))
                 .setConstraints(constraints(wifiOnly = false, batteryNotLow = false))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
                 .build()

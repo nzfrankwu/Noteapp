@@ -1,6 +1,7 @@
 package com.nzfrankwu.noteapp.data.backup.drive
 
 import com.nzfrankwu.noteapp.data.backup.BackupText
+import kotlinx.coroutines.sync.withLock
 import java.time.Duration
 
 /** Where the Google Drive backup stands (kept in the `backup_settings` store, never backed up itself). */
@@ -77,6 +78,8 @@ class DriveBackupRunner(
     private val store: DriveStatusStore,
     private val backup: DriveBackup,
     private val restorePending: () -> Boolean,
+    /** The readable PDF copies, refreshed after the backup on daily and Back up now runs. */
+    private val pdfCopies: PdfCopies? = null,
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     sealed interface Outcome {
@@ -89,12 +92,21 @@ class DriveBackupRunner(
         data class Failed(val message: String) : Outcome
     }
 
-    suspend fun run(onProgress: (String, Float?) -> Unit = { _, _ -> }): Outcome {
+    suspend fun run(withPdfs: Boolean = false, onProgress: (String, Float?) -> Unit = { _, _ -> }): Outcome {
         if (!store.current().connected) return Outcome.NotConnected
         if (restorePending()) return Outcome.Skipped
         return try {
             val result = backup.backUp(onProgress) ?: return Outcome.Skipped
             store.recordSuccess(now(), result.storedBytes)
+            val pdfs = pdfCopies
+            if (withPdfs && pdfs != null) {
+                onProgress("Updating the PDF copies…", null)
+                // The copies are for reading; the backup above already succeeded, so trouble here
+                // only waits for the next run.
+                runCatching {
+                    com.nzfrankwu.noteapp.data.StorageLock.backup.withLock { pdfs.sync() }
+                }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+            }
             Outcome.Done(result)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e

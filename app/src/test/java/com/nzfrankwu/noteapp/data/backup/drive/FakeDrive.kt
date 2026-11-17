@@ -12,7 +12,7 @@ class FakeDrive(var now: () -> Instant = { Instant.parse("2026-11-17T10:00:00Z")
         var parent: String?,
         val mimeType: String,
         var bytes: ByteArray,
-        val appProperties: Map<String, String>,
+        var appProperties: Map<String, String>,
         var modified: Instant,
         /** What Drive reports as the md5 (tests can make it lie). */
         var reportedMd5: String? = null,
@@ -29,6 +29,7 @@ class FakeDrive(var now: () -> Instant = { Instant.parse("2026-11-17T10:00:00Z")
     private var nextId = 1
     var uploads = mutableListOf<String>() // names, in order
     var downloads = 0
+    val replaced = mutableListOf<String>()
 
     /** Throw on the upload with this (1-based) number, counting from now. */
     var failUploadNumber: Int? = null
@@ -77,9 +78,11 @@ class FakeDrive(var now: () -> Instant = { Instant.parse("2026-11-17T10:00:00Z")
         return item.toFile()
     }
 
-    override suspend fun replace(fileId: String, file: File, mimeType: String, name: String?): DriveFile {
+    override suspend fun replace(fileId: String, file: File, mimeType: String, name: String?, appProperties: Map<String, String>): DriveFile {
         val item = items[fileId] ?: throw DriveException(DriveException.Kind.NOT_FOUND, "Not found in Google Drive.")
+        replaced += item.name
         item.bytes = file.readBytes()
+        item.appProperties = item.appProperties + appProperties
         if (name != null) item.name = name
         item.modified = now()
         return item.toFile()
@@ -88,7 +91,10 @@ class FakeDrive(var now: () -> Instant = { Instant.parse("2026-11-17T10:00:00Z")
     override suspend fun move(fileId: String, name: String?, addParent: String?, removeParent: String?): DriveFile {
         val item = items[fileId] ?: throw DriveException(DriveException.Kind.NOT_FOUND, "Not found in Google Drive.")
         if (name != null) item.name = name
-        if (addParent != null) item.parent = addParent
+        if (addParent != null) {
+            require(removeParent == null || removeParent == item.parent) { "removeParent isn't the file's parent" }
+            item.parent = addParent
+        }
         return item.toFile()
     }
 

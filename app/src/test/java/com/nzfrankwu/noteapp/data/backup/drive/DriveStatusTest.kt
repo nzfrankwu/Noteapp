@@ -45,7 +45,7 @@ class DriveStatusTest {
                 mapOf("db/noteapp.db" to file),
             )
         }, temp.newFolder())
-        return DriveBackupRunner(store, backup, { restorePending }, { now })
+        return DriveBackupRunner(store, backup, { restorePending }, now = { now })
     }
 
     private val connected = DriveStatus(email = "test@example.com", connectedAt = now - day)

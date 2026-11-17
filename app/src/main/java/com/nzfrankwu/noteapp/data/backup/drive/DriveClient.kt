@@ -98,8 +98,14 @@ interface DriveApi {
         appProperties: Map<String, String> = emptyMap(),
     ): DriveFile
 
-    /** Replaces the content of [fileId] (and renames it to [name] if given). */
-    suspend fun replace(fileId: String, file: File, mimeType: String, name: String? = null): DriveFile
+    /** Replaces the content of [fileId] (and renames it to [name], sets [appProperties], if given). */
+    suspend fun replace(
+        fileId: String,
+        file: File,
+        mimeType: String,
+        name: String? = null,
+        appProperties: Map<String, String> = emptyMap(),
+    ): DriveFile
 
     /** Renames and/or moves a file or folder. */
     suspend fun move(fileId: String, name: String?, addParent: String?, removeParent: String?): DriveFile
@@ -168,10 +174,13 @@ class DriveClient(
         return resumable(start, "POST", metadata(name, mimeType, parentId, appProperties), file, mimeType)
     }
 
-    override suspend fun replace(fileId: String, file: File, mimeType: String, name: String?): DriveFile {
+    override suspend fun replace(fileId: String, file: File, mimeType: String, name: String?, appProperties: Map<String, String>): DriveFile {
         val start = uploadUrl("files/${checkId(fileId)}").addQueryParameter("uploadType", "resumable")
             .addQueryParameter("fields", FIELDS).build()
-        val metadata = buildJsonObject { if (name != null) put("name", name) }
+        val metadata = buildJsonObject {
+            if (name != null) put("name", name)
+            if (appProperties.isNotEmpty()) put("appProperties", JsonObject(appProperties.mapValues { JsonPrimitive(it.value) }))
+        }
         return resumable(start, "PATCH", metadata, file, mimeType)
     }
 

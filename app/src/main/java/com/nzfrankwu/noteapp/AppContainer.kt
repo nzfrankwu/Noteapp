@@ -176,7 +176,14 @@ class AppContainer(context: Context) {
 
     /** One run of the automatic Drive backup (the background job uses it). */
     val driveBackupRunner: com.nzfrankwu.noteapp.data.backup.drive.DriveBackupRunner by lazy {
-        com.nzfrankwu.noteapp.data.backup.drive.DriveBackupRunner(driveSettings, driveBackup, { restoreSwap.isPending })
+        com.nzfrankwu.noteapp.data.backup.drive.DriveBackupRunner(
+            driveSettings, driveBackup, { restoreSwap.isPending },
+            pdfCopies = com.nzfrankwu.noteapp.data.backup.drive.PdfCopies(
+                drive = com.nzfrankwu.noteapp.data.backup.drive.DriveClient(googleAuth),
+                source = com.nzfrankwu.noteapp.data.backup.drive.AppPdfSource(database, notebookFiles),
+                scratch = java.io.File(appContext.cacheDir, "pdf-copies"),
+            ),
+        )
     }
 
     /** Settings → Backup → Google Drive. */

@@ -97,7 +97,10 @@ Uploads are checked against Drive's `md5Checksum`. After a snapshot is committed
   - Offline/busy isn't shown as an error (the job retries); the Home strip appears after 3 days without a backup.
   - Safety: an app with **no notebooks never backs up over an existing Drive backup** (a fresh install can't replace the real one before you restore).
 - [ ] 🔺 **6.11 Restore from Google Drive.** ★ Code done: "Restore from Google Drive" lists backups newest first → download + md5 check into `restore-staging` → the 6.3 confirm dialog and swap. Offered automatically after connecting on an app with no notebooks ("Restore your notes?" / "Start fresh"). Download tested against the fake Drive. **The real round trip waits for 6.6.**
-- [ ] **6.12 PDF copies in `Notes (PDF)/`.** ★
+- [ ] **6.12 PDF copies in `Notes (PDF)/`.** ★ Code done: `PdfCopies` (Drive side, 8 tests on the fake Drive) + `AppPdfSource` (database, PdfExport; 3 emulator tests). Runs after the backup on the daily job and Back up now. **Seeing them in a real Drive waits for 6.6.**
+  - Each copy is tagged with its notebook id and a content version (paper, pages, page files; not the title or folder): an edit replaces the same Drive file (so Drive keeps its history), a rename or move only moves it, folders left empty go.
+  - Recently deleted keeps its copy; deleted for good → the copy goes. A notebook that can't be drawn is skipped and doesn't stop the others.
+  - Changed from the plan: `InkBrushes.exportShape` wasn't moved; it already works without a screen.
 - [ ] **6.13 Word/PowerPoint → PDF.** ★
 - [ ] **6.14 Tablet check** (ask first; snapshot; install; the user connects their real Google account).
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest, ask to merge into `main`.
