@@ -1,19 +1,18 @@
 # Handoff: where things stand
 
-_Last updated: 17 Nov 2026, late (Phase 6 complete on `phase-6`, reviewed; waiting for the user's OK to merge into `main`). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phases 1–5 are merged into `main`.** History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
-- **Phase 6 (backup), branch `phase-6`, mode hands-off** (user, 17 Nov). Plan, the user's decisions and per-step notes: `PHASE-6.md`.
+- **Phases 1–6 are merged into `main`** (Phase 6 on 17 Nov, `c4b9e7a`). History in `PHASE-1.md` … `PHASE-6.md` and `ISSUES.md`.
+- **Phase 6 (backup) is finished and merged.** Plan, the user's decisions and per-step notes: `PHASE-6.md`.
   - **Done and checked on the emulator with a real Google account (17 Nov):** 6.1–6.13. Connect, automatic backup, Back up now, restore round trip from Drive (compare PASS), PDF copies, Word → PDF. Details per step in `PHASE-6.md`.
   - **Google Cloud project "Noteapp": sign-in published** (17 Nov). One Android client is enough: debug and release are both signed with the release key.
-  - The emulator has the user's spare Google account signed in and connected (it holds only made-up test data).
+  - The emulator has the user's spare Google account signed in, but Noteapp's access to it was taken back (Disconnect on the tablet, 17 Nov): reconnecting there needs the user's OK on Google's screen. Only made-up test data is on the emulator.
   - `play-services-auth` 22.0.0 is in (the user approved it). No database change in Phase 6 (still v7).
-  - **Not on the tablet yet.**
   - Tests at the end of the phase: **574 unit tests and the full emulator suite (310) pass** (17 Nov, after the review fixes). Test gotcha: `am instrument` force-stops the app, which cancels its WorkManager jobs until the app is opened again; tests that change app settings must reset them (the suite reinstalls without wiping data).
 - **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet. `connectedDebugAndroidTest` **uninstalls the app afterwards** (emulator data gone; rerun `screenshots/p4setup.sh`).
-- **The tablet runs `phase-6`** (`0e741d1`, the reviewed build, 17 Nov; snapshot before/after each install: compare PASS), database **version 7**, connected to the user's main Google account (first backup done, ~48 MB). Never install a build older than v7 on it.
+- **The tablet runs the Phase 6 build** (`0e741d1`; `main` differs only in tests and notes; 17 Nov; snapshot before/after each install: compare PASS), database **version 7**, connected to the user's main Google account (first backup done, ~48 MB). Never install a build older than v7 on it.
 
 ## Phase 6 code map (`app/src/main/java/com/nzfrankwu/noteapp/`)
 
@@ -31,15 +30,14 @@ _Last updated: 17 Nov 2026, late (Phase 6 complete on `phase-6`, reviewed; waiti
 
 ## Next steps (in order)
 
-1. **Ask the user to approve merging `phase-6` into `main`.** Everything in `PHASE-6.md` is done and checked; the end-of-phase review is done (5 fixes in, 5 follow-ups in ISSUES.md "Backup (Phase 6)"). Never merge without the user's OK.
-2. Then Phase 7 per IDEA.md §5 (read it first), or the Phase 6 follow-ups if the user prefers. The 🔺 one: don't hold `StorageLock.backup` for a whole upload.
-3. The tablet: connected to the user's main Google account (17 Nov). Check with them that "Last backed up …" appears and PDFs show up in Drive.
-4. **Still-unreported tablet checks** (ask when convenient):
+1. **Next phase:** read IDEA.md §5 for Phase 7 and plan it with the user (new branch from `main`). Or the Phase 6 follow-ups in ISSUES.md first if the user prefers; the 🔺 one is not holding `StorageLock.backup` for a whole upload.
+2. The tablet: connected to the user's main Google account (17 Nov). Check with them that "Last backed up …" appears and PDFs show up in Drive.
+3. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own
    - whether **Open in Canvas** opens the Canvas Student app or the Chrome tab
    - whether writing in a text box with the OPPO Pencil turns into typed text
-5. Older follow-ups (ISSUES.md, not blocking):
+4. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture
    - pre-draw the next page
    - a big lasso move pauses on release
