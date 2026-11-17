@@ -10,6 +10,7 @@ _Last updated: 17 Nov 2026, evening (Phase 6: everything that needs no Google lo
   - **Code done, tested with a fake Drive / made-up account, real use waits for 6.6:** 6.7 sign-in + 6.10 automatic backup and status + 6.11 restore from Drive (`d15950a`), 6.12 PDF copies (`2aed69a`), 6.13 Word/PowerPoint → PDF (`211c351`).
   - `play-services-auth` 22.0.0 is in (the user approved it). No database change in Phase 6 (still v7).
   - **Not on the tablet yet.**
+  - Tests after 6.13: **562 unit tests and the full emulator suite (306) pass.**
 - **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet. `connectedDebugAndroidTest` **uninstalls the app afterwards** (emulator data gone; rerun `screenshots/p4setup.sh`).
 - **The tablet runs `main`** (Phase 5 + second review), database **version 7**. Never install a build older than v7 on it.
 
