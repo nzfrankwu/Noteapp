@@ -127,6 +127,12 @@ interface DriveApi {
 
     /** Deletes [fileId] for good. A file that's already gone is fine. */
     suspend fun delete(fileId: String)
+
+    /**
+     * Deletes the earlier versions of [fileId] that Drive keeps after a [replace] (they count
+     * against the person's storage for 30 days). The current content stays.
+     */
+    suspend fun deleteOldRevisions(fileId: String)
 }
 
 /**
@@ -249,6 +255,21 @@ class DriveClient(
         }
     }
 
+    override suspend fun deleteOldRevisions(fileId: String) {
+        val id = checkId(fileId)
+        val url = api("files/$id/revisions").addQueryParameter("fields", "revisions(id)")
+            .addQueryParameter("pageSize", "1000").build()
+        val revisions = parse<RevisionList>(call { Request.Builder().url(url).get() }.use { it.body.string() }).revisions
+        // Drive lists them oldest first; the last one is the current content.
+        for (revision in revisions.dropLast(1)) {
+            try {
+                call { Request.Builder().url(api("files/$id/revisions/${checkId(revision.id)}").build()).delete() }.close()
+            } catch (e: DriveException) {
+                if (e.kind != DriveException.Kind.NOT_FOUND) throw e
+            }
+        }
+    }
+
     // ---- Requests ----
 
     private suspend fun search(q: String): List<DriveFile> {
@@ -360,6 +381,8 @@ class DriveClient(
 
     @Serializable private data class FileList(val files: List<DriveFile> = emptyList(), val nextPageToken: String? = null)
     @Serializable private data class About(val user: User? = null)
+    @Serializable private data class RevisionList(val revisions: List<Revision> = emptyList())
+    @Serializable private data class Revision(val id: String)
     @Serializable private data class User(val emailAddress: String? = null)
     @Serializable private data class ErrorBody(val error: ErrorInfo? = null)
     @Serializable private data class ErrorInfo(val errors: List<ErrorItem> = emptyList())

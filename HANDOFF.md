@@ -7,7 +7,7 @@ _Last updated: 17 Nov 2026, evening (Phase 6: everything that needs no Google lo
 - **Phases 1–5 are merged into `main`.** History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
 - **Phase 6 (backup), branch `phase-6`, mode hands-off** (user, 17 Nov). Plan, the user's decisions and per-step notes: `PHASE-6.md`.
   - **Done and checked on the emulator with a real Google account (17 Nov):** 6.1–6.13. Connect, automatic backup, Back up now, restore round trip from Drive (compare PASS), PDF copies, Word → PDF. Details per step in `PHASE-6.md`.
-  - **Google Cloud project "Noteapp" exists; sign-in is in Testing mode** (test users only). The user wants to publish Noteapp later: homepage + privacy policy URL, then Publish app (ISSUES.md). One Android client is enough: debug and release are both signed with the release key.
+  - **Google Cloud project "Noteapp": sign-in published** (17 Nov). One Android client is enough: debug and release are both signed with the release key.
   - The emulator has the user's spare Google account signed in and connected (it holds only made-up test data).
   - `play-services-auth` 22.0.0 is in (the user approved it). No database change in Phase 6 (still v7).
   - **Not on the tablet yet.**
@@ -31,8 +31,8 @@ _Last updated: 17 Nov 2026, evening (Phase 6: everything that needs no Google lo
 
 ## Next steps (in order)
 
-1. **Publishing Google sign-in:** icon, homepage and privacy policy are done (`site/`, served from branch `gh-pages`; edit `site/` then copy to `gh-pages`). The user still has to switch on GitHub Pages and fill in Branding (see ISSUES.md), then Publish app.
-2. **6.14 tablet check** (ask first; `tablet_snapshot.sh` first). The user connects their real account on the tablet (must be a test user while in Testing mode).
+1. **Google sign-in is published** (17 Nov): site on GitHub Pages from `gh-pages` (edit `site/`, then copy to `gh-pages`). New: Settings → Backup → "Update PDF copies" (15/30/60 min or daily; default 30): a periodic `pdf-copies` job that does nothing unless something changed (`changedAt` > `pdfSyncedAt`), and Drive's old versions of a replaced copy are deleted.
+2. **6.14 tablet check** (ask first; `tablet_snapshot.sh` first). The user connects their real account on the tablet.
 3. End of phase: `/code-review`, fix, retest, ask to merge into `main`.
 4. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)

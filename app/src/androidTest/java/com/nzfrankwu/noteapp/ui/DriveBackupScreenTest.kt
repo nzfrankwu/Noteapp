@@ -101,6 +101,16 @@ class DriveBackupScreenTest {
     }
 
     @Test
+    fun pdfCopyInterval_isSaved() {
+        runBlocking { settings.connect("test@example.com", now) }
+        showBackup()
+        compose.onNodeWithText("Update PDF copies").assertIsDisplayed()
+        compose.onNodeWithTag("pdf-interval-60").performClick()
+        compose.waitUntil(5_000) { runBlocking { settings.current().pdfIntervalMinutes == 60 } }
+        runBlocking { settings.setPdfInterval(30) }
+    }
+
+    @Test
     fun disconnect_asksFirst_thenStops() {
         runBlocking { settings.connect("test@example.com", now) }
         showBackup()

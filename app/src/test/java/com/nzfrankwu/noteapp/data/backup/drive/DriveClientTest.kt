@@ -212,6 +212,20 @@ class DriveClientTest {
     }
 
     @Test
+    fun oldRevisions_areDeleted_butNotTheCurrentOne() {
+        server.enqueue(ok("""{"revisions":[{"id":"r1"},{"id":"r2"},{"id":"r3"}]}"""))
+        server.enqueue(MockResponse().setResponseCode(204))
+        server.enqueue(error(404)) // already gone: fine
+        run { client.deleteOldRevisions("file_1") }
+        assertEquals("/drive/v3/files/file_1/revisions?fields=revisions%28id%29&pageSize=1000", server.takeRequest().path)
+        val first = server.takeRequest()
+        assertEquals("DELETE", first.method)
+        assertEquals("/drive/v3/files/file_1/revisions/r1", first.path)
+        assertEquals("/drive/v3/files/file_1/revisions/r2", server.takeRequest().path)
+        assertEquals("r3, the current content, stays", 3, server.requestCount)
+    }
+
+    @Test
     fun aStrangeFileId_isNeverSent() {
         assertThrows(IllegalArgumentException::class.java) { run { client.delete("../about") } }
         assertEquals(0, server.requestCount)

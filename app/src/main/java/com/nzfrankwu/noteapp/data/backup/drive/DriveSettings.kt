@@ -30,6 +30,9 @@ class DriveSettings(context: Context) : DriveStatusStore {
             lastError = p[LAST_ERROR],
             needsSignIn = p[NEEDS_SIGN_IN] ?: false,
             storedBytes = p[STORED_BYTES] ?: 0L,
+            pdfIntervalMinutes = PdfInterval.valid(p[PDF_INTERVAL]),
+            changedAt = p[CHANGED_AT],
+            pdfSyncedAt = p[PDF_SYNCED_AT],
         )
     }
 
@@ -53,9 +56,19 @@ class DriveSettings(context: Context) : DriveStatusStore {
         it.remove(CONNECTED_AT)
         it.remove(LAST_ERROR)
         it.remove(NEEDS_SIGN_IN)
+        it.remove(PDF_SYNCED_AT)
     }
 
     suspend fun setWifiOnly(on: Boolean) = store.edit { it[WIFI_ONLY] = on }
+
+    suspend fun setPdfInterval(minutes: Int) = store.edit { it[PDF_INTERVAL] = PdfInterval.valid(minutes) }
+
+    /** Something changed (notebooks, folders, tasks): the PDF copies are out of date. */
+    suspend fun markChanged(at: Long) = store.edit { it[CHANGED_AT] = at }
+
+    override suspend fun recordPdfSync(at: Long) {
+        store.edit { it[PDF_SYNCED_AT] = at }
+    }
 
     override suspend fun recordSuccess(at: Long, storedBytes: Long) {
         store.edit {
@@ -81,5 +94,8 @@ class DriveSettings(context: Context) : DriveStatusStore {
         val LAST_ERROR = stringPreferencesKey("last_error")
         val NEEDS_SIGN_IN = booleanPreferencesKey("needs_sign_in")
         val STORED_BYTES = longPreferencesKey("stored_bytes")
+        val PDF_INTERVAL = androidx.datastore.preferences.core.intPreferencesKey("pdf_interval_minutes")
+        val CHANGED_AT = longPreferencesKey("changed_at")
+        val PDF_SYNCED_AT = longPreferencesKey("pdf_synced_at")
     }
 }

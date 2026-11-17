@@ -97,6 +97,13 @@ class PdfCopies(
                             drive.upload(out, name, parentId, PDF_MIME, props)
                         } else {
                             drive.replace(keep.file.id, out, PDF_MIME, name, props)
+                            // Drive keeps old versions for 30 days, counting against storage; the
+                            // full backup has the history, so the copy needs only its newest.
+                            try {
+                                drive.deleteOldRevisions(keep.file.id)
+                            } catch (e: DriveException) {
+                                // left for Drive to expire
+                            }
                             if (keep.parentId != parentId) drive.move(keep.file.id, null, parentId, keep.parentId)
                         }
                         uploaded++

@@ -25,6 +25,12 @@ import java.util.concurrent.TimeUnit
 class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val container = (applicationContext as NoteAppApplication).container
+        if (inputData.getBoolean(PDFS_ONLY, false)) {
+            return when (container.driveBackupRunner.runPdfCopies()) {
+                DriveBackupRunner.PdfOutcome.TryLater -> Result.retry()
+                else -> Result.success()
+            }
+        }
         val outcome = container.driveBackupRunner.run(withPdfs = inputData.getBoolean(WITH_PDFS, false)) { _, progress ->
             if (progress != null) setProgressAsync(workDataOf(PROGRESS to progress))
         }
@@ -38,9 +44,12 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         const val SOON = "backup-soon"
         const val DAILY = "backup-daily"
         const val NOW = "backup-now"
+        /** "Update PDF copies" every 15/30/60 minutes ([PdfInterval]); the daily run covers "Once a day". */
+        const val PDFS = "pdf-copies"
+        private const val PDFS_ONLY = "pdfs_only"
         const val PROGRESS = "progress"
         private const val WITH_PDFS = "with_pdfs"
-        val ALL = listOf(SOON, DAILY, NOW)
+        val ALL = listOf(SOON, DAILY, NOW, PDFS)
         private const val MAX_ATTEMPTS = 5
 
         private fun constraints(wifiOnly: Boolean, batteryNotLow: Boolean = true) = Constraints.Builder()
@@ -56,6 +65,21 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.MINUTES)
                 .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(DAILY, ExistingPeriodicWorkPolicy.UPDATE, request)
+        }
+
+        /** The PDF copies every [minutes] while you work (nothing changed = no network at all). */
+        fun schedulePdfs(context: Context, minutes: Int, wifiOnly: Boolean) {
+            val work = WorkManager.getInstance(context)
+            if (minutes >= PdfInterval.DAILY) {
+                work.cancelUniqueWork(PDFS)
+                return
+            }
+            val request = PeriodicWorkRequestBuilder<BackupWorker>(minutes.toLong(), TimeUnit.MINUTES)
+                .setInputData(workDataOf(PDFS_ONLY to true))
+                .setConstraints(constraints(wifiOnly))
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.MINUTES)
+                .build()
+            work.enqueueUniquePeriodicWork(PDFS, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
 
         /** A backup 5 minutes after the last change. */

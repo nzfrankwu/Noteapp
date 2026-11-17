@@ -99,18 +99,31 @@ class DriveConnection(
     fun setWifiOnly(on: Boolean) {
         scope.launch {
             settings.setWifiOnly(on)
-            if (settings.current().connected) BackupWorker.scheduleDaily(context, on)
+            reschedule()
         }
+    }
+
+    /** "Update PDF copies": every 15/30/60 minutes or once a day ([PdfInterval]). */
+    fun setPdfInterval(minutes: Int) {
+        scope.launch {
+            settings.setPdfInterval(minutes)
+            reschedule()
+        }
+    }
+
+    private suspend fun reschedule() {
+        val s = settings.current()
+        if (!s.connected) return
+        BackupWorker.scheduleDaily(context, s.wifiOnly)
+        BackupWorker.schedulePdfs(context, s.pdfIntervalMinutes, s.wifiOnly)
     }
 
     /** At app start: keep the daily backup scheduled, and back up soon after every change. */
     fun keepBackingUp(changes: Flow<*>) {
-        scope.launch {
-            val s = settings.current()
-            if (s.connected) BackupWorker.scheduleDaily(context, s.wifiOnly)
-        }
+        scope.launch { reschedule() }
         scope.launch {
             changes.collect {
+                settings.markChanged(now())
                 val s = settings.current()
                 if (s.connected) BackupWorker.soon(context, s.wifiOnly)
             }
@@ -124,7 +137,7 @@ class DriveConnection(
         })
         val email = probe.accountEmail() ?: throw DriveException(DriveException.Kind.OTHER, "Couldn't tell which Google account this is.")
         settings.connect(email, now())
-        BackupWorker.scheduleDaily(context, settings.current().wifiOnly)
+        reschedule()
         val offer = if (appIsEmpty()) runCatching { backup.snapshots() }.getOrDefault(emptyList()) else emptyList()
         BackupWorker.now(context) // never overwrites a real backup from an empty app (see DriveBackup)
         _connect.value = Connect.Connected(email, offer)

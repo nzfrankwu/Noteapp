@@ -18,8 +18,33 @@ data class DriveStatus(
     val needsSignIn: Boolean = false,
     /** What the backup takes in Drive, after the last success. */
     val storedBytes: Long = 0,
+    /** How often the PDF copies are brought up to date while you work ([PdfInterval]). */
+    val pdfIntervalMinutes: Int = PdfInterval.DEFAULT,
+    /** When notebooks, folders or tasks last changed (null: not since this was added). */
+    val changedAt: Long? = null,
+    /** When the PDF copies were last brought up to date (the start of that run). */
+    val pdfSyncedAt: Long? = null,
 ) {
     val connected: Boolean get() = email != null
+
+    /** True when something changed since the PDF copies were last updated. */
+    val pdfsOutOfDate: Boolean get() = pdfSyncedAt == null || (changedAt != null && changedAt > pdfSyncedAt)
+}
+
+/** The choices for "Update PDF copies" (minutes). Android runs background work at most every 15 minutes. */
+object PdfInterval {
+    const val DAILY = 24 * 60
+    const val DEFAULT = 30
+    val CHOICES = listOf(15, 30, 60, DAILY)
+
+    fun label(minutes: Int): String = when (minutes) {
+        DAILY -> "Once a day"
+        60 -> "Every hour"
+        else -> "Every $minutes min"
+    }
+
+    /** Only these values are used; anything else falls back to the default. */
+    fun valid(minutes: Int?): Int = minutes?.takeIf { it in CHOICES } ?: DEFAULT
 }
 
 /** Records how backups go (the app's DataStore; a fake in tests). */
@@ -27,6 +52,7 @@ interface DriveStatusStore {
     suspend fun current(): DriveStatus
     suspend fun recordSuccess(at: Long, storedBytes: Long)
     suspend fun recordFailure(message: String, needsSignIn: Boolean)
+    suspend fun recordPdfSync(at: Long)
 }
 
 /** The words for the backup status in Settings and on Home (PHASE-6.md 6.10). */
@@ -98,14 +124,11 @@ class DriveBackupRunner(
         return try {
             val result = backup.backUp(onProgress) ?: return Outcome.Skipped
             store.recordSuccess(now(), result.storedBytes)
-            val pdfs = pdfCopies
-            if (withPdfs && pdfs != null) {
+            if (withPdfs && pdfCopies != null) {
                 onProgress("Updating the PDF copies…", null)
                 // The copies are for reading; the backup above already succeeded, so trouble here
                 // only waits for the next run.
-                runCatching {
-                    com.nzfrankwu.noteapp.data.StorageLock.backup.withLock { pdfs.sync() }
-                }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                runCatching { syncPdfs() }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
             }
             Outcome.Done(result)
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -128,5 +151,41 @@ class DriveBackupRunner(
             store.recordFailure(message, needsSignIn = false)
             Outcome.Failed(message)
         }
+    }
+
+    /**
+     * The PDF copies on their own (the "Update PDF copies" job): only when something changed since
+     * the last update, so a quiet tablet never even contacts Google.
+     */
+    suspend fun runPdfCopies(): PdfOutcome {
+        val status = store.current()
+        if (!status.connected || pdfCopies == null) return PdfOutcome.NotConnected
+        if (restorePending() || !status.pdfsOutOfDate) return PdfOutcome.UpToDate
+        return try {
+            PdfOutcome.Updated(syncPdfs())
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: DriveException) {
+            if (e.kind == DriveException.Kind.OFFLINE) PdfOutcome.TryLater else PdfOutcome.Failed(e.message.orEmpty())
+        } catch (e: Exception) {
+            PdfOutcome.Failed("Something went wrong (${e.javaClass.simpleName}).")
+        }
+    }
+
+    sealed interface PdfOutcome {
+        data object NotConnected : PdfOutcome
+        data object UpToDate : PdfOutcome
+        data class Updated(val result: PdfCopies.Result) : PdfOutcome
+        data object TryLater : PdfOutcome
+        data class Failed(val message: String) : PdfOutcome
+    }
+
+    /** Brings the copies up to date; changes made while it runs are caught by the next run. */
+    private suspend fun syncPdfs(): PdfCopies.Result {
+        val pdfs = checkNotNull(pdfCopies)
+        val started = now()
+        val result = com.nzfrankwu.noteapp.data.StorageLock.backup.withLock { pdfs.sync() }
+        store.recordPdfSync(started)
+        return result
     }
 }

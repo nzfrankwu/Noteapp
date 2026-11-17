@@ -32,10 +32,19 @@ class DriveStatusTest {
         override suspend fun recordFailure(message: String, needsSignIn: Boolean) {
             status = status.copy(lastError = message, needsSignIn = needsSignIn)
         }
+        override suspend fun recordPdfSync(at: Long) {
+            status = status.copy(pdfSyncedAt = at)
+        }
     }
 
     private val drive = FakeDrive()
     private var restorePending = false
+
+    private val pdfSource = object : PdfCopies.Source {
+        override suspend fun wanted() = listOf(PdfCopies.Wanted("n1", "Lecture 1", listOf("Electromagnetics"), "v1"))
+        override suspend fun allIds() = setOf("n1")
+        override suspend fun export(notebookId: String, out: File) = out.writeText("%PDF-1.7")
+    }
 
     private fun runner(store: DriveStatusStore): DriveBackupRunner {
         val backup = DriveBackup(drive, { staging ->
@@ -45,7 +54,7 @@ class DriveStatusTest {
                 mapOf("db/noteapp.db" to file),
             )
         }, temp.newFolder())
-        return DriveBackupRunner(store, backup, { restorePending }, now = { now })
+        return DriveBackupRunner(store, backup, { restorePending }, PdfCopies(drive, pdfSource, temp.newFolder()), now = { now })
     }
 
     private val connected = DriveStatus(email = "test@example.com", connectedAt = now - day)
@@ -95,6 +104,41 @@ class DriveStatusTest {
         runner(store).run()
         assertEquals("Your Google Drive is full.", store.status.lastError)
         assertFalse(store.status.needsSignIn)
+    }
+
+    @Test
+    fun pdfCopies_runOnlyWhenSomethingChanged() = runBlocking {
+        val store = MemoryStore(connected.copy(changedAt = now - 60_000, pdfSyncedAt = now - 120_000))
+        assertTrue(runner(store).runPdfCopies() is DriveBackupRunner.PdfOutcome.Updated)
+        assertEquals(now, store.status.pdfSyncedAt)
+        assertEquals(1, drive.items.values.count { it.mimeType == PdfCopies.PDF_MIME })
+
+        drive.uploads.clear()
+        val requestsBefore = drive.items.size
+        assertEquals(DriveBackupRunner.PdfOutcome.UpToDate, runner(store).runPdfCopies())
+        assertTrue("nothing changed: Drive isn't even asked", drive.uploads.isEmpty())
+        assertEquals(requestsBefore, drive.items.size)
+    }
+
+    @Test
+    fun pdfCopies_notConnected_orOffline() = runBlocking {
+        assertEquals(DriveBackupRunner.PdfOutcome.NotConnected, runner(MemoryStore(DriveStatus())).runPdfCopies())
+        drive.failEverything = DriveException(DriveException.Kind.OFFLINE, "Couldn't reach Google Drive.")
+        val store = MemoryStore(connected)
+        assertEquals(DriveBackupRunner.PdfOutcome.TryLater, runner(store).runPdfCopies())
+        assertNull("not marked as updated", store.status.pdfSyncedAt)
+    }
+
+    @Test
+    fun outOfDate_rules() {
+        assertTrue("never updated", DriveStatus(email = "a").pdfsOutOfDate)
+        assertTrue(DriveStatus(email = "a", changedAt = 20, pdfSyncedAt = 10).pdfsOutOfDate)
+        assertFalse(DriveStatus(email = "a", changedAt = 10, pdfSyncedAt = 20).pdfsOutOfDate)
+        assertEquals(30, PdfInterval.valid(null))
+        assertEquals(30, PdfInterval.valid(7))
+        assertEquals(15, PdfInterval.valid(15))
+        assertEquals("Every 30 min", PdfInterval.label(30))
+        assertEquals("Once a day", PdfInterval.label(PdfInterval.DAILY))
     }
 
     @Test

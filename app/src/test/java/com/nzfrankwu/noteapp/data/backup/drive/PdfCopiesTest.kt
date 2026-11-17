@@ -82,8 +82,9 @@ class PdfCopiesTest {
         add("n1", "Lecture 1", "Electromagnetics", version = "v2")
         sync()
         val copy = drive.items.values.single { it.mimeType == PdfCopies.PDF_MIME }
-        assertEquals("same Drive file (its history stays in Drive)", id, copy.id)
+        assertEquals("same Drive file (links to it keep working)", id, copy.id)
         assertEquals("%PDF v2", copy.bytes.decodeToString())
+        assertEquals("Drive's old versions go (they'd count against storage)", listOf(id), drive.revisionCleanups)
     }
 
     @Test

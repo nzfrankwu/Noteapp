@@ -30,6 +30,11 @@ class FakeDrive(var now: () -> Instant = { Instant.parse("2026-11-17T10:00:00Z")
     var uploads = mutableListOf<String>() // names, in order
     var downloads = 0
     val replaced = mutableListOf<String>()
+    val revisionCleanups = mutableListOf<String>()
+
+    override suspend fun deleteOldRevisions(fileId: String) {
+        revisionCleanups += fileId
+    }
 
     /** Throw on the upload with this (1-based) number, counting from now. */
     var failUploadNumber: Int? = null

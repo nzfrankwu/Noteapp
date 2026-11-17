@@ -10,7 +10,6 @@ _None known._
 
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
-- **Google sign-in is still in Testing mode (you want to publish Noteapp later):** only the test users you added can connect, and Google may ask them to sign in again after about 7 days. Ready for publishing (17 Nov): app icon, homepage and privacy policy (`site/`, pushed to the `gh-pages` branch). Left for you: (1) GitHub repo → Settings → Pages → deploy from branch `gh-pages`, root; (2) Google Auth Platform → Branding: homepage `https://nzfrankwu.github.io/Noteapp/`, privacy policy `https://nzfrankwu.github.io/Noteapp/privacy.html`, authorized domain `nzfrankwu.github.io`, **no logo upload** (a logo can make Google ask for a verification review); (3) Audience → Publish app.
 - **A Home nudge when Drive isn't connected? (your call):** today Home only warns once Drive is connected and backups fail or stop for 3 days. Nothing on Home reminds you to connect Drive in the first place.
 
 ## Follow-ups / tech debt
@@ -77,6 +76,8 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Google sign-in published (17 Nov):** app icon, homepage and privacy policy (`site/`, served by GitHub Pages from `gh-pages`: https://nzfrankwu.github.io/Noteapp/), Branding filled in and Publish app done by the user. Any Google account can now connect.
 
 - **Phase 6.4 Recently deleted (17 Nov):** deleted notebooks and PDFs are listed for 30 days (Home row and Settings) with Restore and Delete now; a notebook whose folder was deleted asks for a folder. Resolves the old "deleted notebooks without a folder" follow-up. A daily job deletes anything older than 30 days for good.
 - **Phase 6.1–6.3 Export everything / Import from export (17 Nov):** Settings → Backup. Real round trip on the emulator: compare PASS.

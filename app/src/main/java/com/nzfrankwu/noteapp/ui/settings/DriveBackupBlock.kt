@@ -158,6 +158,21 @@ fun DriveBackupBlock(drive: DriveConnection, manager: BackupManager) {
                 }
                 Switch(checked = s.wifiOnly, onCheckedChange = drive::setWifiOnly, modifier = Modifier.testTag("drive-wifi-only"))
             }
+            Text("Update PDF copies", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Readable copies of the notebooks you changed, in Noteapp › Notes (PDF) in your Drive, to open on " +
+                    "a computer. Back up now updates them straight away.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            com.nzfrankwu.noteapp.ui.components.SegmentedTabs(
+                options = com.nzfrankwu.noteapp.data.backup.drive.PdfInterval.CHOICES,
+                selected = s.pdfIntervalMinutes,
+                label = { com.nzfrankwu.noteapp.data.backup.drive.PdfInterval.label(it) },
+                testTag = { "pdf-interval-$it" },
+                onSelect = drive::setPdfInterval,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
         when (val c = connect) {
             DriveConnection.Connect.Working -> Text("Connecting to Google…", style = MaterialTheme.typography.bodyMedium)
