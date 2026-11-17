@@ -8,6 +8,13 @@ _None known._
 
 ## Open questions
 
+- **Phase 7, waiting on you (18 Nov, hands-off stop):**
+  - **7.8 search screen layout** (new screen, no Notein reference): suggested a search icon on Home → full screen, search box on top, results grouped Tasks · Notebooks · Folders & courses (later "In your notes"). OK?
+  - **7.10:** OK to add Google's ML Kit handwriting recognition (English model ~20 MB, downloaded once on Wi-Fi)?
+  - **7.11 editor speed** skipped in hands-off: it changes how pages draw their ink and can't be measured on the emulator (deep zoom needs a pinch; the lasso pause needs the real pen). To do together with the tablet.
+  - **7.12 pen widths:** try the Off/Low/Medium/Full pens on the tablet first.
+  - **7.13:** OK to install on the tablet? It upgrades the database to v8 (Submitted → Done); snapshot first.
+
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
 - **A Home nudge when Drive isn't connected? (your call):** today Home only warns once Drive is connected and backups fail or stop for 3 days. Nothing on Home reminds you to connect Drive in the first place.

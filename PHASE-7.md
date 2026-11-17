@@ -65,6 +65,8 @@ Phases 1–6 are merged into `main` (`c4b9e7a`) and the tablet runs the Phase 6 
 - [ ] 🔺 **7.9 Search index: PDF text + text boxes**, highlight on open, Find in this notebook. ★
 - [ ] 🔺 **7.10 Handwriting search.** Ask before adding ML Kit; check it builds with Kotlin 2.2 / AGP 9.5.1; check the privacy policy (`site/`) wording. Recognition quality needs the tablet. ★
 - [ ] **7.11 Editor speed.** A picture of just the visible part at very deep zoom; pre-draw the next page; no pause after a big lasso move. Measure with `screenshots/framestats.py`. ★
+  - Full suite after 7.7: 605 unit tests, 321 emulator tests pass (18 Nov).
+  - Skipped in the hands-off run (18 Nov): the fixes change how pages draw their ink (`StrokeDrawables`, `PageInkLayers`, the lasso commit in `NotebookCanvas.commitSelection`) and can't be measured on the emulator. Idea for the lasso pause: moved strokes are rebuilt one by one on the main thread in `StrokeDrawables.get`; build them in the background before the selection is let go.
 - [ ] **7.12 Pen widths (F22)** after the user tries the pens on the tablet; new ink keys if notes already use the old widths. ★
 - [ ] **7.13 Tablet check** (ask first; snapshot with files; install; v7 → v8; compare).
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest, ask to merge into `main`.

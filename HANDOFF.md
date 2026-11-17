@@ -34,7 +34,7 @@ _Last updated: 18 Nov 2026 (Phase 7, hands-off: 7.1–7.7 done). Keep this file 
 
 ## Next steps (in order)
 
-1. **Step 7.11 editor speed** (hands-off order; 7.8–7.10, 7.12, 7.13 need the user).
+1. **Hands-off run stopped (18 Nov) after 7.7; see `REPORT.md` (git-ignored) and ISSUES.md "Open questions".** Waiting on the user for: 7.8 search screen layout, ML Kit OK (7.10), 7.11 (skipped: needs the tablet to measure), pen widths (7.12), tablet install (7.13). Next: whichever the user OKs first; 7.8 → 7.9 → 7.10 are in order. (hands-off order; 7.8–7.10, 7.12, 7.13 need the user).
 3. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own
