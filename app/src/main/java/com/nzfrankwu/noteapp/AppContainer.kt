@@ -31,6 +31,11 @@ import kotlinx.coroutines.flow.first
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
 
+    init {
+        // The text boxes' font (Phase 5): the same on screen, in tiles and in exported PDFs.
+        com.nzfrankwu.noteapp.data.TextBoxLayout.install(appContext.assets)
+    }
+
     val database: NoteAppDatabase by lazy { NoteAppDatabase.create(appContext) }
 
     val folderRepository: FolderRepository by lazy { FolderRepository(database) }
@@ -41,8 +46,11 @@ class AppContainer(context: Context) {
 
     /** Links between tasks and notebooks, and page bookmarks (Phase 4). */
     val linkRepository: com.nzfrankwu.noteapp.data.LinkRepository by lazy {
-        com.nzfrankwu.noteapp.data.LinkRepository(database, notebookRepository)
+        com.nzfrankwu.noteapp.data.LinkRepository(database, notebookRepository, files = notebookFiles)
     }
+
+    /** The lasso's Copy/Cut, shared by every notebook while the app runs (PHASE-5.md 5.10). */
+    val editorClipboard: com.nzfrankwu.noteapp.ui.notebook.EditorClipboard by lazy { com.nzfrankwu.noteapp.ui.notebook.EditorClipboard() }
 
     /** The handwriting: one file per page in the app's private files folder (never the cache). */
     val notebookFiles: NotebookFiles by lazy { NotebookFiles(appContext.filesDir) }

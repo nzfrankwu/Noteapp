@@ -2,6 +2,7 @@ package com.nzfrankwu.noteapp.data
 
 import com.nzfrankwu.noteapp.domain.ink.InkImage
 import com.nzfrankwu.noteapp.domain.ink.InkStroke
+import com.nzfrankwu.noteapp.domain.ink.InkText
 import com.nzfrankwu.noteapp.domain.ink.PageInkCodec
 import com.nzfrankwu.noteapp.domain.ink.PageFileException
 import java.io.File
@@ -14,7 +15,11 @@ import java.nio.file.StandardCopyOption
 sealed interface PageRead {
     /** No file yet: the page has never been written on. */
     data object Missing : PageRead
-    data class Ok(val strokes: List<InkStroke>, val images: List<InkImage> = emptyList()) : PageRead
+    data class Ok(
+        val strokes: List<InkStroke>,
+        val images: List<InkImage> = emptyList(),
+        val texts: List<InkText> = emptyList(),
+    ) : PageRead
     /** The file exists but can't be read. It's left untouched; [reason] says why. */
     data class Damaged(val reason: String) : PageRead
 }
@@ -37,7 +42,7 @@ class NotebookFiles(private val root: File) {
         val file = pageFile(notebookId, pageId)
         if (!file.exists()) return PageRead.Missing
         return try {
-            PageInkCodec.decodePage(file.readBytes()).let { PageRead.Ok(it.strokes, it.images) }
+            PageInkCodec.decodePage(file.readBytes()).let { PageRead.Ok(it.strokes, it.images, it.texts) }
         } catch (e: PageFileException) {
             PageRead.Damaged(e.message ?: "Damaged page file")
         } catch (e: java.io.IOException) {
@@ -46,15 +51,22 @@ class NotebookFiles(private val root: File) {
     }
 
     /**
-     * Saves the page's strokes and pictures, replacing the old file only once the new one is
-     * safely written. A page without pictures is saved in the version 1 format, as before.
+     * Saves the page's strokes, pictures and text boxes, replacing the old file only once the new
+     * one is safely written. A page without pictures or text is saved in the version 1 format, as
+     * before; one without text boxes in version 2.
      */
-    fun write(notebookId: String, pageId: String, strokes: List<InkStroke>, images: List<InkImage> = emptyList()) {
+    fun write(
+        notebookId: String,
+        pageId: String,
+        strokes: List<InkStroke>,
+        images: List<InkImage> = emptyList(),
+        texts: List<InkText> = emptyList(),
+    ) {
         val target = pageFile(notebookId, pageId)
         target.parentFile?.mkdirs()
         val temp = File(target.parentFile, target.name + TEMP_SUFFIX)
         FileOutputStream(temp).use { out ->
-            out.write(PageInkCodec.encode(strokes, images))
+            out.write(PageInkCodec.encode(strokes, images, texts))
             out.flush()
             out.fd.sync() // on the disk, not just in memory
         }

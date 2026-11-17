@@ -48,6 +48,21 @@ interface NotebookDao {
     )
     fun observeInFolder(folderId: String): Flow<List<NotebookListItem>>
 
+    /** Every notebook (not deleted) with its page count, updating live: for the recent panel (PHASE-5.md 5.7). */
+    @Query(
+        """
+        SELECT notebooks.*,
+            (SELECT COUNT(*) FROM pages WHERE pages.notebook_id = notebooks.id AND pages.deleted_at IS NULL)
+            AS page_count,
+            EXISTS (SELECT 1 FROM pages WHERE pages.notebook_id = notebooks.id AND pages.pdf_file IS NOT NULL
+                AND pages.deleted_at IS NULL)
+            AS is_pdf
+        FROM notebooks
+        WHERE notebooks.deleted_at IS NULL
+        """,
+    )
+    fun observeAllListItems(): Flow<List<NotebookListItem>>
+
     /** Every notebook (not deleted), A–Z, updating live: for "Add to Noteapp". */
     @Query("SELECT * FROM notebooks WHERE deleted_at IS NULL ORDER BY title COLLATE NOCASE")
     fun observeAllActive(): Flow<List<Notebook>>

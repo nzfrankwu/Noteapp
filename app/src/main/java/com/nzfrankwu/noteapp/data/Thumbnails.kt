@@ -29,6 +29,8 @@ class Thumbnails(private val dir: File) {
         pdfFile: File? = null, pdfPage: Int = 0,
         /** The page's pictures, with their files. */
         images: List<Pair<com.nzfrankwu.noteapp.domain.ink.InkImage, File>> = emptyList(),
+        /** The page's text boxes (Phase 5). */
+        texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList(),
     ) {
         val scale = WIDTH_PX / pageWidth
         val bitmap = Bitmap.createBitmap(WIDTH_PX.toInt(), (pageHeight * scale).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
@@ -42,6 +44,7 @@ class Thumbnails(private val dir: File) {
             drawPattern(canvas, template, pageWidth, pageHeight, scale)
         }
         InkSketch.drawImages(canvas, images.mapNotNull { (img, file) -> ImageImport.loadForScreen(file, 512)?.let { img to it } }, scale, recycle = true)
+        TextBoxLayout.drawAll(canvas, texts, scale)
         InkSketch.draw(canvas, strokes, scale)
         dir.mkdirs()
         val temp = File(dir, "$notebookId.png.tmp")

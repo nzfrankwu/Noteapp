@@ -71,8 +71,8 @@ fun FolderContents.itemsFor(filter: LibraryFilter): List<LibraryItem> {
 }
 
 /** How many tiles fit across [width]. */
-fun libraryColumns(width: Dp): Int =
-    ((width + Dimens.ItemGap) / (Dimens.LibraryTileMinWidth + Dimens.ItemGap)).toInt().coerceAtLeast(2)
+fun libraryColumns(width: Dp, minTile: Dp = Dimens.LibraryTileMinWidth): Int =
+    ((width + Dimens.ItemGap) / (minTile + Dimens.ItemGap)).toInt().coerceAtLeast(2)
 
 /** "12 Nov · 3 pages" (the year is added when it isn't this year). */
 fun notebookSubtitle(item: NotebookListItem, now: Instant, zone: ZoneId): String {

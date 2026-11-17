@@ -20,6 +20,17 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <!--
+        "Open in Canvas" (PHASE-5.md FB11): the Canvas Student app if it's installed, else a Chrome
+        tab. Android 11+ only shows apps declared here.
+    -->
+    <queries>
+        <package android:name="com.instructure.candroid" />
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+    </queries>
+
+    <!--
         Android's built-in backup is OFF. NoteApp has its own Google Drive backup (Phase 6),
         and Android's would also copy the Canvas sign-in cookies (IDEA.md §3.5).
         allowBackup="false" stops cloud backup; on Android 12+ device-to-device transfer

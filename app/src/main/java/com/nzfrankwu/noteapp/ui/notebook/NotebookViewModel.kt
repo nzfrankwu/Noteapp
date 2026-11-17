@@ -77,6 +77,8 @@ class NotebookViewModel(
     private val io: CoroutineDispatcher = Dispatchers.IO,
     /** Links to tasks and bookmarks (Phase 4). Null in tests that don't need them. */
     linkRepository: com.nzfrankwu.noteapp.data.LinkRepository? = null,
+    /** The lasso's Copy/Cut, shared by every notebook (PHASE-5.md 5.10); one of its own in tests. */
+    private val sharedClipboard: EditorClipboard = EditorClipboard(),
 ) : ViewModel() {
     /** This notebook's linked tasks and bookmarks, or null when links aren't available. */
     val links: NotebookLinks? = linkRepository?.let { NotebookLinks(notebookId, it, viewModelScope) }
@@ -135,7 +137,7 @@ class NotebookViewModel(
             if (pageStatus[page.id] == PageStatus.Ready) continue
             when (read) {
                 PageRead.Missing -> ink.load(page.id, emptyList()).also { pageStatus[page.id] = PageStatus.Ready }
-                is PageRead.Ok -> ink.load(page.id, read.strokes, read.images).also { pageStatus[page.id] = PageStatus.Ready }
+                is PageRead.Ok -> ink.load(page.id, read.strokes, read.images, read.texts).also { pageStatus[page.id] = PageStatus.Ready }
                 is PageRead.Damaged -> pageStatus[page.id] = PageStatus.Damaged(read.reason)
             }
             version++
@@ -206,8 +208,9 @@ class NotebookViewModel(
                 val page = pages.value.firstOrNull { it.id == pageId }
                 val pdfBack = page?.let { p -> pdfFileOf(p)?.let { f -> pdf.wholePage(f, p.pdfPage ?: 0, size, PREVIEW_WIDTH_PX / size.width) } }
                 val pictures = ink.images(pageId).mapNotNull { img -> imageBitmaps[img.asset]?.let { img to it.asAndroidBitmap() } }
-                val picture = if (strokes.isEmpty() && pdfBack == null && pictures.isEmpty()) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
-                    renderPreview(strokes, size.width, size.height, pdfBack?.bitmap, pictures)
+                val texts = ink.texts(pageId).toList()
+                val picture = if (strokes.isEmpty() && pdfBack == null && pictures.isEmpty() && texts.isEmpty()) EMPTY_PREVIEW else withContext(Dispatchers.Default) {
+                    renderPreview(strokes, size.width, size.height, pdfBack?.bitmap, pictures, texts)
                 }
                 // Changed while it was drawn: draw it again (the loop comes back to it).
                 if ((pageEdits[pageId] ?: 0) == edits) previews[pageId] = picture
@@ -218,6 +221,7 @@ class NotebookViewModel(
     private fun renderPreview(
         strokes: List<InkStroke>, pageWidth: Float, pageHeight: Float, pdfPage: Bitmap? = null,
         pictures: List<Pair<com.nzfrankwu.noteapp.domain.ink.InkImage, Bitmap>> = emptyList(),
+        texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList(),
     ): ImageBitmap {
         val scale = PREVIEW_WIDTH_PX / pageWidth
         val bitmap = Bitmap.createBitmap(PREVIEW_WIDTH_PX.toInt(), (pageHeight * scale).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
@@ -226,6 +230,7 @@ class NotebookViewModel(
             canvas.drawBitmap(pdfPage, null, android.graphics.Rect(0, 0, bitmap.width, bitmap.height), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
         }
         InkSketch.drawImages(canvas, pictures, scale)
+        com.nzfrankwu.noteapp.data.TextBoxLayout.drawAll(canvas, texts, scale)
         InkSketch.draw(canvas, strokes, scale, widthFactor = PREVIEW_LINE_FACTOR, minWidth = 0.7f)
         return bitmap.asImageBitmap()
     }
@@ -589,68 +594,106 @@ class NotebookViewModel(
     fun imagesInLoop(pageId: String, xs: FloatArray, ys: FloatArray): List<com.nzfrankwu.noteapp.domain.ink.InkImage> =
         if (!isEditable(pageId)) emptyList() else ink.images(pageId).filter { InkGeometry.imageInLoop(it, xs, ys) }
 
+    /** The text boxes the lasso loop picks (a corner inside, or touching the loop). */
+    fun textsInLoop(pageId: String, xs: FloatArray, ys: FloatArray): List<com.nzfrankwu.noteapp.domain.ink.InkText> =
+        if (!isEditable(pageId)) emptyList() else ink.texts(pageId).filter { InkGeometry.textInLoop(it, xs, ys) }
+
     /** The topmost picture at ([x], [y]) on the page (page units), for a lasso tap. */
     fun imageAt(pageId: String, x: Float, y: Float): com.nzfrankwu.noteapp.domain.ink.InkImage? =
         if (!isEditable(pageId)) null else ink.images(pageId).lastOrNull { it.contains(x, y) }
 
-    /** Saves the lasso's move, resize or turn of strokes and pictures (same IDs, new places): one undo step. */
-    fun replaceSelection(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage>) {
-        if (!isEditable(pageId) || (strokes.isEmpty() && images.isEmpty())) return
-        ink.replace(pageId, strokes, images)
+    /**
+     * Saves the lasso's move, resize or turn of strokes, pictures and text boxes (same IDs, new
+     * places): one undo step. Returns the text boxes as saved (their heights measured again).
+     */
+    fun replaceSelection(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage>, texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList()): List<com.nzfrankwu.noteapp.domain.ink.InkText> {
+        val measured = texts.map { com.nzfrankwu.noteapp.data.TextBoxLayout.measured(it) }
+        if (!isEditable(pageId) || (strokes.isEmpty() && images.isEmpty() && texts.isEmpty())) return measured
+        ink.replace(pageId, strokes, images, measured)
         changed(pageId)
+        return measured
     }
 
-    /** Deletes the lasso's strokes and pictures (one undo step). Picture files are kept for undo. */
-    fun deleteSelection(pageId: String, strokeIds: Set<String>, imageIds: Set<String> = emptySet()) {
+    /** Deletes the lasso's strokes, pictures and text boxes (one undo step). Picture files are kept for undo. */
+    fun deleteSelection(pageId: String, strokeIds: Set<String>, imageIds: Set<String> = emptySet(), textIds: Set<String> = emptySet()) {
         if (!isEditable(pageId)) return
-        if (ink.remove(pageId, strokeIds, imageIds) > 0) changed(pageId)
+        if (ink.remove(pageId, strokeIds, imageIds, textIds) > 0) changed(pageId)
     }
 
     // ---- Copy, cut, duplicate and paste (PHASE-2.md F12) ----
 
-    /** Strokes and pictures copied or cut with the lasso (this notebook only, until it closes). */
-    data class Clip(val strokes: List<InkStroke>, val images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList())
-
-    /** What was copied or cut, ready to paste. */
-    var clipboard by mutableStateOf<Clip?>(null)
-        private set
-
-    fun copy(strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList()) {
-        if (strokes.isNotEmpty() || images.isNotEmpty()) clipboard = Clip(strokes, images)
+    /** Strokes, pictures and text boxes copied or cut with the lasso (pasted in any notebook, 5.10). */
+    data class Clip(val strokes: List<InkStroke>, val images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(), val texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList()) {
+        val isEmpty: Boolean get() = strokes.isEmpty() && images.isEmpty() && texts.isEmpty()
     }
 
-    fun cut(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList()) {
-        copy(strokes, images)
-        deleteSelection(pageId, strokes.mapTo(HashSet()) { it.id }, images.mapTo(HashSet()) { it.id })
+    /** What was copied or cut (in this notebook or another), ready to paste. */
+    val clipboard: Clip? get() = sharedClipboard.content?.clip
+
+    fun copy(strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(), texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList()) {
+        val clip = Clip(strokes, images, texts)
+        if (!clip.isEmpty) sharedClipboard.content = EditorClipboard.Content(notebookId, clip)
+    }
+
+    fun cut(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(), texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList()) {
+        copy(strokes, images, texts)
+        deleteSelection(pageId, strokes.mapTo(HashSet()) { it.id }, images.mapTo(HashSet()) { it.id }, texts.mapTo(HashSet()) { it.id })
     }
 
     /** Adds a copy a little down and to the right (one undo step); returns the copy (for selecting it). */
-    fun duplicate(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList()): Clip {
-        if (!isEditable(pageId) || (strokes.isEmpty() && images.isEmpty())) return Clip(emptyList())
+    fun duplicate(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage> = emptyList(), texts: List<com.nzfrankwu.noteapp.domain.ink.InkText> = emptyList()): Clip {
+        if (!isEditable(pageId) || (strokes.isEmpty() && images.isEmpty() && texts.isEmpty())) return Clip(emptyList())
         val copies = Clip(
             strokes.map { it.mapped(1f, 0f, 0f, DUPLICATE_OFFSET, DUPLICATE_OFFSET, newId = java.util.UUID.randomUUID().toString()) },
             // A copied picture shares the same picture file (files are never deleted while in use).
             images.map { it.copy(id = java.util.UUID.randomUUID().toString(), left = it.left + DUPLICATE_OFFSET, top = it.top + DUPLICATE_OFFSET) },
+            texts.map { it.copy(id = java.util.UUID.randomUUID().toString(), left = it.left + DUPLICATE_OFFSET, top = it.top + DUPLICATE_OFFSET) },
         )
-        ink.add(pageId, copies.strokes, copies.images)
+        ink.add(pageId, copies.strokes, copies.images, copies.texts)
         changed(pageId)
         return copies
     }
 
-    /** Pastes the clipboard centred on ([x], [y]) (page units); returns what was pasted. */
-    fun paste(pageId: String, x: Float, y: Float): Clip {
-        val clip = clipboard ?: return Clip(emptyList())
+    /**
+     * Pastes the clipboard centred on ([x], [y]) (page units); returns what was pasted. Pictures
+     * copied in another notebook are copied into this one's folder first (5.10).
+     */
+    suspend fun paste(pageId: String, x: Float, y: Float): Clip {
+        val content = sharedClipboard.content ?: return Clip(emptyList())
         if (!isEditable(pageId)) return Clip(emptyList())
-        val box = InkGeometry.boundsOf(clip.strokes, clip.images) ?: return Clip(emptyList())
+        val clip = if (content.notebookId == notebookId || content.clip.images.isEmpty()) content.clip else {
+            content.clip.copy(images = copyPicturesIn(content.notebookId, content.clip.images))
+        }
+        val box = InkGeometry.boundsOf(clip.strokes, clip.images, clip.texts) ?: return Clip(emptyList())
         val dx = x - (box[0] + box[2]) / 2
         val dy = y - (box[1] + box[3]) / 2
         val pasted = Clip(
             clip.strokes.map { it.mapped(1f, 0f, 0f, dx, dy, newId = java.util.UUID.randomUUID().toString()) },
             clip.images.map { it.copy(id = java.util.UUID.randomUUID().toString(), left = it.left + dx, top = it.top + dy) },
+            clip.texts.map { it.copy(id = java.util.UUID.randomUUID().toString(), left = it.left + dx, top = it.top + dy) },
         )
-        ink.add(pageId, pasted.strokes, pasted.images)
+        ink.add(pageId, pasted.strokes, pasted.images, pasted.texts)
         changed(pageId)
         return pasted
+    }
+
+    /** Copies [images]' picture files from notebook [from] into this one; pictures that can't be copied are left out. */
+    private suspend fun copyPicturesIn(from: String, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage>): List<com.nzfrankwu.noteapp.domain.ink.InkImage> = withContext(io) {
+        val copied = HashMap<String, String?>()
+        images.mapNotNull { img ->
+            val name = copied.getOrPut(img.asset) {
+                runCatching {
+                    val source = files.assetFile(from, img.asset)
+                    if (!source.exists()) return@runCatching null
+                    val target = files.newImageName(img.asset.substringAfterLast('.', "png"))
+                    val file = files.assetFile(notebookId, target)
+                    file.parentFile?.mkdirs()
+                    source.copyTo(file)
+                    target
+                }.getOrNull()
+            }
+            name?.let { img.copy(asset = it) }
+        }
     }
 
     fun undo() {
@@ -666,7 +709,8 @@ class NotebookViewModel(
     private fun afterUndoRedo(edit: InkEdit, undoing: Boolean) {
         when (edit) {
             is InkEdit.Add, is InkEdit.Remove, is InkEdit.Replace,
-            is InkEdit.AddImages, is InkEdit.RemoveImages, is InkEdit.ReplaceImages, is InkEdit.Group,
+            is InkEdit.AddImages, is InkEdit.RemoveImages, is InkEdit.ReplaceImages,
+            is InkEdit.AddTexts, is InkEdit.RemoveTexts, is InkEdit.ReplaceTexts, is InkEdit.Group,
             -> edit.changedPages.forEach { changed(it) }
             is InkEdit.AddPage -> viewModelScope.launch {
                 if (undoing) notebooks.deletePage(edit.pageId) else notebooks.restorePage(edit.pageId, edit.index)
@@ -791,8 +835,8 @@ class NotebookViewModel(
     fun saveNow(): Job? {
         if (dirty.isEmpty()) return null
         saveJob?.cancel()
-        // Strokes AND pictures: a save must never drop a page's pictures.
-        val toSave = dirty.associateWith { ink.strokes(it).toList() to ink.images(it).toList() }
+        // Everything on the page (strokes, pictures, text boxes): a save must never drop any of it.
+        val toSave = dirty.associateWith { ink.content(it) }
         dirty.clear()
         // The tile shows the first page: redraw it only when that page changed.
         val thumbnail = if (pages.value.firstOrNull()?.id in toSave) thumbnailJob() else null
@@ -802,7 +846,7 @@ class NotebookViewModel(
                 for ((pageId, content) in toSave) {
                     // A failed write is retried here, in the scope that outlives the screen, so a
                     // save made while leaving the notebook still gets its retries.
-                    if (writeWithRetries(pageId, content.first, content.second)) {
+                    if (writeWithRetries(pageId, content)) {
                         saved += pageId
                     } else {
                         withContext(Dispatchers.Main) {
@@ -820,11 +864,11 @@ class NotebookViewModel(
     }
 
     /** Writes a page's file, trying again after short pauses if it fails. True once it's saved. */
-    private suspend fun writeWithRetries(pageId: String, strokes: List<InkStroke>, images: List<com.nzfrankwu.noteapp.domain.ink.InkImage>): Boolean {
+    private suspend fun writeWithRetries(pageId: String, content: com.nzfrankwu.noteapp.domain.ink.PageContent): Boolean {
         for (pause in SAVE_RETRY_PAUSES_MS) {
             delay(pause)
             try {
-                withContext(io) { files.write(notebookId, pageId, strokes, images) }
+                withContext(io) { files.write(notebookId, pageId, content.strokes, content.images, content.texts) }
                 return true
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -847,7 +891,8 @@ class NotebookViewModel(
         val pdfFile = pdfFileOf(first)
         val pdfPage = first.pdfPage ?: 0
         val images = ink.images(first.id).mapNotNull { img -> runCatching { img to files.assetFile(notebookId, img.asset) }.getOrNull() }
-        return { t.render(notebookId, paper, size.width, size.height, strokes, pdfFile, pdfPage, images) }
+        val texts = ink.texts(first.id).toList()
+        return { t.render(notebookId, paper, size.width, size.height, strokes, pdfFile, pdfPage, images, texts) }
     }
 
     /** Redraws the tile picture (e.g. after the first page changed). */
@@ -878,6 +923,52 @@ class NotebookViewModel(
         if (!isEditable(pageId) || strokes.isEmpty()) return
         ink.add(pageId, strokes)
         changed(pageId)
+    }
+
+    // ---- Bookmark pen pictures (PHASE-5.md FB5) ----
+
+    /**
+     * Saves a bookmark pen picture in the notebook's folder (`bookmarks/<uuid>.png`, written to a
+     * temporary file first) and returns its file name, or null if it couldn't be saved.
+     */
+    suspend fun saveBookmarkPicture(picture: Bitmap): String? = withContext(io) {
+        runCatching {
+            val name = "bookmarks/${java.util.UUID.randomUUID()}.png"
+            val file = files.assetFile(notebookId, name)
+            file.parentFile?.mkdirs()
+            val temp = java.io.File(file.parentFile, file.name + ".writing")
+            java.io.FileOutputStream(temp).use { out ->
+                picture.compress(Bitmap.CompressFormat.PNG, 100, out)
+                out.flush()
+                out.fd.sync()
+            }
+            if (!temp.renameTo(file)) error("Couldn't save the picture")
+            name
+        }.getOrNull()
+    }
+
+    // ---- Text boxes (PHASE-5.md 5.3) ----
+
+    /** The topmost text box under ([x], [y]) (page units), or null. */
+    fun textAt(pageId: String, x: Float, y: Float): com.nzfrankwu.noteapp.domain.ink.InkText? =
+        if (!isEditable(pageId)) null else ink.texts(pageId).lastOrNull { it.contains(x, y) }
+
+    /**
+     * The look of the last text box typed in (size, colour, bold), for the next new box. Kept
+     * while the notebook is open.
+     */
+    var lastTextStyle: com.nzfrankwu.noteapp.domain.ink.InkText? = null
+        private set
+
+    /**
+     * Finishes editing a text box as one undo step ([before] = null for a new box; [after] null
+     * or blank removes it). Its height is measured from the text first.
+     */
+    fun commitText(pageId: String, before: com.nzfrankwu.noteapp.domain.ink.InkText?, after: com.nzfrankwu.noteapp.domain.ink.InkText?) {
+        if (!isEditable(pageId)) return
+        val measured = after?.let { com.nzfrankwu.noteapp.data.TextBoxLayout.measured(it.copy(text = it.text.take(com.nzfrankwu.noteapp.domain.ink.InkText.MAX_LENGTH))) }
+        if (measured != null && measured.text.isNotBlank()) lastTextStyle = measured
+        if (ink.commitText(pageId, before, measured) != null) changed(pageId)
     }
 
     override fun onCleared() {

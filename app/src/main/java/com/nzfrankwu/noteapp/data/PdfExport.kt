@@ -7,6 +7,9 @@ import com.nzfrankwu.noteapp.domain.PagePattern
 import com.nzfrankwu.noteapp.domain.PageTemplate
 import com.nzfrankwu.noteapp.domain.ink.InkImage
 import com.nzfrankwu.noteapp.domain.ink.InkStroke
+import com.nzfrankwu.noteapp.domain.ink.InkText
+import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
+import com.tom_roush.pdfbox.pdmodel.graphics.state.RenderingMode
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
@@ -29,7 +32,10 @@ class StrokeShape(val outlines: List<FloatArray>, val colorArgb: Int)
  * Exports a notebook as a PDF (PHASE-3.md 3.7), with PdfBox-Android:
  *  - a page of an imported PDF is the ORIGINAL page (its text stays sharp and selectable), with
  *    the pictures and ink drawn on top;
- *  - any other page is a new page of its size with its paper pattern, pictures, then ink.
+ *  - any other page is a new page of its size with its paper pattern, pictures, then ink;
+ *  - text boxes (Phase 5) are real text in the embedded Liberation Sans, laid out line by line
+ *    exactly as on screen ([TextBoxLayout.lines]), so they can be selected and searched. A box with
+ *    a character the font doesn't have (an emoji, Chinese) is drawn as a picture instead.
  * Ink is drawn as filled vector shapes (the same outlines the screen draws), highlighter
  * see-through. Reads the saved page files: save the notebook first.
  */
@@ -50,6 +56,8 @@ class PdfExport(
     ) = withContext(io) {
         val sources = HashMap<String, PDDocument?>()
         val doc = PDDocument()
+        // The text boxes' font, embedded once (only the letters used) and only if a page has text.
+        val font by lazy { TextBoxLayout.fontBytes()?.let { runCatching { PDType0Font.load(doc, it.inputStream(), true) }.getOrNull() } }
         try {
             pages.forEachIndexed { index, page ->
                 ensureActive()
@@ -80,6 +88,7 @@ class PdfExport(
                     cs.transform(pageToPdf(box, original?.rotation ?: 0))
                     if (original == null) drawPaper(cs, page.template ?: notebook.template, size.width, size.height)
                     for (image in content.images) drawImage(doc, cs, notebook.id, image)
+                    for (box in content.texts) drawText(doc, cs, box) { font }
                     drawInk(doc, cs, content.strokes, shapeOf)
                 }
                 onProgress(index + 1, pages.size)
@@ -148,6 +157,60 @@ class PdfExport(
         cs.restoreGraphicsState()
     }
 
+    /**
+     * Draws a text box as text, line by line where the screen puts each line. Our units run down
+     * the page, so each line's text matrix flips it upright again. Bold is drawn filled and
+     * outlined, like Android's thicker "fake bold".
+     */
+    private fun drawText(doc: PDDocument, cs: PDPageContentStream, box: InkText, font: () -> PDType0Font?) {
+        val lines = TextBoxLayout.lines(box)
+        if (lines.isEmpty()) return
+        val f = font()
+        // Every character must be in the font, or the box becomes a picture.
+        val encodable = f != null && lines.all { line -> runCatching { f.encode(line.text) }.isSuccess }
+        if (!encodable) {
+            drawTextAsPicture(doc, cs, box)
+            return
+        }
+        val argb = box.colorArgb
+        val r = ((argb shr 16) and 0xFF) / 255f
+        val g = ((argb shr 8) and 0xFF) / 255f
+        val b = (argb and 0xFF) / 255f
+        cs.saveGraphicsState()
+        cs.setNonStrokingColor(r, g, b)
+        if (box.bold) {
+            cs.setStrokingColor(r, g, b)
+            cs.setLineWidth(box.size * BOLD_STROKE)
+        }
+        cs.beginText()
+        cs.setFont(f, 1f)
+        if (box.bold) cs.setRenderingMode(RenderingMode.FILL_STROKE)
+        for (line in lines) {
+            cs.setTextMatrix(Matrix(box.size, 0f, 0f, -box.size, line.x, line.baseline))
+            cs.showText(line.text)
+        }
+        cs.endText()
+        cs.restoreGraphicsState()
+    }
+
+    /** A text box drawn by Android (with its fallback fonts) and placed as a picture. */
+    private fun drawTextAsPicture(doc: PDDocument, cs: PDPageContentStream, box: InkText) {
+        val scale = TEXT_PICTURE_SCALE
+        val w = (box.width * scale).toInt().coerceAtLeast(1)
+        val h = (box.height * scale).toInt().coerceAtLeast(1)
+        if (w.toLong() * h > MAX_TEXT_PICTURE_PIXELS) return
+        val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = android.graphics.Canvas(bitmap)
+            canvas.scale(scale, scale)
+            TextBoxLayout.draw(canvas, box.copy(left = 0f, top = 0f))
+            val xObject = LosslessFactory.createFromImage(doc, bitmap)
+            cs.drawImage(xObject, Matrix(box.width, 0f, 0f, -box.height, box.left, box.top + box.height))
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
     private fun drawInk(doc: PDDocument, cs: PDPageContentStream, strokes: List<InkStroke>, shapeOf: (InkStroke) -> StrokeShape?) {
         // Highlighter under pen, as on screen.
         val ordered = strokes.filter { it.tool.isHighlighter } + strokes.filter { !it.tool.isHighlighter }
@@ -180,6 +243,13 @@ class PdfExport(
     }
 
     companion object {
+        /** How thick bold text's outline is, for its font size (close to Android's fake bold). */
+        private const val BOLD_STROKE = 0.035f
+
+        /** Pixels per page unit for a text box drawn as a picture (about 290 dpi). */
+        private const val TEXT_PICTURE_SCALE = 4f
+        private const val MAX_TEXT_PICTURE_PIXELS = 16_000_000L
+
         /** A safe file name for the exported PDF: the notebook's title, without odd characters. */
         fun fileNameFor(title: String): String {
             val clean = title.map { if (it.isLetterOrDigit() || it in " -_.()") it else '_' }.joinToString("").trim().trimEnd('.')

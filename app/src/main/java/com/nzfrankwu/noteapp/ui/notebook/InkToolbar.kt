@@ -101,7 +101,7 @@ fun InkToolbar(
             ) {
                 Icon(painterResource(R.drawable.ic_drag_handle), null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            for (slot in 0..2) {
+            for (slot in 0 until EditorTool.PEN_COUNT) {
                 val tool = EditorTool.pen(slot)
                 ToolButton(tool, R.drawable.ic_edit, Color(settings.pens[slot].colorArgb), settings.tool == tool) {
                     if (settings.tool == tool) onOpenSettings() else onPickTool(tool)
@@ -114,6 +114,9 @@ fun InkToolbar(
                 if (settings.tool == EditorTool.ERASER) onOpenSettings() else onPickTool(EditorTool.ERASER)
             }
             ToolButton(EditorTool.LASSO, R.drawable.ic_lasso, null, settings.tool == EditorTool.LASSO) { onPickTool(EditorTool.LASSO) }
+            ToolButton(EditorTool.BOOKMARK, R.drawable.ic_bookmark_add, null, settings.tool == EditorTool.BOOKMARK) {
+                if (settings.tool == EditorTool.BOOKMARK) onOpenSettings() else onPickTool(EditorTool.BOOKMARK)
+            }
 
             val style = settings.penStyle(settings.tool)
             if (style != null) {
@@ -234,10 +237,11 @@ fun CollapsedToolbar(settings: InkToolSettings, onExpand: () -> Unit, modifier: 
 }
 
 fun iconOf(tool: EditorTool): Int = when (tool) {
-    EditorTool.PEN_1, EditorTool.PEN_2, EditorTool.PEN_3 -> R.drawable.ic_edit
+    EditorTool.PEN_1, EditorTool.PEN_2 -> R.drawable.ic_edit
     EditorTool.HIGHLIGHTER -> R.drawable.ic_highlighter
     EditorTool.ERASER -> R.drawable.ic_eraser
     EditorTool.LASSO -> R.drawable.ic_lasso
+    EditorTool.BOOKMARK -> R.drawable.ic_bookmark_add
 }
 
 @Composable
@@ -342,6 +346,23 @@ fun ToolSettingsPanel(
                     )
                 }
                 EditorTool.LASSO -> Text("Circle strokes (or just part of them) to select them, then drag to move, pull the corner to resize, or use the menu.")
+                EditorTool.BOOKMARK -> {
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().testTag("bookmark-shape")) {
+                        listOf(false to "Free shape", true to "Rectangle").forEachIndexed { i, (rect, label) ->
+                            SegmentedButton(
+                                selected = settings.bookmarkRect == rect,
+                                onClick = { onChange { it.copy(bookmarkRect = rect) } },
+                                shape = SegmentedButtonDefaults.itemShape(i, 2),
+                                modifier = Modifier.testTag(if (rect) "bookmark-shape-rect" else "bookmark-shape-free"),
+                            ) { Text(label) }
+                        }
+                    }
+                    Text(
+                        "Circle or box part of the page with the pen to bookmark it for a task. A picture of it becomes the bookmark's note.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 else -> {
                     val style = settings.penStyle(tool) ?: return@Column
                     val highlighter = tool == EditorTool.HIGHLIGHTER

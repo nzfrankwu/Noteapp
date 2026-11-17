@@ -28,6 +28,18 @@ class NotebookAssetsTest {
     }
 
     @Test
+    fun aPageWithTextBoxes_savesAndReadsBack() {
+        val strokes = listOf(testStroke("a", 1f to 2f, 3f to 4f))
+        val images = listOf(InkImage("i", "images/x.jpg", 10f, 20f, 30f, 40f))
+        val texts = listOf(com.nzfrankwu.noteapp.domain.ink.InkText("t", "Hello", 5f, 6f, 100f, 16f, bold = true))
+        files.write("nb", "p", strokes, images, texts)
+        assertEquals(PageRead.Ok(strokes, images, texts), files.read("nb", "p"))
+        // Saving again without the text boxes (deleted) leaves none, and the pictures stay.
+        files.write("nb", "p", strokes, images)
+        assertEquals(PageRead.Ok(strokes, images), files.read("nb", "p"))
+    }
+
+    @Test
     fun anImportedPdf_isCopiedInWhole_intoTheNotebooksFolder() {
         val bytes = ByteArray(300_000) { (it % 251).toByte() }
         val name = files.importPdf("nb", bytes.inputStream())

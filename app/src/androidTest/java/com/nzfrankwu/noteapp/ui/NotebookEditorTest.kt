@@ -7,6 +7,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performTextInput
@@ -281,6 +284,107 @@ class NotebookEditorTest {
         assertEquals(null, entry.spot)
         // Bookmarking linked the notebook too, so the chip shows the task.
         compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("linked-task-chip"), 5_000)
+    }
+
+    @Test
+    fun taskPickers_searchAndFilter_andTheBookmarkSheetShowsThePickedTask() {
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks)
+        runBlocking {
+            val folders = FolderRepository(db)
+            val maths = (folders.createFolder("Maths", "MATHS 208") as FolderResult.Success).folderId
+            folders.createFolder("Physics", "PHYSICS 101")
+            val courses = db.courseDao().getAll().associateBy { it.code }
+            val tasks = com.nzfrankwu.noteapp.data.TaskRepository(db)
+            val now = java.time.Instant.now()
+            tasks.createTask(com.nzfrankwu.noteapp.data.TaskDraft("Problem set 4", courses.getValue("MATHS 208").id, dueAt = now.plus(java.time.Duration.ofDays(3))))
+            tasks.createTask(com.nzfrankwu.noteapp.data.TaskDraft("Old quiz", courses.getValue("MATHS 208").id, dueAt = now.minus(java.time.Duration.ofDays(2))))
+            tasks.createTask(com.nzfrankwu.noteapp.data.TaskDraft("Lab 1", courses.getValue("PHYSICS 101").id, dueAt = now.plus(java.time.Duration.ofDays(1))))
+            notebookId = (notebooks.createNotebook(maths, "Calculus") as NotebookResult.Success).id
+        }
+        show(InkToolSettings(drawWithFinger = true), links)
+
+        compose.onNodeWithContentDescription("Notebook options").performClick()
+        compose.onNodeWithTag("menu-link-task").performClick()
+        // This course, due soon.
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("pick-task-Problem set 4"), 5_000)
+        compose.onNodeWithTag("pick-task-Old quiz").assertDoesNotExist()
+        compose.onNodeWithTag("pick-task-Lab 1").assertDoesNotExist()
+        compose.onNodeWithTag("filter-past").performClick()
+        compose.onNodeWithTag("pick-task-Old quiz").assertExists()
+        compose.onNodeWithTag("pick-task-Problem set 4").assertDoesNotExist()
+        compose.onNodeWithTag("filter-soon").performClick()
+        compose.onNodeWithTag("filter-course").performClick()
+        compose.onNodeWithTag("course-option-All other courses").performClick()
+        compose.onNodeWithTag("pick-task-Lab 1").assertExists()
+        compose.onNodeWithTag("task-search").performTextInput("nothing like this")
+        compose.onNodeWithText("No tasks match.").assertExists()
+        compose.onNodeWithTag("picker-cancel").performClick()
+
+        // The bookmark sheet: the picked task is marked.
+        compose.onNodeWithTag("bookmark-page").performClick()
+        compose.onNodeWithTag("pick-task-Problem set 4").assertIsNotSelected()
+        compose.onNodeWithTag("pick-task-Problem set 4").performClick()
+        compose.onNodeWithTag("pick-task-Problem set 4").assertIsSelected()
+        compose.onNodeWithTag("bookmark-for").assertTextEquals("For: Problem set 4")
+        compose.onNodeWithTag("bookmark-save").assertIsEnabled()
+    }
+
+    @Test
+    fun theBookmarkPen_takesAPictureOfTheArea_andSavesItWithTheBookmark() {
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks, files = files)
+        val taskId = runBlocking {
+            FolderRepository(db).createFolder("Maths", "MATHS 208")
+            val courseId = db.courseDao().getAll().single().id
+            (com.nzfrankwu.noteapp.data.TaskRepository(db).createTask(com.nzfrankwu.noteapp.data.TaskDraft("Problem set 6", courseId))
+                as com.nzfrankwu.noteapp.data.TaskResult.Success).taskId
+        }
+        show(InkToolSettings(drawWithFinger = true, bookmarkRect = true), links)
+        drawLine(280f) // something to see in the picture
+        compose.waitUntil(5_000) { strokeCount() == 1 }
+        compose.runOnUiThread { viewModel.pickTool(EditorTool.BOOKMARK) }
+        compose.waitForIdle()
+
+        // A rectangle around the line.
+        compose.onNodeWithTag("notebook-canvas").performTouchInput {
+            swipe(Offset(centerX - 160f, 240f), Offset(centerX + 160f, 340f), durationMillis = 400)
+        }
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("bookmark-sheet"), 5_000)
+        compose.onNodeWithTag("bookmark-picture").assertExists()
+        compose.onNodeWithTag("pick-task-Problem set 6").performClick()
+        compose.onNodeWithTag("bookmark-note").performTextInput("The derivative")
+        compose.onNodeWithTag("bookmark-save").performClick()
+
+        compose.waitUntil(5_000) { runBlocking { links.observeBookmarksForTask(taskId).first() }.isNotEmpty() }
+        val entry = runBlocking { links.observeBookmarksForTask(taskId).first() }.single().bookmarks.single()
+        assertEquals("The derivative", entry.note)
+        assertTrue("Has a picture: ${entry.image}", entry.image?.startsWith("bookmarks/") == true)
+        val picture = links.pictureFile(entry)
+        assertTrue("The picture file exists", picture != null && picture.length() > 0)
+        val bmp = android.graphics.BitmapFactory.decodeFile(picture!!.path)
+        assertTrue("A real picture: ${bmp.width}×${bmp.height}", bmp.width > 100 && bmp.height > 30)
+        // The spot is the rectangle (page units), a little wider than tall.
+        val spot = entry.spot!!
+        assertTrue("Spot $spot", spot.width > spot.height)
+    }
+
+    @Test
+    fun aBookmarkPenSlip_orCancel_savesNothing() {
+        val links = com.nzfrankwu.noteapp.data.LinkRepository(db, notebooks, files = files)
+        runBlocking { FolderRepository(db).createFolder("Maths", "MATHS 208") }
+        show(InkToolSettings(drawWithFinger = true, tool = EditorTool.BOOKMARK), links)
+        // A tiny loop is a slip: no sheet.
+        compose.onNodeWithTag("notebook-canvas").performTouchInput { swipe(Offset(centerX, 300f), Offset(centerX + 4f, 302f), durationMillis = 100) }
+        compose.waitForIdle()
+        compose.onNodeWithTag("bookmark-sheet").assertDoesNotExist()
+        // A real loop, then Cancel: nothing saved, and no ink was drawn.
+        compose.onNodeWithTag("notebook-canvas").performTouchInput {
+            swipe(Offset(centerX - 100f, 250f), Offset(centerX + 100f, 380f), durationMillis = 400)
+        }
+        compose.waitUntilAtLeastOneExists(androidx.compose.ui.test.hasTestTag("bookmark-sheet"), 5_000)
+        compose.onNodeWithTag("bookmark-cancel").performClick()
+        compose.waitForIdle()
+        assertEquals(0, strokeCount())
+        assertTrue(java.io.File(tmp.root, "${NotebookFiles.DIR}/$notebookId/bookmarks").listFiles().isNullOrEmpty())
     }
 
     // ---- Phase 4: selecting PDF text ----

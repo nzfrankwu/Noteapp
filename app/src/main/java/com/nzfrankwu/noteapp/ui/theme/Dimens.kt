@@ -49,6 +49,9 @@ object Dimens {
     /** Smallest width of a notebook or subfolder tile inside a folder (Phase 2). */
     val LibraryTileMinWidth = 150.dp
 
+    /** Smaller notebook tiles inside a course folder, so more fit beside the tasks (PHASE-5.md FB7). */
+    val CourseTileMinWidth = 118.dp
+
     /** Height of a tile's picture area (the page thumbnail or the folder icon). */
     val LibraryTileThumbHeight = 170.dp
 

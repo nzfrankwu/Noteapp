@@ -12,6 +12,17 @@ _None known._
 
 ## Follow-ups / tech debt
 
+- **Open in Canvas (Phase 5 FB11):** not tried with the real Canvas Student app: whether it opens the university's assignment links (else the Chrome tab takes over) needs the tablet.
+- **Split view (Phase 5.8):** each notebook opened in a pane keeps its view model until you leave the notebook screen (cheap, but many swaps in one visit keep many notebooks in memory). A real side-by-side split with another app needs the tablet.
+- **Bookmark pen (Phase 5 FB5):** deleting a bookmark keeps its picture file (so Undo works), and nothing removes it later yet; a clean-up of unused bookmark pictures belongs with backup (Phase 6). The picture is what's on screen, so a rectangle drawn partly off screen gets only the part on screen.
+- **Text boxes (Phase 5.1–5.5):**
+  - A box moved or enlarged past the page's edge is cut off there (like pictures); it isn't pulled back onto the page.
+  - In an exported PDF, a box with a character the font lacks (emoji, Chinese, a tab) is a picture, so its text can't be selected there.
+  - Bold is drawn thicker (the font has no bold of its own).
+  - While typing, the lines can sit about one pixel off where the finished box draws them.
+  - Android's own pen handwriting-to-text in text fields wasn't tried (the emulator has no stylus handwriting); try writing in a box with the OPPO Pencil.
+  - With "Draw with finger" on, a finger tap only opens a box while T is on.
+
 - **PDF text selection (Phase 4.7):** selects whole words (not single letters). Holding and Highlight have screen tests; dragging the knobs was checked by script on the emulator only. Text in a turned direction (e.g. a sideways label) selects as boxes around each word, but Highlight/Underline draw horizontal lines. Feel with a real finger and the OPPO Pencil needs the tablet.
 - **Add Page menu (F34):** pages added from a PDF (or the whole PDF) aren't an undo step; delete them with ⋮ → Delete this page. A copied-in PDF nobody used is removed if you cancel the page picker.
 - **Pen layer (F30):** our own copy of Jetpack Ink's Compose pen layer (`WetInkLayer`) now feeds the pen; if a future Ink version changes its Compose layer, compare. A finished stroke is drawn by both layers for one frame (invisible for pen; a highlighter may look a touch darker for that frame).

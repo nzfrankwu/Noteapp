@@ -58,35 +58,51 @@ fun EditorTopBar(
     imageMenuOpen: Boolean,
     /** Starts the screenshot tool. */
     onScreenshot: () -> Unit,
+    /** Turns the T button (text boxes, Phase 5) on or off; [textMode] is whether it's on. */
+    onText: () -> Unit = {},
+    textMode: Boolean = false,
     menuOpen: Boolean,
     onMenuOpen: (Boolean) -> Unit,
     /** Bookmarks the page on screen for a task (Phase 4), or null to hide the button. */
     onBookmark: (() -> Unit)? = null,
     /** The linked task's chip, next to Back (Phase 4). */
     taskChip: @Composable () -> Unit = {},
+    /** A button just right of Back (the recent notebooks panel, PHASE-5.md 5.7). */
+    leftButton: @Composable () -> Unit = {},
     menu: @Composable ColumnScope.() -> Unit,
 ) {
     LightStatusBarIcons()
     androidx.compose.foundation.layout.BoxWithConstraints(
         Modifier
             .fillMaxWidth()
-            .height(BarHeight)
             .padding(horizontal = 12.dp),
     ) {
-        // The chip stops short of the Undo/Redo pill in the middle (portrait is narrow).
-        val chipMax = (maxWidth / 2 - CenterPillHalfWidth - ButtonSize - 24.dp).coerceAtLeast(0.dp)
+        // In a narrow window (e.g. half of Android's split screen, PHASE-5.md 5.11) the middle pill
+        // doesn't fit between the side buttons: it goes on a second row underneath.
+        val rightCount = if (onBookmark != null) 4 else 3
+        val rightWidth = ButtonSize * rightCount + 8.dp * (rightCount - 1)
+        val narrow = maxWidth < (CenterPillHalfWidth + maxOf(LeftGroupWidth, rightWidth) + 8.dp) * 2
+        // The chip stops short of the pill in the middle (or of the right buttons when narrow).
+        val chipMax = if (narrow) {
+            (maxWidth - rightWidth - LeftGroupWidth - 16.dp).coerceAtLeast(0.dp)
+        } else {
+            (maxWidth / 2 - CenterPillHalfWidth - LeftGroupWidth - 16.dp).coerceAtLeast(0.dp)
+        }
         Row(
-            Modifier.align(Alignment.CenterStart),
+            Modifier.height(BarHeight).align(Alignment.TopStart),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BarButton(R.drawable.ic_arrow_back, "Back", onBack)
+            leftButton()
             Box(Modifier.widthIn(max = chipMax)) { taskChip() }
         }
 
         Row(
             Modifier
-                .align(Alignment.Center)
+                // Narrow: on the right, under the side buttons, clear of the recent panel on the left.
+                .align(if (narrow) Alignment.TopEnd else Alignment.TopCenter)
+                .padding(top = if (narrow) BarHeight else (BarHeight - ButtonSize) / 2)
                 .shadow(3.dp, RoundedCornerShape(50))
                 .background(EditorBarButton, RoundedCornerShape(50))
                 .border(1.dp, ButtonRim, RoundedCornerShape(50))
@@ -101,11 +117,16 @@ fun EditorTopBar(
                 R.drawable.ic_image, if (imageMenuOpen) "Close the image menu" else "Insert an image", onImage,
                 Modifier.testTag("image-button"), filled = false,
             )
+            // Image and Screenshot side by side (FB10), then text boxes.
             BarButton(R.drawable.ic_crop, "Take a screenshot", onScreenshot, Modifier.testTag("screenshot-button"), filled = false)
+            BarButton(
+                R.drawable.ic_text_fields, if (textMode) "Text boxes (on): tap the page to add one" else "Add a text box", onText,
+                Modifier.testTag("text-button"), filled = false, selected = textMode,
+            )
         }
 
         Row(
-            Modifier.align(Alignment.CenterEnd),
+            Modifier.height(BarHeight).align(Alignment.TopEnd),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -122,6 +143,11 @@ fun EditorTopBar(
     }
 }
 
+/** A round dark top-bar button for things outside this file (the recent panel's button, 5.7). */
+@Composable
+fun TopBarIconButton(@DrawableRes icon: Int, description: String, onClick: () -> Unit, modifier: Modifier = Modifier, selected: Boolean = false) =
+    BarButton(icon, description, onClick, modifier, selected = selected)
+
 /** A round dark button with a white icon. [filled] = false sits inside the Undo/Redo pill. */
 @Composable
 private fun BarButton(
@@ -131,6 +157,8 @@ private fun BarButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     filled: Boolean = true,
+    /** A mode that's on (the T button): a light ring behind the icon. */
+    selected: Boolean = false,
 ) {
     IconButton(
         onClick = onClick,
@@ -139,7 +167,12 @@ private fun BarButton(
         modifier = if (filled) modifier.size(ButtonSize).shadow(3.dp, CircleShape).border(1.dp, ButtonRim, CircleShape) else modifier.size(ButtonSize),
         shape = CircleShape,
         colors = IconButtonDefaults.iconButtonColors(
-            containerColor = if (filled) EditorBarButton else Color.Transparent,
+            containerColor = when {
+                selected && filled -> androidx.compose.ui.graphics.lerp(EditorBarButton, Color.White, 0.25f)
+                selected -> Color.White.copy(alpha = 0.22f)
+                filled -> EditorBarButton
+                else -> Color.Transparent
+            },
             contentColor = EditorBarIcon,
             disabledContainerColor = if (filled) EditorBarButton else Color.Transparent,
             disabledContentColor = EditorBarIconDisabled,
@@ -173,5 +206,7 @@ private val ButtonRim = Color.White.copy(alpha = 0.18f)
 
 private val BarHeight = 64.dp
 private val ButtonSize = 44.dp
-/** About half the width of the Undo/Redo/Image/Screenshot pill. */
-private val CenterPillHalfWidth = 104.dp
+/** About half the width of the Undo/Redo/Image/Text/Screenshot pill. */
+private val CenterPillHalfWidth = 128.dp
+/** Back and the recent panel's button. */
+private val LeftGroupWidth = 98.dp

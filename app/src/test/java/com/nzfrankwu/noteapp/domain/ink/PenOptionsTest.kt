@@ -65,7 +65,7 @@ class PenOptionsTest {
     fun eachToolHasItsOwnPalette() {
         val s = InkToolSettings().withPalette(EditorTool.HIGHLIGHTER, listOf(InkPalette.HIGHLIGHT_PINK))
         assertEquals(listOf(InkPalette.HIGHLIGHT_PINK), s.palette(EditorTool.HIGHLIGHTER))
-        assertEquals(InkPalette.PEN_COLORS, s.palette(EditorTool.PEN_3))
+        assertEquals(InkPalette.PEN_COLORS, s.palette(EditorTool.PEN_2))
     }
 
     @Test

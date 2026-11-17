@@ -1,26 +1,31 @@
 # Handoff: where things stand
 
-_Last updated: 16 Nov 2026 (Phase 4 merged into `main` with the user's OK; next is planning Phase 5). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 17 Nov 2026 (Phase 5 built, reviewed and installed on the tablet (v7); waiting on the user's tablet check and the OK to merge). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phases 1, 1b, 2, 3 and 4 are done and merged into `main`** (Phase 4 merged 16 Nov, `aa342b5`). History in `PHASE-1.md` … `PHASE-4.md` and `ISSUES.md`.
-- **Next phase: Phase 5** (IDEA.md §5), not planned yet. Phase 4 (Linking, `PHASE-4.md`) covered:
+- **Current phase: Phase 5, Productivity extras.** The plan is **`PHASE-5.md`**: text boxes, split view of two notebooks, a recent notebooks panel with drag-to-split, and moving things between the panes. IDEA.md §2.8 and §5 were updated (user's OK by approving the plan, 16 Nov).
+- Phase 4 (Linking, `PHASE-4.md`) covered:
   - linking notebooks ↔ tasks
   - page bookmarks for tasks, with quick notes
   - selecting PDF text with a finger (Copy, Highlight, Underline, Bookmark)
   - the pop-up menus becoming icon pills
 - **IDEA.md** §2.4, §2.6 and §5 were updated for bookmarks and text selection (user's OK, 16 Nov).
-- **Branch:** `main`. Start a `phase-5` branch from it when Phase 5 begins.
-- **Mode:** "Working together" (default) unless the user says otherwise. Phase 4 was hands-off.
-- **The tablet runs Phase 4** (the build of `266f99b`), database **version 6** (installed 16 Nov; before/after compare PASS: every row and all 159 page files unchanged). Backup in `backups/tablet-2026-11-16-before-v6/` (with the page files). Never install a build older than v6 on it: Room can't downgrade.
-- **The emulator runs Phase 4** (database v6).
-- Unit tests and the full emulator suite (**241 tests**) pass at the end of Phase 4.
+- **Branch:** `phase-5` (from `main`), pushed after each step.
+- **Mode:** **Hands-off** for Phase 5 (the user said "continue on in hands off mode" on 16 Nov). List every 🔺 step done in REPORT.md.
+- **The tablet runs Phase 5 with feedback rounds 2–4** (the build of `389dc33`), database **version 7** (latest install 17 Nov with the user's OK; compare PASS: every row, all 164 files, links and bookmarks unchanged). Backups in `backups/tablet-2026-11-17-before-v7/`, `…-before-fb2/`, `…-before-fb3/` and `…-before-fb4/` (with the page files). Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
+- **The emulator runs Phase 5** (database v7).
+- Unit tests and the full emulator suite pass at the end of Phase 5 (count in the latest commit message).
 
 ## Next steps (in order)
 
-1. **Phase 4 is done, on the tablet and merged** (16 Nov). The user may still report tablet feedback from the test steps in `REPORT.md` (hold time, handle size): fix on a small branch if so.
-2. **Plan Phase 5** (text boxes, in-app split view): write `PHASE-5.md` with the user, describing new screens before coding (CLAUDE.md §2.10 rule).
+1. **Phase 5 is built and reviewed** (17 Nov, hands-off): text boxes (5.1–5.5), the user's feedback round FB1–FB5 (bookmark sheet ✓, long-press edit, task search/filters, two pens, the bookmark pen = database **v7**), the pane/host split (5.6), the recent panel and split view (5.7–5.9), between panes (5.10), narrow windows (5.11). The end-of-phase review's 10 findings are fixed (PHASE-5.md). REPORT.md is the Phase 5 report.
+2. **Waiting on the user:**
+   - **Trying Phase 5 on the tablet** (installed 17 Nov, v7; test steps in REPORT.md).
+   - **The OK to merge `phase-5` into `main`.**
+   - **Feedback rounds 2–4 (FB6–FB15) are done and on the tablet** (17 Nov; PHASE-5.md). The user is trying them.
+3. Then plan **Phase 6** (Google Drive and backup; IDEA.md §5: must be done before real use).
 4. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture
    - pre-draw the next page
@@ -37,6 +42,7 @@ _Last updated: 16 Nov 2026 (Phase 4 merged into `main` with the user's OK; next 
 - `domain/Bookmarks.kt`, `domain/PdfCoords.kt`, `domain/ink/TextSelection.kt`.
 - `ui/task/LinkNotebookSheet.kt`, `BookmarksSection.kt`.
 - `ui/components/Pickers.kt`, `TaskCard.kt` (`LocalTaskNotebooks`).
+- Phase 5: `ui/notebook/NotebookPane.kt` (`PaneState`), `NotebookWorkspace.kt` (split view), `RecentPanel.kt`, `TextBoxEditing.kt`; `data/TextBoxLayout.kt`; `domain/SplitLayout.kt`, `domain/ink/BookmarkPen.kt`, `domain/ink/InkText.kt`.
 - `ui/notebook/`:
   - `NotebookLinks.kt`, `TaskLinkViews.kt` (the chip and the task picker)
   - `BookmarkSheet.kt`, `IconMenu.kt`

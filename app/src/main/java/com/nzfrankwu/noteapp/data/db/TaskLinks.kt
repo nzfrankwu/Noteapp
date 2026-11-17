@@ -44,6 +44,9 @@ data class TaskNotebookLink(
  * of the page it was made from (a lasso selection or selected PDF text); all four are null for a
  * bookmark of the whole page.
  *
+ * [image] (database version 7, PHASE-5.md FB5) is the picture the bookmark pen took of the spot:
+ * a file in the notebook's folder (`bookmarks/<uuid>.png`), or null.
+ *
  * Fields added in later database versions go at the END (see Migrations.kt).
  */
 @Entity(
@@ -69,6 +72,8 @@ data class TaskBookmark(
     @ColumnInfo(name = "spot_height") val spotHeight: Float? = null,
     @ColumnInfo(name = "created_at") val createdAt: Instant,
     @ColumnInfo(name = "updated_at") val updatedAt: Instant,
+    /** The bookmark pen's picture of the spot (a file name in the notebook's folder), or null. */
+    val image: String? = null,
 ) {
     /** The spot on the page, or null for the whole page. */
     fun spot(): PageSpot? =

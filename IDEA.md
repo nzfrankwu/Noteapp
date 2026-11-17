@@ -106,6 +106,8 @@
 ### 2.8 Split view
 - Open **two notebooks side by side** inside the app (e.g. lecture notes + tutorial sheet).
 - Also behave well in Android's own split-screen with other apps.
+- **Recent notebooks panel** (added Nov 2026): a button next to Back opens a panel on the left with the recently opened notebooks as thumbnails. Tap one to open it; **drag one onto the page** to open it in split view beside the current notebook.
+- **Two split modes:** side by side and top and bottom. The divider has a small ⋮ handle: tap it for Swap sides, Side by side / Top and bottom, and Close split screen; drag it to resize, and letting go very near an edge closes the squeezed notebook.
 
 ### 2.9 Backup to Google Drive
 Modelled on GoodNotes' auto-backup (one-way backup to Drive whenever something changes, saved in both the app's own format and PDF). Main goal: **if the tablet dies or I get a new one, I can restore everything.** Priority is **reliability** over fancy features.
@@ -213,7 +215,7 @@ Build one phase at a time; each phase should leave a working app. Commit after e
 | **2. Handwriting notebooks** | **Subfolders** (folder-in-folder, done together with the notebook storage changes), notebook/page model, ink canvas with pen/highlighter/eraser, undo/redo, page templates (lined default), floating movable toolbar, zoom/scroll, palm rejection, autosave, **lasso select** (moved here from Phase 5, Nov 2026), pen button → lasso, press hard to erase, double-tap to fit |
 | **3. Images & PDFs** | Insert images, import PDFs and annotate, export annotated PDF, "Share to NoteApp", **screen capture/snip** (whole screen incl. other apps → crop → insert; moved here from Phase 5, Nov 2026) |
 | **4. Linking** | Link notebooks/files ↔ tasks; course folder view showing notes + tasks together; **page bookmarks for tasks** (with quick notes) and **selecting PDF text** with a finger (Copy, Highlight, Underline, Bookmark), both added Nov 2026 |
-| **5. Productivity extras** | Text boxes, in-app split view of two notebooks, snip between split notebooks |
+| **5. Productivity extras** | Text boxes, in-app split view of two notebooks (side by side or top and bottom, divider menu), **recent notebooks panel** with drag-to-split (added Nov 2026), snip between split notebooks |
 | **6. Google Drive & backup** | ⚠️ Must be done and tested before I use the app for real. Google sign-in, automatic full backup + restore, manual "Export everything" / "Import from export", PDF copies mirroring course folders, backup status/warnings, Recently deleted, Word/PowerPoint conversion → later: Version history |
 | **7. Polish** | Search, partial eraser, custom tags, per-page templates, settings, performance tuning |
 

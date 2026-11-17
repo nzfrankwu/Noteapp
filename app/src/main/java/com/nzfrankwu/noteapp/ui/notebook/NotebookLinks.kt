@@ -80,9 +80,9 @@ class NotebookLinks(
     }
 
     /** Bookmarks [pageId] (at [spot], or the whole page) for [task], linking it if needed. */
-    fun addBookmark(task: TaskWithCourse, pageId: String, note: String?, spot: PageSpot?) {
+    fun addBookmark(task: TaskWithCourse, pageId: String, note: String?, spot: PageSpot?, image: String? = null) {
         scope.launch {
-            when (repo.addBookmark(task.task.id, pageId, note, spot)) {
+            when (repo.addBookmark(task.task.id, pageId, note, spot, image)) {
                 is LinkResult.Success -> _notice.value = Notice("Bookmarked for “${task.task.title}”")
                 is LinkResult.Failure -> _notice.value = Notice("The bookmark couldn't be saved: the page or task no longer exists.")
             }

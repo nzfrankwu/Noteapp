@@ -21,7 +21,7 @@ class EditorToolsTest {
     fun penButton_whenLassoWasPickedOnTheToolbar_goesToPen1() {
         val toggle = PenButtonToggle()
         toggle.click(EditorTool.ERASER) // remembers the eraser…
-        toggle.picked(EditorTool.PEN_3) // …until a tool is picked on the toolbar
+        toggle.picked(EditorTool.PEN_2) // …until a tool is picked on the toolbar
         assertEquals(EditorTool.PEN_1, toggle.click(EditorTool.LASSO))
     }
 
@@ -75,7 +75,31 @@ class EditorToolsTest {
 
     @Test
     fun toolKeys_neverChange() {
-        assertEquals(setOf("pen1", "pen2", "pen3", "highlighter", "eraser", "lasso"), EditorTool.entries.map { it.key }.toSet())
+        // Phase 5 (FB4): pen 3 went and the bookmark pen came; the other keys stay as saved.
+        assertEquals(setOf("pen1", "pen2", "highlighter", "eraser", "lasso", "bookmark"), EditorTool.entries.map { it.key }.toSet())
+    }
+
+    @Test
+    fun aSavedPen3_opensAsPen1_andTwoPensRemain() {
+        assertEquals(EditorTool.PEN_1, EditorTool.fromKey("pen3"))
+        assertEquals(EditorTool.PEN_COUNT, InkToolSettings().pens.size)
+        assertEquals(listOf(InkPalette.NAVY, InkPalette.RED), InkToolSettings().pens.map { it.colorArgb })
+        assertEquals(false, EditorTool.BOOKMARK.draws)
+        assertEquals(null, EditorTool.BOOKMARK.penSlot)
+    }
+
+    @Test
+    fun oldDefaultPenColours_moveToTheNewOnes_once_butChosenColoursStay() {
+        // Saved before Phase 5 (no version): black and blue were the defaults.
+        assertEquals(InkPalette.NAVY, PenDefaults.savedColor(InkPalette.BLACK, null, 0))
+        assertEquals(InkPalette.RED, PenDefaults.savedColor(InkPalette.BLUE, null, 1))
+        // Picked on purpose: kept.
+        assertEquals(InkPalette.GREEN, PenDefaults.savedColor(InkPalette.GREEN, null, 0))
+        assertEquals(InkPalette.BLACK, PenDefaults.savedColor(InkPalette.BLACK, null, 1))
+        // Saved after Phase 5: black is a choice now, kept.
+        assertEquals(InkPalette.BLACK, PenDefaults.savedColor(InkPalette.BLACK, PenDefaults.VERSION, 0))
+        // Nothing saved: the new defaults.
+        assertEquals(InkPalette.NAVY, PenDefaults.savedColor(null, null, 0))
     }
 
     @Test
