@@ -234,6 +234,7 @@ fun NoteAppRoot(
                             )
                         },
                         onOpenSettings = { backStack.add(SettingsRoute()) },
+                        onOpenSearch = { backStack.add(com.nzfrankwu.noteapp.ui.navigation.SearchRoute) },
                         onOpenBackupSettings = { backStack.add(SettingsRoute(SettingsRoute.BACKUP)) },
                         onOpenFolder = { folderId -> backStack.add(FolderRoute(folderId)) },
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
@@ -387,6 +388,17 @@ fun NoteAppRoot(
                             )
                         },
                         onBack = ::back,
+                    )
+                }
+                entry<com.nzfrankwu.noteapp.ui.navigation.SearchRoute> {
+                    com.nzfrankwu.noteapp.ui.search.SearchScreen(
+                        viewModel = viewModel {
+                            com.nzfrankwu.noteapp.ui.search.SearchViewModel(container.taskRepository, container.notebookRepository, container.folderRepository)
+                        },
+                        onBack = ::back,
+                        onOpenTask = { backStack.add(TaskRoute(it)) },
+                        onOpenNotebook = { backStack.add(NotebookRoute(it)) },
+                        onOpenFolder = { backStack.add(FolderRoute(it)) },
                     )
                 }
                 entry<CoursesRoute> {

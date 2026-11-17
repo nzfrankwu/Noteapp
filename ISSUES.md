@@ -9,7 +9,6 @@ _None known._
 ## Open questions
 
 - **Phase 7, waiting on you (18 Nov, hands-off stop):**
-  - **7.8 search screen layout** (new screen, no Notein reference): suggested a search icon on Home → full screen, search box on top, results grouped Tasks · Notebooks · Folders & courses (later "In your notes"). OK?
   - **7.10:** OK to add Google's ML Kit handwriting recognition (English model ~20 MB, downloaded once on Wi-Fi)?
   - **7.11 editor speed** skipped in hands-off: it changes how pages draw their ink and can't be measured on the emulator (deep zoom needs a pinch; the lasso pause needs the real pen). To do together with the tablet.
   - **7.12 pen widths:** try the Off/Low/Medium/Full pens on the tablet first.
@@ -86,6 +85,8 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Phase 7 step 7.8, search (18 Nov):** a search icon on Home finds tasks (titles, descriptions, your notes, course), notebooks and folders. Words in PDFs, text boxes and handwriting come in 7.9–7.10.
 
 - **Phase 7 step 7.7, course colours (18 Nov, hands-off):** choose a course's colour from Settings → Courses ("Colour") or the folder's ⋮ menu ("Course colour"), or go back to Automatic.
 

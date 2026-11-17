@@ -18,6 +18,10 @@ data class SettingsRoute(val section: String? = null) : NavKey {
     }
 }
 
+/** Search (PHASE-7.md 7.8). */
+@Serializable
+data object SearchRoute : NavKey
+
 /** Settings → Courses: archive or bring back courses. */
 @Serializable
 data object CoursesRoute : NavKey
