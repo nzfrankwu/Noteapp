@@ -32,6 +32,9 @@ class GoogleAuth(
 ) : DriveTokens {
     private val client = Identity.getAuthorizationClient(context.applicationContext)
 
+    /** The last token and its account, reused until Drive refuses it (kept in memory only, never stored). */
+    @Volatile private var cached: Pair<String, String>? = null
+
     sealed interface Start {
         /** Allowed already (e.g. connected before): here's a token. */
         data class Granted(val token: String) : Start
@@ -59,17 +62,22 @@ class GoogleAuth(
     /** A token for background backups, without showing anything. */
     override suspend fun token(): String {
         val email = connectedEmail() ?: throw DriveException(DriveException.Kind.AUTH, "Connect Google Drive in Settings to back up.")
+        cached?.let { (account, token) -> if (account == email) return token }
         val result = authorize(request(email))
         if (result.hasResolution()) throw DriveException(DriveException.Kind.AUTH, "Sign in to Google again to keep backing up.")
-        return result.accessToken ?: throw notAllowed()
+        val token = result.accessToken ?: throw notAllowed()
+        cached = email to token
+        return token
     }
 
     override suspend fun invalidate(token: String) {
+        if (cached?.second == token) cached = null
         runCatching { client.clearToken(ClearTokenRequest.builder().setToken(token).build()).await() }
     }
 
     /** "Disconnect": takes back Noteapp's Drive permission for [email]. The backup in Drive stays. */
     suspend fun disconnect(email: String) {
+        cached = null
         try {
             client.revokeAccess(
                 RevokeAccessRequest.builder().setAccount(Account(email, ACCOUNT_TYPE)).setScopes(listOf(Scope(SCOPE))).build(),

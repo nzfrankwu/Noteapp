@@ -103,8 +103,9 @@ Uploads are checked against Drive's `md5Checksum`. After a snapshot is committed
   - Recently deleted keeps its copy; deleted for good → the copy goes. A notebook that can't be drawn is skipped and doesn't stop the others.
   - Changed from the plan: `InkBrushes.exportShape` wasn't moved; it already works without a screen.
 - [x] **6.13 Word/PowerPoint → PDF.** ★ Code done: `OfficeConvert` (upload to `Noteapp/Converting/` with conversion → export as PDF → the Drive copy is deleted even if cancelled → normal PDF import). Entry points: Share / Open with (.docx .doc .pptx .ppt) and folder ＋ → "Import PDF, Word or PowerPoint" ("Converting with Google Drive…"). 6 unit tests; on the emulator, both entry points show the not-connected message with the Print → Save as PDF tip. Real check: a .docx imported from a folder became a PDF notebook; `Converting/` was empty afterwards.
-- [ ] **6.14 Tablet check** (ask first; snapshot; install; the user connects their real Google account).
-- [ ] **End of phase:** `/code-review`, fix, rebuild and retest, ask to merge into `main`.
+- [x] **6.14 Tablet check** (ask first; snapshot; install; the user connects their real Google account). Done 17 Nov: snapshot (with files) → install → compare PASS (8 notebooks, 252 pages, 124 tasks, 167 files); the user connected their main account. Found and fixed there: a running backup was cancelled by every edit (now never), progress words added.
+  - Added after the plan, with the user: app icon; homepage + privacy policy on GitHub Pages (`site/`, branch `gh-pages`); sign-in published; "Update PDF copies" every 15/30/60 min or daily (default 30); suggest archiving courses Canvas stopped listing (14 days).
+- [ ] **End of phase:** (review done 17 Nov: 10 findings, 5 fixed, 5 left in ISSUES.md; waits for the user's OK to merge) `/code-review`, fix, rebuild and retest, ask to merge into `main`.
 
 ## Verification
 - Every step: `.\gradlew.bat assembleDebug testDebugUnitTest`, then `$env:ANDROID_SERIAL="emulator-5554"; .\gradlew.bat connectedDebugAndroidTest`.

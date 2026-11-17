@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
 /** What the "Restore from Google Drive" dialog shows. */
 private sealed interface Pick {
     data object Loading : Pick
-    data class List(val snapshots: kotlin.collections.List<DriveBackup.RemoteSnapshot>, val afterConnect: Boolean) : Pick
+    data class Found(val snapshots: List<DriveBackup.RemoteSnapshot>, val afterConnect: Boolean) : Pick
     data class Failed(val message: String) : Pick
 }
 
@@ -87,7 +87,7 @@ fun DriveBackupBlock(drive: DriveConnection, manager: BackupManager) {
                 googleScreen.launch(IntentSenderRequest.Builder(c.intent).build())
             }
             is DriveConnection.Connect.Connected -> {
-                if (c.offerRestore.isNotEmpty()) pick = Pick.List(c.offerRestore, afterConnect = true)
+                if (c.offerRestore.isNotEmpty()) pick = Pick.Found(c.offerRestore, afterConnect = true)
                 drive.dismiss()
             }
             else -> Unit
@@ -98,7 +98,7 @@ fun DriveBackupBlock(drive: DriveConnection, manager: BackupManager) {
         pick = Pick.Loading
         scope.launch {
             pick = try {
-                Pick.List(drive.backup.snapshots(), afterConnect = false)
+                Pick.Found(drive.backup.snapshots(), afterConnect = false)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -206,8 +206,9 @@ fun DriveBackupBlock(drive: DriveConnection, manager: BackupManager) {
             title = { Text("Disconnect Google Drive?") },
             text = {
                 Text(
-                    "Noteapp stops backing up to ${s.email}. The backup already in Google Drive stays there " +
-                        "(in the Noteapp folder) until you delete it yourself.",
+                    "Noteapp stops backing up to ${s.email} and gives back its permission to that Google account, " +
+                        "on your other devices too (they'd need to connect again). The backup already in Google Drive " +
+                        "stays there (in the Noteapp folder) until you delete it yourself.",
                 )
             },
             confirmButton = {
@@ -225,7 +226,7 @@ fun DriveBackupBlock(drive: DriveConnection, manager: BackupManager) {
 private fun RestorePickDialog(pick: Pick, onPick: (DriveBackup.RemoteSnapshot) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (pick is Pick.List && pick.afterConnect) "Restore your notes?" else "Restore from Google Drive") },
+        title = { Text(if (pick is Pick.Found && pick.afterConnect) "Restore your notes?" else "Restore from Google Drive") },
         text = {
             when (pick) {
                 Pick.Loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -233,7 +234,7 @@ private fun RestorePickDialog(pick: Pick, onPick: (DriveBackup.RemoteSnapshot) -
                     Text("Looking for backups…")
                 }
                 is Pick.Failed -> Text(pick.message, color = MaterialTheme.colorScheme.error)
-                is Pick.List -> if (pick.snapshots.isEmpty()) {
+                is Pick.Found -> if (pick.snapshots.isEmpty()) {
                     Text("There's no Noteapp backup in this Google Drive yet.", modifier = Modifier.testTag("drive-no-backups"))
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -260,7 +261,7 @@ private fun RestorePickDialog(pick: Pick, onPick: (DriveBackup.RemoteSnapshot) -
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(if (pick is Pick.List && pick.afterConnect) "Start fresh" else "Cancel") }
+            TextButton(onClick = onDismiss) { Text(if (pick is Pick.Found && pick.afterConnect) "Start fresh" else "Cancel") }
         },
     )
 }

@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 17 Nov 2026, evening (Phase 6: everything that needs no Google login is done hands-off on `phase-6`; 6.6 waits for the user). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 17 Nov 2026, late (Phase 6 complete on `phase-6`, reviewed; waiting for the user's OK to merge into `main`). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -31,9 +31,9 @@ _Last updated: 17 Nov 2026, evening (Phase 6: everything that needs no Google lo
 
 ## Next steps (in order)
 
-1. **Google sign-in is published** (17 Nov): site on GitHub Pages from `gh-pages` (edit `site/`, then copy to `gh-pages`). New: Settings → Backup → "Update PDF copies" (15/30/60 min or daily; default 30): a periodic `pdf-copies` job that does nothing unless something changed (`changedAt` > `pdfSyncedAt`), and Drive's old versions of a replaced copy are deleted.
-2. **6.14 tablet check** (ask first; `tablet_snapshot.sh` first). The user connects their real account on the tablet.
-3. End of phase: `/code-review`, fix, retest, ask to merge into `main`.
+1. **Ask the user to approve merging `phase-6` into `main`.** Everything in `PHASE-6.md` is done and checked; the end-of-phase review is done (5 fixes in, 5 follow-ups in ISSUES.md "Backup (Phase 6)"). Never merge without the user's OK.
+2. Then Phase 7 per IDEA.md §5 (read it first), or the Phase 6 follow-ups if the user prefers. The 🔺 one: don't hold `StorageLock.backup` for a whole upload.
+3. The tablet: connected to the user's main Google account (17 Nov). Check with them that "Last backed up …" appears and PDFs show up in Drive.
 4. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own

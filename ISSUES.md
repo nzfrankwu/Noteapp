@@ -22,6 +22,12 @@ _None known._
   - Two tablets backing up to the same Google account would share one backup folder (each run keeps the other's newer snapshots, and unused files wait a day before they go), but restore lists them together. One tablet is the plan; revisit if that changes.
   - Each Drive run lists `Backup/blobs/` (1 request per 1000 files) instead of caching Drive ids locally. Fine for thousands of files; revisit if backups get slow.
   - The spare test account's Drive got part of a backup of the tablet's real notes on 17 Nov (connected by mistake, then disconnected). Delete the **Noteapp** folder in that account's Drive.
+  - **From the end-of-phase review (17 Nov), not fixed yet:**
+    - The whole Drive run holds `StorageLock.backup`, upload included. On a slow connection, Delete now, Export everything, the purge and Drive restore wait until it ends (a first backup can take 30+ minutes). Fix idea: hold the lock only for the snapshot, and let the purge/clean-up skip files a run is still uploading. 🔺 data safety.
+    - Every backup md5-hashes every file again, big PDFs included. Fix idea: cache md5 by path + size + modified time for write-once files.
+    - Every backup re-downloads the kept snapshot lists (~8). Fix idea: cache them by Drive file id; they never change.
+    - When one notebook's PDF copy fails, the copies still count as up to date until the next change or the daily run (on purpose, so a broken notebook isn't retried every 30 minutes).
+    - Home's backup strip "Open Settings" opens Settings at the top, not at Backup.
   - "Back up now" isn't an expedited job (that would need its own notification on Android 11 and older), so Android may start it a little later.
 
 - **Open in Canvas (Phase 5 FB11):** not tried with the real Canvas Student app: whether it opens the university's assignment links (else the Chrome tab takes over) needs the tablet.

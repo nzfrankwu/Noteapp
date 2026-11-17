@@ -127,6 +127,8 @@ class PdfCopies(
                 throw e
             } catch (e: Exception) {
                 failed++ // one notebook that can't be exported doesn't stop the others
+            } catch (e: OutOfMemoryError) {
+                failed++ // a huge notebook (like the editor's own export, which catches this too)
             }
         }
 

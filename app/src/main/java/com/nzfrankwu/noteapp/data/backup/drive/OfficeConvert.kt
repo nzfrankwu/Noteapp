@@ -81,6 +81,9 @@ class OfficeConvert(
             PdfImportResult.Failure(e.message.orEmpty())
         } catch (e: java.io.IOException) {
             PdfImportResult.Failure("Noteapp couldn't read that file.")
+        } catch (e: Exception) {
+            // e.g. the other app's permission to read the file lapsed (SecurityException)
+            PdfImportResult.Failure("Noteapp couldn't turn this file into a PDF. $TIP")
         } finally {
             withContext(NonCancellable + Dispatchers.IO) { dir.deleteRecursively() }
         }
