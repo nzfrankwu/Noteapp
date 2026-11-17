@@ -55,21 +55,47 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Clock
 import java.time.ZoneId
 
 /**
- * Search (PHASE-7.md 7.8, IDEA.md §2.11): names and tasks for now. PDF text, text boxes and
- * handwriting join in 7.9–7.10 as an "In your notes" group.
+ * A page whose words match (PHASE-7.md 7.9): which notebook and page, and the text around the
+ * match. [together] = the words are next to each other there, in order (listed first).
  */
+data class NoteHit(
+    val notebookId: String,
+    val notebookTitle: String,
+    val pageId: String,
+    /** 1 = the first page. */
+    val pageNumber: Int,
+    val isPdf: Boolean,
+    val snippet: String?,
+    val together: Boolean = false,
+)
+
+/**
+ * Search (PHASE-7.md 7.8–7.9, IDEA.md §2.11): names and tasks, and the words in the notes (PDF
+ * text and text boxes, from [noteText]; handwriting joins in 7.10). With [notebookId] it's "Find
+ * in this notebook": only that notebook's pages.
+ */
+@OptIn(kotlinx.coroutines.FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SearchViewModel(
     private val tasks: TaskRepository,
-    notebooks: NotebookRepository,
+    private val notebooks: NotebookRepository,
     folders: FolderRepository,
     private val clock: Clock = Clock.systemDefaultZone(),
+    private val noteText: com.nzfrankwu.noteapp.data.search.NoteTextStore? = null,
+    val notebookId: String? = null,
 ) : ViewModel() {
+    /** The notebook being searched in ("Find in this notebook"), or null. */
+    val scopeTitle: StateFlow<String?> = (notebookId?.let { id -> notebooks.observeNotebook(id).map { it?.title } } ?: flowOf(null))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     /** What's typed in the search box (kept across rotation by the view model). */
     val query = MutableStateFlow("")
 
@@ -82,8 +108,38 @@ class SearchViewModel(
         idx?.search(q, clock.instant()) ?: SearchIndex.Results()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchIndex.Results())
 
+    /** Pages whose words match, by notebook (most recently changed first), then page. */
+    val noteHits: StateFlow<List<NoteHit>> = query.debounce(150).mapLatest { findInNotes(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private suspend fun findInNotes(query: String): List<NoteHit> {
+        val store = noteText ?: return emptyList()
+        val words = SearchIndex.words(query)
+        if (words.isEmpty()) return emptyList()
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val hits = store.search(words, notebookId, limit = MAX_NOTE_HITS)
+            val byNotebook = hits.groupBy { it.notebookId }
+            byNotebook.mapNotNull { (nbId, pageHits) ->
+                val nb = notebooks.getNotebook(nbId)?.takeIf { it.deletedAt == null } ?: return@mapNotNull null
+                val pages = notebooks.getPages(nbId)
+                val number = pages.withIndex().associate { (i, p) -> p.id to i + 1 }
+                nb to pageHits.mapNotNull { h ->
+                    val n = number[h.pageId] ?: return@mapNotNull null
+                    val text = listOfNotNull(h.pdfText, h.boxText).joinToString("\n")
+                    NoteHit(nbId, nb.title, h.pageId, n, h.pdfText != null, SearchIndex.snippet(text, words), SearchIndex.hasPhrase(text, words))
+                }.sortedBy { it.pageNumber }
+            }.sortedByDescending { it.first.updatedAt }.flatMap { it.second }
+                // Pages with the words together first; otherwise notebook by notebook, page by page.
+                .sortedBy { if (it.together) 0 else 1 }
+        }
+    }
+
     fun setStatus(taskId: String, status: TaskStatus) {
         viewModelScope.launch { tasks.setStatus(taskId, status) }
+    }
+
+    companion object {
+        const val MAX_NOTE_HITS = 200
     }
 }
 
@@ -100,11 +156,18 @@ fun SearchScreen(
     onOpenNotebook: (String) -> Unit,
     onOpenFolder: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** A page whose words match: open it there, with [query] to show where (PHASE-7.md 7.9). */
+    onOpenPage: (notebookId: String, pageId: String, query: String) -> Unit = { nb, _, _ -> onOpenNotebook(nb) },
     clock: Clock = Clock.systemDefaultZone(),
     zone: ZoneId = ZoneId.systemDefault(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
-    val results by viewModel.results.collectAsStateWithLifecycle()
+    val allResults by viewModel.results.collectAsStateWithLifecycle()
+    val noteHits by viewModel.noteHits.collectAsStateWithLifecycle()
+    val scopeTitle by viewModel.scopeTitle.collectAsStateWithLifecycle()
+    val scoped = viewModel.notebookId != null
+    // Find in this notebook: only its pages.
+    val results = if (scoped) SearchIndex.Results() else allResults
     val focus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     LaunchedEffect(Unit) { if (viewModel.query.value.isEmpty()) focus.requestFocus() }
@@ -121,7 +184,7 @@ fun SearchScreen(
                     OutlinedTextField(
                         value = query,
                         onValueChange = { viewModel.query.value = it },
-                        placeholder = { Text("Search tasks, notebooks and folders") },
+                        placeholder = { Text(if (scoped) "Find in ${scopeTitle ?: "this notebook"}" else "Search tasks, notebooks and notes") },
                         singleLine = true,
                         leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
                         trailingIcon = {
@@ -152,8 +215,12 @@ fun SearchScreen(
         Box(Modifier.padding(inner).fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             val words = SearchIndex.words(query)
             when {
-                words.isEmpty() -> Hint("Type to search your tasks (titles, descriptions and your notes), notebooks and folders.")
-                results.isEmpty -> Hint("Nothing matches “${query.trim()}”.")
+                words.isEmpty() -> Hint(
+                    if (scoped) "Type to find words in this notebook's PDF pages and text boxes."
+                    else "Type to search your tasks (titles, descriptions and your notes), notebooks, folders, " +
+                        "and the words in your PDFs and text boxes.",
+                )
+                results.isEmpty && noteHits.isEmpty() -> Hint("Nothing matches “${query.trim()}”.")
                 else -> LazyColumn(
                     modifier = Modifier.widthIn(max = Dimens.ReadingMaxWidth).fillMaxWidth().testTag("search-results"),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.ScreenPadding),
@@ -182,6 +249,19 @@ fun SearchScreen(
                                 detail = listOfNotNull(hit.place?.let { "in $it" }, "$pages ${if (pages == 1) "page" else "pages"}").joinToString(" · "),
                                 onClick = { onOpenNotebook(hit.item.notebook.id) },
                                 tag = "search-notebook-${hit.item.notebook.title}",
+                            )
+                        }
+                    }
+                    if (noteHits.isNotEmpty()) {
+                        item(key = "h-notes") { Group("In your notes", noteHits.size) }
+                        items(noteHits, key = { "p-" + it.pageId }) { hit ->
+                            ResultRow(
+                                icon = if (hit.isPdf) R.drawable.ic_picture_as_pdf else R.drawable.ic_text_fields,
+                                title = if (scoped) "Page ${hit.pageNumber}" else "${hit.notebookTitle} · page ${hit.pageNumber}",
+                                detail = hit.snippet,
+                                detailLines = 2,
+                                onClick = { onOpenPage(hit.notebookId, hit.pageId, query.trim()) },
+                                tag = "search-page-${hit.pageNumber}",
                             )
                         }
                     }
@@ -225,7 +305,7 @@ private fun Group(title: String, count: Int) {
 }
 
 @Composable
-private fun ResultRow(icon: Int, title: String, detail: String?, onClick: () -> Unit, tag: String, courseCode: String? = null) {
+private fun ResultRow(icon: Int, title: String, detail: String?, onClick: () -> Unit, tag: String, courseCode: String? = null, detailLines: Int = 1) {
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer,
@@ -241,7 +321,7 @@ private fun ResultRow(icon: Int, title: String, detail: String?, onClick: () -> 
                 Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (courseCode != null) CourseTag(courseCode)
                 if (detail != null) {
-                    Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = detailLines, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

@@ -113,6 +113,29 @@ class SearchIndex(
     }
 
     companion object {
+        /**
+         * A short piece of [text] around the first search word, on one line, with "…" where it's
+         * cut (PHASE-7.md 7.9). Null if [text] is empty.
+         */
+        fun snippet(text: String?, words: List<String>, around: Int = 60): String? {
+            val flat = text?.replace(Regex("\\s+"), " ")?.trim().orEmpty()
+            if (flat.isEmpty()) return null
+            // The words together if they're there ("slide 3"), else the first word found.
+            val together = flat.indexOf(words.joinToString(" "), ignoreCase = true)
+            val at = together.takeIf { it >= 0 } ?: words.map { flat.indexOf(it, ignoreCase = true) }.filter { it >= 0 }.minOrNull() ?: 0
+            var start = (at - around).coerceAtLeast(0)
+            var end = (at + around).coerceAtMost(flat.length)
+            // Don't cut words in half.
+            if (start > 0) flat.indexOf(' ', start).takeIf { it in start until at }?.let { start = it + 1 }
+            if (end < flat.length) flat.lastIndexOf(' ', end).takeIf { it > at }?.let { end = it }
+            return (if (start > 0) "…" else "") + flat.substring(start, end) + (if (end < flat.length) "…" else "")
+        }
+
+        /** True when [text] holds [words] together, in order (spaces and line breaks count alike). */
+        fun hasPhrase(text: String?, words: List<String>): Boolean =
+            words.size > 1 && text != null &&
+                text.replace(Regex("\\s+"), " ").contains(words.joinToString(" "), ignoreCase = true)
+
         fun words(query: String): List<String> = query.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
 
         private val TAG = Regex("<\\s*(/?)\\s*([a-zA-Z0-9]*)[^>]*>")

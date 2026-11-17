@@ -20,6 +20,8 @@ _None known._
 
 ## Follow-ups / tech debt
 
+- **Search (7.9):** a text box match zooms to the box but doesn't mark the words; scanned PDF pages have no text. The first index of many big PDFs runs in the background after start-up (not measured on the tablet yet).
+
 - **Backup (Phase 6):**
   - After "Import from export" the app restarts on Home; the "Restored the backup from …" message only shows in Settings → Backup.
   - Home's "Recently deleted" row is hidden when there are no folders at all (Settings still has it).
@@ -85,6 +87,8 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Phase 7 step 7.9, searching inside notes (18 Nov):** search now also finds words in imported PDFs and text boxes ("In your notes"); tapping one opens the page with the words selected. Notebook ⋮ → "Find in this notebook". The words are kept in a separate `search.db` that's rebuilt in the background and never backed up.
 
 - **Phase 7 step 7.8, search (18 Nov):** a search icon on Home finds tasks (titles, descriptions, your notes, course), notebooks and folders. Words in PDFs, text boxes and handwriting come in 7.9–7.10.
 

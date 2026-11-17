@@ -390,6 +390,15 @@ internal fun NotebookEditor(
                 },
             ) {
                 extraMenu { menuOpen = false }
+                // Search this notebook's PDF pages and text boxes (PHASE-7.md 7.9).
+                LocalFindInNotebook.current?.let { find ->
+                    DropdownMenuItem(
+                        text = { Text("Find in this notebook") },
+                        onClick = { menuOpen = false; viewModel.saveNow(); find(viewModel.notebookId) },
+                        modifier = Modifier.testTag("menu-find"),
+                    )
+                    HorizontalDivider()
+                }
                 if (links != null && linkedTasks.isEmpty()) {
                     DropdownMenuItem(
                         text = { Text("Link to a task…") },

@@ -144,6 +144,24 @@ object TextSelection {
             Straighten.line(newId(), tool, colorArgb, size ?: m.thickness, m.x1, m.y, m.x2, m.y, 1f, InkStroke.TOOL_TOUCH)
         }
 
+    /**
+     * Where search words appear on a PDF page (PHASE-7.md 7.9): the first run of consecutive
+     * words holding the search words in order (each word containing its search word, any case),
+     * else the first word holding the first search word; null if none does.
+     */
+    fun find(text: PageText, words: List<String>): TextRange? {
+        if (words.isEmpty() || text.isEmpty) return null
+        val all = text.words
+        for (i in all.indices) {
+            if (i + words.size > all.size) break
+            if (words.indices.all { k -> all[i + k].text.contains(words[k], ignoreCase = true) }) {
+                return TextRange(i, i + words.size - 1)
+            }
+        }
+        val first = all.indexOfFirst { it.text.contains(words[0], ignoreCase = true) }
+        return if (first >= 0) TextRange(first, first) else null
+    }
+
     /** The box around the whole selection (for a bookmark's spot). */
     fun spotOf(text: PageText, range: TextRange): PageSpot {
         val rects = lineRects(text, range)

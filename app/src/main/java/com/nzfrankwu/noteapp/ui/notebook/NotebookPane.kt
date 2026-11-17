@@ -46,6 +46,12 @@ import kotlinx.coroutines.launch
  * one pane, or two side by side (split view); its top bar and toolbar work on the active one.
  */
 @Stable
+/** Words to find on the page a notebook opens at (a search hit, PHASE-7.md 7.9), or null. */
+val LocalOpenAtFind = androidx.compose.runtime.staticCompositionLocalOf<String?> { null }
+
+/** Opens "Find in this notebook" for a notebook ID (PHASE-7.md 7.9); null where there's none. */
+val LocalFindInNotebook = androidx.compose.runtime.staticCompositionLocalOf<((String) -> Unit)?> { null }
+
 class PaneState(val viewModel: NotebookViewModel) {
     val view = EditorViewState()
 
@@ -157,6 +163,8 @@ fun NotebookPane(
     var fittedFor by remember { mutableStateOf(IntSize.Zero) }
     var savedPage by rememberSaveable { mutableIntStateOf(0) }
     var openedAtBookmark by rememberSaveable { mutableStateOf(false) }
+    val openAtFind = LocalOpenAtFind.current
+    var foundOnOpen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(viewSize, strip != null && pages.isNotEmpty()) {
         if (strip == null || pages.isEmpty() || viewSize.width == 0 || fittedFor == viewSize) return@LaunchedEffect
         // Opened at a bookmark: that page, zoomed to its spot (once; afterwards it's like any other page).
@@ -168,6 +176,11 @@ fun NotebookPane(
                 ?: strip.fit(settings.fitMode, bookmarked, w, h)
             openedAtBookmark = true
             fittedFor = viewSize
+            // Opened from a search (PHASE-7.md 7.9): select the words found and zoom to them.
+            if (openAtFind != null && !foundOnOpen) {
+                foundOnOpen = true
+                showFound(pane, pages[bookmarked], bookmarked, openAtFind, strip, w, h)
+            }
             return@LaunchedEffect
         }
         val page = (view.camera?.let { strip.currentPage(it, fittedFor.width.toFloat()) } ?: savedPage)
@@ -326,4 +339,41 @@ fun NotebookPane(
             PageScroller(view, strip, pages.size)
         }
     }
+}
+
+/**
+ * Shows where the search words are on page [index] (PHASE-7.md 7.9): on a PDF page the matching
+ * words are selected (Copy, Highlight, Bookmark work as usual) and zoomed to; otherwise the first
+ * text box holding them is zoomed to. Nothing happens if they aren't found (the page is shown).
+ */
+private suspend fun showFound(pane: PaneState, page: com.nzfrankwu.noteapp.data.db.Page, index: Int, query: String, strip: PageStrip, w: Float, h: Float) {
+    val words = com.nzfrankwu.noteapp.data.SearchIndex.words(query)
+    if (words.isEmpty()) return
+    val vm = pane.viewModel
+    val view = pane.view
+    if (page.isPdf) {
+        val text = vm.pageText(page)
+        val range = com.nzfrankwu.noteapp.domain.ink.TextSelection.find(text, words) ?: return
+        view.textSel = TextSel(index, page.id, text, range)
+        val spot = com.nzfrankwu.noteapp.domain.ink.TextSelection.spotOf(text, range)
+        focusAround(pane, page, index, spot.top, spot.height, strip, w, h)
+        return
+    }
+    // Text boxes: wait for the page to load (a few seconds at most).
+    kotlinx.coroutines.withTimeoutOrNull(5_000) {
+        while (!vm.isEditable(page.id)) kotlinx.coroutines.delay(50)
+    } ?: return
+    val box = vm.ink.texts(page.id).firstOrNull { t -> words.all { t.text.contains(it, ignoreCase = true) } }
+        ?: vm.ink.texts(page.id).firstOrNull { t -> t.text.contains(words[0], ignoreCase = true) }
+        ?: return
+    focusAround(pane, page, index, box.top, box.height, strip, w, h)
+}
+
+/** Zooms to a band across the whole page width around [top]..[top]+[height], so the words show in context. */
+private fun focusAround(pane: PaneState, page: com.nzfrankwu.noteapp.data.db.Page, index: Int, top: Float, height: Float, strip: PageStrip, w: Float, h: Float) {
+    val nb = pane.viewModel.notebook.value ?: return
+    val size = page.size(nb)
+    val band = (size.height * 0.5f).coerceAtLeast(height)
+    val bandTop = (top + height / 2f - band / 2f).coerceIn(0f, (size.height - band).coerceAtLeast(0f))
+    pane.view.camera = strip.focus(index, 0f, bandTop, size.width, band, w, h)
 }

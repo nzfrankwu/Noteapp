@@ -36,6 +36,16 @@ class NoteAppApplication : Application() {
         com.nzfrankwu.noteapp.data.backup.MaintenanceWorker.schedule(this)
         // While Google Drive is connected: a daily backup, and one 5 minutes after the last change.
         container.driveConnection.keepBackingUp(databaseChanges())
+        // Search (PHASE-7.md 7.9): read new or changed PDF pages and text boxes in the background.
+        keepSearchInStep()
+    }
+
+    private fun keepSearchInStep() {
+        appScope.launch {
+            delay(5_000) // let the app start first
+            runCatching { container.noteTextIndexer.run() }
+            databaseChanges().collectLatest { runCatching { container.noteTextIndexer.run() } }
+        }
     }
 
     /** Any change to the notebooks, folders or tasks (page saves mark their page edited, too). */

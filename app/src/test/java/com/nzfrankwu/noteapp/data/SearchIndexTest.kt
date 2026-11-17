@@ -118,4 +118,27 @@ class SearchIndexTest {
         assertEquals(null, SearchIndex.plainText("  "))
         assertEquals(null, SearchIndex.plainText(null))
     }
+
+    // ---- 7.9: snippets of note text ----
+
+    @Test
+    fun snippet_showsTheTextAroundTheFirstMatch_withoutCuttingWords() {
+        val text = "Lecture 7\nTransmission lines are modelled as distributed circuits. The Smith chart turns impedance into a picture you can read quickly."
+        val s = SearchIndex.snippet(text, listOf("smith"), around = 30)!!
+        assertTrue(s, s.startsWith("…") && s.endsWith("…"))
+        assertTrue(s, s.contains("The Smith chart"))
+        assertTrue("no half words: $s", !s.contains("…ircuits") && !s.contains("imped…"))
+        assertEquals("Short text", SearchIndex.snippet("Short   text", listOf("short")))
+        assertEquals(null, SearchIndex.snippet(null, listOf("x")))
+    }
+
+    @Test
+    fun wordsTogether_areSpotted_andTheSnippetCentresOnThem() {
+        val text = "Point 1.3: the voltage. Lecture 7 slide\n3 shows the Smith chart"
+        assertTrue(SearchIndex.hasPhrase(text, listOf("slide", "3")))
+        assertTrue(!SearchIndex.hasPhrase(text, listOf("3", "slide")))
+        assertTrue("one word is never a phrase", !SearchIndex.hasPhrase(text, listOf("slide")))
+        val s = SearchIndex.snippet(text, listOf("slide", "3"), around = 10)!!
+        assertTrue(s, s.contains("slide 3"))
+    }
 }

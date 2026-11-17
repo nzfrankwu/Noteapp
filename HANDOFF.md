@@ -1,10 +1,10 @@
 # Handoff: where things stand
 
-_Last updated: 18 Nov 2026 (Phase 7: 7.1–7.8 done). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 18 Nov 2026 (Phase 7: 7.1–7.9 done). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phase 7 (Polish) is planned: `PHASE-7.md`, branch `phase-7`** (from `main`). 7.0–7.8 are done (7.8 after the user OK'd the search layout, 18 Nov). **Mode: hands-off since 18 Nov** (the user said "start, hands off mode"): build, test, commit and push every step; leave what needs the user (7.8's new search screen layout, ML Kit at 7.10, pen widths 7.12, the tablet 7.13) in REPORT.md / ISSUES.md.
+- **Phase 7 (Polish) is planned: `PHASE-7.md`, branch `phase-7`** (from `main`). 7.0–7.9 are done (7.8–7.9 after the user's OK, 18 Nov). **Mode: hands-off since 18 Nov** (the user said "start, hands off mode"): build, test, commit and push every step; leave what needs the user (7.8's new search screen layout, ML Kit at 7.10, pen widths 7.12, the tablet 7.13) in REPORT.md / ISSUES.md.
   - Decided 17 Nov: search over names, tasks, PDF text, text boxes **and handwriting** (ML Kit, English only; still ask before adding the library at 7.10); **custom tags dropped, Submitted merged into Done** (IDEA.md §2.3/§3.3 updated); new settings: reminder times, course colours, default paper, light/dark; plus the Phase 6 review leftovers and the editor speed leftovers. Version history stays "later".
   - **Database is v8 now (7.1, 18 Nov):** statuses `submitted` → `done`, `courses.color`. The tablet is still v7: installing a Phase 7 build upgrades it (snapshot first, with the user's OK). `screenshots/app-v7.apk` is the v7 build; `screenshots/upgrade_v8.sh` + `compare_dbs.py <before> <after> --v8` is the real upgrade check.
 - **Phases 1–6 are merged into `main`** (Phase 6 on 17 Nov, `c4b9e7a`). History in `PHASE-1.md` … `PHASE-6.md` and `ISSUES.md`.
@@ -16,6 +16,12 @@ _Last updated: 18 Nov 2026 (Phase 7: 7.1–7.8 done). Keep this file current (se
   - Tests at the end of the phase: **574 unit tests and the full emulator suite (310) pass** (17 Nov, after the review fixes). Test gotcha: `am instrument` force-stops the app, which cancels its WorkManager jobs until the app is opened again; tests that change app settings must reset them (the suite reinstalls without wiping data).
 - **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet. `connectedDebugAndroidTest` **uninstalls the app afterwards** (emulator data gone; rerun `screenshots/p4setup.sh`).
 - **The tablet runs the Phase 6 build** (`0e741d1`; `main` differs only in tests and notes; 17 Nov; snapshot before/after each install: compare PASS), database **version 7**, connected to the user's main Google account (first backup done, ~48 MB). Never install a build older than v7 on it.
+
+## Phase 7 code map (search)
+
+- `data/SearchIndex.kt` (names and tasks, snippets), `ui/search/SearchScreen.kt` (`SearchViewModel`, `SearchRoute(notebookId?)`)
+- `data/search/NoteTextStore.kt` (`databases/search.db`, a cache, never backed up), `NoteTextIndexer.kt` (run by `NoteAppApplication.keepSearchInStep`)
+- Opening at a hit: `NotebookRoute.find` → `LocalOpenAtFind` → `NotebookPane.showFound`; editor ⋮ "Find in this notebook" via `LocalFindInNotebook`
 
 ## Phase 6 code map (`app/src/main/java/com/nzfrankwu/noteapp/`)
 
@@ -34,7 +40,7 @@ _Last updated: 18 Nov 2026 (Phase 7: 7.1–7.8 done). Keep this file current (se
 
 ## Next steps (in order)
 
-1. **Hands-off run stopped (18 Nov) after 7.7; see `REPORT.md` (git-ignored) and ISSUES.md "Open questions".** 7.8 search is built (layout OK'd). Next: **7.9 🔺 search index (PDF text + text boxes)**. Still waiting on the user for: ML Kit OK (7.10), 7.11 (skipped: needs the tablet to measure), pen widths (7.12), tablet install (7.13). Next: whichever the user OKs first; 7.8 → 7.9 → 7.10 are in order. (hands-off order; 7.8–7.10, 7.12, 7.13 need the user).
+1. **Hands-off run stopped (18 Nov) after 7.7; see `REPORT.md` (git-ignored) and ISSUES.md "Open questions".** 7.8–7.9 search is built. Next: **7.10 handwriting search** once the user OKs ML Kit. Still waiting on the user for: ML Kit OK (7.10), 7.11 (skipped: needs the tablet to measure), pen widths (7.12), tablet install (7.13). Next: whichever the user OKs first; 7.8 → 7.9 → 7.10 are in order. (hands-off order; 7.8–7.10, 7.12, 7.13 need the user).
 3. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own

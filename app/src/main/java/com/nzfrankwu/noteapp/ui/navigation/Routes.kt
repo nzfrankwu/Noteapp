@@ -18,9 +18,9 @@ data class SettingsRoute(val section: String? = null) : NavKey {
     }
 }
 
-/** Search (PHASE-7.md 7.8). */
+/** Search (PHASE-7.md 7.8); with [notebookId] it's "Find in this notebook" (7.9). */
 @Serializable
-data object SearchRoute : NavKey
+data class SearchRoute(val notebookId: String? = null) : NavKey
 
 /** Settings → Courses: archive or bring back courses. */
 @Serializable
@@ -35,13 +35,15 @@ data class FolderRoute(val folderId: String) : NavKey
 
 /**
  * A notebook open for writing (Phase 2). With [pageId] it opens at that page, zoomed to [spot]
- * when given (a bookmark, Phase 4); the defaults keep saved back stacks loading.
+ * when given (a bookmark, Phase 4); the defaults keep saved back stacks loading. With [find]
+ * (a search, PHASE-7.md 7.9) the page opens with those words selected and zoomed to.
  */
 @Serializable
 data class NotebookRoute(
     val notebookId: String,
     val pageId: String? = null,
     val spot: com.nzfrankwu.noteapp.domain.PageSpot? = null,
+    val find: String? = null,
 ) : NavKey
 
 /** One task's details. */

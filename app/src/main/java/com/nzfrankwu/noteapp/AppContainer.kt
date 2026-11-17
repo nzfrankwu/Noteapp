@@ -138,6 +138,14 @@ class AppContainer(context: Context) {
         )
     }
 
+    /** Words in the notes for search (PHASE-7.md 7.9): a cache in its own `search.db`, never backed up. */
+    val noteTextStore: com.nzfrankwu.noteapp.data.search.NoteTextStore by lazy {
+        com.nzfrankwu.noteapp.data.search.NoteTextStore(appContext)
+    }
+    val noteTextIndexer: com.nzfrankwu.noteapp.data.search.NoteTextIndexer by lazy {
+        com.nzfrankwu.noteapp.data.search.NoteTextIndexer(database, notebookFiles, noteTextStore)
+    }
+
     /** The paper new notebooks start with (Settings → Notebooks, Phase 7, 7.3), always at hand. */
     val newNotebookPaper: kotlinx.coroutines.flow.StateFlow<com.nzfrankwu.noteapp.domain.PageTemplate> by lazy {
         inkSettings.settings.map { it.newNotebookPaper }
