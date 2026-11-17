@@ -17,6 +17,10 @@ data object SettingsRoute : NavKey
 @Serializable
 data object CoursesRoute : NavKey
 
+/** Recently deleted notebooks (PHASE-6.md 6.4). */
+@Serializable
+data object RecentlyDeletedRoute : NavKey
+
 @Serializable
 data class FolderRoute(val folderId: String) : NavKey
 

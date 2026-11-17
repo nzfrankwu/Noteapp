@@ -84,6 +84,9 @@ fun HomeScreen(
     calendar: @Composable () -> Unit = { ComingSoon("Calendar") },
     /** The Timeline tab's content (B.6). */
     timeline: @Composable () -> Unit = { ComingSoon("Timeline") },
+    /** How many notebooks are in Recently deleted (the row under Folders shows when it's above 0). */
+    recentlyDeletedCount: Int = 0,
+    onOpenRecentlyDeleted: () -> Unit = {},
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val folders by viewModel.folders.collectAsStateWithLifecycle()
@@ -128,6 +131,8 @@ fun HomeScreen(
         archivedExpanded = archivedExpanded,
         onToggleArchived = viewModel::toggleArchived,
         onSetArchived = viewModel::setArchived,
+        recentlyDeletedCount = recentlyDeletedCount,
+        onOpenRecentlyDeleted = onOpenRecentlyDeleted,
     )
 
     when (val d = dialog) {
@@ -195,6 +200,8 @@ fun HomeContent(
     onToggleArchived: () -> Unit = {},
     /** Archive or unarchive a folder's course. */
     onSetArchived: (FolderListItem, Boolean) -> Unit = { _, _ -> },
+    recentlyDeletedCount: Int = 0,
+    onOpenRecentlyDeleted: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -231,6 +238,8 @@ fun HomeContent(
             onSetArchived = onSetArchived,
             archivedExpanded = archivedExpanded,
             onToggleArchived = onToggleArchived,
+            recentlyDeletedCount = recentlyDeletedCount,
+            onOpenRecentlyDeleted = onOpenRecentlyDeleted,
         )
         Column(Modifier.padding(innerPadding).fillMaxSize()) {
             HomeBannerStrips(banners, bannerActions)
@@ -286,6 +295,8 @@ private class FolderActions(
     val onSetArchived: (FolderListItem, Boolean) -> Unit,
     val archivedExpanded: Boolean,
     val onToggleArchived: () -> Unit,
+    val recentlyDeletedCount: Int = 0,
+    val onOpenRecentlyDeleted: () -> Unit = {},
 )
 
 /**
@@ -302,6 +313,31 @@ private fun LazyGridScope.folderTiles(folders: List<FolderListItem>, actions: Fo
         if (actions.archivedExpanded) {
             items(archived, key = { it.folder.id }) { item -> FolderTileFor(item, actions) }
         }
+    }
+    if (actions.recentlyDeletedCount > 0) {
+        item(key = "deleted-row", span = { GridItemSpan(maxLineSpan) }) {
+            RecentlyDeletedRow(actions.recentlyDeletedCount, actions.onOpenRecentlyDeleted)
+        }
+    }
+}
+
+/** "Recently deleted (2) ›": opens Recently deleted (PHASE-6.md 6.4). Hidden when it's empty. */
+@Composable
+private fun RecentlyDeletedRow(count: Int, onOpen: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClick = onOpen)
+            .padding(horizontal = 4.dp, vertical = 10.dp)
+            .testTag("recently-deleted-row"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painterResource(R.drawable.ic_delete), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text("Recently deleted ($count)", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(2.dp))
+        Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

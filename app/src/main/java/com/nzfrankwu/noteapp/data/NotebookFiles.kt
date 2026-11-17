@@ -133,6 +133,19 @@ class NotebookFiles(private val root: File) {
         notebookDir(notebookId).deleteRecursively()
     }
 
+    /**
+     * Deletes a notebook's whole folder of files, for good: only for a notebook whose rows were
+     * already removed from Recently deleted (see NotebookPurge).
+     */
+    fun deleteNotebookFiles(notebookId: String) {
+        notebookDir(notebookId).deleteRecursively()
+    }
+
+    /** Deletes a page's file, for good (a page purged 30 days after it was deleted). */
+    fun deletePageFile(notebookId: String, pageId: String) {
+        pageFile(notebookId, pageId).delete()
+    }
+
     /** Removes temporary files left by a save that was cut off (the real page files stay). */
     fun cleanUpUnfinishedSaves(notebookId: String) {
         notebookDir(notebookId).listFiles { f -> f.name.endsWith(TEMP_SUFFIX) }?.forEach { it.delete() }

@@ -12,6 +12,11 @@ _None known._
 
 ## Follow-ups / tech debt
 
+- **Backup (Phase 6):**
+  - After "Import from export" the app restarts on Home; the "Restored the backup from …" message only shows in Settings → Backup.
+  - Home's "Recently deleted" row is hidden when there are no folders at all (Settings still has it).
+  - Restoring an export from an older database version relies on Room's normal migrations (covered by `MigrationTest`), not tested end to end with a real old export.
+
 - **Open in Canvas (Phase 5 FB11):** not tried with the real Canvas Student app: whether it opens the university's assignment links (else the Chrome tab takes over) needs the tablet.
 - **Split view (Phase 5.8):** each notebook opened in a pane keeps its view model until you leave the notebook screen (cheap, but many swaps in one visit keep many notebooks in memory). A real side-by-side split with another app needs the tablet.
 - **Bookmark pen (Phase 5 FB5):** deleting a bookmark keeps its picture file (so Undo works), and nothing removes it later yet; a clean-up of unused bookmark pictures belongs with backup (Phase 6). The picture is what's on screen, so a rectangle drawn partly off screen gets only the part on screen.
@@ -62,10 +67,12 @@ _None known._
 - **The emulator's stylus handwriting is turned off** (emulator only; `settings put secure stylus_handwriting_enabled 0`), because its "Try out your stylus" tutorial swallowed scripted typing. The tablet is unaffected.
 - **Screen tests leave their in-memory databases open** (`TaskScreensTest`, `DueSoonTest`). Closing them while a screen was still reading crashed a run once. Harmless for tests; revisit if test memory ever becomes a problem.
 - **Never install an older build than the one on the tablet.** The database is now version 3 (B.8), and Room can't go back to an older version: the older app would refuse to open (crash at start). Your data stays safe, and installing a current build fixes it, but don't downgrade.
-- **For Phase 6 "Recently deleted":** deleting a folder only checks for notebooks that aren't deleted, so notebooks deleted earlier stay in the database with no folder (their pages and files are kept). "Recently deleted" must list these and offer somewhere to restore them.
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Phase 6.4 Recently deleted (17 Nov):** deleted notebooks and PDFs are listed for 30 days (Home row and Settings) with Restore and Delete now; a notebook whose folder was deleted asks for a folder. Resolves the old "deleted notebooks without a folder" follow-up. A daily job deletes anything older than 30 days for good.
+- **Phase 6.1–6.3 Export everything / Import from export (17 Nov):** Settings → Backup. Real round trip on the emulator: compare PASS.
 
 - **Phase 6 planned (17 Nov):** `PHASE-6.md`. Decided with the user: only `play-services-auth` plus our own Drive client; the .zip Export/Import first; PDF copies daily; Word/PowerPoint conversion last; Recently deleted on Home and in Settings; Drive keeps 7 days of complete snapshots (IDEA.md §2.9 updated); a separate test Google account on the emulator.
 

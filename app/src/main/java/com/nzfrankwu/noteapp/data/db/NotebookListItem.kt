@@ -10,3 +10,11 @@ data class NotebookListItem(
     /** True if any of its pages shows a page of an imported PDF (Phase 3). */
     @ColumnInfo(name = "is_pdf") val isPdf: Boolean = false,
 )
+
+/** A notebook in Recently deleted (PHASE-6.md 6.4): when it was deleted, and the folder it was in (null if that folder is gone too). */
+data class DeletedNotebook(
+    @Embedded val notebook: Notebook,
+    @ColumnInfo(name = "page_count") val pageCount: Int,
+    @ColumnInfo(name = "is_pdf") val isPdf: Boolean = false,
+    @ColumnInfo(name = "folder_name") val folderName: String? = null,
+)

@@ -80,7 +80,7 @@ Uploads are checked against Drive's `md5Checksum`. After a snapshot is committed
   - tests: round trip; a corrupt or tampered zip is refused; a newer database version is refused; a swap killed halfway recovers
   - real check on the emulator: data → export → wipe → import → compare PASS
   - ★
-- [ ] **6.4 Recently deleted:** the Home row, the Settings row and the grid screen; Restore (folder picker if the folder is gone); Delete now; the 30-day purge in a daily `MaintenanceWorker`. ★
+- [x] **6.4 Recently deleted** (17 Nov, hands-off). Home shows "🗑 Recently deleted (N) ›" under the folders when there's anything in it; Settings has a Recently deleted section. The screen is a grid of tiles ("30 days left"); tapping one shows its pages, old folder and when it goes, with Restore and Delete now (confirmed: "can't be undone"). Restore puts it back in its folder (the folder picker opens if that folder was deleted). `NotebookPurge` removes rows first, then files; the daily `MaintenanceWorker` purges notebooks and pages deleted over 30 days ago. No database change (the foreign keys already cascade). 6 emulator tests, 2 unit tests. Was: the Home row, the Settings row and the grid screen; Restore (folder picker if the folder is gone); Delete now; the 30-day purge in a daily `MaintenanceWorker`. ★
 - [ ] 🔺 **6.5 Clean-up of unused files** (the rules above).
 - [ ] **6.6 Google Cloud setup, guided with the user** (their login): project, Drive API, OAuth consent screen (External, `drive.file`, **"In production"**), Android OAuth client with the SHA-1 from `gradlew.bat signingReport`; add `play-services-auth`, `INTERNET`, `ACCESS_NETWORK_STATE`.
 - [ ] **6.7 Google sign-in in Settings → Backup.** ★

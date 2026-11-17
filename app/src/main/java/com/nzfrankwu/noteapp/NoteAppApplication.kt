@@ -31,6 +31,8 @@ class NoteAppApplication : Application() {
         keepRemindersInStep()
         // While signed in to Canvas, keep the 6-hourly background sync scheduled (IDEA.md §3.3).
         appScope.launch { container.canvasAccount.ensureBackgroundSync() }
+        // The daily tidy-up: Recently deleted after 30 days, unused files (PHASE-6.md 6.4–6.5).
+        com.nzfrankwu.noteapp.data.backup.MaintenanceWorker.schedule(this)
     }
 
     /**

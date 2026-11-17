@@ -132,6 +132,9 @@ fun NoteAppRoot(
     // App-wide messages (e.g. "Task deleted · Undo"), shown above whichever screen is open.
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    // Recently deleted's size, for its row on Home and in Settings (PHASE-6.md 6.4).
+    val recentlyDeletedCount by remember { container.notebookRepository.observeDeletedCount() }
+        .collectAsStateWithLifecycle(initialValue = 0)
 
     fun back() { backStack.removeLastOrNull() }
 
@@ -240,6 +243,8 @@ fun NoteAppRoot(
                                 onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                             )
                         },
+                        recentlyDeletedCount = recentlyDeletedCount,
+                        onOpenRecentlyDeleted = { backStack.add(com.nzfrankwu.noteapp.ui.navigation.RecentlyDeletedRoute) },
                         onShowMessage = { message ->
                             scope.launch {
                                 snackbar.currentSnackbarData?.dismiss()
@@ -363,6 +368,16 @@ fun NoteAppRoot(
                         openAtSpot = route.spot,
                     )
                 }
+                entry<com.nzfrankwu.noteapp.ui.navigation.RecentlyDeletedRoute> {
+                    com.nzfrankwu.noteapp.ui.deleted.RecentlyDeletedScreen(
+                        viewModel = viewModel {
+                            com.nzfrankwu.noteapp.ui.deleted.RecentlyDeletedViewModel(
+                                container.notebookRepository, container.folderRepository, container.notebookPurge,
+                            )
+                        },
+                        onBack = ::back,
+                    )
+                }
                 entry<CoursesRoute> {
                     CoursesScreen(viewModel = viewModel { CoursesViewModel(container.folderRepository) }, onBack = ::back)
                 }
@@ -376,6 +391,8 @@ fun NoteAppRoot(
                     onOpenCourses = { backStack.add(CoursesRoute) },
                     inkSettings = container.inkSettings,
                     backup = container.backupManager,
+                    recentlyDeletedCount = recentlyDeletedCount,
+                    onOpenRecentlyDeleted = { backStack.add(com.nzfrankwu.noteapp.ui.navigation.RecentlyDeletedRoute) },
                     onTestReminder = if (BuildConfig.DEBUG) {
                         {
                             scope.launch {

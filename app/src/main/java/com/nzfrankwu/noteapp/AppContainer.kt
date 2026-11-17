@@ -113,6 +113,14 @@ class AppContainer(context: Context) {
         )
     }
 
+    /** Deletes things from Recently deleted for good (PHASE-6.md 6.4). */
+    val notebookPurge: com.nzfrankwu.noteapp.data.NotebookPurge by lazy {
+        com.nzfrankwu.noteapp.data.NotebookPurge(database, notebookFiles)
+    }
+
+    /** Removes files nothing uses any more (PHASE-6.md 6.5); null until it's built. */
+    val fileCleanup: com.nzfrankwu.noteapp.data.FileCleanup? = null
+
     /** Swaps a checked backup in at start-up (PHASE-6.md, "Restore"). */
     val restoreSwap: com.nzfrankwu.noteapp.data.backup.RestoreSwap by lazy {
         com.nzfrankwu.noteapp.data.backup.RestoreSwap(

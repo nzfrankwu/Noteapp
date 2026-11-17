@@ -86,4 +86,49 @@ interface NotebookDao {
     /** Every page of the notebook, deleted ones too (for backups and file clean-up). */
     @Query("SELECT * FROM pages WHERE notebook_id = :notebookId ORDER BY position, created_at")
     suspend fun getAllPagesIncludingDeleted(notebookId: String): List<Page>
+
+    /** Recently deleted (PHASE-6.md 6.4): deleted notebooks, most recently deleted first, with their old folder's name. */
+    @Query(
+        """
+        SELECT notebooks.*,
+            (SELECT COUNT(*) FROM pages WHERE pages.notebook_id = notebooks.id AND pages.deleted_at IS NULL)
+            AS page_count,
+            EXISTS (SELECT 1 FROM pages WHERE pages.notebook_id = notebooks.id AND pages.pdf_file IS NOT NULL
+                AND pages.deleted_at IS NULL)
+            AS is_pdf,
+            (SELECT folders.name FROM folders WHERE folders.id = notebooks.folder_id) AS folder_name
+        FROM notebooks
+        WHERE notebooks.deleted_at IS NOT NULL
+        ORDER BY notebooks.deleted_at DESC, notebooks.title COLLATE NOCASE
+        """,
+    )
+    fun observeDeleted(): Flow<List<DeletedNotebook>>
+
+    /** How many notebooks are in Recently deleted, updating live. */
+    @Query("SELECT COUNT(*) FROM notebooks WHERE deleted_at IS NOT NULL")
+    fun observeDeletedCount(): Flow<Int>
+
+    /** Deleted notebooks deleted before [cutoff] (the 30-day purge). */
+    @Query("SELECT id FROM notebooks WHERE deleted_at IS NOT NULL AND deleted_at < :cutoff")
+    suspend fun getDeletedBefore(cutoff: java.time.Instant): List<String>
+
+    /**
+     * Removes a deleted notebook's row for good; its pages, task links and bookmarks go with it
+     * (foreign keys, ON DELETE CASCADE). Only ever a notebook already in Recently deleted.
+     */
+    @Query("DELETE FROM notebooks WHERE id = :id AND deleted_at IS NOT NULL")
+    suspend fun deleteForGood(id: String): Int
+
+    /** Pages deleted before [cutoff] in notebooks that aren't deleted themselves (the 30-day purge). */
+    @Query(
+        """
+        SELECT pages.* FROM pages JOIN notebooks ON notebooks.id = pages.notebook_id
+        WHERE pages.deleted_at IS NOT NULL AND pages.deleted_at < :cutoff AND notebooks.deleted_at IS NULL
+        """,
+    )
+    suspend fun getDeletedPagesBefore(cutoff: java.time.Instant): List<Page>
+
+    /** Removes a deleted page's row for good (its bookmarks go with it). Only ever a deleted page. */
+    @Query("DELETE FROM pages WHERE id = :id AND deleted_at IS NOT NULL")
+    suspend fun deletePageForGood(id: String): Int
 }

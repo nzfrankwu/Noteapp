@@ -57,6 +57,9 @@ fun SettingsScreen(
     inkSettings: com.nzfrankwu.noteapp.data.InkSettingsStore? = null,
     /** Export everything / Import from export (Phase 6); hidden when null. */
     backup: com.nzfrankwu.noteapp.data.backup.BackupManager? = null,
+    /** How many notebooks are in Recently deleted (Phase 6). */
+    recentlyDeletedCount: Int = 0,
+    onOpenRecentlyDeleted: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -120,6 +123,17 @@ fun SettingsScreen(
                 }
                 if (backup != null) {
                     SettingsSection("Backup") { BackupSection(backup) }
+                }
+                SettingsSection("Recently deleted") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Notebooks and PDFs you delete stay in Recently deleted for 30 days, so you can bring them back.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        FilledTonalButton(onClick = onOpenRecentlyDeleted, modifier = Modifier.testTag("open-recently-deleted")) {
+                            Text(if (recentlyDeletedCount > 0) "Open Recently deleted ($recentlyDeletedCount)" else "Open Recently deleted")
+                        }
+                    }
                 }
                 SettingsSection("Reminders") { RemindersSettings(onTestReminder) }
                 SettingsSection("About") {
