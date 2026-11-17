@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -33,7 +34,15 @@ class NoteAppApplication : Application() {
         appScope.launch { container.canvasAccount.ensureBackgroundSync() }
         // The daily tidy-up: Recently deleted after 30 days, unused files (PHASE-6.md 6.4–6.5).
         com.nzfrankwu.noteapp.data.backup.MaintenanceWorker.schedule(this)
+        // While Google Drive is connected: a daily backup, and one 5 minutes after the last change.
+        container.driveConnection.keepBackingUp(databaseChanges())
     }
+
+    /** Any change to the notebooks, folders or tasks (page saves mark their page edited, too). */
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    private fun databaseChanges() = container.database.invalidationTracker
+        .createFlow(*com.nzfrankwu.noteapp.data.db.NoteAppDatabase.TABLES, emitInitialState = false)
+        .debounce(10_000)
 
     /**
      * Whenever any task changes (your edits, Canvas sync, deletes), re-plan the reminder alarms.

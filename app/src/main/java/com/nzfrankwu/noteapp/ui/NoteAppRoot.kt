@@ -222,6 +222,7 @@ fun NoteAppRoot(
                                 container.folderRepository, container.taskRepository,
                                 container.canvasSettings, container.canvasSyncRunner,
                                 tabStore = container.viewSettings,
+                                driveStatus = container.driveSettings.status,
                             )
                         },
                         onOpenSettings = { backStack.add(SettingsRoute) },
@@ -391,6 +392,7 @@ fun NoteAppRoot(
                     onOpenCourses = { backStack.add(CoursesRoute) },
                     inkSettings = container.inkSettings,
                     backup = container.backupManager,
+                    drive = container.driveConnection,
                     recentlyDeletedCount = recentlyDeletedCount,
                     onOpenRecentlyDeleted = { backStack.add(com.nzfrankwu.noteapp.ui.navigation.RecentlyDeletedRoute) },
                     onTestReminder = if (BuildConfig.DEBUG) {

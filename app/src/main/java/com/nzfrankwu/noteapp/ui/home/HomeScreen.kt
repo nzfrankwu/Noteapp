@@ -111,7 +111,7 @@ fun HomeScreen(
         timeline = timeline,
         folders = folders,
         banners = banners,
-        bannerActions = BannerActions(onSignInAgain, onLinkCourses, viewModel::hideNewCourses),
+        bannerActions = BannerActions(onSignInAgain, onLinkCourses, viewModel::hideNewCourses, onOpenSettings),
         refreshing = refreshing,
         onRefresh = viewModel::refresh,
         dueSoon = dueSoon,
@@ -479,12 +479,13 @@ class BannerActions(
     val onSignInAgain: () -> Unit = {},
     val onLinkCourses: () -> Unit = {},
     val onHideNewCourses: () -> Unit = {},
+    val onOpenBackup: () -> Unit = {},
 )
 
-/** The Canvas strips at the top of home (nothing when all is well). */
+/** The Canvas and backup strips at the top of home (nothing when all is well). */
 @Composable
 private fun HomeBannerStrips(banners: HomeBanners, actions: BannerActions) {
-    if (!banners.signInExpired && banners.newCourses.isEmpty()) return
+    if (!banners.signInExpired && banners.newCourses.isEmpty() && banners.backupWarning == null) return
     Column(
         Modifier.fillMaxWidth().padding(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, bottom = Dimens.ItemGap),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -496,6 +497,11 @@ private fun HomeBannerStrips(banners: HomeBanners, actions: BannerActions) {
                 modifier = Modifier.testTag("banner-expired"),
             ) {
                 FilledTonalButton(onClick = actions.onSignInAgain) { Text("Sign in again") }
+            }
+        }
+        banners.backupWarning?.let { warning ->
+            Banner(warning, warning = true, modifier = Modifier.testTag("banner-backup")) {
+                FilledTonalButton(onClick = actions.onOpenBackup) { Text("Open Settings") }
             }
         }
         if (banners.newCourses.isNotEmpty()) {

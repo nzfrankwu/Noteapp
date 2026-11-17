@@ -54,13 +54,20 @@ class DriveBackup(
 
     private class Folders(val blobs: DriveFile, val snapshots: DriveFile)
 
-    /** Takes a snapshot and uploads what Drive doesn't have yet. Throws [DriveException] or [BackupException]. */
-    suspend fun backUp(onProgress: (String, Float?) -> Unit = { _, _ -> }): Result = withContext(Dispatchers.IO) {
+    /**
+     * Takes a snapshot and uploads what Drive doesn't have yet. Throws [DriveException] or [BackupException].
+     * Returns null (nothing done) when this app has no notebooks but Drive already holds a backup:
+     * a fresh install must never replace a real backup before the person had the chance to restore it.
+     */
+    suspend fun backUp(onProgress: (String, Float?) -> Unit = { _, _ -> }): Result? = withContext(Dispatchers.IO) {
         StorageLock.backup.withLock {
             try {
                 onProgress("Preparing the backup…", null)
                 val snapshot = takeSnapshot(File(stagingDir, "snapshot"))
                 val folders = folders(create = true)!!
+                if (snapshot.manifest.counts.notebooks == 0 && drive.listFiles(folders.snapshots.id).any { it.toSnapshot() != null }) {
+                    return@withLock null
+                }
                 onProgress("Checking Google Drive…", null)
                 val blobs = drive.listFiles(folders.blobs.id).filter { it.isGoodBlob() }.associateBy { it.name }
 

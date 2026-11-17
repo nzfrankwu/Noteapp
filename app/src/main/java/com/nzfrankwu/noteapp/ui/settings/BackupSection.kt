@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -38,10 +39,10 @@ import kotlinx.coroutines.launch
 /**
  * Settings → Backup (PHASE-6.md 6.2–6.3): "Export everything" to a .zip saved anywhere, and
  * "Import from export", which replaces everything on this tablet after a confirmation.
- * Google Drive backup joins this section later in Phase 6.
+ * Google Drive backup ([DriveBackupBlock]) comes first when the app has it.
  */
 @Composable
-fun BackupSection(manager: BackupManager) {
+fun BackupSection(manager: BackupManager, drive: com.nzfrankwu.noteapp.data.backup.drive.DriveConnection? = null) {
     val context = LocalContext.current
     val job by manager.job.collectAsState()
     var copies by remember { mutableStateOf(manager.beforeRestoreCopies()) }
@@ -62,15 +63,15 @@ fun BackupSection(manager: BackupManager) {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (drive != null) {
+            DriveBackupBlock(drive, manager)
+            androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text("Export", style = MaterialTheme.typography.titleSmall)
+        }
         Text(
             "Export everything (notebooks, PDFs, pictures, folders, tasks and pen settings) as one .zip file " +
                 "and keep it somewhere safe, like Google Drive or a computer. Canvas sign-in is never included.",
             style = MaterialTheme.typography.bodyMedium,
-        )
-        Text(
-            "Automatic Google Drive backup is coming soon.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         val working = job is BackupJob.Working
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -152,7 +153,7 @@ private fun ConfirmRestoreDialog(manifest: BackupManifest, onConfirm: () -> Unit
     val c = manifest.counts
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text("Restore this export?") },
+        title = { Text("Restore this backup?") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(

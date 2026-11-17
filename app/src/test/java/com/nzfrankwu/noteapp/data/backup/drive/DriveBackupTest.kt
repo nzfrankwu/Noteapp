@@ -1,5 +1,6 @@
 package com.nzfrankwu.noteapp.data.backup.drive
 
+import com.nzfrankwu.noteapp.data.backup.BackupCounts
 import com.nzfrankwu.noteapp.data.backup.BackupEntry
 import com.nzfrankwu.noteapp.data.backup.BackupException
 import com.nzfrankwu.noteapp.data.backup.BackupManifest
@@ -58,17 +59,22 @@ class DriveBackupTest {
             sources[path] = file.copyTo(File(staging, path))
         }
         val entries = sources.map { (path, f) -> BackupEntry(path, f.length(), Md5.of(f)) }.sortedBy { it.path }
-        return Snapshot(BackupManifest(createdAt = now.toEpochMilli(), appVersion = "test", databaseVersion = 7, files = entries), sources)
+        return Snapshot(
+            BackupManifest(createdAt = now.toEpochMilli(), appVersion = "test", databaseVersion = 7, counts = BackupCounts(notebooks = notebooks), files = entries),
+            sources,
+        )
     }
 
     private fun <T> run(block: suspend () -> T): T = runBlocking { block() }
+    private fun backUp(): DriveBackup.Result = checkNotNull(run { backup.backUp() })
+    private var notebooks = 2
     private fun blobs() = drive.inFolder(drive.folderId("Noteapp", "Backup", "blobs")!!)
     private fun snapshotFiles() = drive.inFolder(drive.folderId("Noteapp", "Backup", "snapshots")!!)
     private fun later(duration: Duration) { now = now.plus(duration) }
 
     @Test
     fun firstBackup_uploadsEachContentOnce_andTheListLast() {
-        val result = run { backup.backUp() }
+        val result = backUp()
         assertEquals(3, result.uploadedFiles) // 4 files, 2 with the same content
         assertEquals(3, blobs().size)
         assertEquals(1, snapshotFiles().size)
@@ -80,38 +86,38 @@ class DriveBackupTest {
 
     @Test
     fun nothingChanged_onlyANewListIsUploaded() {
-        run { backup.backUp() }
+        backUp()
         drive.uploads.clear()
         later(Duration.ofHours(1))
-        val result = run { backup.backUp() }
+        val result = backUp()
         assertEquals(0, result.uploadedFiles)
         assertEquals(1, drive.uploads.size)
     }
 
     @Test
     fun aChangedPage_isTheOnlyFileUploaded() {
-        run { backup.backUp() }
+        backUp()
         drive.uploads.clear()
         write("files/notebooks/n1/p1.ink", "page one, more ink")
         later(Duration.ofHours(1))
-        val result = run { backup.backUp() }
+        val result = backUp()
         assertEquals(1, result.uploadedFiles)
         assertEquals(listOf(Md5.of(File(live, "files/notebooks/n1/p1.ink")), result.snapshot.name), drive.uploads)
     }
 
     @Test
     fun aRunThatStopsHalfway_leavesTheLastBackupWhole_andTheNextRunFinishes() {
-        val first = run { backup.backUp() }
+        val first = backUp()
         write("files/notebooks/n1/p1.ink", "changed")
         write("files/notebooks/n1/p2.ink", "new page")
         later(Duration.ofHours(1))
         drive.failUploadNumber = 2
-        assertThrows(DriveException::class.java) { run { backup.backUp() } }
+        assertThrows(DriveException::class.java) { backUp() }
         assertEquals("no new list", listOf(first.snapshot.fileId), snapshotFiles().map { it.id })
         restoreAndCompare(first.snapshot, expectChangedPage = false)
 
         drive.uploads.clear()
-        val second = run { backup.backUp() }
+        val second = backUp()
         assertEquals("the file sent before the stop isn't sent again", 1, second.uploadedFiles)
         assertEquals("same day: the newer one replaces the first", listOf(second.snapshot.fileId), snapshotFiles().map { it.id })
         restoreAndCompare(second.snapshot, expectChangedPage = true)
@@ -120,7 +126,7 @@ class DriveBackupTest {
     @Test
     fun aFileDamagedOnTheWay_failsTheRun_andIsRemoved() {
         drive.lieAboutMd5 = true
-        assertThrows(BackupException::class.java) { run { backup.backUp() } }
+        assertThrows(BackupException::class.java) { backUp() }
         assertTrue(blobs().isEmpty())
         assertTrue(snapshotFiles().isEmpty())
     }
@@ -129,16 +135,16 @@ class DriveBackupTest {
     fun retention_keepsTheNewest_andOnePerDayForAWeek() {
         val start = Instant.parse("2026-11-01T08:00:00Z")
         now = start
-        run { backup.backUp() }
+        backUp()
         now = start.plus(Duration.ofHours(12)) // same day, later: this one stands for 1 Nov
-        run { backup.backUp() }
+        backUp()
         for (day in 1..9) {
             now = start.plus(Duration.ofDays(day.toLong())).plus(Duration.ofHours(4))
             write("files/notebooks/n1/p1.ink", "day $day")
-            run { backup.backUp() }
+            backUp()
         }
         now = now.plus(Duration.ofHours(2)) // a second backup on the last day (10 Nov)
-        run { backup.backUp() }
+        backUp()
 
         val kept = snapshotFiles().map { it.name }.sorted()
         assertEquals(
@@ -154,13 +160,13 @@ class DriveBackupTest {
     @Test
     fun filesNoKeptBackupUses_goAfterADay_andNotBefore() {
         now = Instant.parse("2026-11-01T10:00:00Z")
-        run { backup.backUp() }
+        backUp()
         val oldPage = Md5.of(File(live, "files/notebooks/n1/p1.ink"))
         // Eight days of new pages: the first backup is dropped, and its page with it.
         for (day in 1..8) {
             now = Instant.parse("2026-11-01T10:00:00Z").plus(Duration.ofDays(day.toLong()))
             write("files/notebooks/n1/p1.ink", "day $day")
-            run { backup.backUp() }
+            backUp()
         }
         val names = blobs().map { it.name }
         assertFalse("unused for days: removed", oldPage in names)
@@ -170,36 +176,48 @@ class DriveBackupTest {
         val orphan = temp.newFile("orphan").apply { writeText("half a backup") }
         run { drive.upload(orphan, Md5.of(orphan), drive.folderId("Noteapp", "Backup", "blobs")!!) }
         later(Duration.ofHours(1))
-        run { backup.backUp() }
+        backUp()
         assertTrue(Md5.of(orphan) in blobs().map { it.name })
     }
 
     @Test
     fun aKeptBackupThatCantBeRead_meansNoFileIsRemoved() {
         now = Instant.parse("2026-11-01T10:00:00Z")
-        val first = run { backup.backUp() }
+        val first = backUp()
         val orphan = temp.newFile("orphan").apply { writeText("from a run that never finished") }
         run { drive.upload(orphan, Md5.of(orphan), drive.folderId("Noteapp", "Backup", "blobs")!!) }
         now = Instant.parse("2026-11-05T10:00:00Z")
         write("files/notebooks/n1/p1.ink", "changed")
         drive.failDownloads += first.snapshot.fileId
-        run { backup.backUp() }
+        backUp()
         assertTrue("kept: the first backup's list couldn't be read", Md5.of(orphan) in blobs().map { it.name })
         assertEquals(2, snapshotFiles().size)
 
         drive.failDownloads.clear()
         later(Duration.ofHours(1))
-        run { backup.backUp() }
+        backUp()
         assertFalse(Md5.of(orphan) in blobs().map { it.name })
+    }
+
+    @Test
+    fun anEmptyApp_neverReplacesARealBackup() {
+        val real = backUp()
+        notebooks = 0
+        later(Duration.ofMinutes(10))
+        assertEquals(null, run { backup.backUp() })
+        assertEquals(listOf(real.snapshot.fileId), snapshotFiles().map { it.id })
+        // With nothing in Drive yet, an empty app is backed up like any other.
+        drive.items.clear()
+        assertEquals(1, backUp().uploadedFiles.coerceAtMost(1))
     }
 
     @Test
     fun snapshots_areListedNewestFirst() {
         assertTrue("no backup folder yet: nothing, and nothing made", run { backup.snapshots() }.isEmpty())
         assertTrue(drive.items.isEmpty())
-        run { backup.backUp() }
+        backUp()
         later(Duration.ofDays(1))
-        run { backup.backUp() }
+        backUp()
         val list = run { backup.snapshots() }
         assertEquals(2, list.size)
         assertTrue(list[0].createdAt > list[1].createdAt)
@@ -207,13 +225,13 @@ class DriveBackupTest {
 
     @Test
     fun restore_downloadsEveryFile_andChecksThem() {
-        val result = run { backup.backUp() }
+        val result = backUp()
         restoreAndCompare(result.snapshot, expectChangedPage = false)
     }
 
     @Test
     fun restore_ofAMissingFile_isRefused() {
-        val result = run { backup.backUp() }
+        val result = backUp()
         drive.items.remove(blobs().first().id)
         val manifest = run { backup.manifest(result.snapshot, temp.newFolder()) }
         val e = assertThrows(BackupException::class.java) { run { backup.download(manifest, temp.newFolder("restore")) } }
@@ -222,7 +240,7 @@ class DriveBackupTest {
 
     @Test
     fun restore_ofADamagedFile_isRefused() {
-        val result = run { backup.backUp() }
+        val result = backUp()
         blobs().first { it.bytes.decodeToString() == "page one" }.apply {
             reportedMd5 = Md5.of(bytes) // Drive still claims the old md5, but the content is wrong
             bytes = "page 0ne".encodeToByteArray()

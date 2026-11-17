@@ -100,6 +100,40 @@ class BackupManager(
         }
     }
 
+    /**
+     * Downloads one Google Drive backup and checks it (PHASE-6.md 6.11); if it's good, asks the user
+     * to confirm ([BackupJob.ConfirmRestore]), then the same swap as an import.
+     */
+    fun checkDriveRestore(drive: com.nzfrankwu.noteapp.data.backup.drive.DriveBackup, snapshot: com.nzfrankwu.noteapp.data.backup.drive.DriveBackup.RemoteSnapshot) {
+        if (busy) return
+        _job.value = BackupJob.Working("Downloading the backup…")
+        scope.launch {
+            try {
+                val manifest = withContext(Dispatchers.IO) {
+                    StorageLock.backup.withLock {
+                        try {
+                            val manifest = drive.manifest(snapshot, stagingDir.apply { mkdirs() })
+                            if (manifest.createdAt != snapshot.createdAt) throw BackupException("This backup's file list doesn't match it.")
+                            drive.download(manifest, swap.staging) { p -> _job.value = BackupJob.Working("Downloading the backup…", p) }
+                            checkDatabase(manifest)
+                            manifest
+                        } catch (e: Exception) {
+                            swap.cancel()
+                            throw e
+                        } finally {
+                            stagingDir.deleteRecursively()
+                        }
+                    }
+                }
+                _job.value = BackupJob.ConfirmRestore(manifest)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _job.value = BackupJob.Failed(e.userMessage("This backup can't be used"))
+            }
+        }
+    }
+
     /** The user confirmed: mark the checked set ready. The screen then restarts the app. */
     fun confirmRestore() {
         val confirm = _job.value as? BackupJob.ConfirmRestore ?: return
@@ -148,7 +182,8 @@ class BackupManager(
         "${BackupText.plural(m.counts.notebooks, "notebook")}, ${BackupText.plural(m.counts.tasks, "task")} (${BackupText.size(m.totalSize)})"
 
     private fun Exception.userMessage(prefix: String): String =
-        if (this is BackupException) message.orEmpty() else "$prefix: ${message ?: javaClass.simpleName}"
+        if (this is BackupException || this is com.nzfrankwu.noteapp.data.backup.drive.DriveException) message.orEmpty()
+        else "$prefix: ${message ?: javaClass.simpleName}"
 }
 
 /** Wording shared by the backup screens. */

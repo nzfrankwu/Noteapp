@@ -155,6 +155,38 @@ class AppContainer(context: Context) {
         )
     }
 
+    /** Google Drive backup settings and status (PHASE-6.md 6.10). */
+    val driveSettings: com.nzfrankwu.noteapp.data.backup.drive.DriveSettings by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.DriveSettings(appContext)
+    }
+
+    /** Google sign-in for Drive (scope drive.file); Play Services keeps the tokens. */
+    val googleAuth: com.nzfrankwu.noteapp.data.backup.drive.GoogleAuth by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.GoogleAuth(appContext) { driveSettings.email() }
+    }
+
+    /** The full backup to Google Drive, and reading it back (PHASE-6.md 6.9, 6.11). */
+    val driveBackup: com.nzfrankwu.noteapp.data.backup.drive.DriveBackup by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.DriveBackup(
+            drive = com.nzfrankwu.noteapp.data.backup.drive.DriveClient(googleAuth),
+            takeSnapshot = { localSnapshot.take(it) },
+            stagingDir = java.io.File(appContext.cacheDir, "drive-staging"),
+        )
+    }
+
+    /** One run of the automatic Drive backup (the background job uses it). */
+    val driveBackupRunner: com.nzfrankwu.noteapp.data.backup.drive.DriveBackupRunner by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.DriveBackupRunner(driveSettings, driveBackup, { restoreSwap.isPending })
+    }
+
+    /** Settings → Backup → Google Drive. */
+    val driveConnection: com.nzfrankwu.noteapp.data.backup.drive.DriveConnection by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.DriveConnection(
+            appContext, driveSettings, googleAuth, driveBackup, appScope,
+            appIsEmpty = { database.notebookDao().countAll() == 0 },
+        )
+    }
+
     /** Runs syncs with the saved settings (used by app open, pull-to-refresh and the background job). */
     val canvasSyncRunner: CanvasSyncRunner by lazy { CanvasSyncRunner(canvasSettings, ::canvasSync) }
 }

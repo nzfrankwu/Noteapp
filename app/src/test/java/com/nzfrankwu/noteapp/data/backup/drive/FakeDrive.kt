@@ -45,8 +45,10 @@ class FakeDrive(var now: () -> Instant = { Instant.parse("2026-11-17T10:00:00Z")
         return parent
     }
 
-    override suspend fun findFolder(name: String, parentId: String?) =
-        items.values.firstOrNull { it.parent == parentId && it.name == name && it.mimeType == DriveClient.FOLDER }?.toFile()
+    /** Every folder lookup throws this (e.g. signed out, offline). */
+    var failEverything: DriveException? = null
+
+    override suspend fun findFolder(name: String, parentId: String?): DriveFile? = failEverything?.let { throw it } ?: items.values.firstOrNull { it.parent == parentId && it.name == name && it.mimeType == DriveClient.FOLDER }?.toFile()
 
     override suspend fun createFolder(name: String, parentId: String?, appProperties: Map<String, String>): DriveFile {
         val item = Item("id${nextId++}", name, parentId, DriveClient.FOLDER, ByteArray(0), appProperties, now())

@@ -36,6 +36,9 @@ abstract class NoteAppDatabase : RoomDatabase() {
         /** File name inside the app's private storage. Must never change (it would "lose" the data). */
         const val FILE_NAME = "noteapp.db"
 
+        /** Every table (for watching changes, e.g. to back up soon after an edit). */
+        val TABLES = arrayOf("courses", "folders", "tasks", "notebooks", "pages", "task_notebook_links", "task_bookmarks")
+
         fun create(context: Context): NoteAppDatabase =
             Room.databaseBuilder(context.applicationContext, NoteAppDatabase::class.java, FILE_NAME)
                 .addMigrations(*ALL_MIGRATIONS)

@@ -106,7 +106,8 @@ dependencies {
     // and the 1.7.3 that came in indirectly made MigrationTest crash.
     implementation(libs.kotlinx.serialization.core)
     implementation(libs.kotlinx.serialization.json) // reading Canvas API responses
-    implementation(libs.okhttp) // Canvas API requests (GET only)
+    implementation(libs.okhttp) // Canvas API requests (GET only) and Google Drive backup
+    implementation(libs.play.services.auth) // Google sign-in for Drive backup (scope drive.file)
     implementation(libs.androidx.datastore.preferences) // small settings (Canvas address, last sync)
     implementation(libs.androidx.work.runtime.ktx) // background Canvas sync (and Phase 6 backup)
     implementation(libs.androidx.navigation3.runtime)

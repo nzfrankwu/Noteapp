@@ -105,6 +105,10 @@ interface NotebookDao {
     fun observeDeleted(): Flow<List<DeletedNotebook>>
 
     /** How many notebooks are in Recently deleted, updating live. */
+    /** Every notebook, deleted ones too (0 = a fresh app, so restoring a backup is offered). */
+    @Query("SELECT COUNT(*) FROM notebooks")
+    suspend fun countAll(): Int
+
     @Query("SELECT COUNT(*) FROM notebooks WHERE deleted_at IS NOT NULL")
     fun observeDeletedCount(): Flow<Int>
 

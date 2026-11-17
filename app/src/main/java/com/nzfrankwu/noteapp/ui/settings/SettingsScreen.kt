@@ -57,6 +57,7 @@ fun SettingsScreen(
     inkSettings: com.nzfrankwu.noteapp.data.InkSettingsStore? = null,
     /** Export everything / Import from export (Phase 6); hidden when null. */
     backup: com.nzfrankwu.noteapp.data.backup.BackupManager? = null,
+    drive: com.nzfrankwu.noteapp.data.backup.drive.DriveConnection? = null,
     /** How many notebooks are in Recently deleted (Phase 6). */
     recentlyDeletedCount: Int = 0,
     onOpenRecentlyDeleted: () -> Unit = {},
@@ -122,7 +123,7 @@ fun SettingsScreen(
                     SettingsSection("Notebooks") { NotebookSettingsSection(inkSettings, showDebug = BuildConfig.DEBUG) }
                 }
                 if (backup != null) {
-                    SettingsSection("Backup") { BackupSection(backup) }
+                    SettingsSection("Backup") { BackupSection(backup, drive) }
                 }
                 SettingsSection("Recently deleted") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
