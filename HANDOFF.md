@@ -1,11 +1,12 @@
 # Handoff: where things stand
 
-_Last updated: 17 Nov 2026 (Phase 5 merged into `main` with the user's OK; next session: plan Phase 6). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 17 Nov 2026 (second Phase 5 review fixed on `phase-5-review-fixes`, waiting for the user's OK to merge; then plan Phase 6). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phases 1, 1b, 2, 3, 4 and 5 are done and merged into `main`** (Phase 5 merged 17 Nov, `09c1449`). History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
-- **Branch:** `main`. Start a `phase-6` branch from it when Phase 6 begins.
+- **Branch `phase-5-review-fixes`** (pushed, not merged): the second end-of-phase review of feedback rounds 2–4 found 8 issues, and its new tests a ninth (a narrow course folder could crash); all fixed, 280 emulator tests pass (list in PHASE-5.md). **Ask the user to merge it into `main`** (and whether to install it on the tablet) before starting Phase 6. Then start a `phase-6` branch from `main`.
+- **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet.
 - **Mode:** "Working together" (the default) unless the user says otherwise. Phases 4 and 5 were hands-off.
 - **The tablet runs Phase 5 as merged** (the build of `389dc33`, same code as `main`), database **version 7**. Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
 - **The emulator runs Phase 5** (database v7). Unit tests and the full emulator suite (**273 tests**) pass on `main`.

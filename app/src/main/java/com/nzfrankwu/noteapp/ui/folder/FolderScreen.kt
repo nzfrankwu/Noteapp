@@ -370,7 +370,9 @@ fun FolderScreen(
                 // keep the tasks, loaded first, in view as the notes appear above them).
                 // Only when they load now (not coming back from a notebook, where the place is kept).
                 val loadedAtStart = remember { contents.loaded }
-                LaunchedEffect(contents.loaded) { if (contents.loaded && !loadedAtStart) listState.scrollToItem(0) }
+                // requestScrollToItem waits for the next layout: this list is inside a
+                // BoxWithConstraints, so the effect can start mid-layout, where scrollToItem crashes.
+                LaunchedEffect(contents.loaded) { if (contents.loaded && !loadedAtStart) listState.requestScrollToItem(0) }
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.widthIn(max = FolderContentMaxWidth).fillMaxWidth().testTag("folder-content"),

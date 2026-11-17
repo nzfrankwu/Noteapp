@@ -223,6 +223,85 @@ class WorkspaceTest {
         assertEquals(0, tutorialVm.ink.images(tutorialVm.pages.value.first().id).size)
     }
 
+    /**
+     * Holds the panel's [title] tile (unless the finger is already down on it), then drags it to
+     * [to] (root coordinates) without letting go.
+     */
+    private fun holdAndDrag(title: String, to: Offset, press: Boolean = true) {
+        val tile = compose.onNodeWithTag("recent-$title")
+        val topLeft = tile.fetchSemanticsNode().boundsInRoot.topLeft
+        tile.performTouchInput {
+            if (press) {
+                down(center)
+                repeat(10) { advanceEventTime(100); moveTo(center) } // a long press
+            }
+            val from = currentPosition()!!
+            val target = to - topLeft
+            for (k in 1..12) {
+                advanceEventTime(16)
+                moveTo(from + (target - from) * (k / 12f))
+            }
+        }
+    }
+
+    private fun letGo(title: String) = compose.onNodeWithTag("recent-$title").performTouchInput { up() }
+
+    private fun canvasBounds() = compose.onNodeWithTag("notebook-canvas").fetchSemanticsNode().boundsInRoot
+
+    @Test
+    fun draggingOverThePanel_lightsNothing_andOverThePage_lightsTheDropZone() {
+        show()
+        compose.onNodeWithTag("recent-button").performClick()
+        val tile = compose.onNodeWithTag("recent-Tutorial 5").fetchSemanticsNode().boundsInRoot
+        // Still over the panel: a drop there does nothing, so no zone lights up.
+        holdAndDrag("Tutorial 5", tile.center + Offset(0f, 60f))
+        compose.onNodeWithTag("drop-zone").assertDoesNotExist()
+        // Over the page: the zone shows where it would open.
+        val page = canvasBounds()
+        holdAndDrag("Tutorial 5", Offset(page.right - 40f, page.center.y), press = false)
+        compose.onNodeWithTag("drop-zone").assertExists()
+        letGo("Tutorial 5")
+        compose.waitUntilAtLeastOneExists(hasTestTag("split-panes"), 5_000)
+        compose.onNodeWithTag("pane-1-$tutorial").assertExists()
+    }
+
+    @Test
+    fun droppingNearTheBottomEdge_stacksTheNotebooks_evenIfSideBySideWasLastUsed() {
+        runBlocking { store.setSplitMode(SplitMode.SIDE_BY_SIDE) }
+        show()
+        compose.onNodeWithTag("recent-button").performClick()
+        val page = canvasBounds()
+        val nearBottom = with(compose.density) { 30.dp.toPx() }
+        holdAndDrag("Tutorial 5", Offset(page.center.x, page.bottom - nearBottom))
+        letGo("Tutorial 5")
+        compose.waitUntilAtLeastOneExists(hasTestTag("split-panes"), 5_000)
+        // Lecture 7 on top, Tutorial 5 below, each the full width.
+        val top = compose.onNodeWithTag("pane-0-$lecture").fetchSemanticsNode().boundsInRoot
+        val bottom = compose.onNodeWithTag("pane-1-$tutorial").fetchSemanticsNode().boundsInRoot
+        assertEquals(true, bottom.top >= top.bottom)
+        assertEquals(top.width, bottom.width, 1f)
+        assertEquals(SplitMode.TOP_BOTTOM, runBlocking { store.splitMode.first() })
+    }
+
+    @Test
+    fun theDivider_afterSwapping_staysWhereItWasLeft() {
+        show()
+        openTutorialBeside()
+        compose.onNodeWithTag("split-handle").performClick()
+        compose.onNodeWithTag("split-swap").performClick()
+        compose.waitForIdle()
+        // About 40% (left of the middle): kept there, and both notebooks stay open.
+        compose.onNodeWithTag("split-handle").performTouchInput {
+            swipe(center, center - Offset(250f, 0f), durationMillis = 400)
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("split-panes").assertExists()
+        val left = compose.onNodeWithTag("pane-0-$tutorial").fetchSemanticsNode().boundsInRoot
+        val right = compose.onNodeWithTag("pane-1-$lecture").fetchSemanticsNode().boundsInRoot
+        assertEquals(true, left.width < right.width)
+        compose.waitUntil(3_000) { runBlocking { store.splitRatio.first() } < 0.5f }
+    }
+
     @Test
     fun aSmallWindow_offersNoSplit() {
         show(width = 600.dp, height = 700.dp)
