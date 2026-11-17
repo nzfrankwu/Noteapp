@@ -28,7 +28,7 @@ _Last updated: 17 Nov 2026 (Phase 6 steps 6.0–6.5 done hands-off on `phase-6`;
    - `play-services-auth` is approved (the only new Google library). Never read `<user home>/keys/`.
 2. Meanwhile, work that needs no Google login: 6.8 `DriveClient` over OkHttp with MockWebServer tests, and 6.9's engine against a fake Drive (token provider as an interface).
    - **A draft of 6.8 is in `drafts/DriveClient.kt.txt`** (written, never compiled or tested). Move it to `data/backup/drive/DriveClient.kt`, build, and write MockWebServer tests.
-   - **Check first:** the full emulator suite was started after 6.5 but the session ended before it finished. Rerun it (`$env:ANDROID_SERIAL="emulator-5554"`) and fix anything red before going on.
+   - The full emulator suite (**297 tests**) and all unit tests pass after 6.5.
 2. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own
