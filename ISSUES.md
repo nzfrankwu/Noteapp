@@ -21,7 +21,6 @@ _None known._
   - The PDF copies have no status of their own: if one notebook can't be drawn, or Drive fails while updating the copies, nothing is shown (the full backup already succeeded; the next run tries again).
   - Two tablets backing up to the same Google account would share one backup folder (each run keeps the other's newer snapshots, and unused files wait a day before they go), but restore lists them together. One tablet is the plan; revisit if that changes.
   - Each Drive run lists `Backup/blobs/` (1 request per 1000 files) instead of caching Drive ids locally. Fine for thousands of files; revisit if backups get slow.
-  - The spare test account's Drive got part of a backup of the tablet's real notes on 17 Nov (connected by mistake, then disconnected). Delete the **Noteapp** folder in that account's Drive.
   - **From the end-of-phase review (17 Nov), not fixed yet:**
     - The whole Drive run holds `StorageLock.backup`, upload included. On a slow connection, Delete now, Export everything, the purge and Drive restore wait until it ends (a first backup can take 30+ minutes). Fix idea: hold the lock only for the snapshot, and let the purge/clean-up skip files a run is still uploading. 🔺 data safety.
     - Every backup md5-hashes every file again, big PDFs included. Fix idea: cache md5 by path + size + modified time for write-once files.
@@ -83,6 +82,8 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Spare test account's Drive cleaned up (17 Nov):** the user deleted the Noteapp folder that got part of a backup of their real notes during the account mix-up.
 
 - **Ended courses are suggested for archiving (17 Nov):** after each successful Canvas sync, Noteapp remembers since when a linked course stopped appearing in Canvas's active courses (`EndedCourses`, kept in `canvas_settings`, so no database change). After 14 days Home shows "ELECTENG 204 isn't in your Canvas courses any more. Archive it?" with Archive / Not now. IDEA.md's archiving section doesn't mention this yet (ask before editing it).
 - **The PDF-copy job now reports "sign in again" straight away** (it used to wait for the next full backup). Found because Disconnect on one device takes Noteapp's permission back for that Google account everywhere.
