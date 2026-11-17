@@ -18,6 +18,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.longClick
@@ -234,6 +235,35 @@ class NotebookEditorTest {
     }
 
     // ---- Phase 4: linked tasks ----
+
+    /** Phase 7, 7.3: one page's paper, then every page's, each one undo step. */
+    @Test
+    fun paper_forOnePage_thenForAllPages_andUndo() {
+        val second = runBlocking { (notebooks.addPage(notebookId, 1) as NotebookResult.Success).id }
+        show(InkToolSettings(drawWithFinger = true))
+        fun templates() = runBlocking { notebooks.getPages(notebookId).associate { it.id to it.template } }
+        fun notebookPaper() = runBlocking { notebooks.getNotebook(notebookId)!!.template }
+
+        compose.onNodeWithContentDescription("Notebook options").performClick()
+        compose.onNodeWithTag("page-paper-grid").performScrollTo().performClick()
+        compose.waitUntil(5_000) { templates()[pageId()] == com.nzfrankwu.noteapp.domain.PageTemplate.GRID }
+        assertEquals("only this page", null, templates()[second])
+        assertEquals(com.nzfrankwu.noteapp.domain.PageTemplate.LINED, notebookPaper())
+
+        compose.onNodeWithContentDescription("Notebook options").performClick()
+        compose.onNodeWithTag("notebook-paper-dots").performScrollTo().performClick()
+        compose.waitUntil(5_000) { notebookPaper() == com.nzfrankwu.noteapp.domain.PageTemplate.DOTS && templates()[pageId()] == null }
+
+        compose.runOnUiThread { viewModel.undo() }
+        compose.waitUntil(5_000) {
+            notebookPaper() == com.nzfrankwu.noteapp.domain.PageTemplate.LINED &&
+                templates()[pageId()] == com.nzfrankwu.noteapp.domain.PageTemplate.GRID
+        }
+        compose.runOnUiThread { viewModel.undo() }
+        compose.waitUntil(5_000) { templates()[pageId()] == null }
+        compose.runOnUiThread { viewModel.redo() }
+        compose.waitUntil(5_000) { templates()[pageId()] == com.nzfrankwu.noteapp.domain.PageTemplate.GRID }
+    }
 
     @Test
     fun linkToATask_fromTheMenu_showsTheChip_whichOpensTheTask() {

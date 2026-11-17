@@ -719,6 +719,20 @@ class NotebookViewModel(
             is InkEdit.DeletePage -> viewModelScope.launch {
                 if (undoing) notebooks.restorePage(edit.pageId, edit.index) else notebooks.deletePage(edit.pageId)
             }
+            is InkEdit.PagePaper -> {
+                if (pages.value.firstOrNull()?.id == edit.pageId) {
+                    refreshThumbnail(firstPagePaper = if (undoing) edit.before else edit.after, override = true)
+                }
+                viewModelScope.launch { notebooks.setPageTemplate(edit.pageId, if (undoing) edit.before else edit.after) }
+            }
+            is InkEdit.NotebookPaper -> {
+                val template = if (undoing) edit.before else edit.after
+                val pageTemplates: Map<String, com.nzfrankwu.noteapp.domain.PageTemplate?> =
+                    if (undoing) edit.pagesBefore else edit.pagesBefore.mapValues { null }
+                val first = pages.value.firstOrNull()?.id
+                refreshThumbnail(template, firstPagePaper = first?.let { pageTemplates[it] }, override = first in pageTemplates)
+                viewModelScope.launch { notebooks.setNotebookPaper(notebookId, template, pageTemplates) }
+            }
         }
         refreshUndo()
         version++
@@ -789,10 +803,46 @@ class NotebookViewModel(
         }
     }
 
-    /** Changes the notebook's paper (every page without its own). */
+    /**
+     * Changes the whole notebook's paper (Phase 7, 7.3): every page, including pages that had their
+     * own. One undo step.
+     */
     fun setTemplate(template: com.nzfrankwu.noteapp.domain.PageTemplate) {
-        refreshThumbnail(template)
-        viewModelScope.launch { notebooks.setTemplate(notebookId, template) }
+        val nb = notebook.value ?: return
+        val own = pages.value.filter { it.template != null && !it.isPdf }.associate { it.id to it.template!! }
+        if (nb.template == template && own.isEmpty()) return
+        val edit = InkEdit.NotebookPaper(before = nb.template, after = template, pagesBefore = own)
+        ink.recordPageEdit(edit)
+        afterPaperChange(edit)
+    }
+
+    /** Changes one page's paper (Phase 7, 7.3). One undo step. */
+    fun setPageTemplate(pageId: String, template: com.nzfrankwu.noteapp.domain.PageTemplate) {
+        val page = pages.value.firstOrNull { it.id == pageId } ?: return
+        val nb = notebook.value ?: return
+        val now = page.template ?: nb.template
+        if (now == template) return
+        val edit = InkEdit.PagePaper(pageId, before = page.template, after = template)
+        ink.recordPageEdit(edit)
+        afterPaperChange(edit)
+    }
+
+    private fun afterPaperChange(edit: InkEdit) {
+        // Same path as redo, so doing it and redoing it can't differ.
+        when (edit) {
+            is InkEdit.PagePaper -> {
+                if (pages.value.firstOrNull()?.id == edit.pageId) refreshThumbnail(firstPagePaper = edit.after, override = true)
+                viewModelScope.launch { notebooks.setPageTemplate(edit.pageId, edit.after) }
+            }
+            is InkEdit.NotebookPaper -> {
+                val first = pages.value.firstOrNull()?.id
+                refreshThumbnail(edit.after, firstPagePaper = null, override = first in edit.pagesBefore)
+                viewModelScope.launch { notebooks.setNotebookPaper(notebookId, edit.after, edit.pagesBefore.mapValues { null }) }
+            }
+            else -> Unit
+        }
+        refreshUndo()
+        version++
     }
 
     // ---- Tools ----
@@ -881,13 +931,18 @@ class NotebookViewModel(
     }
 
     /** Draws the tile picture from the first page as it is now (null if it can't yet). */
-    private fun thumbnailJob(template: com.nzfrankwu.noteapp.domain.PageTemplate? = null): (() -> Unit)? {
+    private fun thumbnailJob(
+        template: com.nzfrankwu.noteapp.domain.PageTemplate? = null,
+        firstPagePaper: com.nzfrankwu.noteapp.domain.PageTemplate? = null,
+        override: Boolean = false,
+    ): (() -> Unit)? {
         val t = thumbnails ?: return null
         val nb = notebook.value ?: return null
         val first = pages.value.firstOrNull() ?: return null
         if (!isEditable(first.id)) return null
         val strokes = ink.strokes(first.id).toList()
-        val paper = first.template ?: template ?: nb.template
+        // [override]: the first page's own paper is changing to [firstPagePaper] (not saved yet).
+        val paper = (if (override) firstPagePaper else first.template) ?: template ?: nb.template
         val size = first.size(nb)
         val pdfFile = pdfFileOf(first)
         val pdfPage = first.pdfPage ?: 0
@@ -897,8 +952,12 @@ class NotebookViewModel(
     }
 
     /** Redraws the tile picture (e.g. after the first page changed). */
-    private fun refreshThumbnail(template: com.nzfrankwu.noteapp.domain.PageTemplate? = null) {
-        val job = thumbnailJob(template) ?: return
+    private fun refreshThumbnail(
+        template: com.nzfrankwu.noteapp.domain.PageTemplate? = null,
+        firstPagePaper: com.nzfrankwu.noteapp.domain.PageTemplate? = null,
+        override: Boolean = false,
+    ) {
+        val job = thumbnailJob(template, firstPagePaper, override) ?: return
         saveScope.launch(io) { runCatching { job() } }
     }
 

@@ -288,6 +288,7 @@ fun NoteAppRoot(
             entry<TaskRoute> { route ->
                     TaskDetailScreen(
                         viewModel = viewModel { TaskDetailViewModel(route.taskId, container.taskRepository, links = container.linkRepository) },
+                        defaultPaper = { container.newNotebookPaper.value },
                         onBack = ::back,
                         onOpenNotebook = { notebookId, pageId, spot -> backStack.add(NotebookRoute(notebookId, pageId, spot)) },
                         onEdit = { backStack.add(TaskEditRoute(taskId = route.taskId)) },
@@ -327,7 +328,7 @@ fun NoteAppRoot(
                 entry<FolderRoute> { route ->
                     FolderScreen(
                         viewModel = viewModel {
-                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport, links = container.linkRepository, officeConvert = container.officeConvert)
+                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport, links = container.linkRepository, officeConvert = container.officeConvert, defaultPaper = { container.newNotebookPaper.value })
                         },
                         onBack = ::back,
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },

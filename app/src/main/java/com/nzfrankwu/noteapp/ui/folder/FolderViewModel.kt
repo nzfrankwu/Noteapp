@@ -101,6 +101,8 @@ class FolderViewModel(
     private val links: com.nzfrankwu.noteapp.data.LinkRepository? = null,
     /** Word/PowerPoint → PDF through Google Drive (PHASE-6.md 6.13). Null in tests that don't need it. */
     private val officeConvert: com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert? = null,
+    /** The paper a new notebook starts with (Settings → Notebooks). */
+    private val defaultPaper: () -> PageTemplate = { PageTemplate.DEFAULT },
 ) : ViewModel() {
 
     /** True when a notebook tile can be linked to a task. */
@@ -253,7 +255,7 @@ class FolderViewModel(
     /** New notebook, with a title like "Notes 15 Nov" filled in (easy to keep or replace). */
     fun startNewNotebook() {
         val date = clock.instant().atZone(zone).format(DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH))
-        _dialog.value = FolderScreenDialog.NewNotebook(title = "Notes $date")
+        _dialog.value = FolderScreenDialog.NewNotebook(title = "Notes $date", template = defaultPaper())
     }
 
     fun startRenameSubfolder(item: SubfolderListItem) {

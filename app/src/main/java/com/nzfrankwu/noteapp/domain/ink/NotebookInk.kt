@@ -37,6 +37,26 @@ sealed interface InkEdit {
 
     /** Several edits that undo and redo as one step (e.g. moving strokes and pictures together). */
     data class Group(val edits: List<InkEdit>) : InkEdit
+
+    /**
+     * One page's own paper changed (Phase 7, 7.3); null = the notebook's paper. Carried out by
+     * the caller (it's in the database), like [AddPage].
+     */
+    data class PagePaper(
+        val pageId: String,
+        val before: com.nzfrankwu.noteapp.domain.PageTemplate?,
+        val after: com.nzfrankwu.noteapp.domain.PageTemplate?,
+    ) : InkEdit
+
+    /**
+     * The whole notebook's paper changed (Phase 7, 7.3): every page now uses [after]. [pagesBefore]
+     * holds the pages that had their own paper, which this cleared. Carried out by the caller.
+     */
+    data class NotebookPaper(
+        val before: com.nzfrankwu.noteapp.domain.PageTemplate,
+        val after: com.nzfrankwu.noteapp.domain.PageTemplate,
+        val pagesBefore: Map<String, com.nzfrankwu.noteapp.domain.PageTemplate>,
+    ) : InkEdit
 }
 
 /** The pages an edit changes the content of (strokes or pictures). */
@@ -52,7 +72,7 @@ val InkEdit.changedPages: Set<String>
         is InkEdit.RemoveTexts -> setOf(pageId)
         is InkEdit.ReplaceTexts -> setOf(pageId)
         is InkEdit.Group -> edits.flatMapTo(HashSet()) { it.changedPages }
-        is InkEdit.AddPage, is InkEdit.DeletePage -> emptySet()
+        is InkEdit.AddPage, is InkEdit.DeletePage, is InkEdit.PagePaper, is InkEdit.NotebookPaper -> emptySet()
     }
 
 /**
@@ -208,7 +228,9 @@ class NotebookInk(private val maxUndo: Int = 200) {
 
     /** Records a page added or deleted by the caller, so it can be undone. */
     fun recordPageEdit(edit: InkEdit) {
-        require(edit is InkEdit.AddPage || edit is InkEdit.DeletePage)
+        require(
+            edit is InkEdit.AddPage || edit is InkEdit.DeletePage || edit is InkEdit.PagePaper || edit is InkEdit.NotebookPaper,
+        )
         undoStack.addLast(edit)
         trim()
         redoStack.clear()
@@ -266,7 +288,7 @@ class NotebookInk(private val maxUndo: Int = 200) {
             }
             is InkEdit.ReplaceTexts -> swapTexts(edit.pageId, edit.after)
             is InkEdit.Group -> edit.edits.forEach { apply(it) }
-            is InkEdit.AddPage, is InkEdit.DeletePage -> Unit
+            is InkEdit.AddPage, is InkEdit.DeletePage, is InkEdit.PagePaper, is InkEdit.NotebookPaper -> Unit
         }
     }
 
@@ -300,7 +322,7 @@ class NotebookInk(private val maxUndo: Int = 200) {
             }
             is InkEdit.ReplaceTexts -> swapTexts(edit.pageId, edit.before)
             is InkEdit.Group -> edit.edits.asReversed().forEach { revert(it) }
-            is InkEdit.AddPage, is InkEdit.DeletePage -> Unit
+            is InkEdit.AddPage, is InkEdit.DeletePage, is InkEdit.PagePaper, is InkEdit.NotebookPaper -> Unit
         }
     }
 

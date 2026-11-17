@@ -196,6 +196,34 @@ class NotebookRepository(
         NotebookResult.Success(notebookId)
     }
 
+    /** A page's own paper (null = the notebook's), Phase 7 (7.3). */
+    suspend fun setPageTemplate(pageId: String, template: PageTemplate?): NotebookResult = db.withTransaction {
+        val page = dao.getPage(pageId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
+        if (page.template != template) dao.updatePage(page.copy(template = template, updatedAt = clock.instant()))
+        NotebookResult.Success(pageId)
+    }
+
+    /**
+     * The whole notebook's paper and its pages' own papers in one go (Phase 7, 7.3): the notebook
+     * gets [template]; each page in [pageTemplates] gets its value (null = the notebook's).
+     */
+    suspend fun setNotebookPaper(
+        notebookId: String,
+        template: PageTemplate,
+        pageTemplates: Map<String, PageTemplate?>,
+    ): NotebookResult = db.withTransaction {
+        val notebook = dao.getNotebook(notebookId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
+        val now = clock.instant()
+        if (notebook.template != template) dao.updateNotebook(notebook.copy(template = template, updatedAt = now))
+        for ((pageId, pageTemplate) in pageTemplates) {
+            val page = dao.getPage(pageId) ?: continue
+            if (page.notebookId == notebookId && page.template != pageTemplate) {
+                dao.updatePage(page.copy(template = pageTemplate, updatedAt = now))
+            }
+        }
+        NotebookResult.Success(notebookId)
+    }
+
     /** Changes the paper pattern of every page that doesn't have its own. */
     suspend fun setTemplate(notebookId: String, template: PageTemplate): NotebookResult = db.withTransaction {
         val notebook = dao.getNotebook(notebookId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)

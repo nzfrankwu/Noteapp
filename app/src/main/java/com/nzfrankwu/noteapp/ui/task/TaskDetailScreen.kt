@@ -99,6 +99,8 @@ fun TaskDetailScreen(
     modifier: Modifier = Modifier,
     /** Opens a notebook; [pageId] and [spot] open it at a bookmark (Phase 4). */
     onOpenNotebook: (notebookId: String, pageId: String?, spot: PageSpot?) -> Unit = { _, _, _ -> },
+    /** The paper a new notebook starts with (Settings → Notebooks). */
+    defaultPaper: () -> PageTemplate = { PageTemplate.DEFAULT },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val deleted by viewModel.deleted.collectAsStateWithLifecycle()
@@ -201,6 +203,7 @@ fun TaskDetailScreen(
             },
             onNewNotebook = {
                 picking = false
+                template = defaultPaper()
                 naming = viewModel.suggestedNotebookTitle()
             },
             onCancel = { picking = false },

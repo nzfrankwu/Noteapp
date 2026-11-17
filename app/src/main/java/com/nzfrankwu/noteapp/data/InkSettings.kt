@@ -70,6 +70,7 @@ class InkSettings(context: Context) : InkSettingsStore {
             penPalette = p[PEN_PALETTE]?.let(::parseColors)?.takeIf { it.isNotEmpty() } ?: d.penPalette,
             highlighterPalette = p[HIGHLIGHTER_PALETTE]?.let(::parseColors)?.takeIf { it.isNotEmpty() } ?: d.highlighterPalette,
             bookmarkRect = p[BOOKMARK_RECT] ?: d.bookmarkRect,
+            newNotebookPaper = p[NEW_NOTEBOOK_PAPER]?.let(com.nzfrankwu.noteapp.domain.PageTemplate::fromKey) ?: d.newNotebookPaper,
         )
     }
 
@@ -98,6 +99,7 @@ class InkSettings(context: Context) : InkSettingsStore {
         p[PEN_PALETTE] = s.penPalette.joinToString(",") { Integer.toHexString(it) }
         p[HIGHLIGHTER_PALETTE] = s.highlighterPalette.joinToString(",") { Integer.toHexString(it) }
         p[BOOKMARK_RECT] = s.bookmarkRect
+        p[NEW_NOTEBOOK_PAPER] = s.newNotebookPaper.key
         p[PENS_VERSION] = com.nzfrankwu.noteapp.domain.ink.PenDefaults.VERSION
     }
 
@@ -128,6 +130,7 @@ class InkSettings(context: Context) : InkSettingsStore {
         val FIT_MODE = stringPreferencesKey("fit_mode")
         val DRAW_WITH_FINGER = booleanPreferencesKey("draw_with_finger")
         val BOOKMARK_RECT = booleanPreferencesKey("bookmark_rect")
+        val NEW_NOTEBOOK_PAPER = stringPreferencesKey("new_notebook_paper")
 
         /** Which pen defaults the saved pens were chosen under (see PenDefaults). */
         val PENS_VERSION = intPreferencesKey("pens_version")

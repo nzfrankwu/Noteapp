@@ -39,6 +39,15 @@ fun NotebookSettingsSection(store: InkSettingsStore, showDebug: Boolean) {
             onSelect = { mode -> scope.launch { store.update { it.copy(fitMode = mode) } } },
             modifier = Modifier.fillMaxWidth(),
         )
+        Text("Paper for new notebooks:", style = MaterialTheme.typography.bodyMedium)
+        SegmentedTabs(
+            options = com.nzfrankwu.noteapp.domain.PageTemplate.entries,
+            selected = settings.newNotebookPaper,
+            label = { it.label },
+            testTag = { "new-paper-${it.key}" },
+            onSelect = { paper -> scope.launch { store.update { it.copy(newNotebookPaper = paper) } } },
+            modifier = Modifier.fillMaxWidth(),
+        )
         if (showDebug) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

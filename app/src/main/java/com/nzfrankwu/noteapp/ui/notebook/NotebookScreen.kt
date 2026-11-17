@@ -399,16 +399,38 @@ internal fun NotebookEditor(
                     )
                     HorizontalDivider()
                 }
+                // Phase 7 (7.3): this page's paper, or every page's. A PDF page has no paper of its own.
+                val pageNow = pages.getOrNull(active.pageNow())
+                if (pageNow != null && !pageNow.isPdf) {
+                    Text(
+                        "This page's paper",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
+                    val pagePaper = pageNow.template ?: nb?.template
+                    PageTemplate.entries.forEach { t ->
+                        DropdownMenuItem(
+                            text = { Text(if (pagePaper == t) "✓  ${t.label}" else "    ${t.label}") },
+                            onClick = { menuOpen = false; viewModel.setPageTemplate(pageNow.id, t) },
+                            modifier = Modifier.testTag("page-paper-${t.key}"),
+                        )
+                    }
+                    HorizontalDivider()
+                }
                 Text(
-                    "Paper",
+                    "Paper for all pages",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 )
+                // Ticked only when every page uses it.
+                val allSame = nb?.template?.takeIf { t -> pages.none { !it.isPdf && it.template != null && it.template != t } }
                 PageTemplate.entries.forEach { t ->
                     DropdownMenuItem(
-                        text = { Text(if (nb?.template == t) "✓  ${t.label}" else "    ${t.label}") },
+                        text = { Text(if (allSame == t) "✓  ${t.label}" else "    ${t.label}") },
                         onClick = { menuOpen = false; viewModel.setTemplate(t) },
+                        modifier = Modifier.testTag("notebook-paper-${t.key}"),
                     )
                 }
                 HorizontalDivider()

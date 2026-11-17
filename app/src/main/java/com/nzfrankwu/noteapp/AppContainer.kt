@@ -1,5 +1,8 @@
 package com.nzfrankwu.noteapp
 
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import android.content.Context
 import com.nzfrankwu.noteapp.canvas.CanvasAccount
 import com.nzfrankwu.noteapp.canvas.CanvasClient
@@ -133,6 +136,12 @@ class AppContainer(context: Context) {
             databaseFile = appContext.getDatabasePath(NoteAppDatabase.FILE_NAME),
             thumbnailsDir = java.io.File(appContext.cacheDir, "thumbnails"),
         )
+    }
+
+    /** The paper new notebooks start with (Settings → Notebooks, Phase 7, 7.3), always at hand. */
+    val newNotebookPaper: kotlinx.coroutines.flow.StateFlow<com.nzfrankwu.noteapp.domain.PageTemplate> by lazy {
+        inkSettings.settings.map { it.newNotebookPaper }
+            .stateIn(appScope, SharingStarted.Eagerly, com.nzfrankwu.noteapp.domain.PageTemplate.DEFAULT)
     }
 
     /** A consistent copy of everything a backup needs (PHASE-6.md 6.1). */

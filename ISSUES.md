@@ -80,6 +80,8 @@ _None known._
 
 ## Done
 
+- **Phase 7 step 7.3, page paper (18 Nov, hands-off):** the notebook ⋮ menu has "This page's paper" and "Paper for all pages", both undoable; Settings → Notebooks → "Paper for new notebooks".
+
 - **Phase 7 step 7.2, backup follow-ups (18 Nov, hands-off):** a Drive backup no longer makes Delete now, Export everything, the 30-day purge or a restore wait for its upload (only its quick local copy holds the lock; the notebooks it's still uploading are protected another way). Unchanged PDFs aren't re-read every backup, the kept backup lists aren't downloaded again, and Home's "Open Settings" goes straight to Backup.
 
 - **Phase 7 step 7.1, database version 8 (18 Nov, hands-off):** Submitted is merged into Done. Updating turns every Submitted task into Done; nothing else changes. Courses got an empty `color` column for step 7.7. Real v7 → v8 upgrade on the emulator: PASS.

@@ -169,6 +169,8 @@ data class InkToolSettings(
     val highlighterPalette: List<Int> = InkPalette.HIGHLIGHTER_COLORS,
     /** The bookmark pen draws a rectangle instead of a free loop (PHASE-5.md FB5). */
     val bookmarkRect: Boolean = false,
+    /** The paper new notebooks start with (Settings → Notebooks, Phase 7, 7.3). */
+    val newNotebookPaper: com.nzfrankwu.noteapp.domain.PageTemplate = com.nzfrankwu.noteapp.domain.PageTemplate.DEFAULT,
 ) {
     /** The toolbar colours shown for [tool]. */
     fun palette(tool: EditorTool): List<Int> = if (tool == EditorTool.HIGHLIGHTER) highlighterPalette else penPalette
