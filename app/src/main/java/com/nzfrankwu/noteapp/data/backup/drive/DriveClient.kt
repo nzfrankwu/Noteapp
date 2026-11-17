@@ -73,8 +73,15 @@ data class DriveFile(
  * Every call may throw [DriveException].
  */
 interface DriveApi {
-    /** The folder [name] in [parentId] (null = the top of My Drive), made if it isn't there yet. */
-    suspend fun folder(name: String, parentId: String?): DriveFile
+    /** The folder called [name] inside [parentId] (null = the top of My Drive), or null. */
+    suspend fun findFolder(name: String, parentId: String?): DriveFile?
+
+    /** Makes a folder called [name] inside [parentId] (null = the top of My Drive). */
+    suspend fun createFolder(name: String, parentId: String?, appProperties: Map<String, String> = emptyMap()): DriveFile
+
+    /** The folder [name] in [parentId], made if it isn't there yet. */
+    suspend fun folder(name: String, parentId: String?): DriveFile =
+        findFolder(name, parentId) ?: createFolder(name, parentId)
 
     /** Every file (not folders, not in the bin) directly inside [parentId]. */
     suspend fun listFiles(parentId: String): List<DriveFile>
@@ -132,22 +139,17 @@ class DriveClient(
         return parse<About>(body).user?.emailAddress
     }
 
-    /** The folder called [name] inside [parentId] (or at the top of My Drive), or null. */
-    suspend fun findFolder(name: String, parentId: String?): DriveFile? {
+    override suspend fun findFolder(name: String, parentId: String?): DriveFile? {
         val q = "name = '${escape(name)}' and mimeType = '$FOLDER' and trashed = false and '${escape(parentId ?: "root")}' in parents"
         return search(q).firstOrNull()
     }
 
-    /** Makes a folder called [name] inside [parentId] (or at the top of My Drive). */
-    suspend fun createFolder(name: String, parentId: String?, appProperties: Map<String, String> = emptyMap()): DriveFile {
+    override suspend fun createFolder(name: String, parentId: String?, appProperties: Map<String, String>): DriveFile {
         val metadata = metadata(name, FOLDER, parentId, appProperties)
         val url = api("files").addQueryParameter("fields", FIELDS).build()
         val body = call { Request.Builder().url(url).post(metadata.toString().toRequestBody(JSON)) }.use { it.body.string() }
         return parse(body)
     }
-
-    override suspend fun folder(name: String, parentId: String?): DriveFile =
-        findFolder(name, parentId) ?: createFolder(name, parentId)
 
     override suspend fun listFiles(parentId: String): List<DriveFile> =
         search("'${escape(parentId)}' in parents and trashed = false and mimeType != '$FOLDER'")

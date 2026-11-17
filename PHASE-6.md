@@ -85,7 +85,11 @@ Uploads are checked against Drive's `md5Checksum`. After a snapshot is committed
 - [ ] **6.6 Google Cloud setup, guided with the user** (their login): project, Drive API, OAuth consent screen (External, `drive.file`, **"In production"**), Android OAuth client with the SHA-1 from `gradlew.bat signingReport`; add `play-services-auth`, `INTERNET`, `ACCESS_NETWORK_STATE`.
 - [ ] **6.7 Google sign-in in Settings → Backup.** ★
 - [x] 🔺 **6.8 `DriveClient` over OkHttp** (MockWebServer tests). `data/backup/drive/DriveClient.kt` plus the `DriveApi` interface the engine uses (a fake in tests). 401 → one fresh token; 429/5xx/rate-limit 403 → retried with pauses, then "try later"; full Drive → QUOTA; a failed upload starts a fresh resumable session. 17 tests.
-- [ ] 🔺 **6.9 Drive backup engine:** blobs, snapshot last, md5 checks, retention, garbage collection.
+- [x] 🔺 **6.9 Drive backup engine:** blobs, snapshot last, md5 checks, retention, garbage collection. `data/backup/drive/DriveBackup.kt` (+ `Retention`), tested against `FakeDrive` (12 tests, including a run stopped halfway, a file damaged on the way, retention over 10 days, restore download).
+  - Changed from the plan: no `state.json` cache of Drive ids. Each run lists `blobs/` instead (one request per 1000 files), so nothing local can go stale.
+  - An unused blob is removed only when it's over a day old (a run still uploading never loses its files), and only if every kept snapshot's list could be read.
+  - The whole run holds `StorageLock.backup` (Export, purge and clean-up wait; page saves don't).
+  - Snapshot files are named like `2026-11-17 10-00-00 UTC.json`; their time is in `appProperties.createdAt`. Files without it are never removed and count as in use.
 - [ ] **6.10 Automatic backup and status:** jobs, Wi-Fi only, Back up now, status in Settings, Home strip when failing or 3+ days without a backup. ★
 - [ ] 🔺 **6.11 Restore from Google Drive.** ★
 - [ ] **6.12 PDF copies in `Notes (PDF)/`.** ★
