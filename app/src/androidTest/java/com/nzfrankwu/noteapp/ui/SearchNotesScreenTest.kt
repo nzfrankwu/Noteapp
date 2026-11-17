@@ -87,7 +87,7 @@ class SearchNotesScreenTest {
                     SearchScreen(
                         SearchViewModel(tasks, notebooks, folders, noteText = store, notebookId = notebookId),
                         onBack = {}, onOpenTask = {}, onOpenNotebook = {}, onOpenFolder = {},
-                        onOpenPage = { nb, page, query -> opened = Triple(nb, page, query) },
+                        onOpenPage = { nb, page, query, _ -> opened = Triple(nb, page, query) },
                     )
                 }
             }

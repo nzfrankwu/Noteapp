@@ -24,12 +24,16 @@ ink = "1.0.0"
 pdfboxAndroid = "2.0.27.0"
 # Chrome tabs for "Open in Canvas" when the Canvas app can't open the page (PHASE-5.md FB11; user's OK 17 Nov).
 browser = "1.8.0"
+# Handwriting search (PHASE-7.md 7.10; the user's OK 18 Nov): ML Kit Digital Ink Recognition, on the
+# device. The English model (~20 MB) is downloaded once, on Wi-Fi.
+mlkitDigitalInk = "19.0.0"
 
 [libraries]
 # Already in the app through Jetpack Ink; declared because our own pen layer uses it (F30).
 androidx-input-motionprediction = { group = "androidx.input", name = "input-motionprediction", version = "1.0.0" }
 pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfboxAndroid" }
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
+mlkit-digital-ink = { group = "com.google.mlkit", name = "digital-ink-recognition", version.ref = "mlkitDigitalInk" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

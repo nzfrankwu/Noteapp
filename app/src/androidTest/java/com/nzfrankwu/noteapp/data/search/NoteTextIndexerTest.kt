@@ -113,6 +113,67 @@ class NoteTextIndexerTest {
         assertTrue(store.search(listOf("%")).isEmpty())
     }
 
+    // ---- 7.10: handwriting ----
+
+    /** Reads each line as "line@<top>" (and counts calls); [ready] says whether it can read at all. */
+    private class FakeReader(var ready: Boolean = true) : HandwritingReader {
+        var reads = 0
+        override suspend fun prepare() = ready
+        override suspend fun read(line: com.nzfrankwu.noteapp.domain.ink.HandwritingLines.Line): String {
+            reads++
+            return if (line.top < 150f) "Smith chart notes" else "Fourier series"
+        }
+    }
+
+    private fun letter(id: String, x: Float, y: Float) = com.nzfrankwu.noteapp.domain.ink.InkStroke(
+        id, com.nzfrankwu.noteapp.domain.ink.InkTool.PEN, 0xFF000000.toInt(), 2f,
+        floatArrayOf(x, x + 6f, x + 12f), floatArrayOf(y, y + 20f, y), intArrayOf(0, 8, 16),
+        floatArrayOf(0.5f, 0.5f, 0.5f), floatArrayOf(-1f, -1f, -1f), floatArrayOf(-1f, -1f, -1f),
+    )
+
+    @Test
+    fun handwriting_isReadLineByLine_keptWithItsBand_andReadAgainOnlyWhenThePageChanges() = runBlocking {
+        val reader = FakeReader()
+        val withHand = NoteTextIndexer(db, files, store, reader)
+        val nb = (notebooks.createNotebook(folderId, "Lecture 8") as NotebookResult.Success).id
+        val page = notebooks.getPages(nb).first().id
+        files.write(nb, page, listOf(letter("a", 100f, 100f), letter("b", 120f, 100f), letter("c", 100f, 200f)), texts = listOf(box("typed")))
+
+        assertEquals(1, withHand.run().handwritten)
+        val hit = store.search(listOf("fourier")).single()
+        assertEquals(page, hit.pageId)
+        assertEquals("Smith chart notes\nFourier series", hit.handText)
+        assertEquals("100.0,120.0;200.0,220.0", hit.handLines)
+        assertEquals("typed", hit.boxText) // the text box is kept alongside
+        assertEquals(2, reader.reads)
+
+        // Nothing changed: nothing is read again.
+        assertEquals(0, withHand.run().handwritten)
+        assertEquals(2, reader.reads)
+
+        // The page changes: its text boxes and handwriting are read again, the old words go.
+        Thread.sleep(20)
+        files.write(nb, page, listOf(letter("d", 100f, 300f)))
+        withHand.run()
+        assertTrue(store.search(listOf("smith")).isEmpty())
+        assertTrue(store.search(listOf("typed")).isEmpty())
+        assertEquals(1, store.search(listOf("fourier")).size)
+    }
+
+    @Test
+    fun handwriting_waitsUntilTheReaderIsReady() = runBlocking {
+        val reader = FakeReader(ready = false)
+        val withHand = NoteTextIndexer(db, files, store, reader)
+        val nb = (notebooks.createNotebook(folderId, "Lecture 9") as NotebookResult.Success).id
+        files.write(nb, notebooks.getPages(nb).first().id, listOf(letter("a", 100f, 100f)))
+        assertEquals(0, withHand.run().handwritten)
+        assertTrue(store.search(listOf("smith")).isEmpty())
+
+        reader.ready = true // e.g. the model finished downloading
+        assertEquals(1, withHand.run().handwritten)
+        assertEquals(1, store.search(listOf("smith")).size)
+    }
+
     @Test
     fun theSearchStore_isNeverInABackup() {
         // It lives in databases/search.db; backups take only noteapp.db and the notebook files.

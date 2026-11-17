@@ -411,8 +411,8 @@ fun NoteAppRoot(
                         onOpenTask = { backStack.add(TaskRoute(it)) },
                         onOpenNotebook = { backStack.add(NotebookRoute(it)) },
                         onOpenFolder = { backStack.add(FolderRoute(it)) },
-                        onOpenPage = { notebookId, pageId, query ->
-                            val target = NotebookRoute(notebookId, pageId, find = query)
+                        onOpenPage = { notebookId, pageId, query, spot ->
+                            val target = NotebookRoute(notebookId, pageId, spot = spot, find = query)
                             val under = backStack.getOrNull(backStack.lastIndex - 1)
                             if (route.notebookId != null && under is NotebookRoute) {
                                 // Find in this notebook: back to the notebook, now at that page.

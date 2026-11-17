@@ -9,7 +9,7 @@ _None known._
 ## Open questions
 
 - **Phase 7, waiting on you (18 Nov, hands-off stop):**
-  - **7.10:** OK to add Google's ML Kit handwriting recognition (English model ~20 MB, downloaded once on Wi-Fi)?
+  - **Privacy page:** `site/privacy.html` now mentions handwriting search (on-device, model downloaded from Google). Publish it to the website (`gh-pages`)? Also worth checking ML Kit's own terms for anonymous usage statistics before publishing the app.
   - **7.11 editor speed** skipped in hands-off: it changes how pages draw their ink and can't be measured on the emulator (deep zoom needs a pinch; the lasso pause needs the real pen). To do together with the tablet.
   - **7.12 pen widths:** try the Off/Low/Medium/Full pens on the tablet first.
   - **7.13:** OK to install on the tablet? It upgrades the database to v8 (Submitted → Done); snapshot first.
@@ -20,7 +20,7 @@ _None known._
 
 ## Follow-ups / tech debt
 
-- **Search (7.9):** a text box match zooms to the box but doesn't mark the words; scanned PDF pages have no text. The first index of many big PDFs runs in the background after start-up (not measured on the tablet yet).
+- **Search (7.9–7.10):** a text box or handwriting match zooms to it but doesn't mark the words; scanned PDF pages have no text. The first pass over many big PDFs and many handwritten pages runs in the background after start-up (not measured on the tablet yet). Recognition quality on real handwriting (and maths) needs the tablet. The debug app is ~63 MB with ML Kit.
 
 - **Backup (Phase 6):**
   - After "Import from export" the app restarts on Home; the "Restored the backup from …" message only shows in Settings → Backup.
@@ -87,6 +87,8 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Phase 7 step 7.10, handwriting search (18 Nov, hands-off):** search also finds your handwriting (English), read on the tablet by Google's ML Kit; a match opens zoomed to its line. The English model (~20 MB) downloads once on Wi-Fi.
 
 - **Phase 7 step 7.9, searching inside notes (18 Nov):** search now also finds words in imported PDFs and text boxes ("In your notes"); tapping one opens the page with the words selected. Notebook ⋮ → "Find in this notebook". The words are kept in a separate `search.db` that's rebuilt in the background and never backed up.
 

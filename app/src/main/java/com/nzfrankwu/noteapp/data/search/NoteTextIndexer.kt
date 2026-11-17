@@ -19,6 +19,9 @@ import kotlinx.coroutines.withContext
  * - a PDF page's words, keyed by its PDF file, page number and the file's size (imported PDFs
  *   are written once, never changed)
  * - a page's text boxes, keyed by its page file's size and time
+ * - a page's handwriting (7.10), recognised line by line by [handwriting], keyed like its text
+ *   boxes. This is the slow part, so it runs last, page by page, saving as it goes; when the
+ *   recogniser isn't ready (e.g. its model isn't downloaded yet) it's simply tried next time.
  *
  * Pages and notebooks that are gone (or deleted) leave the store. A page or PDF that can't be
  * read is skipped and tried again next time. Nothing here changes the notes.
@@ -27,10 +30,11 @@ class NoteTextIndexer(
     private val db: NoteAppDatabase,
     private val files: NotebookFiles,
     private val store: NoteTextStore,
+    private val handwriting: HandwritingReader? = null,
 ) {
     private val oneAtATime = Mutex()
 
-    data class Result(val read: Int, val removed: Int)
+    data class Result(val read: Int, val removed: Int, val handwritten: Int = 0)
 
     suspend fun run(): Result = oneAtATime.withLock {
         withContext(Dispatchers.IO) {
@@ -44,7 +48,7 @@ class NoteTextIndexer(
 
             // What each page's text should be made from now.
             val wanted = pages.map { page -> page to NoteTextStore.Keys(pdfKey(page), boxKey(page)) }
-            val stale = wanted.filter { (page, keys) -> known[page.id] != keys }
+            val stale = wanted.filter { (page, keys) -> known[page.id]?.let { NoteTextStore.Keys(it.pdfKey, it.boxKey) } != keys }
 
             var read = 0
             // PDF pages grouped by their PDF, so each file is opened once.
@@ -73,8 +77,36 @@ class NoteTextIndexer(
                     runCatching { doc?.close() }
                 }
             }
-            Result(read, gone.size)
+            Result(read, gone.size, readHandwriting(wanted, known, notebooks))
         }
+    }
+
+    /** Recognises the handwriting of pages whose page file changed since it was last read. */
+    private suspend fun readHandwriting(
+        wanted: List<Pair<Page, NoteTextStore.Keys>>,
+        known: Map<String, NoteTextStore.Keys>,
+        notebooks: Map<String, com.nzfrankwu.noteapp.data.db.Notebook>,
+    ): Int {
+        val reader = handwriting ?: return 0
+        val todo = wanted.filter { (page, keys) -> known[page.id]?.handKey != keys.boxKey }
+        if (todo.isEmpty()) return 0
+        var ready: Boolean? = null
+        var done = 0
+        for ((page, keys) in todo) {
+            kotlin.coroutines.coroutineContext.ensureActive()
+            val read = files.read(page.notebookId, page.id)
+            val strokes = (read as? PageRead.Ok)?.strokes.orEmpty()
+            if (read is PageRead.Damaged) continue
+            val lines = com.nzfrankwu.noteapp.domain.ink.HandwritingLines.group(strokes)
+            if (lines.isNotEmpty()) {
+                if (ready == null) ready = reader.prepare()
+                if (ready != true) return done // not now: try again next run
+            }
+            val text = lines.mapNotNull { line -> reader.read(line)?.let { it to (line.top to line.bottom) } }
+            store.putHandwriting(page.id, page.notebookId, text, keys.boxKey ?: "none")
+            done++
+        }
+        return done
     }
 
     private fun pdfKey(page: Page): String? {

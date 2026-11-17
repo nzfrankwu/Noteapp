@@ -143,7 +143,10 @@ class AppContainer(context: Context) {
         com.nzfrankwu.noteapp.data.search.NoteTextStore(appContext)
     }
     val noteTextIndexer: com.nzfrankwu.noteapp.data.search.NoteTextIndexer by lazy {
-        com.nzfrankwu.noteapp.data.search.NoteTextIndexer(database, notebookFiles, noteTextStore)
+        com.nzfrankwu.noteapp.data.search.NoteTextIndexer(
+            database, notebookFiles, noteTextStore,
+            handwriting = com.nzfrankwu.noteapp.data.search.MlKitHandwriting(),
+        )
     }
 
     /** The paper new notebooks start with (Settings → Notebooks, Phase 7, 7.3), always at hand. */

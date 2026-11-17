@@ -77,6 +77,10 @@ data class NoteHit(
     val isPdf: Boolean,
     val snippet: String?,
     val together: Boolean = false,
+    /** Found only in handwriting (7.10): shown with a pen icon, and opened zoomed to [spot]. */
+    val handwritten: Boolean = false,
+    /** Where to zoom when it opens (a handwriting line's band), or null. */
+    val spot: com.nzfrankwu.noteapp.domain.PageSpot? = null,
 )
 
 /**
@@ -125,13 +129,35 @@ class SearchViewModel(
                 val number = pages.withIndex().associate { (i, p) -> p.id to i + 1 }
                 nb to pageHits.mapNotNull { h ->
                     val n = number[h.pageId] ?: return@mapNotNull null
-                    val text = listOfNotNull(h.pdfText, h.boxText).joinToString("\n")
-                    NoteHit(nbId, nb.title, h.pageId, n, h.pdfText != null, SearchIndex.snippet(text, words), SearchIndex.hasPhrase(text, words))
+                    val typed = listOfNotNull(h.pdfText, h.boxText).joinToString("\n")
+                    val inTyped = words.all { typed.contains(it, ignoreCase = true) }
+                    val text = if (inTyped) typed else listOfNotNull(typed.ifEmpty { null }, h.handText).joinToString("\n")
+                    val page = pages.first { it.id == h.pageId }
+                    NoteHit(
+                        nbId, nb.title, h.pageId, n, h.pdfText != null,
+                        SearchIndex.snippet(if (inTyped) typed else h.handText ?: text, words),
+                        SearchIndex.hasPhrase(text, words),
+                        handwritten = !inTyped,
+                        spot = if (inTyped) null else handwritingSpot(h, words, page.size(nb).width),
+                    )
                 }.sortedBy { it.pageNumber }
             }.sortedByDescending { it.first.updatedAt }.flatMap { it.second }
                 // Pages with the words together first; otherwise notebook by notebook, page by page.
                 .sortedBy { if (it.together) 0 else 1 }
         }
+    }
+
+    /** The band of the first handwriting line holding the search words (the whole page width). */
+    private fun handwritingSpot(hit: com.nzfrankwu.noteapp.data.search.NoteTextStore.Hit, words: List<String>, pageWidth: Float): com.nzfrankwu.noteapp.domain.PageSpot? {
+        val lines = hit.handText?.split('\n') ?: return null
+        val bands = hit.handLines?.split(';')?.map { band ->
+            band.split(',').mapNotNull { it.toFloatOrNull() }
+        } ?: return null
+        val index = lines.indexOfFirst { line -> words.all { line.contains(it, ignoreCase = true) } }
+            .takeIf { it >= 0 } ?: lines.indexOfFirst { it.contains(words[0], ignoreCase = true) }
+        val band = bands.getOrNull(index)?.takeIf { it.size == 2 } ?: return null
+        val pad = (band[1] - band[0]) * 2f
+        return com.nzfrankwu.noteapp.domain.PageSpot(0f, (band[0] - pad).coerceAtLeast(0f), pageWidth, band[1] - band[0] + 2 * pad)
     }
 
     fun setStatus(taskId: String, status: TaskStatus) {
@@ -157,7 +183,8 @@ fun SearchScreen(
     onOpenFolder: (String) -> Unit,
     modifier: Modifier = Modifier,
     /** A page whose words match: open it there, with [query] to show where (PHASE-7.md 7.9). */
-    onOpenPage: (notebookId: String, pageId: String, query: String) -> Unit = { nb, _, _ -> onOpenNotebook(nb) },
+    onOpenPage: (notebookId: String, pageId: String, query: String, spot: com.nzfrankwu.noteapp.domain.PageSpot?) -> Unit =
+        { nb, _, _, _ -> onOpenNotebook(nb) },
     clock: Clock = Clock.systemDefaultZone(),
     zone: ZoneId = ZoneId.systemDefault(),
 ) {
@@ -216,9 +243,9 @@ fun SearchScreen(
             val words = SearchIndex.words(query)
             when {
                 words.isEmpty() -> Hint(
-                    if (scoped) "Type to find words in this notebook's PDF pages and text boxes."
+                    if (scoped) "Type to find words in this notebook: PDF pages, text boxes and handwriting."
                     else "Type to search your tasks (titles, descriptions and your notes), notebooks, folders, " +
-                        "and the words in your PDFs and text boxes.",
+                        "and the words in your PDFs, text boxes and handwriting.",
                 )
                 results.isEmpty && noteHits.isEmpty() -> Hint("Nothing matches “${query.trim()}”.")
                 else -> LazyColumn(
@@ -256,11 +283,15 @@ fun SearchScreen(
                         item(key = "h-notes") { Group("In your notes", noteHits.size) }
                         items(noteHits, key = { "p-" + it.pageId }) { hit ->
                             ResultRow(
-                                icon = if (hit.isPdf) R.drawable.ic_picture_as_pdf else R.drawable.ic_text_fields,
+                                icon = when {
+                                    hit.handwritten -> R.drawable.ic_edit
+                                    hit.isPdf -> R.drawable.ic_picture_as_pdf
+                                    else -> R.drawable.ic_text_fields
+                                },
                                 title = if (scoped) "Page ${hit.pageNumber}" else "${hit.notebookTitle} · page ${hit.pageNumber}",
                                 detail = hit.snippet,
                                 detailLines = 2,
-                                onClick = { onOpenPage(hit.notebookId, hit.pageId, query.trim()) },
+                                onClick = { onOpenPage(hit.notebookId, hit.pageId, query.trim(), hit.spot) },
                                 tag = "search-page-${hit.pageNumber}",
                             )
                         }
