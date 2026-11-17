@@ -5,16 +5,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
@@ -46,7 +47,7 @@ class DriveException(val kind: Kind, message: String, cause: Throwable? = null) 
         OFFLINE,
         /** The file or folder isn't there (any more). */
         NOT_FOUND,
-        /** Anything else Drive refused. */
+        /** Anything else Drive refused, or something arrived damaged. */
         OTHER,
     }
 }
@@ -61,9 +62,46 @@ data class DriveFile(
     val size: String? = null,
     val md5Checksum: String? = null,
     val appProperties: Map<String, String> = emptyMap(),
+    /** RFC 3339, e.g. `2026-11-17T10:00:00.000Z`. */
     val modifiedTime: String? = null,
 ) {
     val sizeBytes: Long get() = size?.toLongOrNull() ?: 0L
+}
+
+/**
+ * The Drive operations the backup engine needs ([DriveClient] in the app, an in-memory fake in tests).
+ * Every call may throw [DriveException].
+ */
+interface DriveApi {
+    /** The folder [name] in [parentId] (null = the top of My Drive), made if it isn't there yet. */
+    suspend fun folder(name: String, parentId: String?): DriveFile
+
+    /** Every file (not folders, not in the bin) directly inside [parentId]. */
+    suspend fun listFiles(parentId: String): List<DriveFile>
+
+    /** Every folder directly inside [parentId]. */
+    suspend fun listFolders(parentId: String): List<DriveFile>
+
+    /** Uploads [file] as a new file; the answer carries Drive's own md5 for the caller to compare. */
+    suspend fun upload(
+        file: File,
+        name: String,
+        parentId: String,
+        mimeType: String = "application/octet-stream",
+        appProperties: Map<String, String> = emptyMap(),
+    ): DriveFile
+
+    /** Replaces the content of [fileId] (and renames it to [name] if given). */
+    suspend fun replace(fileId: String, file: File, mimeType: String, name: String? = null): DriveFile
+
+    /** Renames and/or moves a file or folder. */
+    suspend fun move(fileId: String, name: String?, addParent: String?, removeParent: String?): DriveFile
+
+    /** Downloads [fileId] into [target]; [target] appears only once the whole file arrived. */
+    suspend fun download(fileId: String, target: File)
+
+    /** Deletes [fileId] for good. A file that's already gone is fine. */
+    suspend fun delete(fileId: String)
 }
 
 /**
@@ -74,8 +112,10 @@ data class DriveFile(
  * - Busy or failing servers (429, 5xx, rate-limit 403s) and dropped connections are retried a few
  *   times with growing pauses, then reported as [DriveException.Kind.OFFLINE].
  * - Uploads use Drive's resumable upload: the file appears in Drive only once all of it arrived.
+ *   If sending the content fails, a fresh upload is started (Noteapp's files are small enough).
  *
- * This client never sends Canvas cookies: it has its own OkHttp client with no cookie store.
+ * This client never sends Canvas cookies: it has its own OkHttp client with no cookie store, and
+ * nothing here logs requests (they carry the token).
  */
 class DriveClient(
     private val tokens: DriveTokens,
@@ -84,7 +124,7 @@ class DriveClient(
     private val uploadBase: HttpUrl = "https://www.googleapis.com/upload/drive/v3/".toHttpUrl(),
     private val retryPausesMs: List<Long> = listOf(1_000, 4_000, 15_000),
     private val sleep: suspend (Long) -> Unit = { delay(it) },
-) {
+) : DriveApi {
     /** The signed-in account's email address (shown in Settings → Backup). */
     suspend fun accountEmail(): String? {
         val url = api("about").addQueryParameter("fields", "user(emailAddress)").build()
@@ -94,10 +134,7 @@ class DriveClient(
 
     /** The folder called [name] inside [parentId] (or at the top of My Drive), or null. */
     suspend fun findFolder(name: String, parentId: String?): DriveFile? {
-        val q = buildString {
-            append("name = '").append(escape(name)).append("' and mimeType = '").append(FOLDER).append("' and trashed = false")
-            append(" and '").append(parentId ?: "root").append("' in parents")
-        }
+        val q = "name = '${escape(name)}' and mimeType = '$FOLDER' and trashed = false and '${escape(parentId ?: "root")}' in parents"
         return search(q).firstOrNull()
     }
 
@@ -109,61 +146,56 @@ class DriveClient(
         return parse(body)
     }
 
-    /** The folder [name] in [parentId], made if it isn't there yet. */
-    suspend fun folder(name: String, parentId: String?): DriveFile = findFolder(name, parentId) ?: createFolder(name, parentId)
+    override suspend fun folder(name: String, parentId: String?): DriveFile =
+        findFolder(name, parentId) ?: createFolder(name, parentId)
 
-    /** Every file (not folders, not in the bin) directly inside [parentId], all pages of the list. */
-    suspend fun listFiles(parentId: String): List<DriveFile> =
+    override suspend fun listFiles(parentId: String): List<DriveFile> =
         search("'${escape(parentId)}' in parents and trashed = false and mimeType != '$FOLDER'")
 
-    /** Every folder directly inside [parentId]. */
-    suspend fun listFolders(parentId: String): List<DriveFile> =
+    override suspend fun listFolders(parentId: String): List<DriveFile> =
         search("'${escape(parentId)}' in parents and trashed = false and mimeType = '$FOLDER'")
 
-    /**
-     * Uploads [file] as a new Drive file called [name] in [parentId]. Returns the new file with
-     * Drive's own md5, which the caller compares with its own.
-     */
-    suspend fun upload(
+    override suspend fun upload(
         file: File,
         name: String,
         parentId: String,
-        mimeType: String = "application/octet-stream",
-        appProperties: Map<String, String> = emptyMap(),
+        mimeType: String,
+        appProperties: Map<String, String>,
     ): DriveFile {
         val start = uploadUrl("files").addQueryParameter("uploadType", "resumable").addQueryParameter("fields", FIELDS).build()
-        val metadata = metadata(name, mimeType, parentId, appProperties)
-        return resumable(start, "POST", metadata, file, mimeType)
+        return resumable(start, "POST", metadata(name, mimeType, parentId, appProperties), file, mimeType)
     }
 
-    /** Replaces the content of the existing Drive file [fileId] with [file] (and renames it to [name] if given). */
-    suspend fun replace(fileId: String, file: File, mimeType: String, name: String? = null): DriveFile {
-        val start = uploadUrl("files/${escapePath(fileId)}").addQueryParameter("uploadType", "resumable").addQueryParameter("fields", FIELDS).build()
+    override suspend fun replace(fileId: String, file: File, mimeType: String, name: String?): DriveFile {
+        val start = uploadUrl("files/${checkId(fileId)}").addQueryParameter("uploadType", "resumable")
+            .addQueryParameter("fields", FIELDS).build()
         val metadata = buildJsonObject { if (name != null) put("name", name) }
         return resumable(start, "PATCH", metadata, file, mimeType)
     }
 
-    /** Moves or renames a Drive file or folder. */
-    suspend fun move(fileId: String, name: String?, addParent: String?, removeParent: String?): DriveFile {
-        val url = api("files/${escapePath(fileId)}").apply {
+    override suspend fun move(fileId: String, name: String?, addParent: String?, removeParent: String?): DriveFile {
+        val url = api("files/${checkId(fileId)}").apply {
             addQueryParameter("fields", FIELDS)
-            if (addParent != null) addQueryParameter("addParents", addParent)
-            if (removeParent != null) addQueryParameter("removeParents", removeParent)
+            if (addParent != null) addQueryParameter("addParents", checkId(addParent))
+            if (removeParent != null) addQueryParameter("removeParents", checkId(removeParent))
         }.build()
         val metadata = buildJsonObject { if (name != null) put("name", name) }
         val body = call { Request.Builder().url(url).patch(metadata.toString().toRequestBody(JSON)) }.use { it.body.string() }
         return parse(body)
     }
 
-    /** Downloads [fileId]'s content into [target] (written to a temporary file, then renamed). */
-    suspend fun download(fileId: String, target: File) {
-        val url = api("files/${escapePath(fileId)}").addQueryParameter("alt", "media").build()
+    override suspend fun download(fileId: String, target: File) {
+        val url = api("files/${checkId(fileId)}").addQueryParameter("alt", "media").build()
         call { Request.Builder().url(url).get() }.use { response ->
             withContext(Dispatchers.IO) {
                 target.parentFile?.mkdirs()
                 val temp = File(target.path + ".download")
                 try {
-                    temp.outputStream().use { out -> response.body.byteStream().copyTo(out) }
+                    try {
+                        temp.outputStream().use { out -> response.body.byteStream().copyTo(out) }
+                    } catch (e: IOException) {
+                        throw DriveException(DriveException.Kind.OFFLINE, "The download from Google Drive stopped halfway.", e)
+                    }
                     if (!temp.renameTo(target)) {
                         target.delete()
                         if (!temp.renameTo(target)) throw IOException("Couldn't save the download")
@@ -175,9 +207,8 @@ class DriveClient(
         }
     }
 
-    /** Deletes [fileId] for good (Noteapp's own backup files only). A file already gone is fine. */
-    suspend fun delete(fileId: String) {
-        val url = api("files/${escapePath(fileId)}").build()
+    override suspend fun delete(fileId: String) {
+        val url = api("files/${checkId(fileId)}").build()
         try {
             call { Request.Builder().url(url).delete() }.close()
         } catch (e: DriveException) {
@@ -200,31 +231,44 @@ class DriveClient(
             }.build()
             val page = parse<FileList>(call { Request.Builder().url(url).get() }.use { it.body.string() })
             all += page.files
-            pageToken = page.nextPageToken
+            pageToken = page.nextPageToken?.takeIf { it.isNotEmpty() }
         } while (pageToken != null)
         return all
     }
 
-    /** Starts a resumable upload session, then sends the whole file to it. */
+    /**
+     * Starts a resumable upload session, then sends the whole file to it. If sending fails in a way
+     * worth retrying, the next attempt starts a new session (simpler and safer than resuming one).
+     */
     private suspend fun resumable(start: HttpUrl, method: String, metadata: JsonObject, file: File, mimeType: String): DriveFile {
-        val session = call {
-            Request.Builder().url(start)
-                .header("X-Upload-Content-Type", mimeType)
-                .header("X-Upload-Content-Length", file.length().toString())
-                .method(method, metadata.toString().toRequestBody(JSON))
-        }.use { response ->
-            response.header("Location")?.toHttpUrl() ?: throw DriveException(DriveException.Kind.OTHER, "Drive didn't start the upload.")
+        var attempt = 0
+        while (true) {
+            val session = call {
+                Request.Builder().url(start)
+                    .header("X-Upload-Content-Type", mimeType)
+                    .header("X-Upload-Content-Length", file.length().toString())
+                    .method(method, metadata.toString().toRequestBody(JSON))
+            }.use { response ->
+                response.header("Location")?.toHttpUrlOrNull()
+                    ?: throw DriveException(DriveException.Kind.OTHER, "Google Drive didn't start the upload.")
+            }
+            try {
+                val text = call(retries = emptyList()) {
+                    Request.Builder().url(session).put(file.asRequestBody(mimeType.toMediaType()))
+                }.use { it.body.string() }
+                return parse(text)
+            } catch (e: DriveException) {
+                if (e.kind != DriveException.Kind.OFFLINE || attempt >= retryPausesMs.size) throw e
+                sleep(retryPausesMs[attempt++])
+            }
         }
-        val body: RequestBody = file.asRequestBody(mimeType.toMediaType())
-        val text = call { Request.Builder().url(session).put(body) }.use { it.body.string() }
-        return parse(text)
     }
 
     /**
-     * Sends a request with a token, retrying as described on the class. The caller closes the
-     * response. Throws [DriveException] for anything but a 2xx answer.
+     * Sends a request with a token, retrying as described on the class (pauses from [retries]).
+     * The caller closes the response. Throws [DriveException] for anything but a 2xx answer.
      */
-    private suspend fun call(build: () -> Request.Builder): Response {
+    private suspend fun call(retries: List<Long> = retryPausesMs, build: () -> Request.Builder): Response {
         var refreshed = false
         var attempt = 0
         while (true) {
@@ -233,15 +277,16 @@ class DriveClient(
             val response = try {
                 withContext(Dispatchers.IO) { http.newCall(request).execute() }
             } catch (e: IOException) {
-                if (attempt < retryPausesMs.size) {
-                    sleep(retryPausesMs[attempt++])
+                if (attempt < retries.size) {
+                    sleep(retries[attempt++])
                     continue
                 }
                 throw DriveException(DriveException.Kind.OFFLINE, "Couldn't reach Google Drive.", e)
             }
             if (response.isSuccessful) return response
             val code = response.code
-            val reason = response.use { errorReason(it.body.string()) }
+            val reason = response.use { runCatching { errorReason(it.body.string()) }.getOrNull() }
+            val busy = code == 429 || code >= 500 || (code == 403 && reason in RATE_LIMITS)
             when {
                 code == 401 && !refreshed -> {
                     refreshed = true
@@ -250,14 +295,15 @@ class DriveClient(
                 code == 401 -> throw DriveException(DriveException.Kind.AUTH, "Sign in to Google again to keep backing up.")
                 code == 403 && reason == "storageQuotaExceeded" ->
                     throw DriveException(DriveException.Kind.QUOTA, "Your Google Drive is full.")
-                (code == 429 || code >= 500 || (code == 403 && reason in RATE_LIMITS)) && attempt < retryPausesMs.size ->
-                    sleep(retryPausesMs[attempt++])
-                code == 429 || code >= 500 || (code == 403 && reason in RATE_LIMITS) ->
-                    throw DriveException(DriveException.Kind.OFFLINE, "Google Drive is busy. Noteapp will try again later.")
+                busy && attempt < retries.size -> sleep(retries[attempt++])
+                busy -> throw DriveException(DriveException.Kind.OFFLINE, "Google Drive is busy. Noteapp will try again later.")
                 code == 403 && reason in AUTH_REASONS ->
                     throw DriveException(DriveException.Kind.AUTH, "Noteapp isn't allowed to use your Google Drive. Sign in to Google again.")
                 code == 404 -> throw DriveException(DriveException.Kind.NOT_FOUND, "Not found in Google Drive.")
-                else -> throw DriveException(DriveException.Kind.OTHER, "Google Drive refused the request ($code${reason?.let { ", $it" } ?: ""}).")
+                else -> throw DriveException(
+                    DriveException.Kind.OTHER,
+                    "Google Drive refused the request ($code${reason?.let { ", $it" } ?: ""}).",
+                )
             }
         }
     }
@@ -268,7 +314,7 @@ class DriveClient(
     private fun metadata(name: String, mimeType: String, parentId: String?, appProperties: Map<String, String>) = buildJsonObject {
         put("name", name)
         put("mimeType", mimeType)
-        if (parentId != null) put("parents", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive(parentId))))
+        if (parentId != null) put("parents", JsonArray(listOf(JsonPrimitive(parentId))))
         if (appProperties.isNotEmpty()) put("appProperties", JsonObject(appProperties.mapValues { JsonPrimitive(it.value) }))
     }
 
@@ -282,11 +328,10 @@ class DriveClient(
     @Serializable private data class About(val user: User? = null)
     @Serializable private data class User(val emailAddress: String? = null)
     @Serializable private data class ErrorBody(val error: ErrorInfo? = null)
-    @Serializable private data class ErrorInfo(val errors: List<ErrorItem> = emptyList(), val status: String? = null)
+    @Serializable private data class ErrorInfo(val errors: List<ErrorItem> = emptyList())
     @Serializable private data class ErrorItem(val reason: String? = null)
 
-    private fun errorReason(body: String): String? =
-        runCatching { json.decodeFromString<ErrorBody>(body).error?.errors?.firstOrNull()?.reason }.getOrNull()
+    private fun errorReason(body: String): String? = json.decodeFromString<ErrorBody>(body).error?.errors?.firstOrNull()?.reason
 
     companion object {
         const val FOLDER = "application/vnd.google-apps.folder"
@@ -300,11 +345,14 @@ class DriveClient(
         fun escape(text: String): String = text.replace("\\", "\\\\").replace("'", "\\'")
 
         /** File IDs are letters, digits, - and _; anything else is refused rather than sent. */
-        private fun escapePath(id: String): String {
-            require(id.isNotEmpty() && id.all { it.isLetterOrDigit() || it == '-' || it == '_' }) { "Unexpected Drive file ID" }
+        fun checkId(id: String): String {
+            require(id.isNotEmpty() && id.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '_' }) {
+                "Unexpected Drive file ID"
+            }
             return id
         }
 
+        /** No cookie jar (Canvas cookies can never ride along) and no logging (requests carry the token). */
         fun defaultHttpClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)

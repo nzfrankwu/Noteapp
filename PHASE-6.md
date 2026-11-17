@@ -84,7 +84,7 @@ Uploads are checked against Drive's `md5Checksum`. After a snapshot is committed
 - [x] 🔺 **6.5 Clean-up of unused files** (17 Nov, hands-off). `FileCleanup`, run by the daily `MaintenanceWorker`. Removes old (30+ days) pictures, bookmark pictures and PDFs nothing refers to, leftovers of cut-off saves (1+ day), and old folders of notebooks that no longer exist. Skips notebooks open in the editor (`OpenNotebooks`) or the clipboard's source, and any notebook with a page file it can't read. 4 unit tests, 6 emulator tests. Was: (the rules above).
 - [ ] **6.6 Google Cloud setup, guided with the user** (their login): project, Drive API, OAuth consent screen (External, `drive.file`, **"In production"**), Android OAuth client with the SHA-1 from `gradlew.bat signingReport`; add `play-services-auth`, `INTERNET`, `ACCESS_NETWORK_STATE`.
 - [ ] **6.7 Google sign-in in Settings → Backup.** ★
-- [ ] 🔺 **6.8 `DriveClient` over OkHttp** (MockWebServer tests).
+- [x] 🔺 **6.8 `DriveClient` over OkHttp** (MockWebServer tests). `data/backup/drive/DriveClient.kt` plus the `DriveApi` interface the engine uses (a fake in tests). 401 → one fresh token; 429/5xx/rate-limit 403 → retried with pauses, then "try later"; full Drive → QUOTA; a failed upload starts a fresh resumable session. 17 tests.
 - [ ] 🔺 **6.9 Drive backup engine:** blobs, snapshot last, md5 checks, retention, garbage collection.
 - [ ] **6.10 Automatic backup and status:** jobs, Wi-Fi only, Back up now, status in Settings, Home strip when failing or 3+ days without a backup. ★
 - [ ] 🔺 **6.11 Restore from Google Drive.** ★
