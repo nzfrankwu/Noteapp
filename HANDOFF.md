@@ -1,40 +1,43 @@
 # Handoff: where things stand
 
-_Last updated: 17 Nov 2026 (Phase 6 steps 6.0–6.5 done hands-off on `phase-6`; Google steps wait for the user). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 17 Nov 2026, evening (Phase 6: everything that needs no Google login is done hands-off on `phase-6`; 6.6 waits for the user). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phases 1–5 are merged into `main`.** History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
-- **Phase 6 (backup), branch `phase-6`, mode hands-off** (user, 17 Nov). Plan and the user's decisions: `PHASE-6.md`.
-  - **Done:** 6.1 local snapshot (`f62a311`), 6.2 Export everything + 6.3 Import from export (`6cb85bd`; real round trip on the emulator: compare PASS), 6.4 Recently deleted (`1d24106`), 6.5 clean-up of unused files.
-  - **Not on the tablet yet.** No database change in Phase 6 so far (still v7).
-- **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet.
+- **Phase 6 (backup), branch `phase-6`, mode hands-off** (user, 17 Nov). Plan, the user's decisions and per-step notes: `PHASE-6.md`.
+  - **Done and checked:** 6.1–6.5 (snapshot, Export/Import .zip with a real round trip, Recently deleted, clean-up), 6.8 `DriveClient` (`f17ce47`), 6.9 Drive engine (`014f654`).
+  - **Code done, tested with a fake Drive / made-up account, real use waits for 6.6:** 6.7 sign-in + 6.10 automatic backup and status + 6.11 restore from Drive (`d15950a`), 6.12 PDF copies (`2aed69a`), 6.13 Word/PowerPoint → PDF (`211c351`).
+  - `play-services-auth` 22.0.0 is in (the user approved it). No database change in Phase 6 (still v7).
+  - **Not on the tablet yet.**
+- **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet. `connectedDebugAndroidTest` **uninstalls the app afterwards** (emulator data gone; rerun `screenshots/p4setup.sh`).
 - **The tablet runs `main`** (Phase 5 + second review), database **version 7**. Never install a build older than v7 on it.
 
 ## Phase 6 code map (`app/src/main/java/com/nzfrankwu/noteapp/`)
 
-- `data/StorageLock.kt`: `pages` (page saves; was the editor's `saveLock`) and `backup` (whole backup/restore/purge/clean-up). Never take `pages` then `backup`.
+- `data/StorageLock.kt`: `pages` (page saves) and `backup` (whole backup/restore/purge/clean-up/Drive run/PDF copies). Never take `pages` then `backup`.
 - `data/backup/`:
-  - `BackupPaths` (what's in a backup; Canvas never), `BackupManifest` (+ `Md5`), `DatabaseCheck` (copy → one file, integrity check, counts)
-  - `LocalSnapshot` (db + `-wal` copied in a write transaction, page files + settings copied, PDFs/pictures read in place)
-  - `ZipBackup` (+ `StagedSet.verify`), `RestoreSwap` (two-phase swap at start-up, `before-restore/<time>/`), `BackupManager` (UI state), `MaintenanceWorker` (daily purge + clean-up)
-- `data/NotebookPurge.kt` (Delete now, 30-day purge), `data/FileCleanup.kt` (+ `CleanupRules`), `data/OpenNotebooks.kt`
-- `ui/settings/BackupSection.kt`, `ui/deleted/RecentlyDeletedScreen.kt` (+ `DeletedText`), Home's "Recently deleted (N)" row (`HomeScreen.folderTiles`)
-- `NoteAppApplication.onCreate` runs `restoreSwap.finishPending()` before anything opens the data.
+  - `BackupPaths` (what's in a backup; Canvas never), `BackupManifest` (+ `Md5`), `DatabaseCheck`, `LocalSnapshot`, `ZipBackup` (+ `StagedSet.verify`), `RestoreSwap` (two-phase swap at start-up), `BackupManager` (export/import/Drive restore UI state), `MaintenanceWorker`
+- `data/backup/drive/`:
+  - `DriveClient` (+ `DriveApi`, `DriveTokens`, `DriveException`): Drive v3 over OkHttp
+  - `DriveBackup` (+ `Retention`): `Noteapp/Backup/blobs/<md5>` + `snapshots/<time>.json` written last; restore download. **An app with no notebooks never backs up over an existing backup.**
+  - `GoogleAuth` (Play Services AuthorizationClient, `drive.file`), `DriveSettings` (`backup_settings` DataStore, never backed up), `DriveStatus` (+ `DriveText`, `DriveBackupRunner`), `BackupWorker` (soon/daily/now), `DriveConnection` (Settings controller)
+  - `PdfCopies` + `AppPdfSource` (`Noteapp/Notes (PDF)/…`), `OfficeConvert` (`Noteapp/Converting/`, deleted straight away)
+- UI: `ui/settings/BackupSection.kt` + `DriveBackupBlock.kt`, `ui/deleted/RecentlyDeletedScreen.kt`, Home strips `banner-backup` and "Recently deleted (N)", folder ＋ → "Import PDF, Word or PowerPoint".
+- `NoteAppApplication.onCreate`: `restoreSwap.finishPending()` first; then `driveConnection.keepBackingUp(databaseChanges())`.
+- Tests: `test/.../data/backup/drive/` (`FakeDrive` is the in-memory Drive), `androidTest/.../ui/DriveBackupScreenTest.kt`, `data/AppPdfSourceTest.kt`.
 
 ## Next steps (in order)
 
-1. **6.6 needs the user** (Google Cloud setup with their login; a separate test Google account signed in on the emulator). Guide them step by step: project → enable Drive API → OAuth consent screen (External, scope `drive.file`, publish "In production") → Android OAuth client with `com.nzfrankwu.noteapp` and the SHA-1 from `gradlew.bat signingReport`.
-   - `play-services-auth` is approved (the only new Google library). Never read `<user home>/keys/`.
-2. Meanwhile, work that needs no Google login: 6.8 `DriveClient` over OkHttp with MockWebServer tests, and 6.9's engine against a fake Drive (token provider as an interface).
-   - **A draft of 6.8 is in `drafts/DriveClient.kt.txt`** (written, never compiled or tested). Move it to `data/backup/drive/DriveClient.kt`, build, and write MockWebServer tests.
-   - The full emulator suite (**297 tests**) and all unit tests pass after 6.5.
-2. **Still-unreported tablet checks** (ask when convenient):
+1. **6.6 needs the user** (Google Cloud setup with their login; a separate test Google account signed in on the emulator by them). Guide them step by step: project → enable Drive API → OAuth consent screen (External, scope `drive.file`, publish "In production") → Android OAuth client with `com.nzfrankwu.noteapp` and the SHA-1 from `gradlew.bat signingReport` (debug and release SHA-1s both need a client, or the debug build can't sign in). Never read `<user home>/keys/`.
+2. Then on the emulator with the test account: Connect (6.7 ★), Back up now, look in Drive (blobs, snapshots, Notes (PDF)), restore round trip with `compare_dbs.py` (6.11 ★), a .pptx conversion (6.13 ★), Disconnect.
+3. 6.14 tablet check (ask first; `tablet_snapshot.sh` first), then end of phase: `/code-review`, fix, retest, ask to merge.
+4. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own
    - whether **Open in Canvas** opens the Canvas Student app or the Chrome tab
    - whether writing in a text box with the OPPO Pencil turns into typed text
-3. Older follow-ups (ISSUES.md, not blocking):
+5. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture
    - pre-draw the next page
    - a big lasso move pauses on release

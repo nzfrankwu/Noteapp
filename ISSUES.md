@@ -10,12 +10,19 @@ _None known._
 
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
+- **Google Drive backup (Phase 6.6, waiting on you):** the Google Cloud setup needs your login, and a spare Google account signed in on the emulator. Until then Connect Google Drive opens Google's sign-in page and nothing is backed up to Drive. Everything else (6.7–6.13) is built and tested with a fake Drive.
+- **A Home nudge when Drive isn't connected? (your call):** today Home only warns once Drive is connected and backups fail or stop for 3 days. Nothing on Home reminds you to connect Drive in the first place.
+
 ## Follow-ups / tech debt
 
 - **Backup (Phase 6):**
   - After "Import from export" the app restarts on Home; the "Restored the backup from …" message only shows in Settings → Backup.
   - Home's "Recently deleted" row is hidden when there are no folders at all (Settings still has it).
   - Restoring an export from an older database version relies on Room's normal migrations (covered by `MigrationTest`), not tested end to end with a real old export.
+  - The PDF copies have no status of their own: if one notebook can't be drawn, or Drive fails while updating the copies, nothing is shown (the full backup already succeeded; the next run tries again).
+  - Two tablets backing up to the same Google account would share one backup folder (each run keeps the other's newer snapshots, and unused files wait a day before they go), but restore lists them together. One tablet is the plan; revisit if that changes.
+  - Each Drive run lists `Backup/blobs/` (1 request per 1000 files) instead of caching Drive ids locally. Fine for thousands of files; revisit if backups get slow.
+  - "Back up now" isn't an expedited job (that would need its own notification on Android 11 and older), so Android may start it a little later.
 
 - **Open in Canvas (Phase 5 FB11):** not tried with the real Canvas Student app: whether it opens the university's assignment links (else the Chrome tab takes over) needs the tablet.
 - **Split view (Phase 5.8):** each notebook opened in a pane keeps its view model until you leave the notebook screen (cheap, but many swaps in one visit keep many notebooks in memory). A real side-by-side split with another app needs the tablet.
