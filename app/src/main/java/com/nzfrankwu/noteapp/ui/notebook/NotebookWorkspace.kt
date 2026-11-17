@@ -14,10 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,10 +24,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -38,8 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -50,7 +46,6 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
@@ -63,7 +58,6 @@ import com.nzfrankwu.noteapp.domain.PageSpot
 import com.nzfrankwu.noteapp.domain.PaneSide
 import com.nzfrankwu.noteapp.domain.SplitLayout
 import com.nzfrankwu.noteapp.domain.SplitMode
-import com.nzfrankwu.noteapp.ui.theme.EditorBarButton
 import com.nzfrankwu.noteapp.ui.theme.EditorBarIcon
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -106,8 +100,22 @@ fun NotebookWorkspace(
     // A text box being typed in is finished when the other pane becomes the active one.
     LaunchedEffect(active) { panes.filter { it !== active }.forEach { it.finishTyping() } }
 
-    val savedMode by viewStore.splitMode.collectAsState(initial = null)
-    val ratio by viewStore.splitRatio.collectAsState(initial = SplitLayout.DEFAULT_RATIO)
+    // The split layout and divider place: chosen here straight away, and stored for next time. The
+    // screen goes by its own choice, so it never shows the old stored one while the new is saved.
+    val storedMode by viewStore.splitMode.collectAsState(initial = null)
+    val storedRatio by viewStore.splitRatio.collectAsState(initial = SplitLayout.DEFAULT_RATIO)
+    var chosenMode by rememberSaveable { mutableStateOf<SplitMode?>(null) }
+    var chosenRatio by rememberSaveable { mutableStateOf<Float?>(null) }
+    val savedMode = chosenMode ?: storedMode
+    val ratio = chosenRatio ?: storedRatio
+    fun setMode(m: SplitMode) {
+        chosenMode = m
+        scope.launch { viewStore.setSplitMode(m) }
+    }
+    fun setRatio(r: Float) {
+        chosenRatio = SplitLayout.saved(r)
+        scope.launch { viewStore.setSplitRatio(r) }
+    }
     val recentIds by viewStore.recentNotebooks.collectAsState(initial = emptyList())
     // Only while the panel is open: the query re-counts every notebook's pages after each save.
     val all by remember(panelOpen, allNotebooks) {
@@ -133,8 +141,8 @@ fun NotebookWorkspace(
     fun openBeside(id: String, side: PaneSide, inMode: SplitMode? = null) {
         if (id == first || id == secondId) return
         when {
-            inMode != null && inMode != savedMode -> scope.launch { viewStore.setSplitMode(inMode) }
-            savedMode == null -> scope.launch { viewStore.setSplitMode(mode) }
+            inMode != null && inMode != savedMode -> setMode(inMode)
+            savedMode == null -> setMode(mode)
         }
         val current = first
         if (side == PaneSide.FIRST) {
@@ -253,7 +261,11 @@ fun NotebookWorkspace(
                     modifier = Modifier.padding(top = 64.dp),
                 )
             }
-            dragging?.let { (item, at) -> DragGhost(item, at, area, mode, secondId != null) }
+            dragging?.let { (item, at) ->
+                // Over the panel, or with no room for two, a drop does nothing: no zone lights up.
+                val canDrop = canSplit && !(panelOpen && at.x < area.left + panelPx)
+                DragGhost(item, at, area, mode, secondId != null, canDrop)
+            }
         },
     ) { show ->
         BoxWithConstraints(
@@ -284,10 +296,10 @@ fun NotebookWorkspace(
                     onActivate = { activeIndex = it },
                     mode = mode,
                     ratio = ratio,
-                    onRatio = { scope.launch { viewStore.setSplitRatio(it) } },
+                    onRatio = ::setRatio,
                     onClose = ::closePane,
                     onSwap = ::swap,
-                    onMode = { scope.launch { viewStore.setSplitMode(it) } },
+                    onMode = ::setMode,
                     show = { p, m -> show(p, m, openAtPage.takeIf { p.viewModel.notebookId == firstId }, openAtSpot) },
                 )
             }
@@ -325,11 +337,11 @@ private fun SplitPanes(
         val total = with(density) { (if (sideBySide) maxWidth else maxHeight).toPx() }
         val gap = with(density) { DividerThickness.toPx() }
         var dragRatio by remember { mutableStateOf<Float?>(null) }
-        // Where the divider rests. Set straight away on letting go, so the panes don't jump back to the
-        // old saved place for a moment while the new one is being stored; follows the store otherwise.
-        var resting by remember { mutableStateOf(ratio) }
-        LaunchedEffect(ratio) { resting = ratio }
-        val shown = SplitLayout.dragged(dragRatio ?: resting)
+        // The drag handler below lives across recompositions: it reads these, never stale copies.
+        val currentRatio by rememberUpdatedState(ratio)
+        val currentOnRatio by rememberUpdatedState(onRatio)
+        val currentOnClose by rememberUpdatedState(onClose)
+        val shown = SplitLayout.dragged(dragRatio ?: ratio)
         val firstPx = ((total - gap) * shown).roundToInt()
         val secondPx = (total - gap).roundToInt() - firstPx
         val closing = dragRatio?.let { r -> if (SplitLayout.closing(r)) (if (r < 0.5f) PaneSide.FIRST else PaneSide.SECOND) else null }
@@ -385,13 +397,13 @@ private fun SplitPanes(
                         .onGloballyPositioned { handleCoords = it }
                         .pointerInput(sideBySide, total) {
                             detectDragGestures(
-                                onDragStart = { dragRatio = resting },
+                                onDragStart = { dragRatio = currentRatio },
                                 onDragEnd = {
                                     val r = dragRatio
                                     dragRatio = null
                                     when (val release = r?.let { SplitLayout.release(it) }) {
-                                        is DividerRelease.Keep -> { resting = release.ratio; onRatio(release.ratio) }
-                                        is DividerRelease.Close -> onClose(release.side)
+                                        is DividerRelease.Keep -> currentOnRatio(release.ratio)
+                                        is DividerRelease.Close -> currentOnClose(release.side)
                                         null -> Unit
                                     }
                                 },
@@ -465,9 +477,9 @@ private fun SplitPanes(
  * (or pane) it would open in lit up.
  */
 @Composable
-private fun DragGhost(item: NotebookListItem, at: Offset, area: Rect, splitMode: SplitMode, split: Boolean) {
+private fun DragGhost(item: NotebookListItem, at: Offset, area: Rect, splitMode: SplitMode, split: Boolean, canDrop: Boolean) {
     val density = LocalDensity.current
-    if (area.contains(at)) {
+    if (canDrop && area.contains(at)) {
         val x = at.x - area.left
         val y = at.y - area.top
         // Split: the pane under the finger. One notebook: the nearest edge decides (FB6).
@@ -511,8 +523,11 @@ private val DividerThickness = 6.dp
 private val HandleLength = 48.dp
 private val HandleColor = Color(0xFF6B6F76)
 
-/** Where a finger can grab the handle: wider than it looks. */
-private val HandleTouchThickness = 40.dp
+/**
+ * Where a finger can grab the handle: wider than it looks, but only 9 dp into each page, so pen
+ * strokes next to the divider reach the page (the handle takes any touch inside its area).
+ */
+private val HandleTouchThickness = 24.dp
 private val HandleTouchLength = 64.dp
 private val DividerColor = Color(0xFF1E1F22)
 private val DropTint = Color(0x332F6BDB)

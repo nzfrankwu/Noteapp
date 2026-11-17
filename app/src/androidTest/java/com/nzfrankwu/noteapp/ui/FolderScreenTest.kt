@@ -63,11 +63,11 @@ class FolderScreenTest {
     @After
     fun tearDown() = db.close()
 
-    private fun show(folderId: String) {
+    private fun show(folderId: String, width: androidx.compose.ui.unit.Dp = 1120.dp) {
         val viewModel = FolderViewModel(folderId, folders, tasks, NotebookRepository(db))
         compose.setContent {
             NoteAppTheme {
-                Box(Modifier.size(width = 1120.dp, height = 800.dp)) {
+                Box(Modifier.size(width = width, height = 800.dp)) {
                     FolderScreen(
                         viewModel, onBack = {}, onOpenTask = {}, onAddTask = {},
                         calendar = { courseId -> Text("calendar for $courseId", Modifier.testTag("test-calendar")) },
@@ -175,5 +175,32 @@ class FolderScreenTest {
         // "No due date" appears as the section heading and on the task's own row.
         compose.onAllNodesWithText("No due date").onFirst().assertExists()
         compose.onNodeWithText("No notebooks yet").assertExists()
+    }
+
+    private fun courseFolder(): String = runBlocking {
+        val folderId = (folders.createFolder("EE 204", "ELECTENG 204") as FolderResult.Success).folderId
+        tasks.createTask(TaskDraft("Read chapter 3", db.courseDao().getAll().single().id))
+        folderId
+    }
+
+    @Test
+    fun aWideCourseFolder_hasTasksOnTheLeft_andNotesOnTheRight() {
+        show(courseFolder())
+        waitFor("Read chapter 3")
+        val tasksPanel = compose.onNodeWithTag("folder-tasks").fetchSemanticsNode().boundsInRoot
+        val notesPanel = compose.onNodeWithTag("folder-content").fetchSemanticsNode().boundsInRoot
+        assertEquals(true, tasksPanel.right <= notesPanel.left)
+        assertEquals(tasksPanel.top, notesPanel.top, 1f) // both start at the top
+        assertEquals(true, notesPanel.width > tasksPanel.width) // the notes get more room
+    }
+
+    @Test
+    fun aNarrowCourseFolder_isOneList_withTheNotesFirst() {
+        show(courseFolder(), width = 600.dp)
+        waitFor("Read chapter 3")
+        compose.onNodeWithTag("folder-tasks").assertDoesNotExist()
+        val notes = compose.onNodeWithText("No notebooks yet").fetchSemanticsNode().boundsInRoot
+        val task = compose.onNodeWithText("Read chapter 3").fetchSemanticsNode().boundsInRoot
+        assertEquals(true, notes.top < task.top)
     }
 }

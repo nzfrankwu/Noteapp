@@ -1,7 +1,9 @@
 package com.nzfrankwu.noteapp.ui.components
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.widget.Toast
 import androidx.core.net.toUri
@@ -45,12 +47,22 @@ fun openInCanvas(context: Context, url: String?) {
     } catch (_: SecurityException) {
     }
     try {
-        androidx.browser.customtabs.CustomTabsIntent.Builder()
-            .setShowTitle(true)
-            .build()
-            .apply { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-            .launchUrl(context, uri)
+        val tab = androidx.browser.customtabs.CustomTabsIntent.Builder().setShowTitle(true).build()
+        // From Noteapp's own screen the tab opens over it, in Noteapp's task (Back returns here).
+        // A new task only when there's no screen to open it over.
+        if (!needsNewTask(context)) tab.launchUrl(context, uri)
+        else tab.apply { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }.launchUrl(context, uri)
     } catch (_: ActivityNotFoundException) {
         openLink(context, url)
     }
+}
+
+/** Whether [context] has no activity behind it, so starting a screen from it needs a new task. */
+internal fun needsNewTask(context: Context): Boolean {
+    var c: Context? = context
+    while (c is ContextWrapper) {
+        if (c is Activity) return false
+        c = c.baseContext
+    }
+    return true
 }
