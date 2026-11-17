@@ -1,6 +1,8 @@
 package com.nzfrankwu.noteapp.ui
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -99,6 +101,25 @@ class DriveBackupScreenTest {
             )
         }
         compose.onNodeWithText("You get a reminder 1 week and 1 day before", substring = true).assertExists()
+    }
+
+    /** Phase 7, 7.6: Settings → Appearance switches the whole app to dark. */
+    @Test
+    fun appearance_dark_isSaved_andTheThemeFollows() {
+        val app = com.nzfrankwu.noteapp.data.InMemoryAppSettings()
+        var dark: Boolean? = null
+        compose.setContent {
+            val mode by app.themeMode.collectAsState(com.nzfrankwu.noteapp.domain.ThemeMode.SYSTEM)
+            NoteAppTheme(darkTheme = mode.isDark(systemDark = false)) {
+                dark = com.nzfrankwu.noteapp.ui.theme.LocalDarkTheme.current
+                com.nzfrankwu.noteapp.ui.settings.SettingsScreen(onBack = {}, appSettings = app)
+            }
+        }
+        compose.waitUntil(5_000) { dark == false }
+        compose.onNodeWithTag("theme-dark").performScrollTo().performClick()
+        compose.waitUntil(5_000) { dark == true }
+        compose.onNodeWithTag("theme-system").performScrollTo().performClick()
+        compose.waitUntil(5_000) { dark == false }
     }
 
     @Test

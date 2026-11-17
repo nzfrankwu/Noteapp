@@ -138,6 +138,9 @@ fun SettingsScreen(
                         }
                     }
                 }
+                if (appSettings != null) {
+                    SettingsSection("Appearance") { AppearanceSettings(appSettings) }
+                }
                 if (inkSettings != null) {
                     SettingsSection("Notebooks") { NotebookSettingsSection(inkSettings, showDebug = BuildConfig.DEBUG) }
                 }
@@ -241,6 +244,24 @@ private fun RemindersSettings(onTestReminder: (() -> Unit)?, appSettings: com.nz
                 }
             }
         }
+    }
+}
+
+/** Light, dark or like the tablet (Phase 7, 7.6). */
+@Composable
+private fun AppearanceSettings(appSettings: com.nzfrankwu.noteapp.data.AppSettingsStore) {
+    val mode by appSettings.themeMode.collectAsState(com.nzfrankwu.noteapp.domain.ThemeMode.SYSTEM)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Light or dark:", style = MaterialTheme.typography.bodyMedium)
+        com.nzfrankwu.noteapp.ui.components.SegmentedTabs(
+            options = com.nzfrankwu.noteapp.domain.ThemeMode.entries,
+            selected = mode,
+            label = { it.label },
+            testTag = { "theme-${it.key}" },
+            onSelect = { chosen -> scope.launch { appSettings.setThemeMode(chosen) } },
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

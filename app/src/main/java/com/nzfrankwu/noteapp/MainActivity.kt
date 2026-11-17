@@ -6,6 +6,7 @@ import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.Lifecycle
@@ -55,11 +56,27 @@ class MainActivity : ComponentActivity() {
             }
         }
         val courseDao = (application as NoteAppApplication).container.database.courseDao()
+        val appSettings = (application as NoteAppApplication).container.viewSettings
+        // Read once before the first frame (a tiny file), so a forced light/dark never flashes.
+        val firstTheme = kotlinx.coroutines.runBlocking { appSettings.themeMode.first() }
         setContent {
             // Course colours follow the order courses were first seen (see CourseColorKey).
             val courses by courseDao.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
             val seen = remember(courses) { courses.map { CourseSeen(it.code, it.createdAt) } }
-            NoteAppTheme(courses = seen) {
+            // Light, dark or like the tablet (Settings, Phase 7, 7.6).
+            val themeMode by appSettings.themeMode.collectAsStateWithLifecycle(initialValue = firstTheme)
+            val dark = themeMode.isDark(androidx.compose.foundation.isSystemInDarkTheme())
+            androidx.compose.runtime.LaunchedEffect(dark) {
+                // Status and navigation bar icons that suit the chosen look, not the tablet's.
+                val transparent = android.graphics.Color.TRANSPARENT
+                enableEdgeToEdge(
+                    statusBarStyle = if (dark) androidx.activity.SystemBarStyle.dark(transparent)
+                    else androidx.activity.SystemBarStyle.light(transparent, transparent),
+                    navigationBarStyle = if (dark) androidx.activity.SystemBarStyle.dark(transparent)
+                    else androidx.activity.SystemBarStyle.light(transparent, transparent),
+                )
+            }
+            NoteAppTheme(darkTheme = dark, courses = seen) {
                 NoteAppRoot(openTaskRequest = openTaskRequest, shareRequest = shareRequest, fileShareRequest = fileShareRequest)
             }
         }

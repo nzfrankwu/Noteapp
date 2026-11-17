@@ -30,6 +30,16 @@ class StoredKeysTest {
     }
 
     @Test
+    fun themeModeKeys_neverChange_andUnknownFollowsTheTablet() {
+        assertEquals(listOf("system", "light", "dark"), ThemeMode.entries.map { it.key })
+        assertEquals(ThemeMode.SYSTEM, ThemeMode.fromKey(null))
+        assertEquals(ThemeMode.SYSTEM, ThemeMode.fromKey("sepia"))
+        assertEquals(true, ThemeMode.SYSTEM.isDark(systemDark = true))
+        assertEquals(false, ThemeMode.LIGHT.isDark(systemDark = true))
+        assertEquals(true, ThemeMode.DARK.isDark(systemDark = false))
+    }
+
+    @Test
     fun courseColorKeys_neverChange() {
         // Saved in courses.color, in the automatic palette's order (the slot is the position).
         assertEquals(

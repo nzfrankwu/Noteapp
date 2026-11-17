@@ -60,12 +60,16 @@ class InMemoryEditorViewStore : EditorViewStore {
 }
 
 /**
- * App-wide choices from Settings (Phase 7): when reminders come (7.5). Kept with the view
+ * App-wide choices from Settings (Phase 7): when reminders come (7.5), light or dark (7.6). Kept with the view
  * settings, so they're in backups.
  */
 interface AppSettingsStore {
     val reminderOffsets: Flow<Set<com.nzfrankwu.noteapp.domain.ReminderOffset>>
     suspend fun setReminderOffsets(offsets: Set<com.nzfrankwu.noteapp.domain.ReminderOffset>)
+
+    /** Light, dark or like the tablet (7.6). */
+    val themeMode: Flow<com.nzfrankwu.noteapp.domain.ThemeMode>
+    suspend fun setThemeMode(mode: com.nzfrankwu.noteapp.domain.ThemeMode)
 }
 
 /** Keeps the choices in memory only (screen tests). */
@@ -73,6 +77,9 @@ class InMemoryAppSettings : AppSettingsStore {
     private val offsets = MutableStateFlow(com.nzfrankwu.noteapp.domain.ReminderOffset.DEFAULT)
     override val reminderOffsets: Flow<Set<com.nzfrankwu.noteapp.domain.ReminderOffset>> = offsets
     override suspend fun setReminderOffsets(offsets: Set<com.nzfrankwu.noteapp.domain.ReminderOffset>) { this.offsets.value = offsets }
+    private val theme = MutableStateFlow(com.nzfrankwu.noteapp.domain.ThemeMode.SYSTEM)
+    override val themeMode: Flow<com.nzfrankwu.noteapp.domain.ThemeMode> = theme
+    override suspend fun setThemeMode(mode: com.nzfrankwu.noteapp.domain.ThemeMode) { theme.value = mode }
 }
 
 private val Context.viewSettingsStore: DataStore<Preferences> by preferencesDataStore(name = "view_settings")
@@ -112,7 +119,15 @@ class ViewSettings(context: Context) : HomeTabStore, EditorViewStore, AppSetting
         store.edit { it[REMINDERS] = com.nzfrankwu.noteapp.domain.ReminderOffset.encode(offsets) }
     }
 
+    override val themeMode: Flow<com.nzfrankwu.noteapp.domain.ThemeMode> =
+        store.data.map { com.nzfrankwu.noteapp.domain.ThemeMode.fromKey(it[THEME]) }
+
+    override suspend fun setThemeMode(mode: com.nzfrankwu.noteapp.domain.ThemeMode) {
+        store.edit { it[THEME] = mode.key }
+    }
+
     private companion object {
+        val THEME = stringPreferencesKey("theme_mode")
         val REMINDERS = stringPreferencesKey("reminder_offsets")
         val HOME_TAB = stringPreferencesKey("home_tab")
         val RECENT = stringPreferencesKey("recent_notebooks")

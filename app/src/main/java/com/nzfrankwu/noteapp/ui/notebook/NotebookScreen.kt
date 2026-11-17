@@ -17,7 +17,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -283,7 +282,7 @@ internal fun NotebookEditor(
         onBack()
     }
 
-    val dark = isSystemInDarkTheme()
+    val dark = com.nzfrankwu.noteapp.ui.theme.LocalDarkTheme.current
     // No top bar (F17, like Notein): the pages fill the screen up to the status bar, and the
     // buttons float over them.
     Box(modifier.fillMaxSize().background(if (dark) DeskDark else DeskLight).statusBarsPadding()) {

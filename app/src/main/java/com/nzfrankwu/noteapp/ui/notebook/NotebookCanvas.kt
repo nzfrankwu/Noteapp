@@ -14,7 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -331,7 +330,7 @@ fun NotebookCanvas(
     val renderer = remember { CanvasStrokeRenderer.create() }
     val motionScope = rememberCoroutineScope()
     val inputs = remember { InkLayerInputs() }
-    val dark = isSystemInDarkTheme()
+    val dark = com.nzfrankwu.noteapp.ui.theme.LocalDarkTheme.current
 
     // The pen layer's brush (read at the start of each stroke; its transform is set by the gestures).
     inputs.brush = settings.penStyle(settings.tool)?.let { style ->
