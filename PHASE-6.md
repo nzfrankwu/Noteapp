@@ -101,7 +101,7 @@ Uploads are checked against Drive's `md5Checksum`. After a snapshot is committed
   - Each copy is tagged with its notebook id and a content version (paper, pages, page files; not the title or folder): an edit replaces the same Drive file (so Drive keeps its history), a rename or move only moves it, folders left empty go.
   - Recently deleted keeps its copy; deleted for good → the copy goes. A notebook that can't be drawn is skipped and doesn't stop the others.
   - Changed from the plan: `InkBrushes.exportShape` wasn't moved; it already works without a screen.
-- [ ] **6.13 Word/PowerPoint → PDF.** ★
+- [ ] **6.13 Word/PowerPoint → PDF.** ★ Code done: `OfficeConvert` (upload to `Noteapp/Converting/` with conversion → export as PDF → the Drive copy is deleted even if cancelled → normal PDF import). Entry points: Share / Open with (.docx .doc .pptx .ppt) and folder ＋ → "Import PDF, Word or PowerPoint" ("Converting with Google Drive…"). 6 unit tests; on the emulator, both entry points show the not-connected message with the Print → Save as PDF tip. **A real conversion waits for 6.6.**
 - [ ] **6.14 Tablet check** (ask first; snapshot; install; the user connects their real Google account).
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest, ask to merge into `main`.
 

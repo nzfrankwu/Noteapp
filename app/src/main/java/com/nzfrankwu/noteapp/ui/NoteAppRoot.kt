@@ -163,8 +163,16 @@ fun NoteAppRoot(
                 shareBusy = true
                 scope.launch {
                     if (request.kind == com.nzfrankwu.noteapp.data.SharedKind.PDF) {
-                        val title = com.nzfrankwu.noteapp.data.PdfImport.titleFrom(request.files.first().displayName)
-                        when (val r = container.sharedImport.pdfToFolder(folderId, title, sources.first())) {
+                        val shared = request.files.first()
+                        val officeType = com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert.officeType(null, shared.displayName)
+                            ?: com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert.officeType(null, shared.file.name)
+                        val title = com.nzfrankwu.noteapp.data.PdfImport.titleFrom(shared.displayName)
+                        val result = if (officeType != null) {
+                            container.officeConvert.importInto(container.pdfImport, folderId, shared.displayName, officeType, sources.first())
+                        } else {
+                            container.sharedImport.pdfToFolder(folderId, title, sources.first())
+                        }
+                        when (val r = result) {
                             is com.nzfrankwu.noteapp.data.PdfImportResult.Success -> finish(r.notebookId, null)
                             is com.nzfrankwu.noteapp.data.PdfImportResult.Failure -> finish(null, r.message)
                         }
@@ -318,7 +326,7 @@ fun NoteAppRoot(
                 entry<FolderRoute> { route ->
                     FolderScreen(
                         viewModel = viewModel {
-                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport, links = container.linkRepository)
+                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport, links = container.linkRepository, officeConvert = container.officeConvert)
                         },
                         onBack = ::back,
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },

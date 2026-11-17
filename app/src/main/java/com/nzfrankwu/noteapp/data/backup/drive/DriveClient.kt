@@ -37,7 +37,13 @@ interface DriveTokens {
 }
 
 /** Why a Drive request failed. The message is safe to show (never holds a token). */
-class DriveException(val kind: Kind, message: String, cause: Throwable? = null) : Exception(message, cause) {
+class DriveException(
+    val kind: Kind,
+    message: String,
+    cause: Throwable? = null,
+    /** Drive's own reason, e.g. `exportSizeLimitExceeded`, when it gave one. */
+    val reason: String? = null,
+) : Exception(message, cause) {
     enum class Kind {
         /** Signed out, or the permission was taken back: the user must sign in again. */
         AUTH,
@@ -112,6 +118,12 @@ interface DriveApi {
 
     /** Downloads [fileId] into [target]; [target] appears only once the whole file arrived. */
     suspend fun download(fileId: String, target: File)
+
+    /** Uploads a Word/PowerPoint [file] ([sourceMime]) and lets Drive turn it into [googleMime] (Docs/Slides). */
+    suspend fun uploadToConvert(file: File, name: String, parentId: String, sourceMime: String, googleMime: String): DriveFile
+
+    /** Downloads a Docs/Slides file as a PDF into [target]. */
+    suspend fun exportPdf(fileId: String, target: File)
 
     /** Deletes [fileId] for good. A file that's already gone is fine. */
     suspend fun delete(fileId: String)
@@ -195,8 +207,18 @@ class DriveClient(
         return parse(body)
     }
 
-    override suspend fun download(fileId: String, target: File) {
-        val url = api("files/${checkId(fileId)}").addQueryParameter("alt", "media").build()
+    override suspend fun download(fileId: String, target: File) =
+        downloadTo(api("files/${checkId(fileId)}").addQueryParameter("alt", "media").build(), target)
+
+    override suspend fun uploadToConvert(file: File, name: String, parentId: String, sourceMime: String, googleMime: String): DriveFile {
+        val start = uploadUrl("files").addQueryParameter("uploadType", "resumable").addQueryParameter("fields", FIELDS).build()
+        return resumable(start, "POST", metadata(name, googleMime, parentId, emptyMap()), file, sourceMime)
+    }
+
+    override suspend fun exportPdf(fileId: String, target: File) =
+        downloadTo(api("files/${checkId(fileId)}/export").addQueryParameter("mimeType", "application/pdf").build(), target)
+
+    private suspend fun downloadTo(url: HttpUrl, target: File) {
         call { Request.Builder().url(url).get() }.use { response ->
             withContext(Dispatchers.IO) {
                 target.parentFile?.mkdirs()
@@ -314,6 +336,7 @@ class DriveClient(
                 else -> throw DriveException(
                     DriveException.Kind.OTHER,
                     "Google Drive refused the request ($code${reason?.let { ", $it" } ?: ""}).",
+                    reason = reason,
                 )
             }
         }

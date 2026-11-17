@@ -106,6 +106,23 @@ class FakeDrive(var now: () -> Instant = { Instant.parse("2026-11-17T10:00:00Z")
         target.writeBytes(item.bytes)
     }
 
+    /** Conversions fail with this (e.g. a file too big to export). */
+    var failConversion: DriveException? = null
+
+    override suspend fun uploadToConvert(file: File, name: String, parentId: String, sourceMime: String, googleMime: String): DriveFile {
+        uploads += name
+        val item = Item("id${nextId++}", name, parentId, googleMime, file.readBytes(), emptyMap(), now())
+        items[item.id] = item
+        return item.toFile()
+    }
+
+    override suspend fun exportPdf(fileId: String, target: File) {
+        failConversion?.let { throw it }
+        val item = items[fileId] ?: throw DriveException(DriveException.Kind.NOT_FOUND, "Not found in Google Drive.")
+        target.parentFile?.mkdirs()
+        target.writeText("%PDF-1.7 converted from " + item.bytes.decodeToString())
+    }
+
     override suspend fun delete(fileId: String) {
         items.remove(fileId)
         items.values.filter { it.parent == fileId }.map { it.id }.forEach { items.remove(it) }

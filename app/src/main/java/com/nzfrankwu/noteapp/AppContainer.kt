@@ -186,6 +186,15 @@ class AppContainer(context: Context) {
         )
     }
 
+    /** Word/PowerPoint → PDF through Google Drive (PHASE-6.md 6.13). */
+    val officeConvert: com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert(
+            drive = com.nzfrankwu.noteapp.data.backup.drive.DriveClient(googleAuth),
+            connected = { driveSettings.current().connected },
+            scratch = java.io.File(appContext.cacheDir, "convert"),
+        )
+    }
+
     /** Settings → Backup → Google Drive. */
     val driveConnection: com.nzfrankwu.noteapp.data.backup.drive.DriveConnection by lazy {
         com.nzfrankwu.noteapp.data.backup.drive.DriveConnection(
