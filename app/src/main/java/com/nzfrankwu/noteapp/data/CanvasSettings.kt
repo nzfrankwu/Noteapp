@@ -57,6 +57,9 @@ class CanvasSettings(context: Context) {
     suspend fun hideArchivePrompts(courseIds: Collection<String>) =
         store.edit { it[HIDDEN_ARCHIVE_PROMPTS] = it[HIDDEN_ARCHIVE_PROMPTS].orEmpty() + courseIds }
 
+    /** Asks about every ended course again (used by tests). */
+    suspend fun clearHiddenArchivePrompts() = store.edit { it.remove(HIDDEN_ARCHIVE_PROMPTS) }
+
     suspend fun hideLinkPrompts(courseIds: Collection<String>) =
         store.edit { it[HIDDEN_LINK_PROMPTS] = it[HIDDEN_LINK_PROMPTS].orEmpty() + courseIds }
 

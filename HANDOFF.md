@@ -11,9 +11,9 @@ _Last updated: 17 Nov 2026, late (Phase 6 complete on `phase-6`, reviewed; waiti
   - The emulator has the user's spare Google account signed in and connected (it holds only made-up test data).
   - `play-services-auth` 22.0.0 is in (the user approved it). No database change in Phase 6 (still v7).
   - **Not on the tablet yet.**
-  - Tests after 6.13: **562 unit tests and the full emulator suite (306) pass.**
+  - Tests at the end of the phase: **574 unit tests and the full emulator suite (310) pass** (17 Nov, after the review fixes). Test gotcha: `am instrument` force-stops the app, which cancels its WorkManager jobs until the app is opened again; tests that change app settings must reset them (the suite reinstalls without wiping data).
 - **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet. `connectedDebugAndroidTest` **uninstalls the app afterwards** (emulator data gone; rerun `screenshots/p4setup.sh`).
-- **The tablet runs `phase-6`** (the soon-job fix, 17 Nov evening; first install `9612434`, installed 17 Nov with the user's OK; snapshot before and after: compare PASS), database **version 7**. Never install a build older than v7 on it.
+- **The tablet runs `phase-6`** (`0e741d1`, the reviewed build, 17 Nov; snapshot before/after each install: compare PASS), database **version 7**, connected to the user's main Google account (first backup done, ~48 MB). Never install a build older than v7 on it.
 
 ## Phase 6 code map (`app/src/main/java/com/nzfrankwu/noteapp/`)
 

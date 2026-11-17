@@ -167,5 +167,9 @@ class RecentlyDeletedTest {
         assertTrue(runBlocking { notebooks.getNotebook(id) } != null) // nothing yet
         compose.onNodeWithTag("deleted-confirm-delete").performClick()
         compose.waitUntil(5_000) { runBlocking { notebooks.getNotebook(id) } == null }
+        // Delete now finishes by removing the files; let it, and the screen's list, settle before
+        // tearDown closes the database (else a late re-query hits a closed database).
+        compose.waitUntil(5_000) { !notebookDir(id).exists() }
+        compose.waitForIdle()
     }
 }

@@ -48,6 +48,7 @@ class EndedCoursesBannerTest {
             db = Room.inMemoryDatabaseBuilder(context, NoteAppDatabase::class.java).build()
             db.courseDao().insert(ended)
             db.courseDao().insert(recent)
+            settings.clearHiddenArchivePrompts() // a "Not now" from an earlier run would hide the strip
             settings.setCourseMissingSince(
                 mapOf(
                     ended.id to now.minus(Duration.ofDays(20)).toEpochMilli(),
@@ -63,7 +64,10 @@ class EndedCoursesBannerTest {
 
     @After
     fun tearDown() {
-        runBlocking { settings.setCourseMissingSince(emptyMap()) }
+        runBlocking {
+            settings.setCourseMissingSince(emptyMap())
+            settings.clearHiddenArchivePrompts()
+        }
         db.close()
     }
 
