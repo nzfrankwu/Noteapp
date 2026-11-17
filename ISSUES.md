@@ -67,7 +67,7 @@ _None known._
 
 ## Done
 
-- **Second Phase 5 review (17 Nov), on branch `phase-5-review-fixes`, waiting for the user's OK to merge:** 8 findings fixed (list in PHASE-5.md): a drop near an edge no longer shows the old layout first, the Chrome tab opens over Noteapp, the divider handle takes less of the pages, no drop zone over the panel, plus tidying and 7 new screen tests. Those tests found a ninth: a narrow course folder could crash as its notes loaded (fixed).
+- **Second Phase 5 review (17 Nov), merged into `main` with the user's OK (`3ecda09`):** 8 findings fixed (list in PHASE-5.md): a drop near an edge no longer shows the old layout first, the Chrome tab opens over Noteapp, the divider handle takes less of the pages, no drop zone over the panel, plus tidying and 7 new screen tests. Those tests found a ninth: a narrow course folder could crash as its notes loaded (fixed).
 
 - **Phase 5 merged into `main`** (17 Nov, `09c1449`): text boxes, the bookmark pen (database v7), split view, the recent notebooks panel, feedback rounds FB1–FB15. On the tablet; 273 emulator tests pass.
 

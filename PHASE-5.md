@@ -107,7 +107,7 @@ These additions are written into IDEA.md §2.8 and the Phase 5 row of §5; the u
     8. The text bar duplicated IconMenu's button: `IconMenuButton` is shared (with an `enabled` flag).
     9. The task pickers re-filtered on every recomposition: remembered by (choices, filter).
     10. The panel button had a hand-drawn icon (CLAUDE.md: Material icons): Material "library_books".
-  - **Second review (17 Nov, after merging; covers feedback rounds 2–4): 8 findings, all fixed** on the branch `phase-5-review-fixes` (the user asked for the fixes; merging needs their OK):
+  - **Second review (17 Nov, after merging; covers feedback rounds 2–4): 8 findings, all fixed** and merged into `main` with the user's OK (`3ecda09`):
     1. A drop near an edge could show the old split layout for a moment before switching: the workspace now holds the split layout and divider place itself, and stores them for next time (one fix for this and FB15's jump; the `resting` workaround is gone).
     2. The Chrome tab for Open in Canvas opened as a separate task: it opens over Noteapp now (`needsNewTask`).
     3. The divider handle's touch area reached 17 dp into each page, taking pen strokes there: now 9 dp (it still takes any touch inside its area).
