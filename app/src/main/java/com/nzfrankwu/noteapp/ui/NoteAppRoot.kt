@@ -396,6 +396,7 @@ fun NoteAppRoot(
                     SettingsScreen(
                     onBack = ::back,
                     scrollTo = route.section,
+                    appSettings = container.viewSettings,
                     canvas = viewModel {
                         CanvasSettingsViewModel(container.canvasSettings, container.canvasAccount, container.canvasSyncRunner)
                     },

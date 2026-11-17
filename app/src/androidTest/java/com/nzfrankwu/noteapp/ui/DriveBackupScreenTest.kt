@@ -7,6 +7,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import kotlinx.coroutines.flow.first
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -80,6 +82,23 @@ class DriveBackupScreenTest {
         compose.onNodeWithTag("drive-connect").assertIsDisplayed()
         compose.onNodeWithTag("settings-backup").assertIsDisplayed()
         compose.onNodeWithTag("open-courses").assertIsNotDisplayed() // scrolled past Canvas and Courses
+    }
+
+    /** Phase 7, 7.5: Settings → Reminders chips choose when reminders come. */
+    @Test
+    fun reminderTimes_canBeChosen() {
+        val app = com.nzfrankwu.noteapp.data.InMemoryAppSettings()
+        compose.setContent {
+            NoteAppTheme { com.nzfrankwu.noteapp.ui.settings.SettingsScreen(onBack = {}, appSettings = app) }
+        }
+        compose.onNodeWithTag("reminder-1w").performScrollTo().performClick()
+        compose.onNodeWithTag("reminder-2h").performScrollTo().performClick()
+        compose.waitUntil(5_000) {
+            runBlocking { app.reminderOffsets.first() } == setOf(
+                com.nzfrankwu.noteapp.domain.ReminderOffset.WEEK_BEFORE, com.nzfrankwu.noteapp.domain.ReminderOffset.DAY_BEFORE,
+            )
+        }
+        compose.onNodeWithText("You get a reminder 1 week and 1 day before", substring = true).assertExists()
     }
 
     @Test

@@ -1,10 +1,10 @@
 # Handoff: where things stand
 
-_Last updated: 18 Nov 2026 (Phase 7, hands-off: 7.1–7.4 done). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 18 Nov 2026 (Phase 7, hands-off: 7.1–7.5 done). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phase 7 (Polish) is planned: `PHASE-7.md`, branch `phase-7`** (from `main`). 7.0–7.4 are done. **Mode: hands-off since 18 Nov** (the user said "start, hands off mode"): build, test, commit and push every step; leave what needs the user (7.8's new search screen layout, ML Kit at 7.10, pen widths 7.12, the tablet 7.13) in REPORT.md / ISSUES.md.
+- **Phase 7 (Polish) is planned: `PHASE-7.md`, branch `phase-7`** (from `main`). 7.0–7.5 are done. **Mode: hands-off since 18 Nov** (the user said "start, hands off mode"): build, test, commit and push every step; leave what needs the user (7.8's new search screen layout, ML Kit at 7.10, pen widths 7.12, the tablet 7.13) in REPORT.md / ISSUES.md.
   - Decided 17 Nov: search over names, tasks, PDF text, text boxes **and handwriting** (ML Kit, English only; still ask before adding the library at 7.10); **custom tags dropped, Submitted merged into Done** (IDEA.md §2.3/§3.3 updated); new settings: reminder times, course colours, default paper, light/dark; plus the Phase 6 review leftovers and the editor speed leftovers. Version history stays "later".
   - **Database is v8 now (7.1, 18 Nov):** statuses `submitted` → `done`, `courses.color`. The tablet is still v7: installing a Phase 7 build upgrades it (snapshot first, with the user's OK). `screenshots/app-v7.apk` is the v7 build; `screenshots/upgrade_v8.sh` + `compare_dbs.py <before> <after> --v8` is the real upgrade check.
 - **Phases 1–6 are merged into `main`** (Phase 6 on 17 Nov, `c4b9e7a`). History in `PHASE-1.md` … `PHASE-6.md` and `ISSUES.md`.
@@ -34,7 +34,7 @@ _Last updated: 18 Nov 2026 (Phase 7, hands-off: 7.1–7.4 done). Keep this file 
 
 ## Next steps (in order)
 
-1. **Step 7.5 reminder times**, then 7.6, 7.7, 7.11 (hands-off order; 7.8–7.10, 7.12, 7.13 need the user).
+1. **Step 7.6 light/dark choice**, then 7.7, 7.11 (hands-off order; 7.8–7.10, 7.12, 7.13 need the user).
 3. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own

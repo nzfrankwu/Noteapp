@@ -59,10 +59,26 @@ class InMemoryEditorViewStore : EditorViewStore {
     override suspend fun setSplitRatio(ratio: Float) { this.ratio.value = SplitLayout.saved(ratio) }
 }
 
+/**
+ * App-wide choices from Settings (Phase 7): when reminders come (7.5). Kept with the view
+ * settings, so they're in backups.
+ */
+interface AppSettingsStore {
+    val reminderOffsets: Flow<Set<com.nzfrankwu.noteapp.domain.ReminderOffset>>
+    suspend fun setReminderOffsets(offsets: Set<com.nzfrankwu.noteapp.domain.ReminderOffset>)
+}
+
+/** Keeps the choices in memory only (screen tests). */
+class InMemoryAppSettings : AppSettingsStore {
+    private val offsets = MutableStateFlow(com.nzfrankwu.noteapp.domain.ReminderOffset.DEFAULT)
+    override val reminderOffsets: Flow<Set<com.nzfrankwu.noteapp.domain.ReminderOffset>> = offsets
+    override suspend fun setReminderOffsets(offsets: Set<com.nzfrankwu.noteapp.domain.ReminderOffset>) { this.offsets.value = offsets }
+}
+
 private val Context.viewSettingsStore: DataStore<Preferences> by preferencesDataStore(name = "view_settings")
 
 /** How you last left the app's views (in Noteapp's private storage). Nothing secret here. */
-class ViewSettings(context: Context) : HomeTabStore, EditorViewStore {
+class ViewSettings(context: Context) : HomeTabStore, EditorViewStore, AppSettingsStore {
     private val store = context.applicationContext.viewSettingsStore
 
     override val homeTab: Flow<HomeTab> = store.data.map { HomeTab.fromKey(it[HOME_TAB]) }
@@ -89,7 +105,15 @@ class ViewSettings(context: Context) : HomeTabStore, EditorViewStore {
         store.edit { it[SPLIT_RATIO] = SplitLayout.saved(ratio) }
     }
 
+    override val reminderOffsets: Flow<Set<com.nzfrankwu.noteapp.domain.ReminderOffset>> =
+        store.data.map { com.nzfrankwu.noteapp.domain.ReminderOffset.decode(it[REMINDERS]) }
+
+    override suspend fun setReminderOffsets(offsets: Set<com.nzfrankwu.noteapp.domain.ReminderOffset>) {
+        store.edit { it[REMINDERS] = com.nzfrankwu.noteapp.domain.ReminderOffset.encode(offsets) }
+    }
+
     private companion object {
+        val REMINDERS = stringPreferencesKey("reminder_offsets")
         val HOME_TAB = stringPreferencesKey("home_tab")
         val RECENT = stringPreferencesKey("recent_notebooks")
         val SPLIT_MODE = stringPreferencesKey("split_mode")

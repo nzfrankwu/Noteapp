@@ -50,15 +50,21 @@ class NoteAppApplication : Application() {
      */
     private fun keepRemindersInStep() {
         appScope.launch {
-            container.taskRepository.observeAllWithCourse().collectLatest { tasks ->
+            kotlinx.coroutines.flow.combine(
+                container.taskRepository.observeAllWithCourse(),
+                container.viewSettings.reminderOffsets, // Settings → Reminders (Phase 7, 7.5)
+            ) { tasks, offsets -> tasks to offsets }.collectLatest { (tasks, offsets) ->
                 delay(500)
-                container.reminderScheduler.apply(tasks)
+                container.reminderScheduler.apply(tasks, offsets)
             }
         }
     }
 
     /** Re-plans all reminders right away (after a restart or a time/time-zone change). */
     suspend fun rescheduleRemindersNow() {
-        container.reminderScheduler.apply(container.taskRepository.observeAllWithCourse().first())
+        container.reminderScheduler.apply(
+            container.taskRepository.observeAllWithCourse().first(),
+            container.viewSettings.reminderOffsets.first(),
+        )
     }
 }

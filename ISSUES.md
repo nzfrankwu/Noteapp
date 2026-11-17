@@ -80,6 +80,8 @@ _None known._
 
 ## Done
 
+- **Phase 7 step 7.5, reminder times (18 Nov, hands-off):** Settings → Reminders lets you pick any of 1 week, 3 days, 1 day, 2 hours, 1 hour before, or at the time (default still 1 day and 2 hours).
+
 - **Phase 7 step 7.4, partial eraser (18 Nov, hands-off):** the eraser's panel has Whole strokes / Part of strokes. Part of strokes rubs out only where it passes. One eraser drag is now one Undo (before, a long whole-stroke rub could take several Undos).
 
 - **Phase 7 step 7.3, page paper (18 Nov, hands-off):** the notebook ⋮ menu has "This page's paper" and "Paper for all pages", both undoable; Settings → Notebooks → "Paper for new notebooks".
