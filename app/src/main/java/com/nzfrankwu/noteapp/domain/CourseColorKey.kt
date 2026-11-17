@@ -2,8 +2,11 @@ package com.nzfrankwu.noteapp.domain
 
 import java.time.Instant
 
-/** A course as the colour rule sees it: its code and when Noteapp first saw it. */
-data class CourseSeen(val code: String, val firstSeen: Instant)
+/**
+ * A course as the colour rule sees it: its code, when Noteapp first saw it, and the colour you
+ * chose for it ([CourseColorChoice] key; null = automatic).
+ */
+data class CourseSeen(val code: String, val firstSeen: Instant, val chosen: String? = null)
 
 /**
  * Picks each course's colour slot (decided with the user, 15 Nov 2026: "next free colour").
@@ -18,7 +21,8 @@ data class CourseSeen(val code: String, val firstSeen: Instant)
  * - A code that isn't in the list yet (e.g. while typing a new folder's code) falls back to
  *   [slot], a fixed hash of the code.
  *
- * Choosing your own colours comes later (IDEA.md §2.2).
+ * - A colour you chose (Phase 7, 7.7) wins over the automatic one ([chosenSlots]). Every course
+ *   still counts in [slotsInOrder], so choosing one course's colour never moves the others.
  */
 object CourseColorKey {
     /** Colour slot per course (keyed by [CourseCodes.matchKey]), in first-seen order. */
@@ -30,6 +34,10 @@ object CourseColorKey {
             .distinct()
         return keys.withIndex().associate { (index, key) -> key to index % paletteSize }
     }
+
+    /** The palette slot of each course whose colour you chose, keyed by [CourseCodes.matchKey]. */
+    fun chosenSlots(courses: List<CourseSeen>): Map<String, Int> =
+        courses.mapNotNull { c -> CourseColorChoice.fromKey(c.chosen)?.let { CourseCodes.matchKey(c.code) to it.slot } }.toMap()
 
     /**
      * The fallback slot for a code with no first-seen time: FNV-1a over its [CourseCodes.matchKey],

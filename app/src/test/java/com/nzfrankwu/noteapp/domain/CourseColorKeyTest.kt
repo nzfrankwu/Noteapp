@@ -99,4 +99,19 @@ class CourseColorKeyTest {
         const val EXPECTED_ELECTENG_204 = 4
         const val EXPECTED_COMPSYS_201 = 6
     }
+
+    // ---- Phase 7, 7.7: colours you choose ----
+
+    @Test
+    fun aChosenColour_isListed_andTheAutomaticOrderDoesNotMove() {
+        val courses = listOf(
+            CourseSeen("ELECTENG 204", java.time.Instant.ofEpochSecond(1)),
+            CourseSeen("COMPSYS 201", java.time.Instant.ofEpochSecond(2), chosen = "teal"),
+            CourseSeen("ENGGEN 115", java.time.Instant.ofEpochSecond(3)),
+            CourseSeen("MATHS 208", java.time.Instant.ofEpochSecond(4), chosen = "no-such-colour"),
+        )
+        assertEquals(mapOf("COMPSYS201" to 4), CourseColorKey.chosenSlots(courses))
+        // Choosing COMPSYS 201's colour doesn't shift ENGGEN 115 (still the 3rd course seen).
+        assertEquals(2, CourseColorKey.slotsInOrder(courses, size)["ENGGEN115"])
+    }
 }

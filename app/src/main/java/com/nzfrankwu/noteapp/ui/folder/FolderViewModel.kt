@@ -145,6 +145,14 @@ class FolderViewModel(
     }
 
     /** The folder (null while loading or once deleted). */
+    /** The colour chosen for the folder's course (Phase 7, 7.7); null = automatic or no course. */
+    val courseColor: StateFlow<com.nzfrankwu.noteapp.domain.CourseColorChoice?> by lazy {
+        combine(folders.observeFolder(folderId), folders.observeCourses()) { item, courses ->
+            val id = item?.folder?.courseId
+            com.nzfrankwu.noteapp.domain.CourseColorChoice.fromKey(courses.firstOrNull { it.id == id }?.color)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }
+
     val folder: StateFlow<FolderListItem?> = folders.observeFolder(folderId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -295,6 +303,12 @@ class FolderViewModel(
     fun setArchived(archived: Boolean) {
         val courseId = folder.value?.folder?.courseId ?: return
         viewModelScope.launch { folders.setCourseArchived(courseId, archived) }
+    }
+
+    /** The folder's course colour (Phase 7, 7.7); null = automatic. */
+    fun setCourseColor(color: com.nzfrankwu.noteapp.domain.CourseColorChoice?) {
+        val courseId = folder.value?.folder?.courseId ?: return
+        viewModelScope.launch { folders.setCourseColor(courseId, color) }
     }
 
     fun dismissDialog() { _dialog.value = null }

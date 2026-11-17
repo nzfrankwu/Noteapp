@@ -80,6 +80,8 @@ _None known._
 
 ## Done
 
+- **Phase 7 step 7.7, course colours (18 Nov, hands-off):** choose a course's colour from Settings → Courses ("Colour") or the folder's ⋮ menu ("Course colour"), or go back to Automatic.
+
 - **Phase 7 step 7.6, light/dark (18 Nov, hands-off):** Settings → Appearance: Like the tablet, Light or Dark, for the whole app including the notebook editor.
 
 - **Phase 7 step 7.5, reminder times (18 Nov, hands-off):** Settings → Reminders lets you pick any of 1 week, 3 days, 1 day, 2 hours, 1 hour before, or at the time (default still 1 day and 2 hours).

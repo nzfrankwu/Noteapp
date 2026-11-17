@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             // Course colours follow the order courses were first seen (see CourseColorKey).
             val courses by courseDao.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
-            val seen = remember(courses) { courses.map { CourseSeen(it.code, it.createdAt) } }
+            val seen = remember(courses) { courses.map { CourseSeen(it.code, it.createdAt, it.color) } }
             // Light, dark or like the tablet (Settings, Phase 7, 7.6).
             val themeMode by appSettings.themeMode.collectAsStateWithLifecycle(initialValue = firstTheme)
             val dark = themeMode.isDark(androidx.compose.foundation.isSystemInDarkTheme())

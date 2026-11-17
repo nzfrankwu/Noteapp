@@ -31,6 +31,8 @@ data class CourseColors(
     val none: CourseColor,
     /** Each known course's slot, keyed by [CourseCodes.matchKey] (from [CourseColorKey.slotsInOrder]). */
     val slots: Map<String, Int> = emptyMap(),
+    /** Courses whose colour you chose (Phase 7, 7.7): slot by [CourseCodes.matchKey]; wins over [slots]. */
+    val chosen: Map<String, Int> = emptyMap(),
 ) {
     /**
      * The colours for a course code, or neutral grey for tasks without a course. A code that isn't
@@ -38,7 +40,8 @@ data class CourseColors(
      */
     fun of(code: String?): CourseColor {
         if (code == null) return none
-        val slot = slots[CourseCodes.matchKey(code)] ?: CourseColorKey.slot(code, palette.size)
+        val key = CourseCodes.matchKey(code)
+        val slot = chosen[key] ?: slots[key] ?: CourseColorKey.slot(code, palette.size)
         return palette[slot % palette.size]
     }
 }

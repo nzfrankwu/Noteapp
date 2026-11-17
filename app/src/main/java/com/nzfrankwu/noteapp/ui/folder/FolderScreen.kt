@@ -132,6 +132,17 @@ fun FolderScreen(
     val courseCode = if (isSubfolder) place?.course?.code else item?.courseCode
     val linkedCourseId = if (isSubfolder) null else item?.folder?.courseId
     var menuOpen by remember { mutableStateOf(false) }
+    var choosingColor by rememberSaveable { mutableStateOf(false) }
+    val courseColor by viewModel.courseColor.collectAsStateWithLifecycle()
+    val colorCode = item?.courseCode
+    if (choosingColor && colorCode != null) {
+        com.nzfrankwu.noteapp.ui.components.CourseColorDialog(
+            code = colorCode,
+            current = courseColor,
+            onPick = { choosingColor = false; viewModel.setCourseColor(it) },
+            onDismiss = { choosingColor = false },
+        )
+    }
     var addMenuOpen by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     // Import PDF: Android's file picker, then the PDF is copied into Noteapp.
@@ -243,6 +254,11 @@ fun FolderScreen(
                                     DropdownMenuItem(text = { Text("Link a course") }, onClick = { menuOpen = false; viewModel.startLinkCourse() })
                                 } else {
                                     DropdownMenuItem(text = { Text("Unlink course") }, onClick = { menuOpen = false; viewModel.startUnlink() })
+                                    DropdownMenuItem(
+                                        text = { Text("Course colour") },
+                                        onClick = { menuOpen = false; choosingColor = true },
+                                        modifier = Modifier.testTag("folder-course-color"),
+                                    )
                                     val archived = item?.isArchived == true
                                     DropdownMenuItem(
                                         text = { Text(if (archived) "Unarchive course" else "Archive course") },

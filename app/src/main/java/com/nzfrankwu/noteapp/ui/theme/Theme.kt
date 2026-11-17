@@ -83,7 +83,10 @@ fun NoteAppTheme(
 ) {
     val basePalette = if (darkTheme) DarkCourseColors else LightCourseColors
     val courseColors = remember(basePalette, courses) {
-        basePalette.copy(slots = CourseColorKey.slotsInOrder(courses, basePalette.palette.size))
+        basePalette.copy(
+            slots = CourseColorKey.slotsInOrder(courses, basePalette.palette.size),
+            chosen = CourseColorKey.chosenSlots(courses),
+        )
     }
     CompositionLocalProvider(
         LocalStatusColors provides if (darkTheme) DarkStatusColors else LightStatusColors,
