@@ -6,10 +6,9 @@ _Last updated: 17 Nov 2026 (second Phase 5 review fixed and merged into `main` w
 
 - **Phases 1, 1b, 2, 3, 4 and 5 are done and merged into `main`** (Phase 5 merged 17 Nov, `09c1449`; the second review's fixes merged 17 Nov, `3ecda09`). History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
 - **Branch:** `main`. Start a `phase-6` branch from it when Phase 6 begins.
-- **The tablet doesn't have the second review's fixes yet** (it runs `389dc33`). Ask the user whether to install `main` on it (back up and compare as usual; no database change, still v7).
 - **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet.
 - **Mode:** "Working together" (the default) unless the user says otherwise. Phases 4 and 5 were hands-off.
-- **The tablet runs Phase 5** (the build of `389dc33`, before the second review's fixes), database **version 7**. Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
+- **The tablet runs `main` with the second review's fixes** (installed 17 Nov with the user's OK; backup `backups/tablet-2026-11-17-before-review2/`; compare PASS: every row, links, bookmarks and all 167 page files unchanged), database **version 7**. Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
 - **The emulator runs Phase 5** (database v7). Unit tests and the full emulator suite (**280 tests**) pass on `main`.
 - **Phase 5 covered** (details in PHASE-5.md):
   - text boxes (page format 3; PDF export as real text)
@@ -71,7 +70,7 @@ _Last updated: 17 Nov 2026 (second Phase 5 review fixed and merged into `main` w
 
 - **Backups** (git-ignored, local only, personal Canvas names but no secrets; never commit):
   - `backups/tablet-2026-11-17-before-v7/`: just before the v6 → v7 upgrade, with the page files
-  - `…-before-fb2/`, `…-before-fb3/`, `…-before-fb4/`: later installs, with the page files
+  - `…-before-fb2/`, `…-before-fb3/`, `…-before-fb4/`, `…-before-review2/`: later installs, with the page files
   - older ones (v2–v6) too
 - **How:** `screenshots/tablet_snapshot.sh <dir> [with-files]`, then `python screenshots/compare_dbs.py <before> <after>`. Ask the user before touching the tablet.
 - **Never install an older build than the tablet has** (now database v7): Room can't downgrade, so the app would crash at start. Data stays safe, and a current build fixes it.
