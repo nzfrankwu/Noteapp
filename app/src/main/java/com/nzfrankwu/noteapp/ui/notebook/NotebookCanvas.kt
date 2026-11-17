@@ -906,7 +906,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             val c = view.camera ?: break
                             if (pressHold.doneAfterQuiet(lastHard, quiet)) {
                                 penMode = PenMode.ERASE // the next sample is consumed, which cancels the wet stroke
-                                eraseStep(viewModel, now, c, lastScreen, lastScreen, onEraser)
+                                eraseStep(viewModel, now, c, lastScreen, lastScreen, onEraser, penDownAt)
                                 break
                             }
                             if (lastStraightStill >= 0 && lastStraightStill + quiet >= Straighten.HOLD_MS) {
@@ -949,7 +949,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     }
                     if (penMode == PenMode.INK && hardAtOnce) penMode = PenMode.ERASE // "Hold for: no wait"
                     if (penMode != PenMode.INK) change.consume()
-                    if (penMode == PenMode.ERASE) eraseStep(viewModel, snap, cam, change.position, change.position, onEraser)
+                    if (penMode == PenMode.ERASE) eraseStep(viewModel, snap, cam, change.position, change.position, onEraser, penDownAt)
                     // Any other tool, or the pen's eraser end, ends the lasso's selection (it would
                     // otherwise keep showing strokes that were just erased).
                     if ((tool != EditorTool.LASSO || penMode == PenMode.ERASE) && view.lasso != null) onLasso(null)
@@ -976,7 +976,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                                 // Pressed hard and held (F9): erase from here on.
                                 penMode = PenMode.ERASE // consuming from now on cancels the wet stroke
                                 change.consume()
-                                eraseStep(viewModel, snap, cam, from, change.position, onEraser)
+                                eraseStep(viewModel, snap, cam, from, change.position, onEraser, penDownAt)
                             } else if (snap.settings.holdToStraighten && snap.settings.tool.draws &&
                                 !(erasing && PressureErase.isHard(change.pressure, level, pressureVaries))
                             ) {
@@ -1002,7 +1002,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         }
                         PenMode.ERASE -> {
                             change.consume()
-                            eraseStep(viewModel, snap, cam, from, change.position, onEraser)
+                            eraseStep(viewModel, snap, cam, from, change.position, onEraser, penDownAt)
                         }
                         PenMode.LASSO_LOOP -> {
                             change.consume()
@@ -1363,7 +1363,7 @@ private fun centroid(points: List<Offset>): Offset =
 
 private fun spread(points: List<Offset>, c: Offset): Float = points.map { (it - c).getDistance() }.average().toFloat()
 
-private fun eraseStep(viewModel: NotebookViewModel, snap: Snapshot, cam: Camera, from: Offset, to: Offset, onEraser: (Offset?) -> Unit) {
+private fun eraseStep(viewModel: NotebookViewModel, snap: Snapshot, cam: Camera, from: Offset, to: Offset, onEraser: (Offset?) -> Unit, drag: Long) {
     onEraser(to)
     val index = snap.strip.pageAt(cam.toWorldX(to.x))
     val page = snap.pages.getOrNull(index) ?: return
@@ -1374,6 +1374,8 @@ private fun eraseStep(viewModel: NotebookViewModel, snap: Snapshot, cam: Camera,
         cam.toWorldX(from.x) - pl, cam.toWorldY(from.y) - pt,
         cam.toWorldX(to.x) - pl, cam.toWorldY(to.y) - pt,
         snap.settings.eraserRadius,
+        drag = drag,
+        partial = snap.settings.eraserPartial,
     )
 }
 

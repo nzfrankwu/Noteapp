@@ -39,6 +39,12 @@ sealed interface InkEdit {
     data class Group(val edits: List<InkEdit>) : InkEdit
 
     /**
+     * The partial eraser cut [original] (at [index] in the page's drawing order) into [pieces]
+     * (Phase 7, 7.4), which take its place in the drawing order. No pieces = it went completely.
+     */
+    data class Split(val pageId: String, val index: Int, val original: InkStroke, val pieces: List<InkStroke>) : InkEdit
+
+    /**
      * One page's own paper changed (Phase 7, 7.3); null = the notebook's paper. Carried out by
      * the caller (it's in the database), like [AddPage].
      */
@@ -72,6 +78,7 @@ val InkEdit.changedPages: Set<String>
         is InkEdit.RemoveTexts -> setOf(pageId)
         is InkEdit.ReplaceTexts -> setOf(pageId)
         is InkEdit.Group -> edits.flatMapTo(HashSet()) { it.changedPages }
+        is InkEdit.Split -> setOf(pageId)
         is InkEdit.AddPage, is InkEdit.DeletePage, is InkEdit.PagePaper, is InkEdit.NotebookPaper -> emptySet()
     }
 
@@ -209,12 +216,27 @@ class NotebookInk(private val maxUndo: Int = 200) {
     }
 
     /** Erases the strokes with these IDs. Returns how many were erased. */
-    fun erase(pageId: String, ids: Set<String>): Int {
+    fun erase(pageId: String, ids: Set<String>, drag: Long? = null): Int {
         val list = pages[pageId] ?: return 0
         val removed = list.withIndex().filter { it.value.id in ids }
         if (removed.isEmpty()) return 0
-        record(InkEdit.Remove(pageId, removed))
+        record(InkEdit.Remove(pageId, removed), drag)
         return removed.size
+    }
+
+    /**
+     * The partial eraser (Phase 7, 7.4): each stroke in [cuts] (by ID) is replaced by its pieces,
+     * in its place in the drawing order. Edits with the same [drag] (one eraser drag) in a row
+     * become ONE undo step. Returns how many strokes changed.
+     */
+    fun split(pageId: String, cuts: Map<String, List<InkStroke>>, drag: Long? = null): Int {
+        val list = pages[pageId] ?: return 0
+        // Highest index first, so each Split's index is still right when it's applied.
+        val edits = list.withIndex().filter { it.value.id in cuts }.sortedByDescending { it.index }
+            .map { (index, stroke) -> InkEdit.Split(pageId, index, stroke, cuts.getValue(stroke.id)) }
+        if (edits.isEmpty()) return 0
+        record(edits.singleOrNull() ?: InkEdit.Group(edits), drag)
+        return edits.size
     }
 
     /** Replaces strokes in place (same IDs, e.g. after moving them with the lasso). */
@@ -228,6 +250,7 @@ class NotebookInk(private val maxUndo: Int = 200) {
 
     /** Records a page added or deleted by the caller, so it can be undone. */
     fun recordPageEdit(edit: InkEdit) {
+        openDrag = null
         require(
             edit is InkEdit.AddPage || edit is InkEdit.DeletePage || edit is InkEdit.PagePaper || edit is InkEdit.NotebookPaper,
         )
@@ -238,6 +261,7 @@ class NotebookInk(private val maxUndo: Int = 200) {
 
     /** Undoes the last edit and returns it (the caller saves its page, or restores/removes a page). */
     fun undo(): InkEdit? {
+        openDrag = null
         val edit = undoStack.removeLastOrNull() ?: return null
         revert(edit)
         redoStack.addLast(edit)
@@ -246,16 +270,29 @@ class NotebookInk(private val maxUndo: Int = 200) {
 
     /** Redoes the last undone edit and returns it. */
     fun redo(): InkEdit? {
+        openDrag = null
         val edit = redoStack.removeLastOrNull() ?: return null
         apply(edit)
         undoStack.addLast(edit)
         return edit
     }
 
-    private fun record(edit: InkEdit) {
+    /** The eraser drag the last undo step belongs to (Phase 7, 7.4); null after any other edit. */
+    private var openDrag: Long? = null
+
+    private fun record(edit: InkEdit, drag: Long? = null) {
         apply(edit)
-        undoStack.addLast(edit)
-        trim()
+        val last = undoStack.lastOrNull()
+        if (drag != null && drag == openDrag && last != null) {
+            // The same eraser drag: one undo step for the whole drag.
+            val before = if (last is InkEdit.Group) last.edits else listOf(last)
+            undoStack.removeLast()
+            undoStack.addLast(InkEdit.Group(before + edit))
+        } else {
+            undoStack.addLast(edit)
+            trim()
+        }
+        openDrag = drag
         redoStack.clear()
     }
 
@@ -288,6 +325,14 @@ class NotebookInk(private val maxUndo: Int = 200) {
             }
             is InkEdit.ReplaceTexts -> swapTexts(edit.pageId, edit.after)
             is InkEdit.Group -> edit.edits.forEach { apply(it) }
+            is InkEdit.Split -> {
+                val list = page(edit.pageId)
+                val at = list.indexOfFirst { it.id == edit.original.id }
+                if (at >= 0) {
+                    list.removeAt(at)
+                    list.addAll(at, edit.pieces)
+                }
+            }
             is InkEdit.AddPage, is InkEdit.DeletePage, is InkEdit.PagePaper, is InkEdit.NotebookPaper -> Unit
         }
     }
@@ -322,6 +367,13 @@ class NotebookInk(private val maxUndo: Int = 200) {
             }
             is InkEdit.ReplaceTexts -> swapTexts(edit.pageId, edit.before)
             is InkEdit.Group -> edit.edits.asReversed().forEach { revert(it) }
+            is InkEdit.Split -> {
+                val list = page(edit.pageId)
+                val ids = edit.pieces.map { it.id }.toSet()
+                val at = list.indexOfFirst { it.id in ids }.takeIf { it >= 0 } ?: edit.index
+                list.removeAll { it.id in ids }
+                list.add(at.coerceIn(0, list.size), edit.original)
+            }
             is InkEdit.AddPage, is InkEdit.DeletePage, is InkEdit.PagePaper, is InkEdit.NotebookPaper -> Unit
         }
     }

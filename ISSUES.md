@@ -80,6 +80,8 @@ _None known._
 
 ## Done
 
+- **Phase 7 step 7.4, partial eraser (18 Nov, hands-off):** the eraser's panel has Whole strokes / Part of strokes. Part of strokes rubs out only where it passes. One eraser drag is now one Undo (before, a long whole-stroke rub could take several Undos).
+
 - **Phase 7 step 7.3, page paper (18 Nov, hands-off):** the notebook ⋮ menu has "This page's paper" and "Paper for all pages", both undoable; Settings → Notebooks → "Paper for new notebooks".
 
 - **Phase 7 step 7.2, backup follow-ups (18 Nov, hands-off):** a Drive backup no longer makes Delete now, Export everything, the 30-day purge or a restore wait for its upload (only its quick local copy holds the lock; the notebooks it's still uploading are protected another way). Unchanged PDFs aren't re-read every backup, the kept backup lists aren't downloaded again, and Home's "Open Settings" goes straight to Backup.

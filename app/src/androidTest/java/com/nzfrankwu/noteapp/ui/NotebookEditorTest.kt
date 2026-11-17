@@ -184,6 +184,34 @@ class NotebookEditorTest {
         compose.waitUntil(5_000) { strokeCount() == 0 }
     }
 
+    /** Phase 7, 7.4: "Part of strokes" cuts the line in two; the whole drag is one undo step. */
+    @Test
+    fun thePartialEraser_cutsTheLine_andOneUndoBringsItBack() {
+        show(InkToolSettings(drawWithFinger = true, eraserPartial = true))
+        drawLine(300f)
+        compose.waitUntil(5_000) { strokeCount() == 1 }
+        val original = viewModel.ink.strokes(pageId()).single()
+
+        compose.onNodeWithContentDescription("Eraser").performClick()
+        compose.waitUntil(5_000) { viewModel.settings.value.tool == EditorTool.ERASER }
+        compose.onNodeWithTag("notebook-canvas").performTouchInput {
+            swipe(Offset(centerX, 200f), Offset(centerX, 420f), durationMillis = 300)
+        }
+        compose.waitUntil(5_000) { strokeCount() == 2 }
+        assertTrue(viewModel.ink.strokes(pageId()).none { it.id == original.id })
+
+        // Saved like any strokes.
+        runBlocking { viewModel.saveNow()?.join() }
+        val read = files.read(notebookId, pageId())
+        assertTrue("Saved: $read", read is PageRead.Ok && read.strokes.size == 2)
+
+        compose.onNodeWithTag("undo").performClick()
+        compose.waitUntil(5_000) { strokeCount() == 1 }
+        assertEquals(original, viewModel.ink.strokes(pageId()).single())
+        compose.onNodeWithTag("undo").assertIsEnabled().performClick() // then the line itself
+        compose.waitUntil(5_000) { strokeCount() == 0 }
+    }
+
     @Test
     fun savedStrokes_comeBackWhenTheNotebookOpensAgain() {
         show(InkToolSettings(drawWithFinger = true))

@@ -578,12 +578,26 @@ class NotebookViewModel(
         }
     }
 
-    /** Erases whatever the eraser touches moving from (ax, ay) to (bx, by) on the page (page units). */
-    fun eraseAlong(pageId: String, ax: Float, ay: Float, bx: Float, by: Float, radius: Float) {
+    /**
+     * Erases whatever the eraser touches moving from (ax, ay) to (bx, by) on the page (page units):
+     * whole strokes, or with [partial] only the part it passes over (Phase 7, 7.4). Everything
+     * erased with the same [drag] (one eraser drag) is one undo step.
+     */
+    fun eraseAlong(pageId: String, ax: Float, ay: Float, bx: Float, by: Float, radius: Float, drag: Long? = null, partial: Boolean = false) {
         if (!isEditable(pageId)) return
-        val hit = ink.strokes(pageId).filter { InkGeometry.eraserTouches(it, ax, ay, bx, by, radius) }
-        if (hit.isEmpty()) return
-        ink.erase(pageId, hit.map { it.id }.toSet())
+        if (partial) {
+            val cuts = HashMap<String, List<InkStroke>>()
+            for (stroke in ink.strokes(pageId)) {
+                val pieces = com.nzfrankwu.noteapp.domain.ink.PartialErase.cut(stroke, ax, ay, bx, by, radius) { java.util.UUID.randomUUID().toString() }
+                if (pieces != null) cuts[stroke.id] = pieces
+            }
+            if (cuts.isEmpty()) return
+            ink.split(pageId, cuts, drag)
+        } else {
+            val hit = ink.strokes(pageId).filter { InkGeometry.eraserTouches(it, ax, ay, bx, by, radius) }
+            if (hit.isEmpty()) return
+            ink.erase(pageId, hit.map { it.id }.toSet(), drag)
+        }
         changed(pageId)
     }
 
@@ -711,7 +725,7 @@ class NotebookViewModel(
         when (edit) {
             is InkEdit.Add, is InkEdit.Remove, is InkEdit.Replace,
             is InkEdit.AddImages, is InkEdit.RemoveImages, is InkEdit.ReplaceImages,
-            is InkEdit.AddTexts, is InkEdit.RemoveTexts, is InkEdit.ReplaceTexts, is InkEdit.Group,
+            is InkEdit.AddTexts, is InkEdit.RemoveTexts, is InkEdit.ReplaceTexts, is InkEdit.Group, is InkEdit.Split,
             -> edit.changedPages.forEach { changed(it) }
             is InkEdit.AddPage -> viewModelScope.launch {
                 if (undoing) notebooks.deletePage(edit.pageId) else notebooks.restorePage(edit.pageId, edit.index)

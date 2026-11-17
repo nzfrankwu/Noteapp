@@ -144,6 +144,8 @@ data class InkToolSettings(
     val highlighterRound: Boolean = false,
     /** Eraser radius in page units. */
     val eraserRadius: Float = 6f,
+    /** The eraser takes away only the part of a stroke it passes over (Phase 7, 7.4); off = whole strokes. */
+    val eraserPartial: Boolean = false,
     /** Press hard with the pen to erase (PHASE-2.md). */
     val pressureErase: Boolean = true,
     /** How hard counts as "hard", 0–1 of the pen's full pressure. */
