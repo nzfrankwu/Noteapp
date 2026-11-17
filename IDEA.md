@@ -39,7 +39,7 @@
   - **Calendar:** a month grid with each task on its due date (time, course tag, status), plus Today and previous/next month.
   - **Timeline:** one row per task, with a bar from when Canvas makes the assignment available (or when I added the task) to its due date. My target date is marked on the bar, and there's a line for today.
 - **Days left:** every dated task shows how long is left until the real due date ("Due today", "Due tomorrow", "3 days left", "2 days overdue").
-- **Course colours:** each course gets a steady colour, used for its tags everywhere. Choosing my own colours comes later.
+- **Course colours:** each course gets a steady colour, used for its tags everywhere. I can choose a course's colour myself (Phase 7).
 
 ### 2.3 Tasks (Canvas items + my own)
 - **Canvas items** are imported automatically by **signing in to Canvas inside the app** (see §3) — this includes undated assignments and descriptions.
@@ -52,10 +52,10 @@
   - **Link to open it in Canvas** (Canvas items)
   - **Status tag**
   - **Linked notebooks/files**
-- **Status tags (fixed list for now):**
-  `Not started` → `Started` → `Stuck / need help` → `Double-checking` → `Submitted` → `Done`
-  - **Overdue** is shown automatically (a badge, not a tag) when the due date has passed and the status isn't Submitted/Done.
-  - Custom tags = later upgrade.
+- **Status tags (fixed list):**
+  `Not started` → `Started` → `Stuck / need help` → `Double-checking` → `Done`
+  - Submitted and Done were merged into one, `Done` (Nov 2026): they mean the same thing. Custom tags were dropped.
+  - **Overdue** is shown automatically (a badge, not a tag) when the due date has passed and the status isn't Done.
 - **Reminders:** notification before a task is due (e.g. 1 day and 2 hours before — configurable later).
 - **Tasks without a due date:**
   - Due date is optional for every task.
@@ -155,6 +155,11 @@ My Drive/Noteapp/
 - Consistent look across all screens (same colours, spacing, corner rounding, icon style).
 - When building a new screen, describe the layout to me first (or ask which reference screenshot to follow) before coding it.
 
+### 2.11 Search (added Nov 2026)
+- **One search from Home** that finds notebook, folder and course names, tasks (title, description, my notes), words in imported PDFs, text in text boxes, and **my handwriting** (English, recognised on the tablet itself; nothing is sent anywhere).
+- Tapping a result opens the notebook at that page with the match highlighted.
+- Inside a notebook: **Find in this notebook**.
+
 ---
 
 ## 3. Canvas import — how it works
@@ -177,7 +182,7 @@ I can't get a Canvas API token, but I've tested that the Canvas API **works with
 ### 3.3 Syncing rules
 - Sync when the app opens, on pull-to-refresh, and in the background a few times a day.
 - Changes on Canvas (e.g. new due date, edited description) update the task **without** resetting my status tag, target date, or linked notes.
-- **Auto-status:** if Canvas shows an assignment as submitted, move it to `Submitted` — but only move it **forward**, never backwards (never override `Done`, never undo my own choice).
+- **Auto-status:** if Canvas shows an assignment as submitted, move it to `Done` — but only move it **forward**, never backwards (never override `Done`, never undo my own choice).
 - Assignments removed from Canvas are **not** deleted — mark them "removed from Canvas".
 - **When the session expires:** keep all existing data, show a small "Canvas sign-in expired — sign in again" banner, and keep working offline.
 
@@ -217,7 +222,7 @@ Build one phase at a time; each phase should leave a working app. Commit after e
 | **4. Linking** | Link notebooks/files ↔ tasks; course folder view showing notes + tasks together; **page bookmarks for tasks** (with quick notes) and **selecting PDF text** with a finger (Copy, Highlight, Underline, Bookmark), both added Nov 2026 |
 | **5. Productivity extras** | Text boxes, in-app split view of two notebooks (side by side or top and bottom, divider menu), **recent notebooks panel** with drag-to-split (added Nov 2026), snip between split notebooks |
 | **6. Google Drive & backup** | ⚠️ Must be done and tested before I use the app for real. Google sign-in, automatic full backup + restore, manual "Export everything" / "Import from export", PDF copies mirroring course folders, backup status/warnings, Recently deleted, Word/PowerPoint conversion → later: Version history |
-| **7. Polish** | Search, partial eraser, custom tags, per-page templates, settings, performance tuning |
+| **7. Polish** | **Search** (names, tasks, PDF text, text boxes, handwriting), partial eraser, Submitted merged into Done (replaces custom tags, Nov 2026), per-page paper, settings (reminder times, course colours, default paper, light/dark), performance tuning, backup follow-ups from Phase 6 |
 
 ---
 

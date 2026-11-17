@@ -1,9 +1,12 @@
 # Handoff: where things stand
 
-_Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 17 Nov 2026, late (Phase 7 planned with the user). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
+- **Phase 7 (Polish) is planned: `PHASE-7.md`, branch `phase-7`** (from `main`). Step 7.0 (the plan, IDEA.md edits) is done. **Mode: working together** (check-in after every step, wait for the user's OK, push after the OK).
+  - Decided 17 Nov: search over names, tasks, PDF text, text boxes **and handwriting** (ML Kit, English only; still ask before adding the library at 7.10); **custom tags dropped, Submitted merged into Done** (IDEA.md §2.3/§3.3 updated); new settings: reminder times, course colours, default paper, light/dark; plus the Phase 6 review leftovers and the editor speed leftovers. Version history stays "later".
+  - One database change this phase: **v8 in step 7.1** (statuses `submitted` → `done`, `courses.color`).
 - **Phases 1–6 are merged into `main`** (Phase 6 on 17 Nov, `c4b9e7a`). History in `PHASE-1.md` … `PHASE-6.md` and `ISSUES.md`.
 - **Phase 6 (backup) is finished and merged.** Plan, the user's decisions and per-step notes: `PHASE-6.md`.
   - **Done and checked on the emulator with a real Google account (17 Nov):** 6.1–6.13. Connect, automatic backup, Back up now, restore round trip from Drive (compare PASS), PDF copies, Word → PDF. Details per step in `PHASE-6.md`.
@@ -30,18 +33,14 @@ _Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK)
 
 ## Next steps (in order)
 
-1. **Next phase:** read IDEA.md §5 for Phase 7 and plan it with the user (new branch from `main`). Or the Phase 6 follow-ups in ISSUES.md first if the user prefers; the 🔺 one is not holding `StorageLock.backup` for a whole upload.
-2. The tablet's Drive backup is confirmed by the user (17 Nov): "Last backed up 5 minutes ago", and Notes (PDF) looks right in Drive.
+1. **Step 7.1 🔺 Database v8** (`PHASE-7.md`): before starting, suggest a stronger model / max effort (migration + data change). Wait for the user's OK to start it.
+2. Then 7.2 … 7.13 in order, one check-in each.
 3. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own
    - whether **Open in Canvas** opens the Canvas Student app or the Chrome tab
    - whether writing in a text box with the OPPO Pencil turns into typed text
-4. Older follow-ups (ISSUES.md, not blocking):
-   - very deep zoom has no page picture
-   - pre-draw the next page
-   - a big lasso move pauses on release
-   - pen widths (F22)
+   - pen widths (F22): ask the user to try the pens before step 7.12
 
 ## Phase 4–5 code map
 
@@ -81,6 +80,7 @@ _Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK)
 
 - **The app name** is spelled "Noteapp". The app ID `com.nzfrankwu.noteapp` never changes.
 - **Tasks:**
+  - **Statuses (Phase 7):** Submitted merged into Done; Canvas auto-status sets Done. No custom tags.
   - Tasks belong to courses; folders link to at most one course.
   - Overdue comes only from the real due date.
   - A due date without a time means 11:59 pm; a target date without a time means 9:00 am.

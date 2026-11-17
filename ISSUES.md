@@ -21,7 +21,7 @@ _None known._
   - The PDF copies have no status of their own: if one notebook can't be drawn, or Drive fails while updating the copies, nothing is shown (the full backup already succeeded; the next run tries again).
   - Two tablets backing up to the same Google account would share one backup folder (each run keeps the other's newer snapshots, and unused files wait a day before they go), but restore lists them together. One tablet is the plan; revisit if that changes.
   - Each Drive run lists `Backup/blobs/` (1 request per 1000 files) instead of caching Drive ids locally. Fine for thousands of files; revisit if backups get slow.
-  - **From the end-of-phase review (17 Nov), not fixed yet:**
+  - **From the end-of-phase review (17 Nov), not fixed yet** (the first, second, third and fifth are planned as Phase 7 step 7.2):
     - The whole Drive run holds `StorageLock.backup`, upload included. On a slow connection, Delete now, Export everything, the purge and Drive restore wait until it ends (a first backup can take 30+ minutes). Fix idea: hold the lock only for the snapshot, and let the purge/clean-up skip files a run is still uploading. 🔺 data safety.
     - Every backup md5-hashes every file again, big PDFs included. Fix idea: cache md5 by path + size + modified time for write-once files.
     - Every backup re-downloads the kept snapshot lists (~8). Fix idea: cache them by Drive file id; they never change.
@@ -51,7 +51,7 @@ _None known._
 - **PDF pages, things not checked yet (Phase 3.3):** the sharp deep-zoom part (`pdfDetail`) needs a two-finger pinch, which the emulator scripts can't do; check on the tablet. Jumping far with the page scroller shows the page white for a moment before its picture arrives (plain notebooks also have no preview that far away). PDFs with rotated pages (`/Rotate`) aren't tested. Android 15+ can open password-protected PDFs with a password; we just refuse them for now.
 - **Imported PDFs and images (Phase 3 decision, Phase 6.5):** a notebook's `pdf-*.pdf` and `images/*` files stay when their pages or images are deleted, so Undo works; the daily clean-up removes them once nothing has used them for 30 days (by file age, so a picture inserted long ago and removed today can go at the next clean-up unless the notebook is open).
 - **Steady pen width vs the pressure pen (F22):** at the same Thickness, the Off/Low/Medium pens may look thinner or thicker than the Full pen at your usual pressure (the emulator only has full pressure). Tune the multipliers in `InkBrushes.roundPen` after trying it on the tablet; changing them changes how existing strokes of those kinds look, so give a new key if notes already use them.
-- **Notebook editor, small things to revisit (Phase 2):**
+- **Notebook editor, small things to revisit (Phase 2):** (very deep zoom, pre-drawing the next page and the big lasso move pause are planned as Phase 7 step 7.11; pen widths F22 as 7.12)
   - Ink still being written shows on top of the toolbar if you write under it; it drops behind once you lift the pen.
   - Stability smooths a stroke when you lift the pen, so a wobbly line shifts slightly at that moment. It's off (0%) by default.
   - Hold-to-straighten snaps the line after you lift the pen, not while you're still holding.
@@ -82,6 +82,8 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Phase 7 planned (17 Nov):** `PHASE-7.md`, working-together mode. Decided with the user: search over names, tasks, PDF text, text boxes and handwriting (ML Kit, English); custom tags dropped and **Submitted merged into Done**; new settings (reminder times, course colours, default paper, light/dark); the Phase 6 review leftovers and editor speed leftovers are in. IDEA.md §2.2, §2.3, §2.11 (new), §3.3 and §5 updated with the user's OK. Version history stays "later"; the Home Drive nudge stays an open question.
 
 - **Spare test account's Drive cleaned up (17 Nov):** the user deleted the Noteapp folder that got part of a backup of their real notes during the account mix-up.
 

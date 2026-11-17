@@ -1,0 +1,74 @@
+# Phase 7: Polish (search, partial eraser, settings, speed)
+
+Search, the partial eraser, per-page paper, new settings, Submitted merged into Done, the Phase 6 backup follow-ups and editor speed (IDEA.md §2, §5).
+Work happens on branch `phase-7`; it's merged into `main` at the end, with the user's OK.
+- ★ marks a check-in with the user (every step in this phase).
+- 🔺 marks a difficult or high-stakes step. Before starting one, tell the user so they can switch to a stronger model or higher effort.
+
+## Why
+Phases 1–6 are merged into `main` (`c4b9e7a`) and the tablet runs the Phase 6 build (database v7) with Drive backup working. IDEA.md §5 lists Phase 7 as polish: search, partial eraser, custom tags, per-page templates, settings and performance tuning.
+
+**Mode:** working together (the user's choice, 17 Nov): one feature at a time, a check-in with screenshots after each, wait for the user's OK, push after the OK.
+
+## Decided with the user (17 Nov 2026)
+- **Search finds:** names and tasks, PDF text, text boxes **and handwriting**. Handwriting uses Google's ML Kit handwriting recognition (approved in principle; still ask before adding it at 7.10), **English only**.
+- **Custom tags: dropped.** Instead, **Submitted is merged into Done** ("they mean the same thing"): the list becomes Not started → Started → Stuck / need help → Double-checking → Done. Canvas auto-status sets Done. Existing Submitted tasks become Done. IDEA.md §2.3 and §3.3 updated.
+- **New settings:** reminder times, pick course colours, default paper for new notebooks, light/dark choice.
+- **Also in this phase:** the Phase 6 review leftovers (backup lock, md5 cache, snapshot list cache, "Open Settings" → Backup) and the editor speed leftovers (deep zoom, pre-draw the next page, big lasso move pause, pen widths F22).
+- **Not in this phase:** Version history (stays "later"), a Home nudge to connect Drive (still an open question in ISSUES.md).
+
+## Proposed by me (easy to change)
+- One database change for the phase (v8, step 7.1): the status rewrite and `courses.color`, so the tablet upgrades once.
+- The search index lives in its own `search.db`, a cache that can be thrown away and rebuilt from the notes. It's never backed up and is rebuilt after a restore.
+- Global search opens from a search icon on Home; inside a notebook, ⋮ → Find in this notebook.
+- Reminder choices: 1 week, 3 days, 1 day, 2 hours, 1 hour, at due time (default stays 1 day + 2 hours).
+- The partial eraser is a choice in the eraser's settings (Whole strokes / Part of strokes), default Whole strokes as today.
+
+## Design
+**Submitted → Done (7.1)** 🔺:
+- `MIGRATION_7_8`: `UPDATE tasks SET status = 'done' WHERE status = 'submitted'`.
+- `TaskStatus.SUBMITTED` goes; `TaskStatus.fromKey("submitted")` still returns DONE, so an old export or Drive backup restored later reads correctly even before Room migrates it.
+- `CanvasMerge`: a new task already submitted starts as DONE; `autoStatus` moves to DONE on a new submission, still forward-only and never when the task is finished.
+- `StatusColors`, `StatusChip`, `TaskStatusTest` / `StoredKeysTest` updated (the old key stays listed as a legacy alias).
+
+**Course colour (7.1 column, 7.7 UI):** `courses.color` (nullable text key of a palette slot, the last entity field). Null = automatic. `CourseColorKey.slotsInOrder` keeps counting every course, so choosing one course's colour never shifts the others.
+
+**Partial eraser (7.4)** 🔺:
+- `InkGeometry` finds the parts of a stroke inside the eraser circle along the drag and returns the pieces outside it, cutting at interpolated points (x, y, time, pressure, tilt, orientation).
+- `NotebookInk` gets a `Split` edit (remove one stroke, put its pieces at the same place in the drawing order).
+- One eraser drag = one undo step, for both eraser kinds (today a whole-stroke drag can record several).
+- Pieces are ordinary `InkStroke`s with new ids: no page-file format change.
+
+**Search (7.8–7.10)** 🔺:
+- Names and tasks (7.8): queried from the main database in memory, every word must match (like `LinkChoices.matches`), over task title, description and notes, notebook titles, folder and course names.
+- `search.db` (7.9): Room FTS4 table of (notebook, page, kind = pdf / textbox / handwriting, text, boxes). Filled by a background worker: PDF words from `PdfText` per page (once per PDF file), text boxes when a page is saved, handwriting (7.10) when a page changes. Deleted notebooks' rows are removed. Excluded from backups (`BackupPaths` + a test).
+- Results show a snippet; tapping opens the notebook at that page with the match highlighted.
+- Handwriting (7.10): ML Kit `digital-ink-recognition`, English model downloaded once on Wi-Fi. Strokes are grouped into lines; each line is recognised on the device and stored with its box. Nothing leaves the tablet.
+
+**Backup lock (7.2)** 🔺: `StorageLock.backup` is held only while `LocalSnapshot` copies. The upload runs from the staged copy; purge and clean-up skip files a running upload still lists.
+
+## Steps (branch `phase-7` from `main`; ★ = check-in, 🔺 = difficult)
+- [x] **7.0** This plan; IDEA.md (§2.2, §2.3, new §2.11 Search, §3.3, §5), HANDOFF.md, ISSUES.md.
+- [ ] 🔺 **7.1 Database v8.** Submitted → Done (above) and `courses.color`.
+  - Follow the checklist at the top of `Migrations.kt` (`SchemaHistoryTest`, `MigrationTest`, `MigrationListTest`, `DataSafetyRulesTest`).
+  - Real v7 → v8 upgrade on the emulator: `compare_dbs.py`, only the intended status rows differ; every page file identical.
+  - ★ (nothing else visible except Submitted gone from the status picker)
+- [ ] 🔺 **7.2 Backup follow-ups.** The lock (above); md5 cache by path + size + modified time for write-once files; kept snapshot lists cached by Drive file id; Home strip "Open Settings" scrolls to Backup. Tests on `FakeDrive`, including a purge while an upload runs. ★
+- [ ] **7.3 Per-page paper + default paper.** Editor ⋮ → "This page's paper" (undoable; `NotebookRepository.setPageTemplate`); `RecentPanel` and thumbnails use the page's own paper; Settings → Notebooks → "Paper for new notebooks". ★
+- [ ] 🔺 **7.4 Partial eraser.** (above) Unit tests for cutting (middle, ends, several holes, a dot, pressure kept) and undo; an editor test erasing across a line. ★
+- [ ] **7.5 Reminder times.** Settings → Reminders, choices above; new `ReminderOffset` keys frozen by tests; alarms planned again on change. ★
+- [ ] **7.6 Light/dark choice.** Settings: System / Light / Dark; `NoteAppTheme` and the editor's own `isSystemInDarkTheme()` calls (`NotebookCanvas.kt`, `NotebookScreen.kt`) read one shared value. ★
+- [ ] **7.7 Course colours.** "Colour" in Settings → Courses and the folder ⋮ menu: the 7 colours plus "Automatic". ★
+- [ ] **7.8 Search: names and tasks.** Describe the search screen's layout to the user first (no Notein reference). ★
+- [ ] 🔺 **7.9 Search index: PDF text + text boxes**, highlight on open, Find in this notebook. ★
+- [ ] 🔺 **7.10 Handwriting search.** Ask before adding ML Kit; check it builds with Kotlin 2.2 / AGP 9.5.1; check the privacy policy (`site/`) wording. Recognition quality needs the tablet. ★
+- [ ] **7.11 Editor speed.** A picture of just the visible part at very deep zoom; pre-draw the next page; no pause after a big lasso move. Measure with `screenshots/framestats.py`. ★
+- [ ] **7.12 Pen widths (F22)** after the user tries the pens on the tablet; new ink keys if notes already use the old widths. ★
+- [ ] **7.13 Tablet check** (ask first; snapshot with files; install; v7 → v8; compare).
+- [ ] **End of phase:** `/code-review`, fix, rebuild and retest, ask to merge into `main`.
+
+## Verification
+- Every step: `.\gradlew.bat assembleDebug testDebugUnitTest`, then `$env:ANDROID_SERIAL="emulator-5554"; .\gradlew.bat connectedDebugAndroidTest`.
+- Screenshots of every changed screen (landscape/portrait, light/dark).
+- 7.1 and 7.13: real upgrade checks with `compare_dbs.py`.
+- The tablet only with the user's OK and a snapshot first.
