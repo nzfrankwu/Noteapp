@@ -31,7 +31,7 @@ _Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK)
 ## Next steps (in order)
 
 1. **Next phase:** read IDEA.md §5 for Phase 7 and plan it with the user (new branch from `main`). Or the Phase 6 follow-ups in ISSUES.md first if the user prefers; the 🔺 one is not holding `StorageLock.backup` for a whole upload.
-2. The tablet: connected to the user's main Google account (17 Nov). Check with them that "Last backed up …" appears and PDFs show up in Drive.
+2. The tablet's Drive backup is confirmed by the user (17 Nov): "Last backed up 5 minutes ago", and Notes (PDF) looks right in Drive.
 3. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own
