@@ -52,6 +52,12 @@ val LocalOpenAtFind = androidx.compose.runtime.staticCompositionLocalOf<String?>
 /** Opens "Find in this notebook" for a notebook ID (PHASE-7.md 7.9); null where there's none. */
 val LocalFindInNotebook = androidx.compose.runtime.staticCompositionLocalOf<((String) -> Unit)?> { null }
 
+/** A page picked in "Find in this notebook": the open editor goes there itself (keeping its undo and split view). */
+data class FindRequest(val notebookId: String, val pageId: String, val query: String)
+
+/** Where "Find in this notebook" leaves the page to go to, for the notebook already open. */
+val LocalFindRequests = androidx.compose.runtime.staticCompositionLocalOf<kotlinx.coroutines.flow.MutableStateFlow<FindRequest?>?> { null }
+
 class PaneState(val viewModel: NotebookViewModel) {
     val view = EditorViewState()
 
@@ -165,6 +171,24 @@ fun NotebookPane(
     var openedAtBookmark by rememberSaveable { mutableStateOf(false) }
     val openAtFind = LocalOpenAtFind.current
     var foundOnOpen by rememberSaveable { mutableStateOf(false) }
+    val findScope = androidx.compose.runtime.rememberCoroutineScope()
+    val findRequests = LocalFindRequests.current
+    // "Find in this notebook" picked a page of this notebook: go there and show the words.
+    LaunchedEffect(findRequests, strip) {
+        val requests = findRequests ?: return@LaunchedEffect
+        val s = strip ?: return@LaunchedEffect
+        requests.collect { r ->
+            if (r == null || r.notebookId != pane.viewModel.notebookId) return@collect
+            requests.value = null
+            val index = pages.indexOfFirst { it.id == r.pageId }
+            val size = view.viewSize
+            if (index < 0 || size.width == 0) return@collect
+            val w = size.width.toFloat()
+            val h = size.height.toFloat()
+            view.camera = s.fit(settings.fitMode, index, w, h)
+            findScope.launch { showFound(pane, pages[index], index, r.query, s, w, h) }
+        }
+    }
     LaunchedEffect(viewSize, strip != null && pages.isNotEmpty()) {
         if (strip == null || pages.isEmpty() || viewSize.width == 0 || fittedFor == viewSize) return@LaunchedEffect
         // Opened at a bookmark: that page, zoomed to its spot (once; afterwards it's like any other page).
@@ -179,7 +203,8 @@ fun NotebookPane(
             // Opened from a search (PHASE-7.md 7.9): select the words found and zoom to them.
             if (openAtFind != null && !foundOnOpen) {
                 foundOnOpen = true
-                showFound(pane, pages[bookmarked], bookmarked, openAtFind, strip, w, h)
+                val page = pages[bookmarked]
+                findScope.launch { showFound(pane, page, bookmarked, openAtFind, strip, w, h) }
             }
             return@LaunchedEffect
         }

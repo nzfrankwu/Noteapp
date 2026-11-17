@@ -1,7 +1,6 @@
 package com.nzfrankwu.noteapp.data.backup.drive
 
 import com.nzfrankwu.noteapp.data.backup.BackupText
-import kotlinx.coroutines.sync.withLock
 import java.time.Duration
 
 /** Where the Google Drive backup stands (kept in the `backup_settings` store, never backed up itself). */

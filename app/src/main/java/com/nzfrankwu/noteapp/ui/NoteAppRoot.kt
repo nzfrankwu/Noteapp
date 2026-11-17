@@ -101,6 +101,8 @@ fun NoteAppRoot(
     val container = appContainer()
     val context = LocalContext.current
     val backStack = rememberNavBackStack(HomeRoute)
+    // "Find in this notebook" (PHASE-7.md 7.9): the page the open notebook should go to.
+    val findRequests = remember { kotlinx.coroutines.flow.MutableStateFlow<com.nzfrankwu.noteapp.ui.notebook.FindRequest?>(null) }
 
     // A tapped reminder asks to open its task.
     val taskToOpen by openTaskRequest.collectAsStateWithLifecycle()
@@ -362,6 +364,7 @@ fun NoteAppRoot(
                     // menu's "Find in this notebook".
                     androidx.compose.runtime.CompositionLocalProvider(
                         com.nzfrankwu.noteapp.ui.notebook.LocalOpenAtFind provides route.find,
+                        com.nzfrankwu.noteapp.ui.notebook.LocalFindRequests provides findRequests,
                         com.nzfrankwu.noteapp.ui.notebook.LocalFindInNotebook provides { id ->
                             backStack.add(com.nzfrankwu.noteapp.ui.navigation.SearchRoute(id))
                         },
@@ -412,14 +415,14 @@ fun NoteAppRoot(
                         onOpenNotebook = { backStack.add(NotebookRoute(it)) },
                         onOpenFolder = { backStack.add(FolderRoute(it)) },
                         onOpenPage = { notebookId, pageId, query, spot ->
-                            val target = NotebookRoute(notebookId, pageId, spot = spot, find = query)
                             val under = backStack.getOrNull(backStack.lastIndex - 1)
                             if (route.notebookId != null && under is NotebookRoute) {
-                                // Find in this notebook: back to the notebook, now at that page.
+                                // Find in this notebook: back to the open notebook, which goes to that
+                                // page itself (its undo history and split view stay).
+                                findRequests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest(notebookId, pageId, query)
                                 backStack.removeAt(backStack.lastIndex)
-                                backStack[backStack.lastIndex] = target
                             } else {
-                                backStack.add(target)
+                                backStack.add(NotebookRoute(notebookId, pageId, spot = spot, find = query))
                             }
                         },
                     )

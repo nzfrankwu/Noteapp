@@ -9,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /** Runs once when the app starts, before any screen. Holds the [AppContainer]. */
@@ -42,9 +43,12 @@ class NoteAppApplication : Application() {
 
     private fun keepSearchInStep() {
         appScope.launch {
-            delay(5_000) // let the app start first
-            runCatching { container.noteTextIndexer.run() }
-            databaseChanges().collectLatest { runCatching { container.noteTextIndexer.run() } }
+            // Once a few seconds after start-up (let the app start first), then after every change,
+            // including changes made while a long first run is still going.
+            kotlinx.coroutines.flow.merge(
+                kotlinx.coroutines.flow.flow { delay(5_000); emit(Unit) },
+                databaseChanges().map { },
+            ).collectLatest { runCatching { container.noteTextIndexer.run() } }
         }
     }
 

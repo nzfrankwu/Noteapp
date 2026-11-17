@@ -140,8 +140,16 @@ class NoteTextStore(context: Context, name: String? = FILE_NAME) :
             where += "notebook_id = ?"
             args += notebookId
         }
+        // Pages with the words together ("slide 3") first, so the limit never cuts those.
+        val text = "(COALESCE(pdf_text, '') || ' ' || COALESCE(box_text, '') || ' ' || COALESCE(hand_text, ''))"
+        val order = if (words.size > 1) {
+            args += "%" + words.joinToString(" ") { it.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") } + "%"
+            "ORDER BY CASE WHEN $text LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END"
+        } else {
+            ""
+        }
         val sql = "SELECT page_id, notebook_id, pdf_text, box_text, hand_text, hand_lines FROM page_text " +
-            "WHERE ${where.joinToString(" AND ")} LIMIT $limit"
+            "WHERE ${where.joinToString(" AND ")} $order LIMIT $limit"
         return readableDatabase.rawQuery(sql, args.toTypedArray()).use { c ->
             buildList {
                 while (c.moveToNext()) add(Hit(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4), c.getString(5)))

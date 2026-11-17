@@ -264,6 +264,34 @@ class NotebookEditorTest {
 
     // ---- Phase 4: linked tasks ----
 
+    /** Review fix (7.9): "Find in this notebook" sends the open editor to the page; it keeps its undo history. */
+    @Test
+    fun aFindRequest_takesTheOpenNotebookToThePage_andKeepsUndo() {
+        val second = runBlocking { (notebooks.addPage(notebookId, 1) as NotebookResult.Success).id }
+        val requests = kotlinx.coroutines.flow.MutableStateFlow<com.nzfrankwu.noteapp.ui.notebook.FindRequest?>(null)
+        compose.runOnUiThread {
+            viewModel = NotebookViewModel(notebookId, notebooks, files, InMemoryInkSettings(InkToolSettings(drawWithFinger = true)), scope)
+        }
+        compose.setContent {
+            NoteAppTheme {
+                androidx.compose.runtime.CompositionLocalProvider(com.nzfrankwu.noteapp.ui.notebook.LocalFindRequests provides requests) {
+                    Box(Modifier.size(width = 1100.dp, height = 760.dp)) { NotebookScreen(viewModel, onBack = {}, onOpenTask = {}) }
+                }
+            }
+        }
+        compose.waitUntil(5_000) { viewModel.pages.value.size == 2 && viewModel.isEditable(viewModel.pages.value.first().id) }
+        drawLine(300f)
+        compose.waitUntil(5_000) { strokeCount() == 1 }
+
+        requests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest(notebookId, second, "anything")
+        compose.waitUntil(5_000) { requests.value == null } // the editor took it
+        compose.onNodeWithTag("undo").assertIsEnabled() // same editor: its history is still there
+        // A request for another notebook is left alone.
+        requests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest("someone-else", second, "x")
+        compose.waitForIdle()
+        assertEquals("someone-else", requests.value?.notebookId)
+    }
+
     /** Phase 7, 7.3: one page's paper, then every page's, each one undo step. */
     @Test
     fun paper_forOnePage_thenForAllPages_andUndo() {

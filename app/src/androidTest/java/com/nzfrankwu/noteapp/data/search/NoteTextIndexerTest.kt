@@ -174,6 +174,18 @@ class NoteTextIndexerTest {
         assertEquals(1, store.search(listOf("smith")).size)
     }
 
+    /** Review fix: pages with the words together come first, so the limit never cuts them. */
+    @Test
+    fun wordsTogether_comeFirst_beforeTheLimit() = runBlocking {
+        val nb = (notebooks.createNotebook(folderId, "Many") as NotebookResult.Success).id
+        val ids = (1..5).map { (notebooks.addPage(nb, it) as NotebookResult.Success).id }
+        ids.forEachIndexed { i, page ->
+            files.write(nb, page, emptyList(), texts = listOf(box(if (i == 3) "the Smith chart" else "chart by Smith $i")))
+        }
+        indexer.run()
+        assertEquals(listOf(ids[3]), store.search(listOf("smith", "chart"), limit = 1).map { it.pageId })
+    }
+
     @Test
     fun theSearchStore_isNeverInABackup() {
         // It lives in databases/search.db; backups take only noteapp.db and the notebook files.

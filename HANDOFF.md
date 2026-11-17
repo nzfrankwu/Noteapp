@@ -1,6 +1,6 @@
 # Handoff: where things stand
 
-_Last updated: 18 Nov 2026 (Phase 7: 7.1–7.10 done). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 18 Nov 2026 (Phase 7: 7.1–7.10 done, code review fixed). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
@@ -41,7 +41,7 @@ _Last updated: 18 Nov 2026 (Phase 7: 7.1–7.10 done). Keep this file current (s
 
 ## Next steps (in order)
 
-1. **Hands-off run stopped (18 Nov) after 7.7; see `REPORT.md` (git-ignored) and ISSUES.md "Open questions".** Search is complete (7.8–7.10). Next: the end-of-phase code review. Still waiting on the user for: publishing the privacy page change, 7.11 (skipped: needs the tablet to measure), pen widths (7.12), tablet install (7.13). Next: whichever the user OKs first; 7.8 → 7.9 → 7.10 are in order. (hands-off order; 7.8–7.10, 7.12, 7.13 need the user).
+1. **Hands-off run stopped (18 Nov) after 7.7; see `REPORT.md` (git-ignored) and ISSUES.md "Open questions".** Search is complete (7.8–7.10) and the end-of-phase code review is done (9 of 10 fixed, PHASE-7.md). Left: 7.11 (needs tablet measurements), 7.12 (pen widths: user tries the pens), 7.13 (tablet install: user's OK), then merge into `main` (user's OK). Still waiting on the user for: publishing the privacy page change, 7.11 (skipped: needs the tablet to measure), pen widths (7.12), tablet install (7.13). Next: whichever the user OKs first; 7.8 → 7.9 → 7.10 are in order. (hands-off order; 7.8–7.10, 7.12, 7.13 need the user).
 3. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own

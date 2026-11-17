@@ -13,7 +13,6 @@ import com.google.mlkit.vision.digitalink.recognition.RecognitionContext
 import com.google.mlkit.vision.digitalink.recognition.WritingArea
 import com.nzfrankwu.noteapp.domain.ink.HandwritingLines
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -34,21 +33,33 @@ interface HandwritingReader {
  * It runs on the tablet: the writing never leaves it. The English model (about 20 MB) is
  * downloaded once from Google, on Wi-Fi only, the first time it's needed.
  */
-class MlKitHandwriting(private val languageTag: String = "en-US") : HandwritingReader {
+class MlKitHandwriting(
+    private val languageTag: String = "en-US",
+    /** Called when the model has finished downloading (e.g. to read handwriting now). */
+    private val onModelReady: () -> Unit = {},
+) : HandwritingReader {
     private val model: DigitalInkRecognitionModel? =
         DigitalInkRecognitionModelIdentifier.fromLanguageTag(languageTag)?.let { DigitalInkRecognitionModel.builder(it).build() }
-    private var recognizer: DigitalInkRecognizer? = null
+    @Volatile private var recognizer: DigitalInkRecognizer? = null
+    @Volatile private var downloading = false
 
+    /**
+     * True once the model is on the device. Otherwise it asks for the download (once at a time,
+     * Wi-Fi only) and returns false straight away; [onModelReady] runs when it has arrived.
+     */
     override suspend fun prepare(): Boolean {
         val m = model ?: return false
         if (recognizer != null) return true
         val manager = RemoteModelManager.getInstance()
         val have = runCatching { manager.isModelDownloaded(m).await() }.getOrDefault(false)
         if (!have) {
-            val conditions = DownloadConditions.Builder().requireWifi().build()
-            // Waits while it downloads; gives up for now if it takes too long (e.g. no Wi-Fi).
-            val done = withTimeoutOrNull(DOWNLOAD_WAIT_MS) { runCatching { manager.download(m, conditions).await() }.isSuccess }
-            if (done != true) return false
+            if (!downloading) {
+                downloading = true
+                manager.download(m, DownloadConditions.Builder().requireWifi().build())
+                    .addOnSuccessListener { onModelReady() }
+                    .addOnCompleteListener { downloading = false }
+            }
+            return false
         }
         recognizer = DigitalInkRecognition.getClient(DigitalInkRecognizerOptions.builder(m).build())
         return true
@@ -71,7 +82,6 @@ class MlKitHandwriting(private val languageTag: String = "en-US") : HandwritingR
     }
 
     private companion object {
-        const val DOWNLOAD_WAIT_MS = 120_000L
         const val STROKE_GAP_MS = 120L
     }
 }

@@ -13,7 +13,8 @@ import java.io.File
 class Md5Cache(private val file: File) {
     private data class Key(val path: String, val size: Long, val modified: Long)
 
-    private val entries = HashMap<Key, String>()
+    /** By path: the file as it was when hashed, and its md5. */
+    private val entries = HashMap<String, Pair<Key, String>>()
     private var loaded = false
     private var changed = false
 
@@ -22,12 +23,11 @@ class Md5Cache(private val file: File) {
     fun md5(path: String, source: File): String {
         load()
         val key = Key(path, source.length(), source.lastModified())
-        entries[key]?.let { return it }
+        entries[path]?.takeIf { it.first == key }?.let { return it.second }
         val md5 = Md5.of(source)
         // A file that changed while it was read isn't remembered (it'll be hashed again next time).
         if (source.length() == key.size && source.lastModified() == key.modified) {
-            entries.keys.removeAll { it.path == path }
-            entries[key] = md5
+            entries[path] = key to md5
             changed = true
         }
         return md5
@@ -37,13 +37,13 @@ class Md5Cache(private val file: File) {
     @Synchronized
     fun save(paths: Set<String>) {
         load()
-        if (entries.keys.removeAll { it.path !in paths }) changed = true
+        if (entries.keys.removeAll { it !in paths }) changed = true
         if (!changed) return
         runCatching {
             file.parentFile?.mkdirs()
             val temp = File(file.path + ".writing")
             temp.writeText(
-                entries.entries.joinToString("") { (k, md5) -> "${k.size}\t${k.modified}\t$md5\t${k.path}\n" },
+                entries.values.joinToString("") { (k, md5) -> "${k.size}\t${k.modified}\t$md5\t${k.path}\n" },
             )
             if (!temp.renameTo(file)) {
                 file.delete()
@@ -64,7 +64,7 @@ class Md5Cache(private val file: File) {
                 val size = parts[0].toLongOrNull() ?: return@forEachLine
                 val modified = parts[1].toLongOrNull() ?: return@forEachLine
                 if (!Md5.isValid(parts[2])) return@forEachLine
-                entries[Key(parts[3], size, modified)] = parts[2]
+                entries[parts[3]] = Key(parts[3], size, modified) to parts[2]
             }
         }.onFailure { entries.clear() }
     }

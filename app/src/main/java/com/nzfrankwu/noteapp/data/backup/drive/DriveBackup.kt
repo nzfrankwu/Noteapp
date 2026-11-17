@@ -129,7 +129,8 @@ class DriveBackup(
 
                 // 3. Tidy up. The backup is already safe, so problems here only wait for the next run.
                 val tidy = try {
-                    tidy(folders, mine)
+                    // Under the lock: never while a restore is downloading a snapshot this might remove.
+                    StorageLock.backup.withLock { tidy(folders, mine) }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {

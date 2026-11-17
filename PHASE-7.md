@@ -82,6 +82,19 @@ Phases 1–6 are merged into `main` (`c4b9e7a`) and the tablet runs the Phase 6 
 - [ ] **7.12 Pen widths (F22)** after the user tries the pens on the tablet; new ink keys if notes already use the old widths. ★
 - [ ] **7.13 Tablet check** (ask first; snapshot with files; install; v7 → v8; compare).
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest, ask to merge into `main`.
+  - **Review done (18 Nov, after 7.10, hands-off):** 10 findings, 9 fixed, 1 kept on purpose:
+    - Find in this notebook rebuilt the editor (undo history and split view lost) → it now asks the open editor to go to the page (`FindRequest`, `LocalFindRequests`).
+    - The Drive backup's tidy-up ran outside the storage lock, so it could remove a snapshot a restore was downloading → tidy is under the lock again (the upload still isn't).
+    - Opening a search hit could lose the selection if the view resized while the PDF text loaded → it runs in its own coroutine.
+    - Changes made during the first (long) index run weren't noticed → the first run and later changes share one `collectLatest`.
+    - With no Wi-Fi the handwriting model download was waited for (2 min) on every run → asked for once, not waited for; the indexer runs again when it arrives.
+    - Search could briefly show the last query's note hits → hits carry their query.
+    - The store's result limit could cut pages with the words together → `ORDER BY` them first.
+    - `Md5Cache` scanned every entry per new file → keyed by path.
+    - Unused teal status colours and an unused import removed.
+    - Kept: the theme is read with `runBlocking` once before the first frame (one tiny file), so a forced light/dark never flashes.
+  - Tests after the fixes: 619 unit, 333 emulator (2 new: `aFindRequest_takesTheOpenNotebookToThePage_andKeepsUndo`, `wordsTogether_comeFirst_beforeTheLimit`).
+  - Still open in Phase 7: 7.11 (editor speed, needs tablet measurements), 7.12 (pen widths, needs the user's try), 7.13 (tablet install, needs the user's OK). Merge into `main` after those or when the user says.
 
 ## Verification
 - Every step: `.\gradlew.bat assembleDebug testDebugUnitTest`, then `$env:ANDROID_SERIAL="emulator-5554"; .\gradlew.bat connectedDebugAndroidTest`.

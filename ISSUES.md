@@ -88,6 +88,8 @@ _None known._
 
 ## Done
 
+- **Phase 7 code review (18 Nov, hands-off):** 10 findings, 9 fixed (list in PHASE-7.md), 1 kept on purpose (the theme is read once before the first frame). 619 unit and 333 emulator tests pass.
+
 - **Phase 7 step 7.10, handwriting search (18 Nov, hands-off):** search also finds your handwriting (English), read on the tablet by Google's ML Kit; a match opens zoomed to its line. The English model (~20 MB) downloads once on Wi-Fi.
 
 - **Phase 7 step 7.9, searching inside notes (18 Nov):** search now also finds words in imported PDFs and text boxes ("In your notes"); tapping one opens the page with the words selected. Notebook ⋮ → "Find in this notebook". The words are kept in a separate `search.db` that's rebuilt in the background and never backed up.

@@ -3,6 +3,7 @@ package com.nzfrankwu.noteapp
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import android.content.Context
 import com.nzfrankwu.noteapp.canvas.CanvasAccount
 import com.nzfrankwu.noteapp.canvas.CanvasClient
@@ -145,7 +146,9 @@ class AppContainer(context: Context) {
     val noteTextIndexer: com.nzfrankwu.noteapp.data.search.NoteTextIndexer by lazy {
         com.nzfrankwu.noteapp.data.search.NoteTextIndexer(
             database, notebookFiles, noteTextStore,
-            handwriting = com.nzfrankwu.noteapp.data.search.MlKitHandwriting(),
+            handwriting = com.nzfrankwu.noteapp.data.search.MlKitHandwriting(
+                onModelReady = { appScope.launch { runCatching { noteTextIndexer.run() } } },
+            ),
         )
     }
 

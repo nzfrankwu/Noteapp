@@ -83,6 +83,9 @@ data class NoteHit(
     val spot: com.nzfrankwu.noteapp.domain.PageSpot? = null,
 )
 
+/** The pages found for [query] (only shown while the box still says [query]). */
+data class NoteHits(val query: String, val hits: List<NoteHit>)
+
 /**
  * Search (PHASE-7.md 7.8–7.9, IDEA.md §2.11): names and tasks, and the words in the notes (PDF
  * text and text boxes, from [noteText]; handwriting joins in 7.10). With [notebookId] it's "Find
@@ -113,8 +116,8 @@ class SearchViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchIndex.Results())
 
     /** Pages whose words match, by notebook (most recently changed first), then page. */
-    val noteHits: StateFlow<List<NoteHit>> = query.debounce(150).mapLatest { findInNotes(it) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val noteHits: StateFlow<NoteHits> = query.debounce(150).mapLatest { q -> NoteHits(q.trim(), findInNotes(q)) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NoteHits("", emptyList()))
 
     private suspend fun findInNotes(query: String): List<NoteHit> {
         val store = noteText ?: return emptyList()
@@ -190,7 +193,10 @@ fun SearchScreen(
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
     val allResults by viewModel.results.collectAsStateWithLifecycle()
-    val noteHits by viewModel.noteHits.collectAsStateWithLifecycle()
+    val found by viewModel.noteHits.collectAsStateWithLifecycle()
+    // Only the hits for what's in the box now: never the last query's while the next is looked up.
+    val notesCurrent = found.query == query.trim()
+    val noteHits = if (notesCurrent) found.hits else emptyList()
     val scopeTitle by viewModel.scopeTitle.collectAsStateWithLifecycle()
     val scoped = viewModel.notebookId != null
     // Find in this notebook: only its pages.
@@ -247,6 +253,7 @@ fun SearchScreen(
                     else "Type to search your tasks (titles, descriptions and your notes), notebooks, folders, " +
                         "and the words in your PDFs, text boxes and handwriting.",
                 )
+                results.isEmpty && noteHits.isEmpty() && !notesCurrent -> Box(Modifier.fillMaxSize())
                 results.isEmpty && noteHits.isEmpty() -> Hint("Nothing matches “${query.trim()}”.")
                 else -> LazyColumn(
                     modifier = Modifier.widthIn(max = Dimens.ReadingMaxWidth).fillMaxWidth().testTag("search-results"),
