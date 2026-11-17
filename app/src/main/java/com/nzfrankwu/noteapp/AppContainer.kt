@@ -113,6 +113,36 @@ class AppContainer(context: Context) {
         )
     }
 
+    /** Swaps a checked backup in at start-up (PHASE-6.md, "Restore"). */
+    val restoreSwap: com.nzfrankwu.noteapp.data.backup.RestoreSwap by lazy {
+        com.nzfrankwu.noteapp.data.backup.RestoreSwap(
+            dataDir = appContext.dataDir,
+            filesDir = appContext.filesDir,
+            databaseFile = appContext.getDatabasePath(NoteAppDatabase.FILE_NAME),
+            thumbnailsDir = java.io.File(appContext.cacheDir, "thumbnails"),
+        )
+    }
+
+    /** A consistent copy of everything a backup needs (PHASE-6.md 6.1). */
+    val localSnapshot: com.nzfrankwu.noteapp.data.backup.LocalSnapshot by lazy {
+        com.nzfrankwu.noteapp.data.backup.LocalSnapshot(
+            database = database,
+            databaseFile = appContext.getDatabasePath(NoteAppDatabase.FILE_NAME),
+            filesDir = appContext.filesDir,
+            appVersion = BuildConfig.VERSION_NAME,
+        )
+    }
+
+    /** "Export everything" and "Import from export" (PHASE-6.md 6.2–6.3). */
+    val backupManager: com.nzfrankwu.noteapp.data.backup.BackupManager by lazy {
+        com.nzfrankwu.noteapp.data.backup.BackupManager(
+            snapshots = localSnapshot,
+            swap = restoreSwap,
+            stagingDir = java.io.File(appContext.cacheDir, "backup-staging"),
+            scope = appScope,
+        )
+    }
+
     /** Runs syncs with the saved settings (used by app open, pull-to-refresh and the background job). */
     val canvasSyncRunner: CanvasSyncRunner by lazy { CanvasSyncRunner(canvasSettings, ::canvasSync) }
 }

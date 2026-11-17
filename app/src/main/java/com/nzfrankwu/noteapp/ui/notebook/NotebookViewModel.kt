@@ -841,7 +841,7 @@ class NotebookViewModel(
         // The tile shows the first page: redraw it only when that page changed.
         val thumbnail = if (pages.value.firstOrNull()?.id in toSave) thumbnailJob() else null
         return saveScope.launch {
-            saveLock.withLock {
+            com.nzfrankwu.noteapp.data.StorageLock.pages.withLock {
                 val saved = ArrayList<String>()
                 for ((pageId, content) in toSave) {
                     // A failed write is retried here, in the scope that outlives the screen, so a
@@ -1011,8 +1011,5 @@ class NotebookViewModel(
 
         /** Pauses before each try at writing a page (the first try is immediate). */
         private val SAVE_RETRY_PAUSES_MS = longArrayOf(0L, 500L, 2_000L, 5_000L)
-
-        /** One save at a time across every open notebook. */
-        private val saveLock = Mutex()
     }
 }

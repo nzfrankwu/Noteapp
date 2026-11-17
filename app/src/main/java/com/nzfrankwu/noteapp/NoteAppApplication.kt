@@ -21,6 +21,10 @@ class NoteAppApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // A restore waiting from "Import from export" is swapped in first, before anything opens
+        // the database or the settings (PHASE-6.md, "Restore").
+        val restore = container.restoreSwap.finishPending()
+        container.backupManager.report(restore)
         // PdfBox-Android (PDF export) needs its fonts and resources found once.
         com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(applicationContext)
         Notifications.createChannels(this)

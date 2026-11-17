@@ -41,7 +41,7 @@ import com.nzfrankwu.noteapp.ui.theme.Dimens
 import com.nzfrankwu.noteapp.ui.theme.NoteAppTheme
 
 /**
- * Settings: Canvas (sign-in arrives in step 5.1), Reminders and About. Backup comes in Phase 6.
+ * Settings: Canvas, Courses, Notebooks, Backup, Reminders and About.
  * [onTestReminder] is only given in debug builds: it sets a test reminder for 1 minute from now.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,6 +55,8 @@ fun SettingsScreen(
     onOpenCourses: () -> Unit = {},
     /** The notebook toolbar's settings (Notebooks section); hidden when null. */
     inkSettings: com.nzfrankwu.noteapp.data.InkSettingsStore? = null,
+    /** Export everything / Import from export (Phase 6); hidden when null. */
+    backup: com.nzfrankwu.noteapp.data.backup.BackupManager? = null,
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -115,6 +117,9 @@ fun SettingsScreen(
                 }
                 if (inkSettings != null) {
                     SettingsSection("Notebooks") { NotebookSettingsSection(inkSettings, showDebug = BuildConfig.DEBUG) }
+                }
+                if (backup != null) {
+                    SettingsSection("Backup") { BackupSection(backup) }
                 }
                 SettingsSection("Reminders") { RemindersSettings(onTestReminder) }
                 SettingsSection("About") {

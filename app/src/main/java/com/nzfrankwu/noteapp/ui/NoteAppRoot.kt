@@ -375,6 +375,7 @@ fun NoteAppRoot(
                     onOpenCanvasBrowser = { backStack.add(CanvasLoginRoute) },
                     onOpenCourses = { backStack.add(CoursesRoute) },
                     inkSettings = container.inkSettings,
+                    backup = container.backupManager,
                     onTestReminder = if (BuildConfig.DEBUG) {
                         {
                             scope.launch {
