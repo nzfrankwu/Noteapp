@@ -1,11 +1,11 @@
 # Handoff: where things stand
 
-_Last updated: 17 Nov 2026 (second Phase 5 review fixed and merged into `main` with the user's OK; next session: plan Phase 6). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 17 Nov 2026 (Phase 6 planned with the user; working hands-off on branch `phase-6`). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
 - **Phases 1, 1b, 2, 3, 4 and 5 are done and merged into `main`** (Phase 5 merged 17 Nov, `09c1449`; the second review's fixes merged 17 Nov, `3ecda09`). History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
-- **Branch:** `main`. Start a `phase-6` branch from it when Phase 6 begins.
+- **Phase 6 (backup) is planned: `PHASE-6.md`** (the user's decisions are at its top). **Branch:** `phase-6`. **Mode: hands-off** (user, 17 Nov).
 - **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet.
 - **Mode:** "Working together" (the default) unless the user says otherwise. Phases 4 and 5 were hands-off.
 - **The tablet runs `main` with the second review's fixes** (installed 17 Nov with the user's OK; backup `backups/tablet-2026-11-17-before-review2/`; compare PASS: every row, links, bookmarks and all 167 page files unchanged), database **version 7**. Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
@@ -26,15 +26,8 @@ _Last updated: 17 Nov 2026 (second Phase 5 review fixed and merged into `main` w
 
 ## Next steps (in order)
 
-1. **Plan Phase 6: Google Drive and backup** (IDEA.md §2.9, §5, §5a). IDEA.md says it **must be finished and tested before the user relies on the app**.
-   - Read IDEA.md §2.9 (what's backed up, Drive layout, PDF copies), §4 (Word/PowerPoint conversion through Drive), §5 (the Phase 6 row) and §5a (data-safety rules).
-   - Write `PHASE-6.md` with the user (working together): describe new screens before coding (CLAUDE.md §2.10), mark 🔺 steps.
-   - **Ask first** (CLAUDE.md): Google sign-in involves the user's login; the Drive/Google libraries are big new libraries. Google sign-in also needs the release signing key (the user's key is in `<user home>/keys/`; never read those files, check with `gradlew.bat signingReport` only).
-   - Things Phase 6 inherits, from ISSUES.md:
-     - unused bookmark pictures (`bookmarks/*.png`) and inserted pictures are never cleaned up
-     - deleted notebooks without a folder
-     - "Recently deleted"
-     - the backup must include page files (formats 1–3), `images/`, `bookmarks/` and PDFs in each notebook's folder, plus the database (v7) and settings, but **never** Canvas cookies or the feed link (IDEA.md §2.9, §3.5)
+1. **Phase 6, in `PHASE-6.md` order:** 6.1 local snapshot → 6.2 Export everything → 6.3 Import from export → 6.4 Recently deleted → 6.5 clean-up → then the Google steps (6.6 needs the user: Google Cloud setup with their login, and a test Google account signed in on the emulator).
+   - `play-services-auth` is approved (the only new Google library). Never read `<user home>/keys/`; the SHA-1 comes from `gradlew.bat signingReport`.
 2. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own
@@ -77,7 +70,7 @@ _Last updated: 17 Nov 2026 (second Phase 5 review fixed and merged into `main` w
 
 ## Waiting on the user
 
-- **Nothing blocking.** Next is planning Phase 6 together.
+- **Step 6.6 needs the user** (Google Cloud project with their login, test account on the emulator). Steps 6.1–6.5 don't.
 - **Their Canvas sign-in on the tablet works** (go/no-go passed 15 Nov). Their real courses and assignments are on the tablet.
 
 ## Decisions to remember

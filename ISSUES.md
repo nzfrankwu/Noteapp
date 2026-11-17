@@ -67,6 +67,8 @@ _None known._
 
 ## Done
 
+- **Phase 6 planned (17 Nov):** `PHASE-6.md`. Decided with the user: only `play-services-auth` plus our own Drive client; the .zip Export/Import first; PDF copies daily; Word/PowerPoint conversion last; Recently deleted on Home and in Settings; Drive keeps 7 days of complete snapshots (IDEA.md §2.9 updated); a separate test Google account on the emulator.
+
 - **Second Phase 5 review (17 Nov), merged into `main` with the user's OK (`3ecda09`):** 8 findings fixed (list in PHASE-5.md): a drop near an edge no longer shows the old layout first, the Chrome tab opens over Noteapp, the divider handle takes less of the pages, no drop zone over the panel, plus tidying and 7 new screen tests. Those tests found a ninth: a narrow course folder could crash as its notes loaded (fixed).
 
 - **Phase 5 merged into `main`** (17 Nov, `09c1449`): text boxes, the bookmark pen (database v7), split view, the recent notebooks panel, feedback rounds FB1–FB15. On the tablet; 273 emulator tests pass.

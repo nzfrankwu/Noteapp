@@ -120,8 +120,8 @@ Modelled on GoodNotes' auto-backup (one-way backup to Drive whenever something c
 
 **Drive layout (a normal, visible folder):**
 ```
-My Drive/NoteApp/
-  Backup/      ← full backup (app format) — don't touch
+My Drive/Noteapp/
+  Backup/      ← full backup (app format, complete snapshots) — don't touch
   Notes (PDF)/
     ELECTENG 204/  Lecture notes.pdf, Tutorial 5.pdf …
     ELECTENG 292/  …
@@ -143,7 +143,7 @@ My Drive/NoteApp/
 
 **Deleted items & older versions:**
 - **Recently deleted** (in-app, 30 days): deleted notebooks/files can be recovered; their backup isn't removed from Drive until the 30 days are up.
-- **Older versions of a notebook:** Google Drive already keeps old versions of uploaded files (about 30 days) automatically. Later phase: a **"Version history"** option on a notebook that lists those Drive versions and restores one. No extra storage system needed.
+- **Older versions (decided 17 Nov 2026):** each backup is a complete snapshot (a list of files written last, so an interrupted backup can't spoil the previous one). Drive keeps the newest snapshot plus one per day for the last 7 days, and Restore lists them. Later phase: a **"Version history"** option on a notebook can reuse these snapshots.
 
 **Storage (rough estimate):** handwriting is small — a typical 50-page notebook is likely a few MB. Imported PDFs (lecture slides) are usually the biggest items. A full semester should fit comfortably in Google's free 15 GB, even with old versions included. Show total backup size in Settings.
 
