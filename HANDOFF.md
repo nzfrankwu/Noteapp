@@ -31,7 +31,7 @@ _Last updated: 17 Nov 2026, evening (Phase 6: everything that needs no Google lo
 
 ## Next steps (in order)
 
-1. **Publishing Google sign-in** (before the tablet relies on it): draft the privacy policy text; the user hosts it (e.g. Google Sites) and publishes. Ask the user when.
+1. **Publishing Google sign-in:** icon, homepage and privacy policy are done (`site/`, served from branch `gh-pages`; edit `site/` then copy to `gh-pages`). The user still has to switch on GitHub Pages and fill in Branding (see ISSUES.md), then Publish app.
 2. **6.14 tablet check** (ask first; `tablet_snapshot.sh` first). The user connects their real account on the tablet (must be a test user while in Testing mode).
 3. End of phase: `/code-review`, fix, retest, ask to merge into `main`.
 4. **Still-unreported tablet checks** (ask when convenient):
