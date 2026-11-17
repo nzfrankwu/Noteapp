@@ -136,7 +136,7 @@ fun BackupSection(manager: BackupManager) {
 
 @Composable
 private fun StatusText(text: String, error: Boolean, onDismiss: () -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         Text(
             text,
             style = MaterialTheme.typography.bodyMedium,

@@ -72,11 +72,11 @@ Uploads are checked against Drive's `md5Checksum`. After a snapshot is committed
 
 ## Steps (branch `phase-6` from `main`; ★ = check-in, 🔺 = difficult)
 - [x] **6.0** This plan; IDEA.md §2.9 (snapshots, the "Noteapp" Drive folder), HANDOFF.md, ISSUES.md.
-- [ ] 🔺 **6.1 Local snapshot and manifest:** `StorageLock`, `LocalSnapshot`, `BackupManifest`, `SettingsExport`.
+- [x] 🔺 **6.1 Local snapshot and manifest** (17 Nov, hands-off; `f62a311`). Changed from the plan: the two settings stores are backed up as their own files (`files/datastore/*.preferences_pb`) instead of `settings.json`; they're swapped in at start-up before DataStore opens, so no conversion is needed. Page files are copied under the save lock; PDFs and pictures (written once, never changed) are read where they are. 26 unit tests, 5 emulator tests (`LocalSnapshotTest`: the latest changes still in `-wal` are in the copy; a snapshot taken while 40 pages are added is consistent). Was: `StorageLock`, `LocalSnapshot`, `BackupManifest`, `SettingsExport`.
   - unit tests: the manifest, the exclusions (Canvas never included), settings to and from JSON
   - emulator tests: a snapshot taken while pages save is consistent; the integrity check passes
-- [ ] **6.2 Export everything (.zip):** a **Settings → Backup** section (between Notebooks and Reminders) with Export everything / Import from export; the zip is written through the system "Save as". ★
-- [ ] 🔺 **6.3 Import from export:** confirmation (backup date, size, counts, "replaces everything on this tablet"), staging, md5 check, restart and swap, the before-restore copy.
+- [x] **6.2 Export everything (.zip)** (17 Nov). Was: a **Settings → Backup** section (between Notebooks and Reminders) with Export everything / Import from export; the zip is written through the system "Save as". ★
+- [x] 🔺 **6.3 Import from export** (17 Nov). Real check on the emulator: sample data (3 folders, 7 tasks, a notebook with strokes) → Export → `pm clear` → Import → confirm → the app restarts → `compare_dbs.py` PASS (every row) and every file's md5 the same. The old data went to `before-restore/<time>/`. Tested by unit tests instead of by hand: tampered, missing, extra and escaping (`../`) files, Canvas settings in a zip, no manifest, not a zip, a newer manifest format, both crash points of the swap, an unreadable marker. Not tested: restoring a v6 database (Room's own migrations do it; `MigrationTest` covers them). Was: confirmation (backup date, size, counts, "replaces everything on this tablet"), staging, md5 check, restart and swap, the before-restore copy.
   - tests: round trip; a corrupt or tampered zip is refused; a newer database version is refused; a swap killed halfway recovers
   - real check on the emulator: data → export → wipe → import → compare PASS
   - ★
