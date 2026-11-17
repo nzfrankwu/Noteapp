@@ -10,7 +10,7 @@ _None known._
 
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
-- **Google Drive backup (Phase 6.6, waiting on you):** the Google Cloud setup needs your login, and a spare Google account signed in on the emulator. Until then Connect Google Drive opens Google's sign-in page and nothing is backed up to Drive. Everything else (6.7–6.13) is built and tested with a fake Drive.
+- **Google sign-in is still in Testing mode (you want to publish Noteapp later):** the Cloud project "Noteapp" and its Android client exist (17 Nov), but only the test users you added can connect, and Google may ask them to sign in again after about 7 days. To publish: Google needs a homepage URL and a privacy policy URL on the Branding page (I'll draft the policy; you host it, e.g. on Google Sites), then Audience → Publish app. Do this before the tablet relies on Drive backup (6.14), and certainly before any public release.
 - **A Home nudge when Drive isn't connected? (your call):** today Home only warns once Drive is connected and backups fail or stop for 3 days. Nothing on Home reminds you to connect Drive in the first place.
 
 ## Follow-ups / tech debt
