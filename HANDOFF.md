@@ -6,8 +6,9 @@ _Last updated: 17 Nov 2026, evening (Phase 6: everything that needs no Google lo
 
 - **Phases 1–5 are merged into `main`.** History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
 - **Phase 6 (backup), branch `phase-6`, mode hands-off** (user, 17 Nov). Plan, the user's decisions and per-step notes: `PHASE-6.md`.
-  - **Done and checked:** 6.1–6.5 (snapshot, Export/Import .zip with a real round trip, Recently deleted, clean-up), 6.8 `DriveClient` (`f17ce47`), 6.9 Drive engine (`014f654`).
-  - **Code done, tested with a fake Drive / made-up account, real use waits for 6.6:** 6.7 sign-in + 6.10 automatic backup and status + 6.11 restore from Drive (`d15950a`), 6.12 PDF copies (`2aed69a`), 6.13 Word/PowerPoint → PDF (`211c351`).
+  - **Done and checked on the emulator with a real Google account (17 Nov):** 6.1–6.13. Connect, automatic backup, Back up now, restore round trip from Drive (compare PASS), PDF copies, Word → PDF. Details per step in `PHASE-6.md`.
+  - **Google Cloud project "Noteapp" exists; sign-in is in Testing mode** (test users only). The user wants to publish Noteapp later: homepage + privacy policy URL, then Publish app (ISSUES.md). One Android client is enough: debug and release are both signed with the release key.
+  - The emulator has the user's spare Google account signed in and connected (it holds only made-up test data).
   - `play-services-auth` 22.0.0 is in (the user approved it). No database change in Phase 6 (still v7).
   - **Not on the tablet yet.**
   - Tests after 6.13: **562 unit tests and the full emulator suite (306) pass.**
@@ -30,9 +31,9 @@ _Last updated: 17 Nov 2026, evening (Phase 6: everything that needs no Google lo
 
 ## Next steps (in order)
 
-1. **6.6 needs the user** (Google Cloud setup with their login; a separate test Google account signed in on the emulator by them). Guide them step by step: project → enable Drive API → OAuth consent screen (External, scope `drive.file`, publish "In production") → Android OAuth client with `com.nzfrankwu.noteapp` and the SHA-1 from `gradlew.bat signingReport` (debug and release SHA-1s both need a client, or the debug build can't sign in). Never read `<user home>/keys/`.
-2. Then on the emulator with the test account: Connect (6.7 ★), Back up now, look in Drive (blobs, snapshots, Notes (PDF)), restore round trip with `compare_dbs.py` (6.11 ★), a .pptx conversion (6.13 ★), Disconnect.
-3. 6.14 tablet check (ask first; `tablet_snapshot.sh` first), then end of phase: `/code-review`, fix, retest, ask to merge.
+1. **Publishing Google sign-in** (before the tablet relies on it): draft the privacy policy text; the user hosts it (e.g. Google Sites) and publishes. Ask the user when.
+2. **6.14 tablet check** (ask first; `tablet_snapshot.sh` first). The user connects their real account on the tablet (must be a test user while in Testing mode).
+3. End of phase: `/code-review`, fix, retest, ask to merge into `main`.
 4. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own
