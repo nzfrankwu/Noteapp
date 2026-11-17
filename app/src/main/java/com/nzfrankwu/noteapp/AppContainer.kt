@@ -113,6 +113,96 @@ class AppContainer(context: Context) {
         )
     }
 
+    /** Deletes things from Recently deleted for good (PHASE-6.md 6.4). */
+    val notebookPurge: com.nzfrankwu.noteapp.data.NotebookPurge by lazy {
+        com.nzfrankwu.noteapp.data.NotebookPurge(database, notebookFiles)
+    }
+
+    /** Removes files nothing uses any more (PHASE-6.md 6.5). */
+    val fileCleanup: com.nzfrankwu.noteapp.data.FileCleanup by lazy {
+        com.nzfrankwu.noteapp.data.FileCleanup(database, appContext.filesDir, inUse = {
+            com.nzfrankwu.noteapp.data.OpenNotebooks.ids() + listOfNotNull(editorClipboard.content?.notebookId)
+        })
+    }
+
+    /** Swaps a checked backup in at start-up (PHASE-6.md, "Restore"). */
+    val restoreSwap: com.nzfrankwu.noteapp.data.backup.RestoreSwap by lazy {
+        com.nzfrankwu.noteapp.data.backup.RestoreSwap(
+            dataDir = appContext.dataDir,
+            filesDir = appContext.filesDir,
+            databaseFile = appContext.getDatabasePath(NoteAppDatabase.FILE_NAME),
+            thumbnailsDir = java.io.File(appContext.cacheDir, "thumbnails"),
+        )
+    }
+
+    /** A consistent copy of everything a backup needs (PHASE-6.md 6.1). */
+    val localSnapshot: com.nzfrankwu.noteapp.data.backup.LocalSnapshot by lazy {
+        com.nzfrankwu.noteapp.data.backup.LocalSnapshot(
+            database = database,
+            databaseFile = appContext.getDatabasePath(NoteAppDatabase.FILE_NAME),
+            filesDir = appContext.filesDir,
+            appVersion = BuildConfig.VERSION_NAME,
+        )
+    }
+
+    /** "Export everything" and "Import from export" (PHASE-6.md 6.2–6.3). */
+    val backupManager: com.nzfrankwu.noteapp.data.backup.BackupManager by lazy {
+        com.nzfrankwu.noteapp.data.backup.BackupManager(
+            snapshots = localSnapshot,
+            swap = restoreSwap,
+            stagingDir = java.io.File(appContext.cacheDir, "backup-staging"),
+            scope = appScope,
+        )
+    }
+
+    /** Google Drive backup settings and status (PHASE-6.md 6.10). */
+    val driveSettings: com.nzfrankwu.noteapp.data.backup.drive.DriveSettings by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.DriveSettings(appContext)
+    }
+
+    /** Google sign-in for Drive (scope drive.file); Play Services keeps the tokens. */
+    val googleAuth: com.nzfrankwu.noteapp.data.backup.drive.GoogleAuth by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.GoogleAuth(appContext) { driveSettings.email() }
+    }
+
+    /** The full backup to Google Drive, and reading it back (PHASE-6.md 6.9, 6.11). */
+    val driveBackup: com.nzfrankwu.noteapp.data.backup.drive.DriveBackup by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.DriveBackup(
+            drive = com.nzfrankwu.noteapp.data.backup.drive.DriveClient(googleAuth),
+            takeSnapshot = { localSnapshot.take(it) },
+            stagingDir = java.io.File(appContext.cacheDir, "drive-staging"),
+        )
+    }
+
+    /** One run of the automatic Drive backup (the background job uses it). */
+    val driveBackupRunner: com.nzfrankwu.noteapp.data.backup.drive.DriveBackupRunner by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.DriveBackupRunner(
+            driveSettings, driveBackup, { restoreSwap.isPending },
+            pdfCopies = com.nzfrankwu.noteapp.data.backup.drive.PdfCopies(
+                drive = com.nzfrankwu.noteapp.data.backup.drive.DriveClient(googleAuth),
+                source = com.nzfrankwu.noteapp.data.backup.drive.AppPdfSource(database, notebookFiles),
+                scratch = java.io.File(appContext.cacheDir, "pdf-copies"),
+            ),
+        )
+    }
+
+    /** Word/PowerPoint → PDF through Google Drive (PHASE-6.md 6.13). */
+    val officeConvert: com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert(
+            drive = com.nzfrankwu.noteapp.data.backup.drive.DriveClient(googleAuth),
+            connected = { driveSettings.current().connected },
+            scratch = java.io.File(appContext.cacheDir, "convert"),
+        )
+    }
+
+    /** Settings → Backup → Google Drive. */
+    val driveConnection: com.nzfrankwu.noteapp.data.backup.drive.DriveConnection by lazy {
+        com.nzfrankwu.noteapp.data.backup.drive.DriveConnection(
+            appContext, driveSettings, googleAuth, driveBackup, appScope,
+            appIsEmpty = { database.notebookDao().countAll() == 0 },
+        )
+    }
+
     /** Runs syncs with the saved settings (used by app open, pull-to-refresh and the background job). */
     val canvasSyncRunner: CanvasSyncRunner by lazy { CanvasSyncRunner(canvasSettings, ::canvasSync) }
 }

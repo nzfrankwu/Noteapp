@@ -50,6 +50,11 @@ class CanvasSyncRunner(
         try {
             val summary = syncFor(address).sync()
             settings.setLastSyncedAt(clock.instant())
+            // Courses that ended: remember since when Canvas stopped listing them (Home asks later).
+            val missing = settings.courseMissingSince.first()
+            settings.setCourseMissingSince(
+                com.nzfrankwu.noteapp.domain.EndedCourses.update(missing, summary.notListed, clock.millis()),
+            )
             settings.setSignInExpired(false)
             SyncOutcome.Synced(summary)
         } catch (e: CanvasException.SessionExpired) {

@@ -33,6 +33,10 @@ data class HomeBanners(
     val signInExpired: Boolean = false,
     /** Canvas courses with no folder that you haven't said "Not now" to. */
     val newCourses: List<Course> = emptyList(),
+    /** Canvas courses that ended (Canvas stopped listing them two weeks ago): "Archive them?". */
+    val endedCourses: List<Course> = emptyList(),
+    /** Google Drive backup is failing or hasn't worked for days (PHASE-6.md 6.10); null when all is well. */
+    val backupWarning: String? = null,
 )
 
 /** Which folder dialog is open on the home screen, with what's typed in it. */
@@ -64,6 +68,8 @@ class HomeViewModel(
     private val zone: ZoneId = ZoneId.systemDefault(),
     /** Where the last home tab is remembered (in memory in screen tests). */
     private val tabStore: HomeTabStore = InMemoryHomeTabStore(),
+    /** Google Drive backup status; null in screen tests that don't need it. */
+    private val driveStatus: kotlinx.coroutines.flow.Flow<com.nzfrankwu.noteapp.data.backup.drive.DriveStatus>? = null,
 ) : ViewModel() {
 
     /** The open home tab: Overview, Calendar or Timeline. Null for the moment before it's loaded. */
@@ -75,8 +81,18 @@ class HomeViewModel(
     }
 
     /** The strips across the top of home: expired Canvas sign-in, and new courses to link. */
-    val banners: StateFlow<HomeBanners> = if (canvasSettings == null) {
-        MutableStateFlow(HomeBanners())
+    val banners: StateFlow<HomeBanners> = combine(
+        canvasBanners(),
+        driveStatus ?: kotlinx.coroutines.flow.flowOf(null),
+    ) { canvas, drive ->
+        val now = clock.millis()
+        val warning = drive?.takeIf { com.nzfrankwu.noteapp.data.backup.drive.DriveText.needsAttention(it, now) }
+            ?.let { com.nzfrankwu.noteapp.data.backup.drive.DriveText.warning(it, now) }
+        canvas.copy(backupWarning = warning)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeBanners())
+
+    private fun canvasBanners(): kotlinx.coroutines.flow.Flow<HomeBanners> = if (canvasSettings == null) {
+        kotlinx.coroutines.flow.flowOf(HomeBanners())
     } else {
         combine(
             canvasSettings.signedInAs,
@@ -85,7 +101,37 @@ class HomeViewModel(
             canvasSettings.hiddenLinkPrompts,
         ) { name, expired, unlinked, hidden ->
             HomeBanners(signInExpired = name != null && expired, newCourses = unlinked.filter { it.id !in hidden })
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeBanners())
+        }.combine(endedCourses(canvasSettings)) { banners, ended -> banners.copy(endedCourses = ended) }
+    }
+
+    private fun endedCourses(settings: CanvasSettings): kotlinx.coroutines.flow.Flow<List<Course>> = combine(
+        settings.courseMissingSince,
+        settings.hiddenArchivePrompts,
+        folderRepository.observeCourses(),
+    ) { missing, hidden, courses ->
+        val ids = com.nzfrankwu.noteapp.domain.EndedCourses.toSuggest(missing, hidden, clock.millis())
+        courses.filter { it.id in ids && it.archivedAt == null }.sortedBy { it.code }
+    }
+
+    /** "Archive" on the ended-courses strip. */
+    fun archiveEndedCourses() {
+        val ended = banners.value.endedCourses
+        if (ended.isEmpty()) return
+        viewModelScope.launch {
+            ended.forEach { folderRepository.setCourseArchived(it.id, true) }
+            val codes = ended.map { it.code }
+            _message.value = if (codes.size == 1) {
+                "${codes[0]} archived. Its folder is under Archived on Home."
+            } else {
+                "${codes.size} courses archived. Their folders are under Archived on Home."
+            }
+        }
+    }
+
+    /** "Not now" on the ended-courses strip: stop asking about these courses. */
+    fun hideEndedCourses() {
+        val ids = banners.value.endedCourses.map { it.id }
+        viewModelScope.launch { canvasSettings?.hideArchivePrompts(ids) }
     }
 
     /** "Not now" on the new-courses strip: stop suggesting these courses. */

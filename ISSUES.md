@@ -10,11 +10,29 @@ _None known._
 
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
+- **A Home nudge when Drive isn't connected? (your call):** today Home only warns once Drive is connected and backups fail or stop for 3 days. Nothing on Home reminds you to connect Drive in the first place.
+
 ## Follow-ups / tech debt
+
+- **Backup (Phase 6):**
+  - After "Import from export" the app restarts on Home; the "Restored the backup from …" message only shows in Settings → Backup.
+  - Home's "Recently deleted" row is hidden when there are no folders at all (Settings still has it).
+  - Restoring an export from an older database version relies on Room's normal migrations (covered by `MigrationTest`), not tested end to end with a real old export.
+  - The PDF copies have no status of their own: if one notebook can't be drawn, or Drive fails while updating the copies, nothing is shown (the full backup already succeeded; the next run tries again).
+  - Two tablets backing up to the same Google account would share one backup folder (each run keeps the other's newer snapshots, and unused files wait a day before they go), but restore lists them together. One tablet is the plan; revisit if that changes.
+  - Each Drive run lists `Backup/blobs/` (1 request per 1000 files) instead of caching Drive ids locally. Fine for thousands of files; revisit if backups get slow.
+  - The spare test account's Drive got part of a backup of the tablet's real notes on 17 Nov (connected by mistake, then disconnected). Delete the **Noteapp** folder in that account's Drive.
+  - **From the end-of-phase review (17 Nov), not fixed yet:**
+    - The whole Drive run holds `StorageLock.backup`, upload included. On a slow connection, Delete now, Export everything, the purge and Drive restore wait until it ends (a first backup can take 30+ minutes). Fix idea: hold the lock only for the snapshot, and let the purge/clean-up skip files a run is still uploading. 🔺 data safety.
+    - Every backup md5-hashes every file again, big PDFs included. Fix idea: cache md5 by path + size + modified time for write-once files.
+    - Every backup re-downloads the kept snapshot lists (~8). Fix idea: cache them by Drive file id; they never change.
+    - When one notebook's PDF copy fails, the copies still count as up to date until the next change or the daily run (on purpose, so a broken notebook isn't retried every 30 minutes).
+    - Home's backup strip "Open Settings" opens Settings at the top, not at Backup.
+  - "Back up now" isn't an expedited job (that would need its own notification on Android 11 and older), so Android may start it a little later.
 
 - **Open in Canvas (Phase 5 FB11):** not tried with the real Canvas Student app: whether it opens the university's assignment links (else the Chrome tab takes over) needs the tablet.
 - **Split view (Phase 5.8):** each notebook opened in a pane keeps its view model until you leave the notebook screen (cheap, but many swaps in one visit keep many notebooks in memory). A real side-by-side split with another app needs the tablet.
-- **Bookmark pen (Phase 5 FB5):** deleting a bookmark keeps its picture file (so Undo works), and nothing removes it later yet; a clean-up of unused bookmark pictures belongs with backup (Phase 6). The picture is what's on screen, so a rectangle drawn partly off screen gets only the part on screen.
+- **Bookmark pen (Phase 5 FB5):** deleting a bookmark keeps its picture file (so Undo works); the daily clean-up (Phase 6.5) removes it 30 days later. The picture is what's on screen, so a rectangle drawn partly off screen gets only the part on screen.
 - **Text boxes (Phase 5.1–5.5):**
   - A box moved or enlarged past the page's edge is cut off there (like pictures); it isn't pulled back onto the page.
   - In an exported PDF, a box with a character the font lacks (emoji, Chinese, a tab) is a picture, so its text can't be selected there.
@@ -32,7 +50,7 @@ _None known._
 - **Export (Phase 3.7):** PDF pages with a `/Rotate` or a crop box offset aren't tested; ink is placed using the crop box. The app is about 9 MB bigger (debug) with PdfBox; check the release size.
 - **Pictures while selected (Phase 3.6):** a selected picture is drawn above the ink until it's let go (it's in the selection layer); the rotate handle turns pictures too but a non-square picture turned and then stretched sideways is only approximately right (the stretch follows the box, not the picture's own axes).
 - **PDF pages, things not checked yet (Phase 3.3):** the sharp deep-zoom part (`pdfDetail`) needs a two-finger pinch, which the emulator scripts can't do; check on the tablet. Jumping far with the page scroller shows the page white for a moment before its picture arrives (plain notebooks also have no preview that far away). PDFs with rotated pages (`/Rotate`) aren't tested. Android 15+ can open password-protected PDFs with a password; we just refuse them for now.
-- **Imported PDFs and images are never deleted (Phase 3 decision):** a notebook's `pdf-*.pdf` and `images/*` files stay even when their pages or images are deleted, so Undo and Phase 6's "Recently deleted" can bring them back. Clean-up of files nothing uses is a Phase 6/7 job.
+- **Imported PDFs and images (Phase 3 decision, Phase 6.5):** a notebook's `pdf-*.pdf` and `images/*` files stay when their pages or images are deleted, so Undo works; the daily clean-up removes them once nothing has used them for 30 days (by file age, so a picture inserted long ago and removed today can go at the next clean-up unless the notebook is open).
 - **Steady pen width vs the pressure pen (F22):** at the same Thickness, the Off/Low/Medium pens may look thinner or thicker than the Full pen at your usual pressure (the emulator only has full pressure). Tune the multipliers in `InkBrushes.roundPen` after trying it on the tablet; changing them changes how existing strokes of those kinds look, so give a new key if notes already use them.
 - **Notebook editor, small things to revisit (Phase 2):**
   - Ink still being written shows on top of the toolbar if you write under it; it drops behind once you lift the pen.
@@ -62,10 +80,21 @@ _None known._
 - **The emulator's stylus handwriting is turned off** (emulator only; `settings put secure stylus_handwriting_enabled 0`), because its "Try out your stylus" tutorial swallowed scripted typing. The tablet is unaffected.
 - **Screen tests leave their in-memory databases open** (`TaskScreensTest`, `DueSoonTest`). Closing them while a screen was still reading crashed a run once. Harmless for tests; revisit if test memory ever becomes a problem.
 - **Never install an older build than the one on the tablet.** The database is now version 3 (B.8), and Room can't go back to an older version: the older app would refuse to open (crash at start). Your data stays safe, and installing a current build fixes it, but don't downgrade.
-- **For Phase 6 "Recently deleted":** deleting a folder only checks for notebooks that aren't deleted, so notebooks deleted earlier stay in the database with no folder (their pages and files are kept). "Recently deleted" must list these and offer somewhere to restore them.
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Ended courses are suggested for archiving (17 Nov):** after each successful Canvas sync, Noteapp remembers since when a linked course stopped appearing in Canvas's active courses (`EndedCourses`, kept in `canvas_settings`, so no database change). After 14 days Home shows "ELECTENG 204 isn't in your Canvas courses any more. Archive it?" with Archive / Not now. IDEA.md's archiving section doesn't mention this yet (ask before editing it).
+- **The PDF-copy job now reports "sign in again" straight away** (it used to wait for the next full backup). Found because Disconnect on one device takes Noteapp's permission back for that Google account everywhere.
+
+- **A long first backup kept being cancelled (tablet, 17 Nov):** every change while uploading replaced the running "soon" job, so on a slow connection big files could restart forever. Now a running backup is never cancelled; the next one waits after it (`BackupWorker.soonPolicy`). Settings also shows "Backing up 12 MB of 70 MB…" and "Updating the PDF copies (3 of 8)…".
+
+- **Google sign-in published (17 Nov):** app icon, homepage and privacy policy (`site/`, served by GitHub Pages from `gh-pages`: https://nzfrankwu.github.io/Noteapp/), Branding filled in and Publish app done by the user. Any Google account can now connect.
+
+- **Phase 6.4 Recently deleted (17 Nov):** deleted notebooks and PDFs are listed for 30 days (Home row and Settings) with Restore and Delete now; a notebook whose folder was deleted asks for a folder. Resolves the old "deleted notebooks without a folder" follow-up. A daily job deletes anything older than 30 days for good.
+- **Phase 6.1–6.3 Export everything / Import from export (17 Nov):** Settings → Backup. Real round trip on the emulator: compare PASS.
+
+- **Phase 6 planned (17 Nov):** `PHASE-6.md`. Decided with the user: only `play-services-auth` plus our own Drive client; the .zip Export/Import first; PDF copies daily; Word/PowerPoint conversion last; Recently deleted on Home and in Settings; Drive keeps 7 days of complete snapshots (IDEA.md §2.9 updated); a separate test Google account on the emulator.
 
 - **Second Phase 5 review (17 Nov), merged into `main` with the user's OK (`3ecda09`):** 8 findings fixed (list in PHASE-5.md): a drop near an edge no longer shows the old layout first, the Chrome tab opens over Noteapp, the divider handle takes less of the pages, no drop zone over the panel, plus tidying and 7 new screen tests. Those tests found a ninth: a narrow course folder could crash as its notes loaded (fixed).
 

@@ -1,0 +1,115 @@
+# Phase 6: Google Drive and backup (export, restore, Recently deleted)
+
+Backup to Google Drive, restore, a manual .zip export, readable PDF copies, Recently deleted, and Word/PowerPoint conversion (IDEA.md §2.9, §4, §5 and §5a).
+Work happens on branch `phase-6`; it's merged into `main` at the end, with the user's OK.
+- ★ marks a check-in with the user (skipped in hands-off mode; listed in REPORT.md instead).
+- 🔺 marks a difficult or high-stakes step. Before starting one, tell the user so they can switch to a stronger model or higher effort.
+
+## Why
+Phase 5 is merged into `main` (`09c1449`, review fixes `3ecda09`) and installed on the tablet. IDEA.md §5 says Phase 6 is **"Google sign-in, automatic full backup + restore, manual 'Export everything' / 'Import from export', PDF copies mirroring course folders, backup status/warnings, Recently deleted, Word/PowerPoint conversion"**, and §5a says it **must be finished and tested before the user relies on the app**.
+
+Nothing on the tablet is backed up yet: Android's own backup is off on purpose (it would copy the Canvas cookies).
+
+**Mode:** hands-off (the user said "hands off mode, use all of limit left" on 17 Nov).
+
+## Decided with the user (17 Nov 2026)
+- **Library:** only `com.google.android.gms:play-services-auth` (Google's standard permission screen, `Identity.getAuthorizationClient`, scope `drive.file`). Drive is reached through our own small client over OkHttp, which the app already has. Google's Java Drive client is not used.
+- **Order:** the .zip Export/Import comes first (no Google needed). It builds and tests the whole restore path; Drive is then added on top of the same code.
+- **PDF copies:** refreshed in the daily run and on "Back up now" (not a few minutes after each edit).
+- **Word/PowerPoint conversion:** stays in Phase 6, as the last step.
+- **Recently deleted:** a "Recently deleted (N)" row under the folders on Home (like Archived, hidden when empty), plus a row in Settings. It opens a grid of thumbnails ("deleted 3 days ago"), each with Restore and Delete now.
+- **Snapshots:** Drive keeps the newest snapshot plus one per day for the last 7 days. Restore offers the newest, with older ones listed. IDEA.md §2.9 updated (user's OK): Version history can later reuse these snapshots.
+- **Testing:** a **separate test Google account**, signed in on the emulator by the user (the AVD is a Google Play image).
+
+## Proposed by me (easy to change)
+- The Drive folder is named **"Noteapp"** (the app's spelling).
+- "Back up now" uses any connection; automatic backups are **Wi-Fi only** by default (a switch in Settings).
+- **Restore replaces everything on this tablet.** It never merges. The data it replaces is kept on the device as a "before restore" copy until the user removes it in Settings.
+- A deleted notebook's PDF copy stays in Drive until it's purged (30 days), like the full backup.
+- `canvas_settings` is **not** backed up. After a restore the user signs in to Canvas again.
+
+## Design (data safety, IDEA.md §5a)
+**What's in a backup set** (the same for the zip and Drive):
+- `manifest.json`: format version, created time, app version, database version, counts, and for every file its path, size and md5
+- `db/noteapp.db`: one consistent copy (below)
+- `files/notebooks/**`: page files (formats 1–3), `pdf-*.pdf`, `images/`, `bookmarks/`; never `*.saving` or `*.writing`
+- `settings.json`: the values of `ink_settings` and `view_settings`
+
+**Never in a backup:** `canvas_settings`, the WebView's cookies (`app_webview/`), `shared-inbox/`, the cache, the `reminders` prefs and `backup_settings`. A unit test fails if an excluded path gets in.
+
+**Consistent snapshot** (`data/backup/LocalSnapshot`):
+1. Hold the app-wide `StorageLock` (the editor's save lock, moved into `AppContainer`), so page saves pause.
+2. In a write transaction: `PRAGMA wal_checkpoint(TRUNCATE)`, copy `noteapp.db`, end the transaction.
+3. `PRAGMA integrity_check` on the copy.
+4. Copy the notebook files and hash them.
+
+Zipping and uploads read only from the staged copy. (`VACUUM INTO` needs API 30; minSdk is 26.)
+
+**Restore** (one path for zip and Drive, `data/backup/RestoreSwap`) 🔺:
+1. Unzip or download into `restore-staging/`.
+2. Check every md5 against the manifest; integrity check on the database.
+3. Refuse a database version newer than this app ("Update Noteapp first"). An older version is migrated by Room's normal migrations.
+4. Write a `restore-ready` marker and restart the app.
+5. At the very start of `NoteAppApplication.onCreate`, before anything opens the database or DataStore: move the current database and `files/notebooks` to `before-restore/<time>/`, move the staged files in, apply `settings.json`, delete the marker. Every step can run again, so a crash halfway is finished on the next start.
+6. Reminders are planned again; the user signs in to Canvas again.
+
+**Drive layout:**
+```
+My Drive/Noteapp/
+  Backup/blobs/<md5>            ← each file once, named by content
+  Backup/snapshots/<time>.json  ← the manifest, written LAST
+  Notes (PDF)/<folder>/<subfolder>/<title>.pdf
+```
+Uploads are checked against Drive's `md5Checksum`. After a snapshot is committed, retention removes old snapshots, then blobs no kept snapshot uses.
+
+**Auth:** `AuthorizationClient.authorize(drive.file)` gets a token silently in the worker; if the user has to act, the status says "Sign in to Google again". Play Services keeps the tokens; we never store, log or print them.
+
+**Scheduling** (WorkManager): a "backup-soon" one-time job 5 minutes after the database changes (`REPLACE` debounce), a daily job (backup, PDF copies, purge, clean-up), Wi-Fi only by default, battery not low, and an expedited "Back up now".
+
+**Recently deleted:** only notebooks soft-delete (`deleted_at`). Restore puts a notebook back in its folder, or asks for one when its folder is gone. After 30 days (or "Delete now", confirmed) the notebook's rows and `notebooks/<id>/` are removed for good. Pages deleted over 30 days ago inside live notebooks are purged the same way.
+
+**Clean-up** 🔺: a file in `images/`, `bookmarks/` or a `pdf-*.pdf` is removed only when nothing refers to it (page files, bookmark rows, `pages.pdf_file`), it's older than 30 days, and its notebook isn't open. Leftover `*.writing` files go too.
+
+## Steps (branch `phase-6` from `main`; ★ = check-in, 🔺 = difficult)
+- [x] **6.0** This plan; IDEA.md §2.9 (snapshots, the "Noteapp" Drive folder), HANDOFF.md, ISSUES.md.
+- [x] 🔺 **6.1 Local snapshot and manifest** (17 Nov, hands-off; `f62a311`). Changed from the plan: the two settings stores are backed up as their own files (`files/datastore/*.preferences_pb`) instead of `settings.json`; they're swapped in at start-up before DataStore opens, so no conversion is needed. Page files are copied under the save lock; PDFs and pictures (written once, never changed) are read where they are. 26 unit tests, 5 emulator tests (`LocalSnapshotTest`: the latest changes still in `-wal` are in the copy; a snapshot taken while 40 pages are added is consistent). Was: `StorageLock`, `LocalSnapshot`, `BackupManifest`, `SettingsExport`.
+  - unit tests: the manifest, the exclusions (Canvas never included), settings to and from JSON
+  - emulator tests: a snapshot taken while pages save is consistent; the integrity check passes
+- [x] **6.2 Export everything (.zip)** (17 Nov). Was: a **Settings → Backup** section (between Notebooks and Reminders) with Export everything / Import from export; the zip is written through the system "Save as". ★
+- [x] 🔺 **6.3 Import from export** (17 Nov). Real check on the emulator: sample data (3 folders, 7 tasks, a notebook with strokes) → Export → `pm clear` → Import → confirm → the app restarts → `compare_dbs.py` PASS (every row) and every file's md5 the same. The old data went to `before-restore/<time>/`. Tested by unit tests instead of by hand: tampered, missing, extra and escaping (`../`) files, Canvas settings in a zip, no manifest, not a zip, a newer manifest format, both crash points of the swap, an unreadable marker. Not tested: restoring a v6 database (Room's own migrations do it; `MigrationTest` covers them). Was: confirmation (backup date, size, counts, "replaces everything on this tablet"), staging, md5 check, restart and swap, the before-restore copy.
+  - tests: round trip; a corrupt or tampered zip is refused; a newer database version is refused; a swap killed halfway recovers
+  - real check on the emulator: data → export → wipe → import → compare PASS
+  - ★
+- [x] **6.4 Recently deleted** (17 Nov, hands-off). Home shows "🗑 Recently deleted (N) ›" under the folders when there's anything in it; Settings has a Recently deleted section. The screen is a grid of tiles ("30 days left"); tapping one shows its pages, old folder and when it goes, with Restore and Delete now (confirmed: "can't be undone"). Restore puts it back in its folder (the folder picker opens if that folder was deleted). `NotebookPurge` removes rows first, then files; the daily `MaintenanceWorker` purges notebooks and pages deleted over 30 days ago. No database change (the foreign keys already cascade). 6 emulator tests, 2 unit tests. Was: the Home row, the Settings row and the grid screen; Restore (folder picker if the folder is gone); Delete now; the 30-day purge in a daily `MaintenanceWorker`. ★
+- [x] 🔺 **6.5 Clean-up of unused files** (17 Nov, hands-off). `FileCleanup`, run by the daily `MaintenanceWorker`. Removes old (30+ days) pictures, bookmark pictures and PDFs nothing refers to, leftovers of cut-off saves (1+ day), and old folders of notebooks that no longer exist. Skips notebooks open in the editor (`OpenNotebooks`) or the clipboard's source, and any notebook with a page file it can't read. 4 unit tests, 6 emulator tests. Was: (the rules above).
+- [x] **6.6 Google Cloud setup, guided with the user** (their login): project, Drive API, OAuth consent screen (External, `drive.file`, **"In production"**), Android OAuth client with the SHA-1 from `gradlew.bat signingReport`; add `play-services-auth`, `INTERNET`, `ACCESS_NETWORK_STATE`.
+  - Done 17 Nov with the user: project "Noteapp", Drive API, consent screen with `drive.file` only, one Android client (debug and release builds share the release key, so one SHA-1).
+  - **Still in Testing mode** (test users: the spare account and the user's main one). Publishing needs a homepage + privacy policy URL; the user wants to publish Noteapp later (ISSUES.md).
+- [x] **6.7 Google sign-in in Settings → Backup.** ★ Code done (`GoogleAuth`, `DriveConnection`, `ui/settings/DriveBackupBlock.kt`); cancelling Google's screen checked on the emulator. Real sign-in on the emulator with the spare account worked (17 Nov).
+- [x] 🔺 **6.8 `DriveClient` over OkHttp** (MockWebServer tests). `data/backup/drive/DriveClient.kt` plus the `DriveApi` interface the engine uses (a fake in tests). 401 → one fresh token; 429/5xx/rate-limit 403 → retried with pauses, then "try later"; full Drive → QUOTA; a failed upload starts a fresh resumable session. 17 tests.
+- [x] 🔺 **6.9 Drive backup engine:** blobs, snapshot last, md5 checks, retention, garbage collection. `data/backup/drive/DriveBackup.kt` (+ `Retention`), tested against `FakeDrive` (12 tests, including a run stopped halfway, a file damaged on the way, retention over 10 days, restore download).
+  - Changed from the plan: no `state.json` cache of Drive ids. Each run lists `blobs/` instead (one request per 1000 files), so nothing local can go stale.
+  - An unused blob is removed only when it's over a day old (a run still uploading never loses its files), and only if every kept snapshot's list could be read.
+  - The whole run holds `StorageLock.backup` (Export, purge and clean-up wait; page saves don't).
+  - Snapshot files are named like `2026-11-17 10-00-00 UTC.json`; their time is in `appProperties.createdAt`. Files without it are never removed and count as in use.
+- [x] **6.10 Automatic backup and status:** jobs, Wi-Fi only, Back up now, status in Settings, Home strip when failing or 3+ days without a backup. ★ Code done and tested with a made-up account (`DriveSettings`, `DriveBackupRunner`, `BackupWorker`, `DriveText`, Home `banner-backup`; 9 unit + 6 screen tests). Real runs on the emulator: Connect → "Last backed up just now"; Back up now after a change.
+  - "Soon" = Room's invalidation flow (all tables; page saves mark their page edited), 10 s debounce, then a 5-minute job (REPLACE: an interrupted upload is reused by the next run).
+  - Back up now isn't "expedited" (that needs a notification on Android 11 and older).
+  - Offline/busy isn't shown as an error (the job retries); the Home strip appears after 3 days without a backup.
+  - Safety: an app with **no notebooks never backs up over an existing Drive backup** (a fresh install can't replace the real one before you restore).
+- [x] 🔺 **6.11 Restore from Google Drive.** ★ Code done: "Restore from Google Drive" lists backups newest first → download + md5 check into `restore-staging` → the 6.3 confirm dialog and swap. Offered automatically after connecting on an app with no notebooks ("Restore your notes?" / "Start fresh"). Download tested against the fake Drive. **Real round trip on the emulator (17 Nov):** backup → wipe app data → Connect offered "Restore your notes?" → restore → `compare_dbs.py` PASS, every file identical.
+- [x] **6.12 PDF copies in `Notes (PDF)/`.** ★ Code done: `PdfCopies` (Drive side, 8 tests on the fake Drive) + `AppPdfSource` (database, PdfExport; 3 emulator tests). Runs after the backup on the daily job and Back up now. Seen in the real Drive: `Notes (PDF)/Engineering Electromagnetics/…pdf`.
+  - Each copy is tagged with its notebook id and a content version (paper, pages, page files; not the title or folder): an edit replaces the same Drive file (so Drive keeps its history), a rename or move only moves it, folders left empty go.
+  - Recently deleted keeps its copy; deleted for good → the copy goes. A notebook that can't be drawn is skipped and doesn't stop the others.
+  - Changed from the plan: `InkBrushes.exportShape` wasn't moved; it already works without a screen.
+- [x] **6.13 Word/PowerPoint → PDF.** ★ Code done: `OfficeConvert` (upload to `Noteapp/Converting/` with conversion → export as PDF → the Drive copy is deleted even if cancelled → normal PDF import). Entry points: Share / Open with (.docx .doc .pptx .ppt) and folder ＋ → "Import PDF, Word or PowerPoint" ("Converting with Google Drive…"). 6 unit tests; on the emulator, both entry points show the not-connected message with the Print → Save as PDF tip. Real check: a .docx imported from a folder became a PDF notebook; `Converting/` was empty afterwards.
+- [x] **6.14 Tablet check** (ask first; snapshot; install; the user connects their real Google account). Done 17 Nov: snapshot (with files) → install → compare PASS (8 notebooks, 252 pages, 124 tasks, 167 files); the user connected their main account. Found and fixed there: a running backup was cancelled by every edit (now never), progress words added.
+  - Added after the plan, with the user: app icon; homepage + privacy policy on GitHub Pages (`site/`, branch `gh-pages`); sign-in published; "Update PDF copies" every 15/30/60 min or daily (default 30); suggest archiving courses Canvas stopped listing (14 days).
+- [ ] **End of phase:** (review done 17 Nov: 10 findings, 5 fixed, 5 left in ISSUES.md; waits for the user's OK to merge) `/code-review`, fix, rebuild and retest, ask to merge into `main`.
+
+## Verification
+- Every step: `.\gradlew.bat assembleDebug testDebugUnitTest`, then `$env:ANDROID_SERIAL="emulator-5554"; .\gradlew.bat connectedDebugAndroidTest`.
+- Restore round trips on the emulator, checked with `compare_dbs.py` (every row) and the md5 of every page file.
+- A check that a produced zip has no `canvas_settings`, `app_webview` or cookie data.
+- Screenshots of every new screen (landscape/portrait, light/dark).
+- The tablet only with the user's OK and a snapshot first.

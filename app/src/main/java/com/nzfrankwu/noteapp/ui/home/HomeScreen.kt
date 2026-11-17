@@ -84,6 +84,9 @@ fun HomeScreen(
     calendar: @Composable () -> Unit = { ComingSoon("Calendar") },
     /** The Timeline tab's content (B.6). */
     timeline: @Composable () -> Unit = { ComingSoon("Timeline") },
+    /** How many notebooks are in Recently deleted (the row under Folders shows when it's above 0). */
+    recentlyDeletedCount: Int = 0,
+    onOpenRecentlyDeleted: () -> Unit = {},
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val folders by viewModel.folders.collectAsStateWithLifecycle()
@@ -108,7 +111,10 @@ fun HomeScreen(
         timeline = timeline,
         folders = folders,
         banners = banners,
-        bannerActions = BannerActions(onSignInAgain, onLinkCourses, viewModel::hideNewCourses),
+        bannerActions = BannerActions(
+            onSignInAgain, onLinkCourses, viewModel::hideNewCourses, onOpenSettings,
+            onArchiveEnded = viewModel::archiveEndedCourses, onHideEnded = viewModel::hideEndedCourses,
+        ),
         refreshing = refreshing,
         onRefresh = viewModel::refresh,
         dueSoon = dueSoon,
@@ -128,6 +134,8 @@ fun HomeScreen(
         archivedExpanded = archivedExpanded,
         onToggleArchived = viewModel::toggleArchived,
         onSetArchived = viewModel::setArchived,
+        recentlyDeletedCount = recentlyDeletedCount,
+        onOpenRecentlyDeleted = onOpenRecentlyDeleted,
     )
 
     when (val d = dialog) {
@@ -195,6 +203,8 @@ fun HomeContent(
     onToggleArchived: () -> Unit = {},
     /** Archive or unarchive a folder's course. */
     onSetArchived: (FolderListItem, Boolean) -> Unit = { _, _ -> },
+    recentlyDeletedCount: Int = 0,
+    onOpenRecentlyDeleted: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -231,6 +241,8 @@ fun HomeContent(
             onSetArchived = onSetArchived,
             archivedExpanded = archivedExpanded,
             onToggleArchived = onToggleArchived,
+            recentlyDeletedCount = recentlyDeletedCount,
+            onOpenRecentlyDeleted = onOpenRecentlyDeleted,
         )
         Column(Modifier.padding(innerPadding).fillMaxSize()) {
             HomeBannerStrips(banners, bannerActions)
@@ -286,6 +298,8 @@ private class FolderActions(
     val onSetArchived: (FolderListItem, Boolean) -> Unit,
     val archivedExpanded: Boolean,
     val onToggleArchived: () -> Unit,
+    val recentlyDeletedCount: Int = 0,
+    val onOpenRecentlyDeleted: () -> Unit = {},
 )
 
 /**
@@ -302,6 +316,31 @@ private fun LazyGridScope.folderTiles(folders: List<FolderListItem>, actions: Fo
         if (actions.archivedExpanded) {
             items(archived, key = { it.folder.id }) { item -> FolderTileFor(item, actions) }
         }
+    }
+    if (actions.recentlyDeletedCount > 0) {
+        item(key = "deleted-row", span = { GridItemSpan(maxLineSpan) }) {
+            RecentlyDeletedRow(actions.recentlyDeletedCount, actions.onOpenRecentlyDeleted)
+        }
+    }
+}
+
+/** "Recently deleted (2) ›": opens Recently deleted (PHASE-6.md 6.4). Hidden when it's empty. */
+@Composable
+private fun RecentlyDeletedRow(count: Int, onOpen: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClick = onOpen)
+            .padding(horizontal = 4.dp, vertical = 10.dp)
+            .testTag("recently-deleted-row"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painterResource(R.drawable.ic_delete), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text("Recently deleted ($count)", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(2.dp))
+        Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -443,12 +482,15 @@ class BannerActions(
     val onSignInAgain: () -> Unit = {},
     val onLinkCourses: () -> Unit = {},
     val onHideNewCourses: () -> Unit = {},
+    val onOpenBackup: () -> Unit = {},
+    val onArchiveEnded: () -> Unit = {},
+    val onHideEnded: () -> Unit = {},
 )
 
-/** The Canvas strips at the top of home (nothing when all is well). */
+/** The Canvas and backup strips at the top of home (nothing when all is well). */
 @Composable
 private fun HomeBannerStrips(banners: HomeBanners, actions: BannerActions) {
-    if (!banners.signInExpired && banners.newCourses.isEmpty()) return
+    if (!banners.signInExpired && banners.newCourses.isEmpty() && banners.backupWarning == null && banners.endedCourses.isEmpty()) return
     Column(
         Modifier.fillMaxWidth().padding(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, bottom = Dimens.ItemGap),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -460,6 +502,20 @@ private fun HomeBannerStrips(banners: HomeBanners, actions: BannerActions) {
                 modifier = Modifier.testTag("banner-expired"),
             ) {
                 FilledTonalButton(onClick = actions.onSignInAgain) { Text("Sign in again") }
+            }
+        }
+        banners.backupWarning?.let { warning ->
+            Banner(warning, warning = true, modifier = Modifier.testTag("banner-backup")) {
+                FilledTonalButton(onClick = actions.onOpenBackup) { Text("Open Settings") }
+            }
+        }
+        if (banners.endedCourses.isNotEmpty()) {
+            Banner(
+                com.nzfrankwu.noteapp.domain.EndedCourses.message(banners.endedCourses.map { it.code }),
+                modifier = Modifier.testTag("banner-ended-courses"),
+            ) {
+                FilledTonalButton(onClick = actions.onArchiveEnded, modifier = Modifier.testTag("archive-ended")) { Text("Archive") }
+                TextButton(onClick = actions.onHideEnded, modifier = Modifier.testTag("hide-ended")) { Text("Not now") }
             }
         }
         if (banners.newCourses.isNotEmpty()) {

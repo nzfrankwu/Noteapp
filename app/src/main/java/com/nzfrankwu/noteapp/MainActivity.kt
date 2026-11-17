@@ -76,9 +76,10 @@ class MainActivity : ComponentActivity() {
 
     private fun isFileShare(intent: Intent?): Boolean {
         val type = intent?.type ?: return false
-        return (intent.action == Intent.ACTION_SEND && (type == PDF_TYPE || type.startsWith("image/"))) ||
+        val office = type in com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert.MIME_TYPES
+        return (intent.action == Intent.ACTION_SEND && (type == PDF_TYPE || office || type.startsWith("image/"))) ||
             (intent.action == Intent.ACTION_SEND_MULTIPLE && type.startsWith("image/")) ||
-            (intent.action == Intent.ACTION_VIEW && type == PDF_TYPE)
+            (intent.action == Intent.ACTION_VIEW && (type == PDF_TYPE || office))
     }
 
     /**
@@ -91,7 +92,13 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_SEND_MULTIPLE -> androidx.core.content.IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, android.net.Uri::class.java).orEmpty()
             else -> listOfNotNull(intent.data)
         }
-        val pdf = intent.type == PDF_TYPE
+        // A Word/PowerPoint file goes the PDF way (into a folder you pick), converted on the way in.
+        val officeType = com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert.officeType(intent.type, null)
+        val pdf = intent.type == PDF_TYPE || officeType != null
+        val extension = when (officeType) {
+            null -> if (pdf) "pdf" else "img"
+            else -> com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert.extensionFor(officeType)
+        }
         intent.action = Intent.ACTION_MAIN // so it isn't handled twice
         if (uris.isEmpty()) return
         val inbox = java.io.File(filesDir, com.nzfrankwu.noteapp.data.SharedImport.INBOX_DIR)
@@ -103,7 +110,7 @@ class MainActivity : ComponentActivity() {
                             if (c.moveToFirst()) c.getString(0) else null
                         }
                     }.getOrNull()
-                    com.nzfrankwu.noteapp.data.SharedImport.copyToInbox(inbox, if (pdf) "pdf" else "img") {
+                    com.nzfrankwu.noteapp.data.SharedImport.copyToInbox(inbox, extension) {
                         contentResolver.openInputStream(uri)
                     }?.let { com.nzfrankwu.noteapp.data.InboxFile(it, name) }
                 }

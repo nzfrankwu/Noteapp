@@ -36,10 +36,11 @@ class CanvasSyncRunnerTest {
     }
 
     private var failure: CanvasException? = null
+    private var activeCourses = listOf(CanvasCourse(555, "Engineering Electromagnetics", "ELECTENG 204"))
     private val fakeCanvas = object : CanvasSource {
         override suspend fun getActiveCourses(): List<CanvasCourse> {
             failure?.let { throw it }
-            return listOf(CanvasCourse(555, "Engineering Electromagnetics", "ELECTENG 204"))
+            return activeCourses
         }
         override suspend fun getAssignments(courseId: Long): List<CanvasAssignment> = emptyList()
     }
@@ -63,6 +64,7 @@ class CanvasSyncRunnerTest {
         settings.setSignedInAs(null)
         settings.setSignInExpired(false)
         settings.clearLastSynced()
+        settings.setCourseMissingSince(emptyMap())
     }
 
     private suspend fun signIn() {
@@ -84,6 +86,29 @@ class CanvasSyncRunnerTest {
         assertEquals(now, settings.lastSyncedAt.first())
         assertFalse(settings.signInExpired.first())
         assertEquals(1, db.courseDao().getAll().size)
+    }
+
+    @Test
+    fun aCourseCanvasStopsListing_isRemembered_fromTheFirstSyncItWasMissing() = runBlocking {
+        signIn()
+        activeCourses = activeCourses + CanvasCourse(777, "Circuits", "ELECTENG 101")
+        runner.run()
+        assertTrue(settings.courseMissingSince.first().isEmpty())
+
+        activeCourses = activeCourses.take(1) // the semester of ELECTENG 101 ended
+        now = now.plusSeconds(3600)
+        runner.run()
+        val ended = checkNotNull(db.courseDao().getByCanvasId(777)).id
+        assertEquals(mapOf(ended to now.toEpochMilli()), settings.courseMissingSince.first())
+
+        val firstMissed = now.toEpochMilli()
+        now = now.plusSeconds(15 * 86_400)
+        runner.run()
+        assertEquals("keeps the first time", mapOf(ended to firstMissed), settings.courseMissingSince.first())
+
+        failure = CanvasException.HttpError(503)
+        runner.run()
+        assertEquals("a failed sync changes nothing", mapOf(ended to firstMissed), settings.courseMissingSince.first())
     }
 
     @Test

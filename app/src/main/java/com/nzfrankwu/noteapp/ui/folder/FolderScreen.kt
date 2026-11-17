@@ -140,7 +140,7 @@ fun FolderScreen(
     ) { uri ->
         if (uri != null) {
             val resolver = context.contentResolver
-            viewModel.importPdf(displayNameOf(resolver, uri)) { resolver.openInputStream(uri) }
+            viewModel.importPdf(displayNameOf(resolver, uri), { resolver.openInputStream(uri) }, runCatching { resolver.getType(uri) }.getOrNull())
         }
     }
     val importing by viewModel.importing.collectAsStateWithLifecycle()
@@ -154,7 +154,8 @@ fun FolderScreen(
             snackbar.showSnackbar(text)
         }
     }
-    if (importing) ImportingDialog()
+    val converting by viewModel.converting.collectAsStateWithLifecycle()
+    if (importing) ImportingDialog(converting)
     var chosenTab by rememberSaveable { mutableStateOf(FolderTab.TASKS) }
     // Without a linked course there's nothing to put on a calendar: Tasks only.
     val tab = if (linkedCourseId == null) FolderTab.TASKS else chosenTab
@@ -177,9 +178,12 @@ fun FolderScreen(
                             modifier = Modifier.testTag("new-notebook"),
                         )
                         DropdownMenuItem(
-                            text = { Text("Import PDF") },
+                            text = { Text("Import PDF, Word or PowerPoint") },
                             leadingIcon = { Icon(painterResource(R.drawable.ic_picture_as_pdf), contentDescription = null) },
-                            onClick = { addMenuOpen = false; pickPdf.launch(arrayOf("application/pdf")) },
+                            onClick = {
+                                addMenuOpen = false
+                                pickPdf.launch(arrayOf("application/pdf") + com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert.MIME_TYPES)
+                            },
                             modifier = Modifier.testTag("import-pdf"),
                         )
                         DropdownMenuItem(
@@ -581,9 +585,12 @@ private fun displayNameOf(resolver: android.content.ContentResolver, uri: androi
     null
 }
 
-/** "Importing PDF…" while a PDF is copied in (a big lecture PDF can take a moment). */
+/**
+ * "Importing PDF…" while a PDF is copied in (a big lecture PDF can take a moment), or
+ * "Converting with Google Drive…" for a Word/PowerPoint file.
+ */
 @Composable
-private fun ImportingDialog() {
+private fun ImportingDialog(converting: Boolean) {
     androidx.compose.ui.window.Dialog(onDismissRequest = {}) {
         androidx.compose.material3.Surface(
             shape = MaterialTheme.shapes.large,
@@ -593,7 +600,7 @@ private fun ImportingDialog() {
             Row(Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.material3.CircularProgressIndicator(Modifier.size(28.dp))
                 Spacer(Modifier.width(16.dp))
-                Text("Importing PDF…", style = MaterialTheme.typography.bodyLarge)
+                Text(if (converting) "Converting with Google Drive…" else "Importing PDF…", style = MaterialTheme.typography.bodyLarge)
             }
         }
     }

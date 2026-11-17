@@ -1,46 +1,45 @@
 # Handoff: where things stand
 
-_Last updated: 17 Nov 2026 (second Phase 5 review fixed and merged into `main` with the user's OK; next session: plan Phase 6). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 17 Nov 2026, late (Phase 6 complete on `phase-6`, reviewed; waiting for the user's OK to merge into `main`). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
-- **Phases 1, 1b, 2, 3, 4 and 5 are done and merged into `main`** (Phase 5 merged 17 Nov, `09c1449`; the second review's fixes merged 17 Nov, `3ecda09`). History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
-- **Branch:** `main`. Start a `phase-6` branch from it when Phase 6 begins.
-- **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet.
-- **Mode:** "Working together" (the default) unless the user says otherwise. Phases 4 and 5 were hands-off.
-- **The tablet runs `main` with the second review's fixes** (installed 17 Nov with the user's OK; backup `backups/tablet-2026-11-17-before-review2/`; compare PASS: every row, links, bookmarks and all 167 page files unchanged), database **version 7**. Never install a build older than v7 on it: Room can't downgrade. Pages with text boxes are page format 3.
-- **The emulator runs Phase 5** (database v7). Unit tests and the full emulator suite (**280 tests**) pass on `main`.
-- **Phase 5 covered** (details in PHASE-5.md):
-  - text boxes (page format 3; PDF export as real text)
-  - the user's 4 feedback rounds FB1–FB15:
-    - the bookmark sheet's ✓
-    - task search and filters
-    - two pens (dark blue and red)
-    - the **bookmark pen**, which saves a picture as the note (database **v7**)
-    - course folders with tasks (left) and notes (right) side by side
-    - Open in Canvas: the Canvas app, else a Chrome tab
-  - split view (side by side or stacked, divider ⋮ menu, drag to close)
-  - the recent notebooks panel with drag-to-split
-  - Copy/Paste and screenshots between the two notebooks
-  - narrow windows
+- **Phases 1–5 are merged into `main`.** History in `PHASE-1.md` … `PHASE-5.md` and `ISSUES.md`.
+- **Phase 6 (backup), branch `phase-6`, mode hands-off** (user, 17 Nov). Plan, the user's decisions and per-step notes: `PHASE-6.md`.
+  - **Done and checked on the emulator with a real Google account (17 Nov):** 6.1–6.13. Connect, automatic backup, Back up now, restore round trip from Drive (compare PASS), PDF copies, Word → PDF. Details per step in `PHASE-6.md`.
+  - **Google Cloud project "Noteapp": sign-in published** (17 Nov). One Android client is enough: debug and release are both signed with the release key.
+  - The emulator has the user's spare Google account signed in and connected (it holds only made-up test data).
+  - `play-services-auth` 22.0.0 is in (the user approved it). No database change in Phase 6 (still v7).
+  - **Not on the tablet yet.**
+  - Tests at the end of the phase: **574 unit tests and the full emulator suite (310) pass** (17 Nov, after the review fixes). Test gotcha: `am instrument` force-stops the app, which cancels its WorkManager jobs until the app is opened again; tests that change app settings must reset them (the suite reinstalls without wiping data).
+- **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet. `connectedDebugAndroidTest` **uninstalls the app afterwards** (emulator data gone; rerun `screenshots/p4setup.sh`).
+- **The tablet runs `phase-6`** (`0e741d1`, the reviewed build, 17 Nov; snapshot before/after each install: compare PASS), database **version 7**, connected to the user's main Google account (first backup done, ~48 MB). Never install a build older than v7 on it.
+
+## Phase 6 code map (`app/src/main/java/com/nzfrankwu/noteapp/`)
+
+- `data/StorageLock.kt`: `pages` (page saves) and `backup` (whole backup/restore/purge/clean-up/Drive run/PDF copies). Never take `pages` then `backup`.
+- `data/backup/`:
+  - `BackupPaths` (what's in a backup; Canvas never), `BackupManifest` (+ `Md5`), `DatabaseCheck`, `LocalSnapshot`, `ZipBackup` (+ `StagedSet.verify`), `RestoreSwap` (two-phase swap at start-up), `BackupManager` (export/import/Drive restore UI state), `MaintenanceWorker`
+- `data/backup/drive/`:
+  - `DriveClient` (+ `DriveApi`, `DriveTokens`, `DriveException`): Drive v3 over OkHttp
+  - `DriveBackup` (+ `Retention`): `Noteapp/Backup/blobs/<md5>` + `snapshots/<time>.json` written last; restore download. **An app with no notebooks never backs up over an existing backup.**
+  - `GoogleAuth` (Play Services AuthorizationClient, `drive.file`), `DriveSettings` (`backup_settings` DataStore, never backed up), `DriveStatus` (+ `DriveText`, `DriveBackupRunner`), `BackupWorker` (soon/daily/now), `DriveConnection` (Settings controller)
+  - `PdfCopies` + `AppPdfSource` (`Noteapp/Notes (PDF)/…`), `OfficeConvert` (`Noteapp/Converting/`, deleted straight away)
+- UI: `ui/settings/BackupSection.kt` + `DriveBackupBlock.kt`, `ui/deleted/RecentlyDeletedScreen.kt`, Home strips `banner-backup` and "Recently deleted (N)", folder ＋ → "Import PDF, Word or PowerPoint".
+- `NoteAppApplication.onCreate`: `restoreSwap.finishPending()` first; then `driveConnection.keepBackingUp(databaseChanges())`.
+- Tests: `test/.../data/backup/drive/` (`FakeDrive` is the in-memory Drive), `androidTest/.../ui/DriveBackupScreenTest.kt`, `data/AppPdfSourceTest.kt`.
 
 ## Next steps (in order)
 
-1. **Plan Phase 6: Google Drive and backup** (IDEA.md §2.9, §5, §5a). IDEA.md says it **must be finished and tested before the user relies on the app**.
-   - Read IDEA.md §2.9 (what's backed up, Drive layout, PDF copies), §4 (Word/PowerPoint conversion through Drive), §5 (the Phase 6 row) and §5a (data-safety rules).
-   - Write `PHASE-6.md` with the user (working together): describe new screens before coding (CLAUDE.md §2.10), mark 🔺 steps.
-   - **Ask first** (CLAUDE.md): Google sign-in involves the user's login; the Drive/Google libraries are big new libraries. Google sign-in also needs the release signing key (the user's key is in `<user home>/keys/`; never read those files, check with `gradlew.bat signingReport` only).
-   - Things Phase 6 inherits, from ISSUES.md:
-     - unused bookmark pictures (`bookmarks/*.png`) and inserted pictures are never cleaned up
-     - deleted notebooks without a folder
-     - "Recently deleted"
-     - the backup must include page files (formats 1–3), `images/`, `bookmarks/` and PDFs in each notebook's folder, plus the database (v7) and settings, but **never** Canvas cookies or the feed link (IDEA.md §2.9, §3.5)
-2. **Still-unreported tablet checks** (ask when convenient):
+1. **Ask the user to approve merging `phase-6` into `main`.** Everything in `PHASE-6.md` is done and checked; the end-of-phase review is done (5 fixes in, 5 follow-ups in ISSUES.md "Backup (Phase 6)"). Never merge without the user's OK.
+2. Then Phase 7 per IDEA.md §5 (read it first), or the Phase 6 follow-ups if the user prefers. The 🔺 one: don't hold `StorageLock.backup` for a whole upload.
+3. The tablet: connected to the user's main Google account (17 Nov). Check with them that "Last backed up …" appears and PDFs show up in Drive.
+4. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own
    - whether **Open in Canvas** opens the Canvas Student app or the Chrome tab
    - whether writing in a text box with the OPPO Pencil turns into typed text
-3. Older follow-ups (ISSUES.md, not blocking):
+5. Older follow-ups (ISSUES.md, not blocking):
    - very deep zoom has no page picture
    - pre-draw the next page
    - a big lasso move pauses on release
@@ -77,7 +76,7 @@ _Last updated: 17 Nov 2026 (second Phase 5 review fixed and merged into `main` w
 
 ## Waiting on the user
 
-- **Nothing blocking.** Next is planning Phase 6 together.
+- **Step 6.6 needs the user** (Google Cloud project with their login, test account on the emulator). Steps 6.1–6.5 don't.
 - **Their Canvas sign-in on the tablet works** (go/no-go passed 15 Nov). Their real courses and assignments are on the tablet.
 
 ## Decisions to remember

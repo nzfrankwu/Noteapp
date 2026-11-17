@@ -212,6 +212,33 @@ class NotebookRepository(
     /** Brings back a deleted notebook (e.g. Undo). */
     suspend fun restore(notebookId: String): NotebookResult = setDeleted(notebookId, deleted = false)
 
+    /** Recently deleted (PHASE-6.md 6.4): deleted notebooks, most recently deleted first. Updates live. */
+    fun observeDeleted(): Flow<List<com.nzfrankwu.noteapp.data.db.DeletedNotebook>> = dao.observeDeleted()
+
+    /** How many notebooks are in Recently deleted. Updates live. */
+    fun observeDeletedCount(): Flow<Int> = dao.observeDeletedCount()
+
+    /**
+     * Brings a notebook back from Recently deleted. If its folder is gone (deleted while the
+     * notebook was in Recently deleted), [folderId] says where it goes; without one the result is
+     * [NotebookError.NotFound] and nothing changes.
+     */
+    suspend fun restoreFromDeleted(notebookId: String, folderId: String? = null): NotebookResult = db.withTransaction {
+        val notebook = dao.getNotebook(notebookId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
+        val target = folderId ?: notebook.folderId?.takeIf { folderDao.getById(it) != null }
+            ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
+        if (folderDao.getById(target) == null) return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
+        val now = clock.instant()
+        dao.updateNotebook(notebook.copy(folderId = target, deletedAt = null, updatedAt = now))
+        NotebookResult.Success(notebookId)
+    }
+
+    /** True if the deleted notebook's folder still exists (so Restore needs no folder picker). */
+    suspend fun hasFolder(notebookId: String): Boolean {
+        val folderId = dao.getNotebook(notebookId)?.folderId ?: return false
+        return folderDao.getById(folderId) != null
+    }
+
     private suspend fun setDeleted(notebookId: String, deleted: Boolean): NotebookResult = db.withTransaction {
         val notebook = dao.getNotebook(notebookId) ?: return@withTransaction NotebookResult.Failure(NotebookError.NotFound)
         if ((notebook.deletedAt != null) != deleted) {

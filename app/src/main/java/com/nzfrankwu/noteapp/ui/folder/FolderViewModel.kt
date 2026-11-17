@@ -99,6 +99,8 @@ class FolderViewModel(
     private val zone: ZoneId = ZoneId.systemDefault(),
     /** Links between notebooks and tasks (Phase 4). Null in tests that don't need them. */
     private val links: com.nzfrankwu.noteapp.data.LinkRepository? = null,
+    /** Word/PowerPoint → PDF through Google Drive (PHASE-6.md 6.13). Null in tests that don't need it. */
+    private val officeConvert: com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert? = null,
 ) : ViewModel() {
 
     /** True when a notebook tile can be linked to a task. */
@@ -199,6 +201,10 @@ class FolderViewModel(
     private val _importing = MutableStateFlow(false)
     val importing: StateFlow<Boolean> = _importing.asStateFlow()
 
+    /** True while a Word/PowerPoint file is being turned into a PDF (the dialog says so). */
+    private val _converting = MutableStateFlow(false)
+    val converting: StateFlow<Boolean> = _converting.asStateFlow()
+
     /** A message to show once (e.g. why a PDF couldn't be imported). */
     private val messageEvents = Channel<String>(Channel.BUFFERED)
     val messages: Flow<String> = messageEvents.receiveAsFlow()
@@ -207,18 +213,28 @@ class FolderViewModel(
      * Imports a PDF as a new notebook here and opens it (PHASE-3.md 3.3). [displayName] is the
      * file's name (for the title); [open] reads the file.
      */
-    fun importPdf(displayName: String?, open: () -> java.io.InputStream?) {
+    fun importPdf(displayName: String?, open: () -> java.io.InputStream?, mimeType: String? = null) {
         val importer = pdfImport ?: return
         if (_importing.value) return
+        val officeType = com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert.officeType(mimeType, displayName)
+        val converter = officeConvert
+        if (officeType != null && converter == null) return
         _importing.value = true
+        _converting.value = officeType != null
         viewModelScope.launch {
             try {
-                when (val result = importer.import(folderId, com.nzfrankwu.noteapp.data.PdfImport.titleFrom(displayName), open)) {
+                val result = if (officeType != null && converter != null) {
+                    converter.importInto(importer, folderId, displayName, officeType, open)
+                } else {
+                    importer.import(folderId, com.nzfrankwu.noteapp.data.PdfImport.titleFrom(displayName), open)
+                }
+                when (result) {
                     is com.nzfrankwu.noteapp.data.PdfImportResult.Success -> openNotebookEvents.send(result.notebookId)
                     is com.nzfrankwu.noteapp.data.PdfImportResult.Failure -> messageEvents.send(result.message)
                 }
             } finally {
                 _importing.value = false
+                _converting.value = false
             }
         }
     }

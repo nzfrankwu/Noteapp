@@ -25,6 +25,8 @@ data class SyncSummary(
     val tasksMarkedRemoved: Int,
     /** Courses whose assignments couldn't be read this time (their tasks were left untouched). */
     val failedCourses: List<String>,
+    /** Canvas courses in Noteapp (not archived) that Canvas no longer lists as active: maybe ended. */
+    val notListed: Set<String> = emptySet(),
 )
 
 /**
@@ -57,9 +59,11 @@ class CanvasSync(
         var updated = 0
         var removed = 0
         val failed = mutableListOf<String>()
+        val listed = HashSet<String>()
 
         for (canvasCourse in canvasCourses) {
             val course = matchOrCreateCourse(canvasCourse)
+            listed += course.id
             val assignments = try {
                 source.getAssignments(canvasCourse.id)
             } catch (e: CanvasException) {
@@ -89,7 +93,10 @@ class CanvasSync(
                 removed += gone.size
             }
         }
-        return SyncSummary(canvasCourses.size, added, updated, removed, failed)
+        val notListed = courseDao.getAll()
+            .filter { it.canvasCourseId != null && it.archivedAt == null && it.id !in listed }
+            .map { it.id }.toSet()
+        return SyncSummary(canvasCourses.size, added, updated, removed, failed, notListed)
     }
 
     private suspend fun matchOrCreateCourse(canvas: CanvasCourse): Course = db.withTransaction {

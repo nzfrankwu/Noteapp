@@ -132,6 +132,9 @@ fun NoteAppRoot(
     // App-wide messages (e.g. "Task deleted · Undo"), shown above whichever screen is open.
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    // Recently deleted's size, for its row on Home and in Settings (PHASE-6.md 6.4).
+    val recentlyDeletedCount by remember { container.notebookRepository.observeDeletedCount() }
+        .collectAsStateWithLifecycle(initialValue = 0)
 
     fun back() { backStack.removeLastOrNull() }
 
@@ -160,8 +163,16 @@ fun NoteAppRoot(
                 shareBusy = true
                 scope.launch {
                     if (request.kind == com.nzfrankwu.noteapp.data.SharedKind.PDF) {
-                        val title = com.nzfrankwu.noteapp.data.PdfImport.titleFrom(request.files.first().displayName)
-                        when (val r = container.sharedImport.pdfToFolder(folderId, title, sources.first())) {
+                        val shared = request.files.first()
+                        val officeType = com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert.officeType(null, shared.displayName)
+                            ?: com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert.officeType(null, shared.file.name)
+                        val title = com.nzfrankwu.noteapp.data.PdfImport.titleFrom(shared.displayName)
+                        val result = if (officeType != null) {
+                            container.officeConvert.importInto(container.pdfImport, folderId, shared.displayName, officeType, sources.first())
+                        } else {
+                            container.sharedImport.pdfToFolder(folderId, title, sources.first())
+                        }
+                        when (val r = result) {
                             is com.nzfrankwu.noteapp.data.PdfImportResult.Success -> finish(r.notebookId, null)
                             is com.nzfrankwu.noteapp.data.PdfImportResult.Failure -> finish(null, r.message)
                         }
@@ -219,6 +230,7 @@ fun NoteAppRoot(
                                 container.folderRepository, container.taskRepository,
                                 container.canvasSettings, container.canvasSyncRunner,
                                 tabStore = container.viewSettings,
+                                driveStatus = container.driveSettings.status,
                             )
                         },
                         onOpenSettings = { backStack.add(SettingsRoute) },
@@ -240,6 +252,8 @@ fun NoteAppRoot(
                                 onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                             )
                         },
+                        recentlyDeletedCount = recentlyDeletedCount,
+                        onOpenRecentlyDeleted = { backStack.add(com.nzfrankwu.noteapp.ui.navigation.RecentlyDeletedRoute) },
                         onShowMessage = { message ->
                             scope.launch {
                                 snackbar.currentSnackbarData?.dismiss()
@@ -312,7 +326,7 @@ fun NoteAppRoot(
                 entry<FolderRoute> { route ->
                     FolderScreen(
                         viewModel = viewModel {
-                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport, links = container.linkRepository)
+                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport, links = container.linkRepository, officeConvert = container.officeConvert)
                         },
                         onBack = ::back,
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
@@ -363,6 +377,16 @@ fun NoteAppRoot(
                         openAtSpot = route.spot,
                     )
                 }
+                entry<com.nzfrankwu.noteapp.ui.navigation.RecentlyDeletedRoute> {
+                    com.nzfrankwu.noteapp.ui.deleted.RecentlyDeletedScreen(
+                        viewModel = viewModel {
+                            com.nzfrankwu.noteapp.ui.deleted.RecentlyDeletedViewModel(
+                                container.notebookRepository, container.folderRepository, container.notebookPurge,
+                            )
+                        },
+                        onBack = ::back,
+                    )
+                }
                 entry<CoursesRoute> {
                     CoursesScreen(viewModel = viewModel { CoursesViewModel(container.folderRepository) }, onBack = ::back)
                 }
@@ -375,6 +399,10 @@ fun NoteAppRoot(
                     onOpenCanvasBrowser = { backStack.add(CanvasLoginRoute) },
                     onOpenCourses = { backStack.add(CoursesRoute) },
                     inkSettings = container.inkSettings,
+                    backup = container.backupManager,
+                    drive = container.driveConnection,
+                    recentlyDeletedCount = recentlyDeletedCount,
+                    onOpenRecentlyDeleted = { backStack.add(com.nzfrankwu.noteapp.ui.navigation.RecentlyDeletedRoute) },
                     onTestReminder = if (BuildConfig.DEBUG) {
                         {
                             scope.launch {

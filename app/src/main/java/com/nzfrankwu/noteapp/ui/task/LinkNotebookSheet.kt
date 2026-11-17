@@ -92,8 +92,13 @@ fun LinkNotebookSheet(
 
 /** Where a new notebook goes, when the task's course has no folder. */
 @Composable
-fun PickFolderSheet(folders: List<FolderRow>, onPick: (folderId: String) -> Unit, onCancel: () -> Unit) {
-    PickerDialog(title = "Put the new notebook in…", testTag = "pick-folder-sheet", onCancel = onCancel) {
+fun PickFolderSheet(
+    folders: List<FolderRow>,
+    onPick: (folderId: String) -> Unit,
+    onCancel: () -> Unit,
+    title: String = "Put the new notebook in…",
+) {
+    PickerDialog(title = title, testTag = "pick-folder-sheet", onCancel = onCancel) {
         if (folders.isEmpty()) item { PickerEmpty("No folders yet. Make one on the home screen first.") }
         items(folders, key = { it.folder.id }) { row ->
             PickerRow(R.drawable.ic_folder, row.folder.name, row.depth, testTag = "pick-folder-${row.folder.name}") { onPick(row.folder.id) }
