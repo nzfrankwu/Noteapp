@@ -111,7 +111,10 @@ fun HomeScreen(
         timeline = timeline,
         folders = folders,
         banners = banners,
-        bannerActions = BannerActions(onSignInAgain, onLinkCourses, viewModel::hideNewCourses, onOpenSettings),
+        bannerActions = BannerActions(
+            onSignInAgain, onLinkCourses, viewModel::hideNewCourses, onOpenSettings,
+            onArchiveEnded = viewModel::archiveEndedCourses, onHideEnded = viewModel::hideEndedCourses,
+        ),
         refreshing = refreshing,
         onRefresh = viewModel::refresh,
         dueSoon = dueSoon,
@@ -480,12 +483,14 @@ class BannerActions(
     val onLinkCourses: () -> Unit = {},
     val onHideNewCourses: () -> Unit = {},
     val onOpenBackup: () -> Unit = {},
+    val onArchiveEnded: () -> Unit = {},
+    val onHideEnded: () -> Unit = {},
 )
 
 /** The Canvas and backup strips at the top of home (nothing when all is well). */
 @Composable
 private fun HomeBannerStrips(banners: HomeBanners, actions: BannerActions) {
-    if (!banners.signInExpired && banners.newCourses.isEmpty() && banners.backupWarning == null) return
+    if (!banners.signInExpired && banners.newCourses.isEmpty() && banners.backupWarning == null && banners.endedCourses.isEmpty()) return
     Column(
         Modifier.fillMaxWidth().padding(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, bottom = Dimens.ItemGap),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -502,6 +507,15 @@ private fun HomeBannerStrips(banners: HomeBanners, actions: BannerActions) {
         banners.backupWarning?.let { warning ->
             Banner(warning, warning = true, modifier = Modifier.testTag("banner-backup")) {
                 FilledTonalButton(onClick = actions.onOpenBackup) { Text("Open Settings") }
+            }
+        }
+        if (banners.endedCourses.isNotEmpty()) {
+            Banner(
+                com.nzfrankwu.noteapp.domain.EndedCourses.message(banners.endedCourses.map { it.code }),
+                modifier = Modifier.testTag("banner-ended-courses"),
+            ) {
+                FilledTonalButton(onClick = actions.onArchiveEnded, modifier = Modifier.testTag("archive-ended")) { Text("Archive") }
+                TextButton(onClick = actions.onHideEnded, modifier = Modifier.testTag("hide-ended")) { Text("Not now") }
             }
         }
         if (banners.newCourses.isNotEmpty()) {

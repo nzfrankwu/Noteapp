@@ -37,6 +37,26 @@ class CanvasSettings(context: Context) {
     /** Canvas courses you chose "Not now" for, so the "link your courses" prompt stops asking. */
     val hiddenLinkPrompts: Flow<Set<String>> = store.data.map { it[HIDDEN_LINK_PROMPTS].orEmpty() }
 
+    /**
+     * Since when each Canvas course in Noteapp has been missing from Canvas's active courses
+     * (course id → milliseconds). After two weeks Home suggests archiving it.
+     */
+    val courseMissingSince: Flow<Map<String, Long>> = store.data.map { prefs ->
+        prefs[COURSE_MISSING_SINCE].orEmpty().mapNotNull { entry ->
+            val id = entry.substringBeforeLast('|')
+            entry.substringAfterLast('|').toLongOrNull()?.let { id to it }
+        }.toMap()
+    }
+
+    suspend fun setCourseMissingSince(missing: Map<String, Long>) =
+        store.edit { it[COURSE_MISSING_SINCE] = missing.map { (id, at) -> "$id|$at" }.toSet() }
+
+    /** Ended courses you chose "Not now" for, so the "archive it?" strip stops asking. */
+    val hiddenArchivePrompts: Flow<Set<String>> = store.data.map { it[HIDDEN_ARCHIVE_PROMPTS].orEmpty() }
+
+    suspend fun hideArchivePrompts(courseIds: Collection<String>) =
+        store.edit { it[HIDDEN_ARCHIVE_PROMPTS] = it[HIDDEN_ARCHIVE_PROMPTS].orEmpty() + courseIds }
+
     suspend fun hideLinkPrompts(courseIds: Collection<String>) =
         store.edit { it[HIDDEN_LINK_PROMPTS] = it[HIDDEN_LINK_PROMPTS].orEmpty() + courseIds }
 
@@ -57,5 +77,7 @@ class CanvasSettings(context: Context) {
         val LAST_SYNCED = longPreferencesKey("last_synced_at")
         val SIGN_IN_EXPIRED = booleanPreferencesKey("sign_in_expired")
         val HIDDEN_LINK_PROMPTS = stringSetPreferencesKey("hidden_link_prompts")
+        val COURSE_MISSING_SINCE = stringSetPreferencesKey("course_missing_since")
+        val HIDDEN_ARCHIVE_PROMPTS = stringSetPreferencesKey("hidden_archive_prompts")
     }
 }

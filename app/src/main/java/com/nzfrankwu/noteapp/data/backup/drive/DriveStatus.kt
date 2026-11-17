@@ -166,7 +166,15 @@ class DriveBackupRunner(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: DriveException) {
-            if (e.kind == DriveException.Kind.OFFLINE) PdfOutcome.TryLater else PdfOutcome.Failed(e.message.orEmpty())
+            when (e.kind) {
+                DriveException.Kind.OFFLINE -> PdfOutcome.TryLater
+                DriveException.Kind.AUTH -> {
+                    // Settings and Home must say so now, not only after the next full backup.
+                    store.recordFailure(e.message.orEmpty(), needsSignIn = true)
+                    PdfOutcome.Failed(e.message.orEmpty())
+                }
+                else -> PdfOutcome.Failed(e.message.orEmpty())
+            }
         } catch (e: Exception) {
             PdfOutcome.Failed("Something went wrong (${e.javaClass.simpleName}).")
         }

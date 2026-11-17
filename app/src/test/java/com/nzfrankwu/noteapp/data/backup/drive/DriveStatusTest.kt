@@ -130,6 +130,14 @@ class DriveStatusTest {
     }
 
     @Test
+    fun pdfCopies_signedOut_showsSignInAgain() = runBlocking {
+        drive.failEverything = DriveException(DriveException.Kind.AUTH, "Sign in to Google again to keep backing up.")
+        val store = MemoryStore(connected)
+        assertTrue(runner(store).runPdfCopies() is DriveBackupRunner.PdfOutcome.Failed)
+        assertTrue(store.status.needsSignIn)
+    }
+
+    @Test
     fun outOfDate_rules() {
         assertTrue("never updated", DriveStatus(email = "a").pdfsOutOfDate)
         assertTrue(DriveStatus(email = "a", changedAt = 20, pdfSyncedAt = 10).pdfsOutOfDate)

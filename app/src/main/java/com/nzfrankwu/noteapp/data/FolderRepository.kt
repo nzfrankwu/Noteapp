@@ -137,6 +137,9 @@ class FolderRepository(
     /** Current courses without a folder, A–Z: the choices in New folder and Link a course. */
     fun observeCoursesWithoutFolder(): Flow<List<Course>> = courseDao.observeCurrentWithoutFolder()
 
+    /** Every course. */
+    fun observeCourses(): Flow<List<Course>> = courseDao.observeAll()
+
     /** Every course with its folder (if any), A–Z, for Settings → Courses. */
     fun observeCoursesWithFolders(): Flow<List<CourseListItem>> = courseDao.observeAllWithFolder()
 

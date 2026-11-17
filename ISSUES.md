@@ -78,6 +78,9 @@ _None known._
 
 ## Done
 
+- **Ended courses are suggested for archiving (17 Nov):** after each successful Canvas sync, Noteapp remembers since when a linked course stopped appearing in Canvas's active courses (`EndedCourses`, kept in `canvas_settings`, so no database change). After 14 days Home shows "ELECTENG 204 isn't in your Canvas courses any more. Archive it?" with Archive / Not now. IDEA.md's archiving section doesn't mention this yet (ask before editing it).
+- **The PDF-copy job now reports "sign in again" straight away** (it used to wait for the next full backup). Found because Disconnect on one device takes Noteapp's permission back for that Google account everywhere.
+
 - **A long first backup kept being cancelled (tablet, 17 Nov):** every change while uploading replaced the running "soon" job, so on a slow connection big files could restart forever. Now a running backup is never cancelled; the next one waits after it (`BackupWorker.soonPolicy`). Settings also shows "Backing up 12 MB of 70 MB…" and "Updating the PDF copies (3 of 8)…".
 
 - **Google sign-in published (17 Nov):** app icon, homepage and privacy policy (`site/`, served by GitHub Pages from `gh-pages`: https://nzfrankwu.github.io/Noteapp/), Branding filled in and Publish app done by the user. Any Google account can now connect.

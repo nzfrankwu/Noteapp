@@ -33,6 +33,8 @@ data class HomeBanners(
     val signInExpired: Boolean = false,
     /** Canvas courses with no folder that you haven't said "Not now" to. */
     val newCourses: List<Course> = emptyList(),
+    /** Canvas courses that ended (Canvas stopped listing them two weeks ago): "Archive them?". */
+    val endedCourses: List<Course> = emptyList(),
     /** Google Drive backup is failing or hasn't worked for days (PHASE-6.md 6.10); null when all is well. */
     val backupWarning: String? = null,
 )
@@ -99,7 +101,37 @@ class HomeViewModel(
             canvasSettings.hiddenLinkPrompts,
         ) { name, expired, unlinked, hidden ->
             HomeBanners(signInExpired = name != null && expired, newCourses = unlinked.filter { it.id !in hidden })
+        }.combine(endedCourses(canvasSettings)) { banners, ended -> banners.copy(endedCourses = ended) }
+    }
+
+    private fun endedCourses(settings: CanvasSettings): kotlinx.coroutines.flow.Flow<List<Course>> = combine(
+        settings.courseMissingSince,
+        settings.hiddenArchivePrompts,
+        folderRepository.observeCourses(),
+    ) { missing, hidden, courses ->
+        val ids = com.nzfrankwu.noteapp.domain.EndedCourses.toSuggest(missing, hidden, clock.millis())
+        courses.filter { it.id in ids && it.archivedAt == null }.sortedBy { it.code }
+    }
+
+    /** "Archive" on the ended-courses strip. */
+    fun archiveEndedCourses() {
+        val ended = banners.value.endedCourses
+        if (ended.isEmpty()) return
+        viewModelScope.launch {
+            ended.forEach { folderRepository.setCourseArchived(it.id, true) }
+            val codes = ended.map { it.code }
+            _message.value = if (codes.size == 1) {
+                "${codes[0]} archived. Its folder is under Archived on Home."
+            } else {
+                "${codes.size} courses archived. Their folders are under Archived on Home."
+            }
         }
+    }
+
+    /** "Not now" on the ended-courses strip: stop asking about these courses. */
+    fun hideEndedCourses() {
+        val ids = banners.value.endedCourses.map { it.id }
+        viewModelScope.launch { canvasSettings?.hideArchivePrompts(ids) }
     }
 
     /** "Not now" on the new-courses strip: stop suggesting these courses. */
