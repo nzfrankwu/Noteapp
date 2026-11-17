@@ -128,7 +128,7 @@ class DriveBackupRunner(
                 onProgress("Updating the PDF copies…", null)
                 // The copies are for reading; the backup above already succeeded, so trouble here
                 // only waits for the next run.
-                runCatching { syncPdfs() }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                runCatching { syncPdfs(onProgress) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
             }
             Outcome.Done(result)
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -157,12 +157,12 @@ class DriveBackupRunner(
      * The PDF copies on their own (the "Update PDF copies" job): only when something changed since
      * the last update, so a quiet tablet never even contacts Google.
      */
-    suspend fun runPdfCopies(): PdfOutcome {
+    suspend fun runPdfCopies(onProgress: (String, Float?) -> Unit = { _, _ -> }): PdfOutcome {
         val status = store.current()
         if (!status.connected || pdfCopies == null) return PdfOutcome.NotConnected
         if (restorePending() || !status.pdfsOutOfDate) return PdfOutcome.UpToDate
         return try {
-            PdfOutcome.Updated(syncPdfs())
+            PdfOutcome.Updated(syncPdfs(onProgress))
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: DriveException) {
@@ -181,10 +181,14 @@ class DriveBackupRunner(
     }
 
     /** Brings the copies up to date; changes made while it runs are caught by the next run. */
-    private suspend fun syncPdfs(): PdfCopies.Result {
+    private suspend fun syncPdfs(onProgress: (String, Float?) -> Unit): PdfCopies.Result {
         val pdfs = checkNotNull(pdfCopies)
         val started = now()
-        val result = com.nzfrankwu.noteapp.data.StorageLock.backup.withLock { pdfs.sync() }
+        val result = com.nzfrankwu.noteapp.data.StorageLock.backup.withLock {
+            pdfs.sync { done, total ->
+                onProgress("Updating the PDF copies ($done of $total)…", if (total > 0) done.toFloat() / total else null)
+            }
+        }
         store.recordPdfSync(started)
         return result
     }

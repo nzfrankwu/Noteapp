@@ -124,13 +124,14 @@ fun DriveBackupBlock(drive: DriveConnection, manager: BackupManager) {
             Text("Backing up to ${s.email}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("drive-account"))
             val attention = DriveText.needsAttention(s, now) || s.lastError != null
             Text(
-                DriveText.summary(s, now, running != null),
+                running?.text ?: DriveText.summary(s, now, running = false),
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (attention && running == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("drive-status"),
             )
-            running?.let { p ->
-                if (p > 0f) LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth())
+            running?.let { r ->
+                val p = r.progress
+                if (p != null && p > 0f) LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth())
                 else LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

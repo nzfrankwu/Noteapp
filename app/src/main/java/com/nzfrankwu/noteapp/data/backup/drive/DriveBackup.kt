@@ -76,7 +76,11 @@ class DriveBackup(
                 val total = missing.sumOf { it.size }.coerceAtLeast(1)
                 var sent = 0L
                 for (entry in missing) {
-                    onProgress("Backing up…", sent.toFloat() / total)
+                    onProgress(
+                        "Backing up ${com.nzfrankwu.noteapp.data.backup.BackupText.size(sent)} of " +
+                            "${com.nzfrankwu.noteapp.data.backup.BackupText.size(total)}…",
+                        sent.toFloat() / total,
+                    )
                     val uploaded = drive.upload(snapshot.source(entry.path), entry.md5, folders.blobs.id, appProperties = mapOf(KIND to BLOB))
                     if (uploaded.md5Checksum != entry.md5 || uploaded.sizeBytes != entry.size) {
                         runCatching { drive.delete(uploaded.id) }

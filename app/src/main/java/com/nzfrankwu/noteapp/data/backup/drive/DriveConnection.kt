@@ -44,10 +44,19 @@ class DriveConnection(
 
     val status: Flow<DriveStatus> = settings.status
 
-    /** A backup job that's running right now: its progress (0..1), or null if none is running. */
-    val running: Flow<Float?> = WorkManager.getInstance(context)
+    /** A backup job that's running right now (what it's doing, how far), or null if none is running. */
+    data class Running(val text: String, val progress: Float?)
+
+    val running: Flow<Running?> = WorkManager.getInstance(context)
         .getWorkInfosFlow(WorkQuery.fromUniqueWorkNames(BackupWorker.ALL))
-        .map { infos -> infos.firstOrNull { it.state == WorkInfo.State.RUNNING }?.progress?.getFloat(BackupWorker.PROGRESS, 0f) }
+        .map { infos ->
+            // Several jobs can be RUNNING while one waits for the other's lock: show the one with news.
+            val runningJobs = infos.filter { it.state == WorkInfo.State.RUNNING }
+            if (runningJobs.isEmpty()) return@map null
+            val busy = runningJobs.firstOrNull { it.progress.getString(BackupWorker.STAGE) != null } ?: runningJobs.first()
+            val p = busy.progress.getFloat(BackupWorker.PROGRESS, -1f)
+            Running(busy.progress.getString(BackupWorker.STAGE) ?: "Backing up…", p.takeIf { it >= 0f })
+        }
 
     /** "Connect Google Drive" (or "Sign in again"). */
     fun startConnect() {

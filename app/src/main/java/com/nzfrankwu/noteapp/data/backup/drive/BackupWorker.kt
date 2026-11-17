@@ -9,7 +9,9 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import kotlinx.coroutines.flow.first
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.nzfrankwu.noteapp.NoteAppApplication
@@ -26,18 +28,21 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     override suspend fun doWork(): Result {
         val container = (applicationContext as NoteAppApplication).container
         if (inputData.getBoolean(PDFS_ONLY, false)) {
-            return when (container.driveBackupRunner.runPdfCopies()) {
+            return when (container.driveBackupRunner.runPdfCopies(::report)) {
                 DriveBackupRunner.PdfOutcome.TryLater -> Result.retry()
                 else -> Result.success()
             }
         }
-        val outcome = container.driveBackupRunner.run(withPdfs = inputData.getBoolean(WITH_PDFS, false)) { _, progress ->
-            if (progress != null) setProgressAsync(workDataOf(PROGRESS to progress))
-        }
+        val outcome = container.driveBackupRunner.run(withPdfs = inputData.getBoolean(WITH_PDFS, false), onProgress = ::report)
         return when (outcome) {
             is DriveBackupRunner.Outcome.TryLater -> if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
             else -> Result.success() // failures are recorded for Settings and Home; the next change or day tries again
         }
+    }
+
+    /** What Settings shows while this runs: the words, and how far (-1 = can't tell). */
+    private fun report(text: String, progress: Float?) {
+        setProgressAsync(workDataOf(PROGRESS to (progress ?: -1f), STAGE to text))
     }
 
     companion object {
@@ -48,6 +53,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         const val PDFS = "pdf-copies"
         private const val PDFS_ONLY = "pdfs_only"
         const val PROGRESS = "progress"
+        const val STAGE = "stage"
         private const val WITH_PDFS = "with_pdfs"
         val ALL = listOf(SOON, DAILY, NOW, PDFS)
         private const val MAX_ATTEMPTS = 5
@@ -82,15 +88,36 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             work.enqueueUniquePeriodicWork(PDFS, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
 
-        /** A backup 5 minutes after the last change. */
-        fun soon(context: Context, wifiOnly: Boolean) {
+        /**
+         * A backup 5 minutes after the last change. A backup that's already uploading is never
+         * cancelled (on a slow connection it might never finish): the new one waits until it's done.
+         */
+        suspend fun soon(context: Context, wifiOnly: Boolean) {
+            val work = WorkManager.getInstance(context)
+            val states = work.getWorkInfosForUniqueWorkFlow(SOON).first().map { it.state }
+            val policy = soonPolicy(states) ?: return
             val request = OneTimeWorkRequestBuilder<BackupWorker>()
                 .setInitialDelay(5, TimeUnit.MINUTES)
                 .setConstraints(constraints(wifiOnly))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.MINUTES)
                 .build()
-            // Replacing a run that's already uploading is safe: what it sent is reused by the next run.
-            WorkManager.getInstance(context).enqueueUniqueWork(SOON, ExistingWorkPolicy.REPLACE, request)
+            work.enqueueUniqueWork(SOON, policy, request)
+        }
+
+        /**
+         * How to add a "soon" backup, given the ones there now:
+         * - one is running and another already waits after it → nothing (the waiting one takes a fresh snapshot);
+         * - one is running → add one after it;
+         * - otherwise → replace (only a waiting one: pushing it back 5 minutes never cancels an upload).
+         */
+        fun soonPolicy(states: List<WorkInfo.State>): ExistingWorkPolicy? {
+            val running = WorkInfo.State.RUNNING in states
+            val waiting = states.any { it == WorkInfo.State.ENQUEUED || it == WorkInfo.State.BLOCKED }
+            return when {
+                running && waiting -> null
+                running -> ExistingWorkPolicy.APPEND_OR_REPLACE
+                else -> ExistingWorkPolicy.REPLACE
+            }
         }
 
         /**

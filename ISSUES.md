@@ -21,6 +21,7 @@ _None known._
   - The PDF copies have no status of their own: if one notebook can't be drawn, or Drive fails while updating the copies, nothing is shown (the full backup already succeeded; the next run tries again).
   - Two tablets backing up to the same Google account would share one backup folder (each run keeps the other's newer snapshots, and unused files wait a day before they go), but restore lists them together. One tablet is the plan; revisit if that changes.
   - Each Drive run lists `Backup/blobs/` (1 request per 1000 files) instead of caching Drive ids locally. Fine for thousands of files; revisit if backups get slow.
+  - The spare test account's Drive got part of a backup of the tablet's real notes on 17 Nov (connected by mistake, then disconnected). Delete the **Noteapp** folder in that account's Drive.
   - "Back up now" isn't an expedited job (that would need its own notification on Android 11 and older), so Android may start it a little later.
 
 - **Open in Canvas (Phase 5 FB11):** not tried with the real Canvas Student app: whether it opens the university's assignment links (else the Chrome tab takes over) needs the tablet.
@@ -76,6 +77,8 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **A long first backup kept being cancelled (tablet, 17 Nov):** every change while uploading replaced the running "soon" job, so on a slow connection big files could restart forever. Now a running backup is never cancelled; the next one waits after it (`BackupWorker.soonPolicy`). Settings also shows "Backing up 12 MB of 70 MB…" and "Updating the PDF copies (3 of 8)…".
 
 - **Google sign-in published (17 Nov):** app icon, homepage and privacy policy (`site/`, served by GitHub Pages from `gh-pages`: https://nzfrankwu.github.io/Noteapp/), Branding filled in and Publish app done by the user. Any Google account can now connect.
 

@@ -46,7 +46,8 @@ class PdfCopies(
 
     private class Existing(val file: DriveFile, val parentId: String)
 
-    suspend fun sync(): Result {
+    /** [onProgress] gets (notebooks done, notebooks in all). */
+    suspend fun sync(onProgress: (Int, Int) -> Unit = { _, _ -> }): Result {
         val root = drive.folder(DriveBackup.ROOT_FOLDER, null)
         val pdfRoot = drive.folder(FOLDER, root.id)
 
@@ -77,7 +78,8 @@ class PdfCopies(
         var failed = 0
         val wanted = source.wanted()
         scratch.mkdirs()
-        for (w in wanted) {
+        for ((index, w) in wanted.withIndex()) {
+            onProgress(index, wanted.size)
             val name = fileName(w.title)
             val parentId = folderFor(w.folderPath.map(::folderName))
             val existing = copies[w.notebookId].orEmpty()
