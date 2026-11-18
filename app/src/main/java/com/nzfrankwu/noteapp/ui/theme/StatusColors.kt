@@ -20,7 +20,6 @@ data class StatusColors(
     val started: TagColors,
     val stuck: TagColors,
     val doubleChecking: TagColors,
-    val submitted: TagColors,
     val done: TagColors,
     val overdue: TagColors,
     /** The text colour of "Due today" / "Due tomorrow" / "2 days left" (overdue uses the error colour). */
@@ -31,7 +30,6 @@ data class StatusColors(
         TaskStatus.STARTED -> started
         TaskStatus.STUCK -> stuck
         TaskStatus.DOUBLE_CHECKING -> doubleChecking
-        TaskStatus.SUBMITTED -> submitted
         TaskStatus.DONE -> done
     }
 }
@@ -41,7 +39,6 @@ val LightStatusColors = StatusColors(
     started = TagColors(Blue90, Color(0xFF0D2557)),
     stuck = TagColors(AmberContainerLight, AmberOnLight),
     doubleChecking = TagColors(PurpleContainerLight, PurpleOnLight),
-    submitted = TagColors(TealContainerLight, TealOnLight),
     done = TagColors(GreenContainerLight, GreenOnLight),
     overdue = TagColors(RedContainerLight, RedOnLight),
     dueSoonText = AmberTextLight,
@@ -52,7 +49,6 @@ val DarkStatusColors = StatusColors(
     started = TagColors(Blue30, Color(0xFFDCE6FF)),
     stuck = TagColors(AmberContainerDark, AmberOnDark),
     doubleChecking = TagColors(PurpleContainerDark, PurpleOnDark),
-    submitted = TagColors(TealContainerDark, TealOnDark),
     done = TagColors(GreenContainerDark, GreenOnDark),
     overdue = TagColors(RedContainerDark, RedOnDark),
     dueSoonText = AmberTextDark,

@@ -94,7 +94,7 @@ class DaysLeftTest {
 
     @Test
     fun finishedTasks_showNothing() {
-        assertNull(daysLeft("2026-11-20T23:59", status = TaskStatus.SUBMITTED))
+        assertNull(daysLeft("2026-11-20T23:59", status = TaskStatus.DONE))
         assertNull(daysLeft("2026-11-10T23:59", status = TaskStatus.DONE))
     }
 

@@ -79,6 +79,17 @@ interface NotebookDao {
     @Query("SELECT * FROM pages WHERE notebook_id = :notebookId AND deleted_at IS NULL ORDER BY position, created_at")
     suspend fun getPages(notebookId: String): List<Page>
 
+    /** Every page (not deleted) of every notebook (not deleted), for the search index (PHASE-7.md 7.9). */
+    @Query(
+        "SELECT pages.* FROM pages JOIN notebooks ON notebooks.id = pages.notebook_id " +
+            "WHERE pages.deleted_at IS NULL AND notebooks.deleted_at IS NULL",
+    )
+    suspend fun getAllActivePages(): List<Page>
+
+    /** Every notebook not deleted (for the search index). */
+    @Query("SELECT * FROM notebooks WHERE deleted_at IS NULL")
+    suspend fun getAllActiveNotebooks(): List<Notebook>
+
     /** The notebook's pages (not deleted), in order, updating live. */
     @Query("SELECT * FROM pages WHERE notebook_id = :notebookId AND deleted_at IS NULL ORDER BY position, created_at")
     fun observePages(notebookId: String): Flow<List<Page>>

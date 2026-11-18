@@ -96,9 +96,9 @@ class CanvasMergeTest {
     }
 
     @Test
-    fun newAssignment_alreadySubmitted_startsAsSubmitted() {
+    fun newAssignment_alreadySubmitted_startsAsDone() {
         val task = CanvasMerge.newTask(assignment(submission = CanvasSubmission("submitted", submittedAt)), "c1", "t", now)
-        assertEquals(TaskStatus.SUBMITTED, task.status)
+        assertEquals(TaskStatus.DONE, task.status)
         assertEquals(submittedAt, task.canvasSubmittedAt)
     }
 
@@ -139,10 +139,10 @@ class CanvasMergeTest {
     // ---- Auto-status ----
 
     @Test
-    fun newSubmission_movesTaskForwardToSubmitted() {
+    fun newSubmission_movesTaskForwardToDone() {
         for (status in listOf(TaskStatus.NOT_STARTED, TaskStatus.STARTED, TaskStatus.STUCK, TaskStatus.DOUBLE_CHECKING)) {
             val after = CanvasMerge.update(existing(status = status), assignment(submission = CanvasSubmission("submitted", submittedAt)), "c1", now)
-            assertEquals("from $status", TaskStatus.SUBMITTED, after.status)
+            assertEquals("from $status", TaskStatus.DONE, after.status)
             assertEquals(submittedAt, after.canvasSubmittedAt)
         }
     }
@@ -156,16 +156,16 @@ class CanvasMergeTest {
     @Test
     fun neverMovesBackwards_whenCanvasSaysUnsubmitted() {
         val after = CanvasMerge.update(
-            existing(status = TaskStatus.SUBMITTED, submittedAtSeen = submittedAt, stateSeen = "submitted"),
+            existing(status = TaskStatus.DONE, submittedAtSeen = submittedAt, stateSeen = "submitted"),
             assignment(submission = CanvasSubmission("unsubmitted", null)),
             "c1", now,
         )
-        assertEquals(TaskStatus.SUBMITTED, after.status)
+        assertEquals(TaskStatus.DONE, after.status)
     }
 
     @Test
     fun movingItBackYourself_sticks_forTheSameSubmission() {
-        // Auto-moved to Submitted earlier; you then moved it back to Double-checking.
+        // Auto-moved to Done earlier; you then moved it back to Double-checking.
         val yours = existing(status = TaskStatus.DOUBLE_CHECKING, submittedAtSeen = submittedAt, stateSeen = "submitted")
         val after = CanvasMerge.update(yours, assignment(submission = CanvasSubmission("submitted", submittedAt)), "c1", now)
         assertEquals(TaskStatus.DOUBLE_CHECKING, after.status)
@@ -176,7 +176,7 @@ class CanvasMergeTest {
         val yours = existing(status = TaskStatus.DOUBLE_CHECKING, submittedAtSeen = submittedAt, stateSeen = "submitted")
         val later = submittedAt.plusSeconds(3600)
         val after = CanvasMerge.update(yours, assignment(submission = CanvasSubmission("submitted", later)), "c1", now)
-        assertEquals(TaskStatus.SUBMITTED, after.status)
+        assertEquals(TaskStatus.DONE, after.status)
     }
 
     @Test
@@ -188,7 +188,7 @@ class CanvasMergeTest {
     @Test
     fun submittedStateWithoutTime_countsOnceOnly() {
         val first = CanvasMerge.update(existing(status = TaskStatus.STARTED), assignment(submission = CanvasSubmission("submitted", null)), "c1", now)
-        assertEquals(TaskStatus.SUBMITTED, first.status)
+        assertEquals(TaskStatus.DONE, first.status)
         val movedBack = first.copy(status = TaskStatus.STARTED)
         val second = CanvasMerge.update(movedBack, assignment(submission = CanvasSubmission("submitted", null)), "c1", now)
         assertEquals(TaskStatus.STARTED, second.status)

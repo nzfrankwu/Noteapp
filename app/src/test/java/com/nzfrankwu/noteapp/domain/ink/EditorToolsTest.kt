@@ -129,6 +129,28 @@ class EditorToolsTest {
         assertTrue(hold.feed(0.96f, 0.9f, true, 102f, 100f, 520))
     }
 
+    /**
+     * 7.15 (the user: it sometimes didn't start when held still): a hard press held still wobbles a
+     * little around the level; small dips don't start the wait again, a real easing off does.
+     */
+    @Test
+    fun pressHold_ridesOutSmallPressureWobbles_butNotARealEase() {
+        val hold = PressHold(holdMs = 500)
+        assertFalse(hold.feed(0.92f, 0.9f, true, 100f, 100f, 0))
+        assertFalse(hold.feed(0.87f, 0.9f, true, 100f, 101f, 150)) // just under the level: still hard
+        assertTrue(hold.pressing)
+        assertFalse(hold.feed(0.91f, 0.9f, true, 101f, 100f, 300))
+        assertFalse(hold.feed(0.85f, 0.9f, true, 100f, 100f, 420))
+        assertTrue("held long enough despite the wobbles", hold.feed(0.9f, 0.9f, true, 100f, 100f, 520))
+        // A light touch never starts a hard press (the give only counts once pressing hard).
+        val light = PressHold(holdMs = 500)
+        assertFalse(light.feed(0.85f, 0.9f, true, 0f, 0f, 0))
+        assertFalse(light.pressing)
+        // Easing off clearly ends it.
+        hold.feed(0.7f, 0.9f, true, 100f, 100f, 600)
+        assertFalse(hold.pressing)
+    }
+
     @Test
     fun pressHold_startsAgain_whenThePressEasesOrThePenMoves() {
         val hold = PressHold(holdMs = 500)

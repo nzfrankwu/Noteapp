@@ -52,7 +52,7 @@ class DueSoonStateTest {
     fun undatedAndFinished_areKeptApart() {
         val state = build(
             task("Someday", null),
-            task("Handed in", 3, TaskStatus.SUBMITTED),
+            task("Handed in", 3, TaskStatus.DONE),
             task("Upcoming", 3),
         )
         assertEquals(listOf("Someday"), state.noDueDate.map { it.title })

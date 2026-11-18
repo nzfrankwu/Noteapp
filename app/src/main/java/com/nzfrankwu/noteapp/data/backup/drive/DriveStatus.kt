@@ -1,7 +1,6 @@
 package com.nzfrankwu.noteapp.data.backup.drive
 
 import com.nzfrankwu.noteapp.data.backup.BackupText
-import kotlinx.coroutines.sync.withLock
 import java.time.Duration
 
 /** Where the Google Drive backup stands (kept in the `backup_settings` store, never backed up itself). */
@@ -192,10 +191,9 @@ class DriveBackupRunner(
     private suspend fun syncPdfs(onProgress: (String, Float?) -> Unit): PdfCopies.Result {
         val pdfs = checkNotNull(pdfCopies)
         val started = now()
-        val result = com.nzfrankwu.noteapp.data.StorageLock.backup.withLock {
-            pdfs.sync { done, total ->
-                onProgress("Updating the PDF copies ($done of $total)…", if (total > 0) done.toFloat() / total else null)
-            }
+        // No storage lock here: AppPdfSource.export holds it for one notebook at a time (Phase 7, 7.2).
+        val result = pdfs.sync { done, total ->
+            onProgress("Updating the PDF copies ($done of $total)…", if (total > 0) done.toFloat() / total else null)
         }
         store.recordPdfSync(started)
         return result

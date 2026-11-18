@@ -38,11 +38,14 @@ class ReminderScheduler(
      * get no reminders (their alarms are cancelled), so archiving a course silences it.
      */
     @Synchronized
-    fun apply(tasks: List<TaskWithCourse>) {
+    fun apply(
+        tasks: List<TaskWithCourse>,
+        offsets: Set<com.nzfrankwu.noteapp.domain.ReminderOffset> = com.nzfrankwu.noteapp.domain.ReminderOffset.DEFAULT,
+    ) {
         val now = clock.instant()
         val wanted = tasks
             .filterNot { it.isCourseArchived }
-            .flatMap { ReminderPlanner.plan(it.task.id, it.task, now, zone()) }
+            .flatMap { ReminderPlanner.plan(it.task.id, it.task, now, zone(), offsets) }
         val wantedIds = wanted.map { it.id }.toSet()
 
         val previous = prefs.getStringSet(KEY_SCHEDULED, emptySet()).orEmpty()

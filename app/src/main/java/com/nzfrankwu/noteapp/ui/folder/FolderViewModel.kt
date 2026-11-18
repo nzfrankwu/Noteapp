@@ -101,6 +101,8 @@ class FolderViewModel(
     private val links: com.nzfrankwu.noteapp.data.LinkRepository? = null,
     /** Word/PowerPoint → PDF through Google Drive (PHASE-6.md 6.13). Null in tests that don't need it. */
     private val officeConvert: com.nzfrankwu.noteapp.data.backup.drive.OfficeConvert? = null,
+    /** The paper a new notebook starts with (Settings → Notebooks). */
+    private val defaultPaper: () -> PageTemplate = { PageTemplate.DEFAULT },
 ) : ViewModel() {
 
     /** True when a notebook tile can be linked to a task. */
@@ -143,6 +145,14 @@ class FolderViewModel(
     }
 
     /** The folder (null while loading or once deleted). */
+    /** The colour chosen for the folder's course (Phase 7, 7.7); null = automatic or no course. */
+    val courseColor: StateFlow<com.nzfrankwu.noteapp.domain.CourseColorChoice?> by lazy {
+        combine(folders.observeFolder(folderId), folders.observeCourses()) { item, courses ->
+            val id = item?.folder?.courseId
+            com.nzfrankwu.noteapp.domain.CourseColorChoice.fromKey(courses.firstOrNull { it.id == id }?.color)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }
+
     val folder: StateFlow<FolderListItem?> = folders.observeFolder(folderId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -253,7 +263,7 @@ class FolderViewModel(
     /** New notebook, with a title like "Notes 15 Nov" filled in (easy to keep or replace). */
     fun startNewNotebook() {
         val date = clock.instant().atZone(zone).format(DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH))
-        _dialog.value = FolderScreenDialog.NewNotebook(title = "Notes $date")
+        _dialog.value = FolderScreenDialog.NewNotebook(title = "Notes $date", template = defaultPaper())
     }
 
     fun startRenameSubfolder(item: SubfolderListItem) {
@@ -293,6 +303,12 @@ class FolderViewModel(
     fun setArchived(archived: Boolean) {
         val courseId = folder.value?.folder?.courseId ?: return
         viewModelScope.launch { folders.setCourseArchived(courseId, archived) }
+    }
+
+    /** The folder's course colour (Phase 7, 7.7); null = automatic. */
+    fun setCourseColor(color: com.nzfrankwu.noteapp.domain.CourseColorChoice?) {
+        val courseId = folder.value?.folder?.courseId ?: return
+        viewModelScope.launch { folders.setCourseColor(courseId, color) }
     }
 
     fun dismissDialog() { _dialog.value = null }

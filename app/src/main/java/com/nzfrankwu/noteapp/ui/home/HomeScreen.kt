@@ -78,6 +78,10 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onSignInAgain: () -> Unit = {},
     onLinkCourses: () -> Unit = {},
+    /** The search button (Phase 7, 7.8); hidden when null. */
+    onOpenSearch: (() -> Unit)? = null,
+    /** The backup strip's "Open Settings": Settings scrolled to Backup. */
+    onOpenBackupSettings: () -> Unit = onOpenSettings,
     /** Shows a message in the app's snackbar. */
     onShowMessage: (String) -> Unit = {},
     /** The Calendar tab's content (B.5). */
@@ -112,7 +116,7 @@ fun HomeScreen(
         folders = folders,
         banners = banners,
         bannerActions = BannerActions(
-            onSignInAgain, onLinkCourses, viewModel::hideNewCourses, onOpenSettings,
+            onSignInAgain, onLinkCourses, viewModel::hideNewCourses, onOpenBackupSettings,
             onArchiveEnded = viewModel::archiveEndedCourses, onHideEnded = viewModel::hideEndedCourses,
         ),
         refreshing = refreshing,
@@ -126,6 +130,7 @@ fun HomeScreen(
             onToggleShowFinished = viewModel::toggleShowFinished,
         ),
         onOpenSettings = onOpenSettings,
+        onOpenSearch = onOpenSearch,
         onNewFolder = viewModel::startNewFolder,
         onOpenFolder = onOpenFolder,
         onRenameFolder = viewModel::startRename,
@@ -187,6 +192,8 @@ fun HomeContent(
     onRenameFolder: (FolderListItem) -> Unit,
     onDeleteFolder: (FolderListItem) -> Unit,
     modifier: Modifier = Modifier,
+    /** The search button (Phase 7, 7.8); hidden when null. */
+    onOpenSearch: (() -> Unit)? = null,
     dueSoon: DueSoonState = DueSoonState(),
     dueSoonActions: DueSoonActions = DueSoonActions(),
     banners: HomeBanners = HomeBanners(),
@@ -225,6 +232,14 @@ fun HomeContent(
                     }
                 },
                 actions = {
+                    if (onOpenSearch != null) {
+                        RoundIconButton(
+                            icon = R.drawable.ic_search,
+                            contentDescription = "Search",
+                            onClick = onOpenSearch,
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                    }
                     RoundIconButton(
                         icon = R.drawable.ic_settings,
                         contentDescription = "Settings",

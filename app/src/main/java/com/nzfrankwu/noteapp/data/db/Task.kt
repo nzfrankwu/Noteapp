@@ -15,7 +15,7 @@ import java.time.Instant
  *
  * The fields come in three groups, which matters for Canvas sync (IDEA.md §3.3):
  *  - Canvas-owned: for Canvas tasks, sync overwrites these with what Canvas says.
- *  - Yours: sync never touches these (except auto-status moving forward to Submitted).
+ *  - Yours: sync never touches these (except auto-status moving forward to Done).
  *  - Canvas bookkeeping: used by sync itself.
  * For your own tasks (source = MANUAL), everything is yours.
  *
@@ -67,7 +67,7 @@ data class Task(
     @ColumnInfo(name = "canvas_submission_state") val canvasSubmissionState: String?,
     /**
      * Latest submission time seen from Canvas. Auto-status only reacts when this changes,
-     * so if you move a task back from Submitted yourself, sync won't fight you.
+     * so if you move a task back from Done yourself, sync won't fight you.
      */
     @ColumnInfo(name = "canvas_submitted_at") val canvasSubmittedAt: Instant?,
     /** True if the assignment disappeared from Canvas. It's kept, never deleted. */

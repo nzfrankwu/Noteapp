@@ -71,7 +71,7 @@ fun CourseFilterButton(
     }
 }
 
-/** "☐ Show finished": adds Submitted and Done tasks (shown faded). */
+/** "☐ Show finished": adds Done tasks (shown faded). */
 @Composable
 fun ShowFinishedCheckbox(checked: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
     Row(

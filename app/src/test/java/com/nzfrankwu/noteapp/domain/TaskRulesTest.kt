@@ -40,7 +40,7 @@ class TaskRulesTest {
     @Test
     fun submittedOrDone_isNeverOverdue() {
         val late = local("2026-11-01T12:00")
-        assertFalse(TaskRules.isOverdue(T("Lab", dueAt = late, status = TaskStatus.SUBMITTED), now))
+        assertFalse(TaskRules.isOverdue(T("Lab", dueAt = late, status = TaskStatus.DONE), now))
         assertFalse(TaskRules.isOverdue(T("Lab", dueAt = late, status = TaskStatus.DONE), now))
     }
 
@@ -195,7 +195,7 @@ class TaskRulesTest {
     fun finishedTasks_areHiddenUnlessAskedFor() {
         val tasks = listOf(
             T("done", dueAt = local("2026-11-19T09:00"), status = TaskStatus.DONE),
-            T("submitted", dueAt = local("2026-11-10T09:00"), status = TaskStatus.SUBMITTED),
+            T("submitted", dueAt = local("2026-11-10T09:00"), status = TaskStatus.DONE),
             T("open", dueAt = local("2026-11-19T09:00")),
         )
         assertEquals(setOf(DueGroup.TOMORROW), groupsOf(tasks).keys)

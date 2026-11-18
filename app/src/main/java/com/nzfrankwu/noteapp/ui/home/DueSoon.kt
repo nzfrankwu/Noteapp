@@ -18,7 +18,7 @@ class DueItem(val item: TaskWithCourse) : TaskLike by item.task {
  * What the home screen's Due soon panel shows (IDEA.md §2.2, §2.3):
  * - [dated]: Overdue → Today → Tomorrow → This week → Later, across all courses.
  * - [noDueDate]: the collapsible "No due date" section (always counted, listed only when expanded).
- * - [finished]: Submitted/Done tasks, listed only when "Show finished" is on.
+ * - [finished]: Done tasks, listed only when "Show finished" is on.
  */
 data class DueSoonState(
     val loaded: Boolean = false,

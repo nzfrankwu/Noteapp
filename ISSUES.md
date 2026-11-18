@@ -4,15 +4,37 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Known bugs
 
-_None known._
+
+- **Handwriting search found nothing on the tablet (18 Nov, the user).** The model had downloaded, but the first 49 pages read were the debug test-writing pages (unreadable by design), so no real writing had been read. Fixed: newest pages first, plus a line-grouping fix for full pages and a progress line on the search screen. Installed on the tablet 18 Nov; recognition quality on the user's real writing still to be confirmed by them.
 
 ## Open questions
+
+- **Launch (18 Nov, the user: "i think we are ready to launch") — your decisions:**
+  - **Merge `phase-7` into `main`** (needs your OK).
+  - **Privacy page:** publish the handwriting-search line (`site/privacy.html`) to the website (`gh-pages`).
+  - **Google Play:** a Play Console developer account is yours to create (one-time fee, identity check). New personal accounts currently have to run a closed test with at least 12 testers for 14 days before a public release. Then the store listing (name, description, screenshots, icon), content rating and the Data safety form.
+  - **Photo permission:** the image menu's Recent Images grid uses READ_MEDIA_IMAGES. Google Play only allows that for apps whose main purpose needs all photos; a note app is usually told to use Android's photo picker instead. Options: drop the grid (use the picker only), or ask Google and risk a rejection.
+  - **Name:** "Noteapp" (IDEA.md §7 still lists the public name as undecided).
+  - **Screen capture service:** Play asks for a short declaration (with a video) for the "media projection" foreground service.
+  - **Android developer verification (researched 18 Nov):** Google now requires apps on certified Android devices to come from a verified developer, even APKs downloaded from GitHub. It started in Brazil, Indonesia, Singapore and Thailand (30 Sep 2026); worldwide is planned for 2027. Until then the GitHub APK installs as usual; after that, unverified APKs need an "advanced" install flow. Registering (identity check in the Android Developer Console, or the Play Console account) avoids it.
+
+- **Handwriting corrections (later, your call):** a screen to see what Noteapp read on a page and fix words, remembered for search. Only worth it if search still misses your writing after the messy-handwriting changes.
+
+- **Phase 7, waiting on you (18 Nov, hands-off stop):**
+  - **Privacy page:** `site/privacy.html` now mentions handwriting search (on-device, model downloaded from Google). Publish it to the website (`gh-pages`)? Also worth checking ML Kit's own terms for anonymous usage statistics before publishing the app.
+  - **7.11 editor speed** skipped in hands-off: it changes how pages draw their ink and can't be measured on the emulator (deep zoom needs a pinch; the lasso pause needs the real pen). To do together with the tablet.
 
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
 - **A Home nudge when Drive isn't connected? (your call):** today Home only warns once Drive is connected and backups fail or stop for 3 days. Nothing on Home reminds you to connect Drive in the first place.
 
 ## Follow-ups / tech debt
+
+- **Shapes:** no automated screen test for the gestures (test-injected pen moves don't reach the pen layer); checked by script on the emulator. A finger can't drag a shape's points yet (the pen can). A turned (rotated) ellipse isn't recognised as editable after turning it with the lasso (still moves, resizes and turns as writing).
+
+- **Forgiving handwriting search scales with the notes:** each typed letter loads every handwritten page's readings and compares words (fine for a few hundred pages; revisit after a semester of notes, e.g. keep the words in memory or prefilter).
+
+- **Search (7.9–7.10):** a text box or handwriting match zooms to it but doesn't mark the words; scanned PDF pages have no text. The first pass over many big PDFs and many handwritten pages runs in the background after start-up (not measured on the tablet yet). Recognition quality on real handwriting (and maths) needs the tablet. The debug app is ~63 MB with ML Kit.
 
 - **Backup (Phase 6):**
   - After "Import from export" the app restarts on Home; the "Restored the backup from …" message only shows in Settings → Backup.
@@ -21,12 +43,9 @@ _None known._
   - The PDF copies have no status of their own: if one notebook can't be drawn, or Drive fails while updating the copies, nothing is shown (the full backup already succeeded; the next run tries again).
   - Two tablets backing up to the same Google account would share one backup folder (each run keeps the other's newer snapshots, and unused files wait a day before they go), but restore lists them together. One tablet is the plan; revisit if that changes.
   - Each Drive run lists `Backup/blobs/` (1 request per 1000 files) instead of caching Drive ids locally. Fine for thousands of files; revisit if backups get slow.
-  - **From the end-of-phase review (17 Nov), not fixed yet:**
-    - The whole Drive run holds `StorageLock.backup`, upload included. On a slow connection, Delete now, Export everything, the purge and Drive restore wait until it ends (a first backup can take 30+ minutes). Fix idea: hold the lock only for the snapshot, and let the purge/clean-up skip files a run is still uploading. 🔺 data safety.
-    - Every backup md5-hashes every file again, big PDFs included. Fix idea: cache md5 by path + size + modified time for write-once files.
-    - Every backup re-downloads the kept snapshot lists (~8). Fix idea: cache them by Drive file id; they never change.
+  - **From the end-of-phase review (17 Nov), not fixed yet** (the other four were fixed in Phase 7 step 7.2):
     - When one notebook's PDF copy fails, the copies still count as up to date until the next change or the daily run (on purpose, so a broken notebook isn't retried every 30 minutes).
-    - Home's backup strip "Open Settings" opens Settings at the top, not at Backup.
+    - **New in 7.2:** "Delete now" on a notebook while a Drive upload is still reading it removes its rows straight away, but its files stay until the clean-up removes them (a folder of a gone notebook goes once all its files are 30+ days old). Harmless (unused files, not in later backups), just space for a while.
   - "Back up now" isn't an expedited job (that would need its own notification on Android 11 and older), so Android may start it a little later.
 
 - **Open in Canvas (Phase 5 FB11):** not tried with the real Canvas Student app: whether it opens the university's assignment links (else the Chrome tab takes over) needs the tablet.
@@ -50,8 +69,8 @@ _None known._
 - **Pictures while selected (Phase 3.6):** a selected picture is drawn above the ink until it's let go (it's in the selection layer); the rotate handle turns pictures too but a non-square picture turned and then stretched sideways is only approximately right (the stretch follows the box, not the picture's own axes).
 - **PDF pages, things not checked yet (Phase 3.3):** the sharp deep-zoom part (`pdfDetail`) needs a two-finger pinch, which the emulator scripts can't do; check on the tablet. Jumping far with the page scroller shows the page white for a moment before its picture arrives (plain notebooks also have no preview that far away). PDFs with rotated pages (`/Rotate`) aren't tested. Android 15+ can open password-protected PDFs with a password; we just refuse them for now.
 - **Imported PDFs and images (Phase 3 decision, Phase 6.5):** a notebook's `pdf-*.pdf` and `images/*` files stay when their pages or images are deleted, so Undo works; the daily clean-up removes them once nothing has used them for 30 days (by file age, so a picture inserted long ago and removed today can go at the next clean-up unless the notebook is open).
-- **Steady pen width vs the pressure pen (F22):** at the same Thickness, the Off/Low/Medium pens may look thinner or thicker than the Full pen at your usual pressure (the emulator only has full pressure). Tune the multipliers in `InkBrushes.roundPen` after trying it on the tablet; changing them changes how existing strokes of those kinds look, so give a new key if notes already use them.
-- **Notebook editor, small things to revisit (Phase 2):**
+- **Pen widths (F22, 7.12):** Medium and Full got stronger v2 pens (18 Nov). Off and Low are unchanged; whether Off/Low look right next to the new Full at your usual pressure is still for you to say. Any further change to a pen's look needs a new key.
+- **Notebook editor, small things to revisit (Phase 2):** (very deep zoom, pre-drawing the next page and the big lasso move pause are planned as Phase 7 step 7.11; pen widths F22 as 7.12)
   - Ink still being written shows on top of the toolbar if you write under it; it drops behind once you lift the pen.
   - Stability smooths a stroke when you lift the pen, so a wobbly line shifts slightly at that moment. It's off (0%) by default.
   - Hold-to-straighten snaps the line after you lift the pen, not while you're still holding.
@@ -82,6 +101,49 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Shapes (7.14, 18 Nov):** hold the pen still at the end of a rough rectangle, circle or triangle and it snaps (a square or circle when nearly so); keep holding and move to resize from the corner you stopped at. Lasso one line or shape to drag its points (line ends, corners, an ellipse's sides). No change to how pages are saved.
+- **Press hard to erase misses (7.15, 18 Nov):** a hard press now rides out small pressure wobbles, and holding it no longer snaps a line or shape instead.
+
+- **Launch review (18 Nov):** reviewed everything since the Phase 7 review (`c37fba6`); 8 findings, 7 fixed: forgiving matches only for handwriting (typed PDF and text box words must match as typed), a damaged page no longer keeps the progress line up forever, a short real line (one cursive word) is no longer merged into the line below, Find in this notebook gives up after 5 s if the editor never lays out, the progress check stops once everything is read, two small tidy-ups. Kept: search re-reads every handwritten page's text on each typed letter (fine at today's size; see Follow-ups).
+
+- **Pen widths, 7.12 (18 Nov, the user's feedback):** Medium and Full now respond more to pressure, like a real pen: thinner when you press lightly, thicker when you press hard (Full the most). Only new writing changes; what you already wrote keeps its look (new ink keys `pen-pressure-mid-v2`, `pen-pressure-full-v2`). Off and Low are unchanged. If it's too much or too little, the numbers are in `InkBrushes` (a further change needs another new key).
+
+- **Handwriting reading progress while searching (18 Nov, the user asked):** the "read 40 of 252 pages so far" line now stays at the top of the results too (before, it only showed before typing or when nothing matched). In "Find in this notebook" it counts that notebook's pages, and that notebook's handwriting is read first while Find is open. An edited page counts as not read until it's read again.
+
+- **"Find in this notebook" didn't go to the page (18 Nov, the user, on the tablet).** Coming back from the search screen rebuilds the editor; if the request arrived before the editor knew its size it was dropped, and the editor's first "fit the page" could put it back on the old page. Now it waits for that first fit, then goes to the page; a handwritten match also zooms to its line (as from Home's search). New screen test reproduces it (fails on the old code). Couldn't make it fail by hand on the emulator, so check on the tablet.
+
+- **The release build crashed at start (fixed 18 Nov).** R8 moved one of Kotlin's internal string classes out of its package; `app/keep-rules.pro` now says `-dontobfuscate` (optimisations kept, no renaming). Checked on the emulator: every main screen (`screenshots/release_smoke.sh`), PDF search, Find in this notebook and handwriting search (model download + "TO" found). The release build is much smoother: typing in search ~18 ms frames instead of ~150 ms (debug). On the tablet since 18 Nov (the user said yes); for safety snapshots, install the debug build of the same commit first (release can't be copied off with `run-as`).
+
+- **Search tweaks (18 Nov):** notes first in results; a 🔍 in course folders (searches that folder and its subfolders, plus the course's tasks); the notebook editor's own 🔍 button (Find in this notebook) at the top right.
+
+- **Phase 7 installed on the tablet (18 Nov, 7.13):** database v7 → v8, compare PASS (38 Submitted tasks became Done; everything else and all 167 page files unchanged).
+
+- **Messy handwriting (18 Nov):** search now keeps up to 5 readings of each handwritten line, forgives a letter or two in longer words (handwriting only), and reads each line with the line above as context. Real quality needs your notes on the tablet.
+
+- **Phase 7 code review (18 Nov, hands-off):** 10 findings, 9 fixed (list in PHASE-7.md), 1 kept on purpose (the theme is read once before the first frame). 619 unit and 333 emulator tests pass.
+
+- **Phase 7 step 7.10, handwriting search (18 Nov, hands-off):** search also finds your handwriting (English), read on the tablet by Google's ML Kit; a match opens zoomed to its line. The English model (~20 MB) downloads once on Wi-Fi.
+
+- **Phase 7 step 7.9, searching inside notes (18 Nov):** search now also finds words in imported PDFs and text boxes ("In your notes"); tapping one opens the page with the words selected. Notebook ⋮ → "Find in this notebook". The words are kept in a separate `search.db` that's rebuilt in the background and never backed up.
+
+- **Phase 7 step 7.8, search (18 Nov):** a search icon on Home finds tasks (titles, descriptions, your notes, course), notebooks and folders. Words in PDFs, text boxes and handwriting come in 7.9–7.10.
+
+- **Phase 7 step 7.7, course colours (18 Nov, hands-off):** choose a course's colour from Settings → Courses ("Colour") or the folder's ⋮ menu ("Course colour"), or go back to Automatic.
+
+- **Phase 7 step 7.6, light/dark (18 Nov, hands-off):** Settings → Appearance: Like the tablet, Light or Dark, for the whole app including the notebook editor.
+
+- **Phase 7 step 7.5, reminder times (18 Nov, hands-off):** Settings → Reminders lets you pick any of 1 week, 3 days, 1 day, 2 hours, 1 hour before, or at the time (default still 1 day and 2 hours).
+
+- **Phase 7 step 7.4, partial eraser (18 Nov, hands-off):** the eraser's panel has Whole strokes / Part of strokes. Part of strokes rubs out only where it passes. One eraser drag is now one Undo (before, a long whole-stroke rub could take several Undos).
+
+- **Phase 7 step 7.3, page paper (18 Nov, hands-off):** the notebook ⋮ menu has "This page's paper" and "Paper for all pages", both undoable; Settings → Notebooks → "Paper for new notebooks".
+
+- **Phase 7 step 7.2, backup follow-ups (18 Nov, hands-off):** a Drive backup no longer makes Delete now, Export everything, the 30-day purge or a restore wait for its upload (only its quick local copy holds the lock; the notebooks it's still uploading are protected another way). Unchanged PDFs aren't re-read every backup, the kept backup lists aren't downloaded again, and Home's "Open Settings" goes straight to Backup.
+
+- **Phase 7 step 7.1, database version 8 (18 Nov, hands-off):** Submitted is merged into Done. Updating turns every Submitted task into Done; nothing else changes. Courses got an empty `color` column for step 7.7. Real v7 → v8 upgrade on the emulator: PASS.
+
+- **Phase 7 planned (17 Nov):** `PHASE-7.md`, working-together mode. Decided with the user: search over names, tasks, PDF text, text boxes and handwriting (ML Kit, English); custom tags dropped and **Submitted merged into Done**; new settings (reminder times, course colours, default paper, light/dark); the Phase 6 review leftovers and editor speed leftovers are in. IDEA.md §2.2, §2.3, §2.11 (new), §3.3 and §5 updated with the user's OK. Version history stays "later"; the Home Drive nudge stays an open question.
 
 - **Spare test account's Drive cleaned up (17 Nov):** the user deleted the Noteapp folder that got part of a backup of their real notes during the account mix-up.
 

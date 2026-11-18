@@ -76,4 +76,16 @@ class CoursesScreenTest {
         assertNull(runBlocking { db.courseDao().getById("lib")!!.archivedAt })
         compose.onNodeWithText("Archived (1)").assertDoesNotExist()
     }
+
+    /** Phase 7, 7.7: choose a course's colour, then go back to automatic. */
+    @Test
+    fun courseColour_canBeChosen_andResetToAutomatic() {
+        compose.onNodeWithTag("color-LIBRARY 101").performClick()
+        compose.onNodeWithTag("course-color-teal").performClick()
+        compose.waitUntil(5_000) { runBlocking { db.courseDao().getById("lib")!!.color } == "teal" }
+
+        compose.onNodeWithTag("color-LIBRARY 101").performClick()
+        compose.onNodeWithTag("course-color-auto").performClick()
+        compose.waitUntil(5_000) { runBlocking { db.courseDao().getById("lib")!!.color } == null }
+    }
 }

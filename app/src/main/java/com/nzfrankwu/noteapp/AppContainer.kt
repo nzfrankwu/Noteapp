@@ -1,5 +1,9 @@
 package com.nzfrankwu.noteapp
 
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import android.content.Context
 import com.nzfrankwu.noteapp.canvas.CanvasAccount
 import com.nzfrankwu.noteapp.canvas.CanvasClient
@@ -135,6 +139,46 @@ class AppContainer(context: Context) {
         )
     }
 
+    /** Words in the notes for search (PHASE-7.md 7.9): a cache in its own `search.db`, never backed up. */
+    val noteTextStore: com.nzfrankwu.noteapp.data.search.NoteTextStore by lazy {
+        com.nzfrankwu.noteapp.data.search.NoteTextStore(appContext)
+    }
+    val handwriting: com.nzfrankwu.noteapp.data.search.MlKitHandwriting by lazy {
+        com.nzfrankwu.noteapp.data.search.MlKitHandwriting(
+            onModelReady = { appScope.launch { runCatching { noteTextIndexer.run() }.onFailure { android.util.Log.w("NoteappSearch", "Reading handwriting failed", it) } } },
+        )
+    }
+    val noteTextIndexer: com.nzfrankwu.noteapp.data.search.NoteTextIndexer by lazy {
+        com.nzfrankwu.noteapp.data.search.NoteTextIndexer(database, notebookFiles, noteTextStore, handwriting = handwriting)
+    }
+
+    /**
+     * The search screen's line about handwriting while it isn't all read yet (null once it is):
+     * e.g. "Handwriting search: read 40 of 252 pages so far". With [notebookId] ("Find in this
+     * notebook"), it counts that notebook's pages only.
+     */
+    suspend fun handwritingStatus(notebookId: String? = null): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val (done, total) = noteTextIndexer.handwritingProgress(notebookId)
+        when {
+            handwriting.modelState == com.nzfrankwu.noteapp.data.search.MlKitHandwriting.ModelState.DOWNLOADING ->
+                "Handwriting search: downloading the handwriting model (Wi-Fi only)…"
+            handwriting.modelState == com.nzfrankwu.noteapp.data.search.MlKitHandwriting.ModelState.FAILED ->
+                "Handwriting search: the handwriting model couldn't be downloaded yet. It tries again on Wi-Fi."
+            done < total && notebookId != null ->
+                "Handwriting in this notebook: read $done of $total pages so far (this notebook goes first). " +
+                    "Pages not read yet can't be found by their handwriting."
+            done < total -> "Handwriting search: read $done of $total pages so far (it keeps going in the background). " +
+                "Pages not read yet can't be found by their handwriting."
+            else -> null
+        }
+    }
+
+    /** The paper new notebooks start with (Settings → Notebooks, Phase 7, 7.3), always at hand. */
+    val newNotebookPaper: kotlinx.coroutines.flow.StateFlow<com.nzfrankwu.noteapp.domain.PageTemplate> by lazy {
+        inkSettings.settings.map { it.newNotebookPaper }
+            .stateIn(appScope, SharingStarted.Eagerly, com.nzfrankwu.noteapp.domain.PageTemplate.DEFAULT)
+    }
+
     /** A consistent copy of everything a backup needs (PHASE-6.md 6.1). */
     val localSnapshot: com.nzfrankwu.noteapp.data.backup.LocalSnapshot by lazy {
         com.nzfrankwu.noteapp.data.backup.LocalSnapshot(
@@ -142,6 +186,7 @@ class AppContainer(context: Context) {
             databaseFile = appContext.getDatabasePath(NoteAppDatabase.FILE_NAME),
             filesDir = appContext.filesDir,
             appVersion = BuildConfig.VERSION_NAME,
+            md5Cache = com.nzfrankwu.noteapp.data.backup.Md5Cache(java.io.File(appContext.cacheDir, "backup-md5.txt")),
         )
     }
 
@@ -171,6 +216,7 @@ class AppContainer(context: Context) {
             drive = com.nzfrankwu.noteapp.data.backup.drive.DriveClient(googleAuth),
             takeSnapshot = { localSnapshot.take(it) },
             stagingDir = java.io.File(appContext.cacheDir, "drive-staging"),
+            listCache = java.io.File(appContext.cacheDir, "drive-lists"),
         )
     }
 

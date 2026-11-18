@@ -102,6 +102,8 @@ fun FolderScreen(
     onOpenFolder: (folderId: String) -> Unit = {},
     /** Opens a notebook. */
     onOpenNotebook: (notebookId: String) -> Unit = {},
+    /** Searches this folder (and the folders in it); the button is hidden when null. */
+    onSearch: (() -> Unit)? = null,
     /** The Calendar tab for this folder's course. */
     calendar: @Composable (courseId: String) -> Unit = {},
     /** The Timeline tab for this folder's course. */
@@ -132,6 +134,17 @@ fun FolderScreen(
     val courseCode = if (isSubfolder) place?.course?.code else item?.courseCode
     val linkedCourseId = if (isSubfolder) null else item?.folder?.courseId
     var menuOpen by remember { mutableStateOf(false) }
+    var choosingColor by rememberSaveable { mutableStateOf(false) }
+    val courseColor by viewModel.courseColor.collectAsStateWithLifecycle()
+    val colorCode = item?.courseCode
+    if (choosingColor && colorCode != null) {
+        com.nzfrankwu.noteapp.ui.components.CourseColorDialog(
+            code = colorCode,
+            current = courseColor,
+            onPick = { choosingColor = false; viewModel.setCourseColor(it) },
+            onDismiss = { choosingColor = false },
+        )
+    }
     var addMenuOpen by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     // Import PDF: Android's file picker, then the PDF is copied into Noteapp.
@@ -234,6 +247,9 @@ fun FolderScreen(
                             modifier = Modifier.padding(horizontal = 8.dp),
                         )
                     }
+                    if (onSearch != null) {
+                        RoundIconButton(R.drawable.ic_search, "Search this folder", onSearch, Modifier.padding(end = 8.dp).testTag("folder-search"))
+                    }
                     Box {
                         RoundIconButton(R.drawable.ic_more_vert, "Folder options", { menuOpen = true }, Modifier.padding(end = 8.dp))
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -243,6 +259,11 @@ fun FolderScreen(
                                     DropdownMenuItem(text = { Text("Link a course") }, onClick = { menuOpen = false; viewModel.startLinkCourse() })
                                 } else {
                                     DropdownMenuItem(text = { Text("Unlink course") }, onClick = { menuOpen = false; viewModel.startUnlink() })
+                                    DropdownMenuItem(
+                                        text = { Text("Course colour") },
+                                        onClick = { menuOpen = false; choosingColor = true },
+                                        modifier = Modifier.testTag("folder-course-color"),
+                                    )
                                     val archived = item?.isArchived == true
                                     DropdownMenuItem(
                                         text = { Text(if (archived) "Unarchive course" else "Archive course") },

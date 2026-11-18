@@ -511,7 +511,83 @@ class MigrationTest {
         db.close()
     }
 
+    // ---- Version 7 → 8: Submitted merged into Done, courses.color (Phase 7, 7.1) ----
+
+    /**
+     * 7 → 8 changes only what it should: tasks saved as "submitted" become "done" (nothing else in
+     * the row, not even updated_at); every other row and value stays; every course has no chosen colour.
+     */
+    @Test
+    fun migration7To8_turnsSubmittedIntoDone_andKeepsEverythingElse() {
+        val statusless = version7Columns.mapValues { (table, columns) -> if (table == "tasks") columns - "status" else columns }
+        val (before, statusesBefore) = helper.createDatabase(testDbName, 7).let { old ->
+            insertVersion7Data(old)
+            val rows = statusless.mapValues { (table, columns) -> rowsOf(old, table, columns) }
+            val statuses = rowsOf(old, "tasks", listOf("id", "status"))
+            old.close()
+            rows to statuses
+        }
+        assertTrue("The test data has a Submitted task", statusesBefore.any { it[1] == "submitted" })
+
+        val db = helper.runMigrationsAndValidate(testDbName, 8, true, MIGRATION_7_8)
+
+        for ((table, columns) in statusless) {
+            assertEquals("Rows of $table after migrating", before.getValue(table), rowsOf(db, table, columns))
+        }
+        val expected = statusesBefore.map { (id, status) -> listOf(id, if (status == "submitted") "done" else status) }
+        assertEquals(expected, rowsOf(db, "tasks", listOf("id", "status")))
+        assertEquals(
+            "No course has a chosen colour",
+            rowsOf(db, "courses", listOf("id")).map { listOf(null) },
+            rowsOf(db, "courses", listOf("color")),
+        )
+        db.query("PRAGMA foreign_key_check").use { assertFalse("Broken links between tables", it.moveToFirst()) }
+        db.close()
+    }
+
+    /** After updating, the Submitted task reads as Done, the others keep theirs, and a course can take a colour. */
+    @Test
+    fun dataSavedByVersion7_survivesUpdatingToTheCurrentVersion_andTakesACourseColour() {
+        helper.createDatabase(testDbName, 7).apply {
+            insertVersion7Data(this)
+            close()
+        }
+
+        val db = openWithAllMigrations()
+        runBlocking {
+            assertEquals(com.nzfrankwu.noteapp.domain.TaskStatus.DONE, requireRow(db.taskDao().getById("t9")).status)
+            assertEquals(com.nzfrankwu.noteapp.domain.TaskStatus.STUCK, requireRow(db.taskDao().getById("t1")).status)
+            val course = requireRow(db.courseDao().getById("c1"))
+            assertEquals(null, course.color)
+            db.courseDao().update(course.copy(color = "teal"))
+            assertEquals("teal", requireRow(db.courseDao().getById("c1")).color)
+            assertEquals("bookmarks/old.png", rowsOf(db.openHelper.readableDatabase, "task_bookmarks", listOf("image")).single().single())
+        }
+        db.close()
+    }
+
     // ---- Helpers ----
+
+    /**
+     * Rows as version 7 saved them: version 6's rows, the bookmark's picture, and a Canvas task
+     * saved as "submitted". FROZEN to version 7's tables on purpose: never update this SQL for new versions.
+     */
+    private fun insertVersion7Data(db: SupportSQLiteDatabase) {
+        insertVersion6Data(db) // version 6's tables are part of version 7 (only a column was added)
+        db.execSQL("UPDATE task_bookmarks SET image = 'bookmarks/old.png' WHERE id = 'bm1'")
+        db.execSQL(
+            "INSERT INTO tasks (id, title, course_id, due_at, url, description_html, status, target_at, " +
+                "notes, source, canvas_assignment_id, canvas_submission_state, canvas_submitted_at, " +
+                "removed_from_canvas, created_at, updated_at, available_at) VALUES ('t9', 'Lab 4', 'c1', " +
+                "1763800000000, NULL, NULL, 'submitted', NULL, NULL, 'canvas', 44, 'submitted', 1763790000000, " +
+                "0, 8000, 8100, NULL)",
+        )
+    }
+
+    /** Version 7's columns: version 6's plus task_bookmarks.image. FROZEN like [insertVersion7Data]. */
+    private val version7Columns: Map<String, List<String>> by lazy {
+        version6Columns.mapValues { (table, columns) -> if (table == "task_bookmarks") columns + "image" else columns }
+    }
 
     /**
      * Rows as version 6 saved them: version 5's rows plus two links and a bookmark (with a spot)

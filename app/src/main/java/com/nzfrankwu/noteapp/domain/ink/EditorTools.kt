@@ -144,6 +144,8 @@ data class InkToolSettings(
     val highlighterRound: Boolean = false,
     /** Eraser radius in page units. */
     val eraserRadius: Float = 6f,
+    /** The eraser takes away only the part of a stroke it passes over (Phase 7, 7.4); off = whole strokes. */
+    val eraserPartial: Boolean = false,
     /** Press hard with the pen to erase (PHASE-2.md). */
     val pressureErase: Boolean = true,
     /** How hard counts as "hard", 0–1 of the pen's full pressure. */
@@ -169,6 +171,8 @@ data class InkToolSettings(
     val highlighterPalette: List<Int> = InkPalette.HIGHLIGHTER_COLORS,
     /** The bookmark pen draws a rectangle instead of a free loop (PHASE-5.md FB5). */
     val bookmarkRect: Boolean = false,
+    /** The paper new notebooks start with (Settings → Notebooks, Phase 7, 7.3). */
+    val newNotebookPaper: com.nzfrankwu.noteapp.domain.PageTemplate = com.nzfrankwu.noteapp.domain.PageTemplate.DEFAULT,
 ) {
     /** The toolbar colours shown for [tool]. */
     fun palette(tool: EditorTool): List<Int> = if (tool == EditorTool.HIGHLIGHTER) highlighterPalette else penPalette
@@ -301,6 +305,9 @@ object PressureErase {
     /** How far the pen may drift while held "still", in page units (about 1.8 mm). */
     const val STILL_RADIUS = 5f
 
+    /** A hard press lasts until the pressure falls this far below the level (see [PressHold.pressing]). */
+    const val RELEASE_MARGIN = 0.1f
+
     /**
      * True when [pressure] counts as a hard press. A full 1.0 counts too: it's what the hardest
      * presses report. Pens that don't report pressure (a fixed 1.0, so [penReportsPressure] is
@@ -348,13 +355,26 @@ class PressHold(val holdMs: Int, radius: Float = PressureErase.STILL_RADIUS) {
     var heldMs = 0L
         private set
 
+    /**
+     * In a hard press now. Once hard, the press stays hard until the pressure drops clearly
+     * below the level ([PressureErase.RELEASE_MARGIN]): a pen held hard and still wobbles a
+     * little around the level, and every dip used to start the wait again (7.15, the user:
+     * "it doesn't activate sometimes if I'm still").
+     */
+    var pressing = false
+        private set
+
     /** One pen sample (page units, ms). True once the hard, still press has lasted long enough. */
     fun feed(pressure: Float, level: Float, penReportsPressure: Boolean, x: Float, y: Float, timeMs: Long): Boolean {
-        if (!PressureErase.isHard(pressure, level, penReportsPressure)) {
+        val hard = PressureErase.isHard(pressure, level, penReportsPressure) ||
+            (pressing && PressureErase.isHard(pressure, level - PressureErase.RELEASE_MARGIN, penReportsPressure))
+        if (!hard) {
+            pressing = false
             still.reset()
             heldMs = 0L
             return false
         }
+        pressing = true
         heldMs = still.feed(x, y, timeMs)
         return heldMs >= holdMs
     }

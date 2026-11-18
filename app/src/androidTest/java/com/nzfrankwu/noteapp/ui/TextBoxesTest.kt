@@ -124,6 +124,8 @@ class TextBoxesTest {
         assertTrue("Measured height ${box.height}", box.height > 10f)
 
         runBlocking { viewModel.saveNow()?.join() }
+        // (An autosave may already be writing, and then saveNow has nothing left to wait for.)
+        compose.waitUntil(5_000) { files.read(notebookId, pageId()) is PageRead.Ok }
         val read = files.read(notebookId, pageId()) as PageRead.Ok
         assertEquals(listOf(box), read.texts)
 

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import android.content.Intent
@@ -21,6 +22,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.launch
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.nzfrankwu.noteapp.reminders.Notifications
 import androidx.compose.material3.MaterialTheme
@@ -61,7 +66,21 @@ fun SettingsScreen(
     /** How many notebooks are in Recently deleted (Phase 6). */
     recentlyDeletedCount: Int = 0,
     onOpenRecentlyDeleted: () -> Unit = {},
+    /** App-wide choices (reminder times); the Reminders section shows them when given. */
+    appSettings: com.nzfrankwu.noteapp.data.AppSettingsStore? = null,
+    /** A section to scroll to when the screen opens ([com.nzfrankwu.noteapp.ui.navigation.SettingsRoute.BACKUP]). */
+    scrollTo: String? = null,
 ) {
+    val scroll = androidx.compose.foundation.rememberScrollState()
+    var backupTop by remember { androidx.compose.runtime.mutableIntStateOf(-1) }
+    // Only once: coming back to Settings later (or rotating) keeps where you scrolled to.
+    var scrolled by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(scrollTo, backupTop) {
+        if (!scrolled && scrollTo == com.nzfrankwu.noteapp.ui.navigation.SettingsRoute.BACKUP && backupTop >= 0) {
+            scrolled = true
+            scroll.animateScrollTo(backupTop)
+        }
+    }
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
@@ -93,7 +112,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .widthIn(max = Dimens.ReadingMaxWidth)
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scroll)
                     .padding(Dimens.ScreenPadding),
                 verticalArrangement = Arrangement.spacedBy(Dimens.PaneGap),
             ) {
@@ -119,11 +138,19 @@ fun SettingsScreen(
                         }
                     }
                 }
+                if (appSettings != null) {
+                    SettingsSection("Appearance") { AppearanceSettings(appSettings) }
+                }
                 if (inkSettings != null) {
                     SettingsSection("Notebooks") { NotebookSettingsSection(inkSettings, showDebug = BuildConfig.DEBUG) }
                 }
                 if (backup != null) {
-                    SettingsSection("Backup") { BackupSection(backup, drive) }
+                    SettingsSection(
+                        "Backup",
+                        Modifier
+                            .testTag("settings-backup")
+                            .onGloballyPositioned { backupTop = it.positionInParent().y.toInt() },
+                    ) { BackupSection(backup, drive) }
                 }
                 SettingsSection("Recently deleted") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -136,7 +163,7 @@ fun SettingsScreen(
                         }
                     }
                 }
-                SettingsSection("Reminders") { RemindersSettings(onTestReminder) }
+                SettingsSection("Reminders") { RemindersSettings(onTestReminder, appSettings) }
                 SettingsSection("About") {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Version", style = MaterialTheme.typography.bodyLarge)
@@ -153,8 +180,11 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun RemindersSettings(onTestReminder: (() -> Unit)?) {
+private fun RemindersSettings(onTestReminder: (() -> Unit)?, appSettings: com.nzfrankwu.noteapp.data.AppSettingsStore?) {
     val context = LocalContext.current
+    val offsets by (appSettings?.reminderOffsets ?: kotlinx.coroutines.flow.flowOf(com.nzfrankwu.noteapp.domain.ReminderOffset.DEFAULT))
+        .collectAsState(com.nzfrankwu.noteapp.domain.ReminderOffset.DEFAULT)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     // Re-checked whenever you come back to this screen (e.g. from Android's notification settings).
     var notificationsOn by remember { mutableStateOf(Notifications.canNotify(context)) }
     LifecycleResumeEffect(Unit) {
@@ -163,9 +193,34 @@ private fun RemindersSettings(onTestReminder: (() -> Unit)?) {
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "You get a reminder 1 day and 2 hours before each task's target date (or its due date, if it has no target date).",
+            if (offsets.isEmpty()) "Reminders are off. Pick when you'd like them."
+            else "You get a reminder ${com.nzfrankwu.noteapp.domain.ReminderOffset.describe(offsets)} each task's target date " +
+                "(or its due date, if it has no target date).",
             style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag("reminder-summary"),
         )
+        if (appSettings != null) {
+            // Phase 7 (7.5): any mix of these.
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                com.nzfrankwu.noteapp.domain.ReminderOffset.entries.forEach { offset ->
+                    val on = offset in offsets
+                    androidx.compose.material3.FilterChip(
+                        selected = on,
+                        onClick = { scope.launch { appSettings.setReminderOffsets(if (on) offsets - offset else offsets + offset) } },
+                        label = { Text(offset.label) },
+                        leadingIcon = if (on) {
+                            { androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)) }
+                        } else {
+                            null
+                        },
+                        modifier = Modifier.testTag("reminder-${offset.key}"),
+                    )
+                }
+            }
+        }
         Text(
             if (notificationsOn) "Notifications are on." else "Notifications are off for Noteapp, so reminders can't show.",
             style = MaterialTheme.typography.bodyMedium,
@@ -192,9 +247,27 @@ private fun RemindersSettings(onTestReminder: (() -> Unit)?) {
     }
 }
 
+/** Light, dark or like the tablet (Phase 7, 7.6). */
 @Composable
-private fun SettingsSection(title: String, content: @Composable () -> Unit) {
+private fun AppearanceSettings(appSettings: com.nzfrankwu.noteapp.data.AppSettingsStore) {
+    val mode by appSettings.themeMode.collectAsState(com.nzfrankwu.noteapp.domain.ThemeMode.SYSTEM)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Light or dark:", style = MaterialTheme.typography.bodyMedium)
+        com.nzfrankwu.noteapp.ui.components.SegmentedTabs(
+            options = com.nzfrankwu.noteapp.domain.ThemeMode.entries,
+            selected = mode,
+            label = { it.label },
+            testTag = { "theme-${it.key}" },
+            onSelect = { chosen -> scope.launch { appSettings.setThemeMode(chosen) } },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun SettingsSection(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,

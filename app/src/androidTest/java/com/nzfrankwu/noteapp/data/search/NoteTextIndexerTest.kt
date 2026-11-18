@@ -1,0 +1,267 @@
+package com.nzfrankwu.noteapp.data.search
+
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.pdf.PdfDocument
+import androidx.room.Room
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.nzfrankwu.noteapp.data.FolderRepository
+import com.nzfrankwu.noteapp.data.FolderResult
+import com.nzfrankwu.noteapp.data.NotebookFiles
+import com.nzfrankwu.noteapp.data.NotebookRepository
+import com.nzfrankwu.noteapp.data.NotebookResult
+import com.nzfrankwu.noteapp.data.PdfImport
+import com.nzfrankwu.noteapp.data.PdfImportResult
+import com.nzfrankwu.noteapp.data.backup.BackupPaths
+import com.nzfrankwu.noteapp.data.db.NoteAppDatabase
+import com.nzfrankwu.noteapp.domain.ink.InkText
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.ByteArrayOutputStream
+import java.io.File
+
+/** PHASE-7.md 7.9: the search store follows the notes' PDF words and text boxes. */
+@RunWith(AndroidJUnit4::class)
+class NoteTextIndexerTest {
+    private val context = InstrumentationRegistry.getInstrumentation().targetContext
+    private lateinit var db: NoteAppDatabase
+    private lateinit var root: File
+    private lateinit var files: NotebookFiles
+    private lateinit var notebooks: NotebookRepository
+    private lateinit var store: NoteTextStore
+    private lateinit var indexer: NoteTextIndexer
+    private lateinit var folderId: String
+
+    @Before
+    fun setUp() {
+        PDFBoxResourceLoader.init(context)
+        db = Room.inMemoryDatabaseBuilder(context, NoteAppDatabase::class.java).build()
+        root = File(context.cacheDir, "note-text-test").apply { deleteRecursively(); mkdirs() }
+        files = NotebookFiles(root)
+        notebooks = NotebookRepository(db)
+        store = NoteTextStore(context, name = null) // in memory
+        indexer = NoteTextIndexer(db, files, store)
+        folderId = runBlocking { (FolderRepository(db).createFolder("Electromagnetics", "ELECTENG 204") as FolderResult.Success).folderId }
+    }
+
+    @After
+    fun tearDown() {
+        store.close()
+        db.close()
+        root.deleteRecursively()
+    }
+
+    private fun box(text: String) = InkText(id = "t-$text", text = text, left = 50f, top = 60f, width = 200f, height = 30f)
+
+    private fun pdf(vararg lines: String): ByteArray {
+        val doc = PdfDocument()
+        val paint = Paint().apply { textSize = 24f; color = Color.BLACK }
+        val page = doc.startPage(PdfDocument.PageInfo.Builder(842, 595, 1).create())
+        lines.forEachIndexed { i, line -> page.canvas.drawText(line, 60f, 80f + 40f * i, paint) }
+        doc.finishPage(page)
+        return ByteArrayOutputStream().also { doc.writeTo(it); doc.close() }.toByteArray()
+    }
+
+    @Test
+    fun textBoxes_areFound_followEdits_andLeaveWithTheirPage() = runBlocking {
+        val nb = (notebooks.createNotebook(folderId, "Lecture 7") as NotebookResult.Success).id
+        val page = notebooks.getPages(nb).first().id
+        files.write(nb, page, emptyList(), texts = listOf(box("Smith chart: impedance")))
+        indexer.run()
+        assertEquals(listOf(page), store.search(listOf("smith", "IMPEDANCE")).map { it.pageId })
+
+        // Edited: the old words go, the new ones are found.
+        Thread.sleep(20) // a new modified time
+        files.write(nb, page, emptyList(), texts = listOf(box("Fourier series")))
+        indexer.run()
+        assertTrue(store.search(listOf("smith")).isEmpty())
+        assertEquals(1, store.search(listOf("fourier")).size)
+
+        // A second run with nothing changed reads nothing.
+        assertEquals(0, indexer.run().read)
+
+        // The notebook is deleted (Recently deleted): its pages leave the store.
+        notebooks.delete(nb)
+        indexer.run()
+        assertTrue(store.search(listOf("fourier")).isEmpty())
+    }
+
+    @Test
+    fun pdfPages_areFound_byTheirWords_andCanBeLimitedToANotebook() = runBlocking {
+        val pdfImport = PdfImport(notebooks, files)
+        val made = pdfImport.import(folderId, "Slides") { pdf("Transmission lines", "Coaxial cable").inputStream() }
+        val nb = (made as PdfImportResult.Success).notebookId
+        val other = (notebooks.createNotebook(folderId, "Notes") as NotebookResult.Success).id
+        files.write(other, notebooks.getPages(other).first().id, emptyList(), texts = listOf(box("coaxial cable notes")))
+
+        indexer.run()
+        val hits = store.search(listOf("coaxial"))
+        assertEquals(2, hits.size)
+        val pdfHit = hits.single { it.notebookId == nb }
+        assertTrue(pdfHit.pdfText!!.contains("Transmission lines"))
+        assertEquals(listOf(nb), store.search(listOf("coaxial"), notebookId = nb).map { it.notebookId })
+        assertTrue("words in order, any case", store.search(listOf("TRANSMISSION", "cable")).isNotEmpty())
+        // Search words are text, never SQL wildcards.
+        assertTrue(store.search(listOf("%")).isEmpty())
+    }
+
+    // ---- 7.10: handwriting ----
+
+    /** Reads each line as "line@<top>" (and counts calls); [ready] says whether it can read at all. */
+    private class FakeReader(var ready: Boolean = true) : HandwritingReader {
+        var reads = 0
+        override suspend fun prepare() = ready
+        val contexts = mutableListOf<String>()
+        val tops = mutableListOf<Float>()
+        override suspend fun read(line: com.nzfrankwu.noteapp.domain.ink.HandwritingLines.Line, before: String): List<String> {
+            reads++
+            contexts += before
+            tops += line.top
+            return if (line.top < 150f) listOf("Smith chart notes", "Smlth chart notes") else listOf("Fourier series", "Founer series")
+        }
+    }
+
+    private fun letter(id: String, x: Float, y: Float) = com.nzfrankwu.noteapp.domain.ink.InkStroke(
+        id, com.nzfrankwu.noteapp.domain.ink.InkTool.PEN, 0xFF000000.toInt(), 2f,
+        floatArrayOf(x, x + 6f, x + 12f), floatArrayOf(y, y + 20f, y), intArrayOf(0, 8, 16),
+        floatArrayOf(0.5f, 0.5f, 0.5f), floatArrayOf(-1f, -1f, -1f), floatArrayOf(-1f, -1f, -1f),
+    )
+
+    @Test
+    fun handwriting_isReadLineByLine_keptWithItsBand_andReadAgainOnlyWhenThePageChanges() = runBlocking {
+        val reader = FakeReader()
+        val withHand = NoteTextIndexer(db, files, store, reader)
+        val nb = (notebooks.createNotebook(folderId, "Lecture 8") as NotebookResult.Success).id
+        val page = notebooks.getPages(nb).first().id
+        files.write(nb, page, listOf(letter("a", 100f, 100f), letter("b", 120f, 100f), letter("c", 100f, 200f)), texts = listOf(box("typed")))
+
+        assertEquals(1, withHand.run().handwritten)
+        val hit = store.search(listOf("fourier")).single()
+        assertEquals(page, hit.pageId)
+        assertEquals("Smith chart notes\nFourier series", hit.handText)
+        assertEquals("100.0,120.0;200.0,220.0", hit.handLines)
+        assertEquals("Smith chart notes | Smlth chart notes\nFourier series | Founer series", hit.handAlt)
+        assertEquals("each line gets the line above as context", listOf("", "Smith chart notes"), reader.contexts)
+        assertEquals("other readings are searched too", 1, store.search(listOf("founer")).size)
+        assertEquals("typed", hit.boxText) // the text box is kept alongside
+        assertEquals(2, reader.reads)
+
+        // Nothing changed: nothing is read again.
+        assertEquals(0, withHand.run().handwritten)
+        assertEquals(2, reader.reads)
+
+        // The page changes: its text boxes and handwriting are read again, the old words go.
+        Thread.sleep(20)
+        files.write(nb, page, listOf(letter("d", 100f, 300f)))
+        withHand.run()
+        assertTrue(store.search(listOf("smith")).isEmpty())
+        assertTrue(store.search(listOf("typed")).isEmpty())
+        assertEquals(1, store.search(listOf("fourier")).size)
+    }
+
+    /** The most recently changed page is read first (fresh writing is searchable at once). */
+    @Test
+    fun handwriting_readsTheNewestPageFirst() = runBlocking {
+        val reader = FakeReader()
+        val withHand = NoteTextIndexer(db, files, store, reader)
+        val nb = (notebooks.createNotebook(folderId, "Order") as NotebookResult.Success).id
+        val old = notebooks.getPages(nb).first().id
+        Thread.sleep(20)
+        val fresh = (notebooks.addPage(nb, 1) as NotebookResult.Success).id
+        files.write(nb, old, listOf(letter("o", 100f, 400f)))
+        files.write(nb, fresh, listOf(letter("f", 100f, 600f)))
+        withHand.run()
+        assertEquals(listOf(600f, 400f), reader.tops)
+    }
+
+    /**
+     * 18 Nov: the notebook being searched is read first, and the progress line counts its pages
+     * (an edited page counts as not read until it's read again).
+     */
+    @Test
+    fun handwriting_theSearchedNotebookGoesFirst_andProgressCountsItsPages() = runBlocking {
+        val reader = FakeReader(ready = false)
+        val withHand = NoteTextIndexer(db, files, store, reader)
+        val searched = (notebooks.createNotebook(folderId, "Searched") as NotebookResult.Success).id
+        val second = (notebooks.addPage(searched, 1) as NotebookResult.Success).id
+        Thread.sleep(20)
+        // The other notebook's page is the newest, so it would normally be read first.
+        val other = (notebooks.createNotebook(folderId, "Other") as NotebookResult.Success).id
+        files.write(searched, notebooks.getPages(searched).first().id, listOf(letter("s", 100f, 400f)))
+        files.write(searched, second, listOf(letter("t", 100f, 500f)))
+        files.write(other, notebooks.getPages(other).first().id, listOf(letter("o", 100f, 600f)))
+
+        withHand.run() // not ready: nothing read
+        assertEquals(0 to 2, withHand.handwritingProgress(searched))
+        assertEquals(0 to 3, withHand.handwritingProgress())
+
+        reader.ready = true
+        withHand.priorityNotebook = searched
+        withHand.run()
+        assertEquals("the searched notebook's pages first", setOf(400f, 500f), reader.tops.take(2).toSet())
+        assertEquals(600f, reader.tops.last())
+        assertEquals(2 to 2, withHand.handwritingProgress(searched))
+        assertEquals(3 to 3, withHand.handwritingProgress())
+
+        // An edited page needs reading again.
+        Thread.sleep(20)
+        files.write(searched, second, listOf(letter("u", 100f, 300f)))
+        assertEquals(1 to 2, withHand.handwritingProgress(searched))
+    }
+
+    /** Review fix (18 Nov): a damaged page counts as read, so the progress line can finish. */
+    @Test
+    fun aDamagedPage_countsAsRead_soProgressFinishes() = runBlocking {
+        val withHand = NoteTextIndexer(db, files, store, FakeReader())
+        val nb = (notebooks.createNotebook(folderId, "Damaged") as NotebookResult.Success).id
+        val good = notebooks.getPages(nb).first().id
+        val bad = (notebooks.addPage(nb, 1) as NotebookResult.Success).id
+        files.write(nb, good, listOf(letter("a", 100f, 100f)))
+        files.pageFile(nb, bad).apply { parentFile?.mkdirs() }.writeBytes(byteArrayOf(1, 2, 3, 4, 5)) // not a page file
+        withHand.run()
+        assertEquals(2 to 2, withHand.handwritingProgress(nb))
+        assertEquals(1, store.search(listOf("smith")).size)
+    }
+
+    @Test
+    fun handwriting_waitsUntilTheReaderIsReady() = runBlocking {
+        val reader = FakeReader(ready = false)
+        val withHand = NoteTextIndexer(db, files, store, reader)
+        val nb = (notebooks.createNotebook(folderId, "Lecture 9") as NotebookResult.Success).id
+        files.write(nb, notebooks.getPages(nb).first().id, listOf(letter("a", 100f, 100f)))
+        assertEquals(0, withHand.run().handwritten)
+        assertTrue(store.search(listOf("smith")).isEmpty())
+
+        reader.ready = true // e.g. the model finished downloading
+        assertEquals(1, withHand.run().handwritten)
+        assertEquals(1, store.search(listOf("smith")).size)
+    }
+
+    /** Review fix: pages with the words together come first, so the limit never cuts them. */
+    @Test
+    fun wordsTogether_comeFirst_beforeTheLimit() = runBlocking {
+        val nb = (notebooks.createNotebook(folderId, "Many") as NotebookResult.Success).id
+        val ids = (1..5).map { (notebooks.addPage(nb, it) as NotebookResult.Success).id }
+        ids.forEachIndexed { i, page ->
+            files.write(nb, page, emptyList(), texts = listOf(box(if (i == 3) "the Smith chart" else "chart by Smith $i")))
+        }
+        indexer.run()
+        assertEquals(listOf(ids[3]), store.search(listOf("smith", "chart"), limit = 1).map { it.pageId })
+    }
+
+    @Test
+    fun theSearchStore_isNeverInABackup() {
+        // It lives in databases/search.db; backups take only noteapp.db and the notebook files.
+        assertEquals("search.db", NoteTextStore.FILE_NAME)
+        assertFalse(BackupPaths.isRestorable("db/search.db"))
+        assertFalse(BackupPaths.isRestorable("databases/search.db"))
+    }
+}

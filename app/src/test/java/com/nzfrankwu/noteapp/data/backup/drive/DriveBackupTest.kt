@@ -52,6 +52,7 @@ class DriveBackupTest {
 
     /** Like LocalSnapshot: copies the live files and lists them. */
     private fun takeSnapshot(staging: File): Snapshot {
+        lockedWhileSnapshotting += com.nzfrankwu.noteapp.data.StorageLock.backup.isLocked
         staging.deleteRecursively()
         val sources = LinkedHashMap<String, File>()
         live.walkTopDown().filter { it.isFile }.forEach { file ->
@@ -62,12 +63,14 @@ class DriveBackupTest {
         return Snapshot(
             BackupManifest(createdAt = now.toEpochMilli(), appVersion = "test", databaseVersion = 7, counts = BackupCounts(notebooks = notebooks), files = entries),
             sources,
+            readInPlace = sources.keys.filter { it.endsWith(".pdf") || it.endsWith(".png") }.toSet(),
         )
     }
 
     private fun <T> run(block: suspend () -> T): T = runBlocking { block() }
     private fun backUp(): DriveBackup.Result = checkNotNull(run { backup.backUp() })
     private var notebooks = 2
+    private val lockedWhileSnapshotting = mutableListOf<Boolean>()
     private fun blobs() = drive.inFolder(drive.folderId("Noteapp", "Backup", "blobs")!!)
     private fun snapshotFiles() = drive.inFolder(drive.folderId("Noteapp", "Backup", "snapshots")!!)
     private fun later(duration: Duration) { now = now.plus(duration) }
@@ -82,6 +85,69 @@ class DriveBackupTest {
         assertEquals("2026-11-17 10-00-00 UTC.json", result.snapshot.name)
         assertTrue(result.storedBytes > 0)
         assertFalse("nothing left behind", File(temp.root, "staging").exists())
+    }
+
+    // ---- Phase 7, 7.2 ----
+
+    @Test
+    fun onlyTheSnapshot_holdsTheStorageLock_notTheUpload() {
+        val lockedWhileUploading = mutableListOf<Boolean>()
+        drive.onUpload = { lockedWhileUploading += com.nzfrankwu.noteapp.data.StorageLock.backup.isLocked }
+        backUp()
+        assertEquals(listOf(true), lockedWhileSnapshotting)
+        assertTrue(lockedWhileUploading.isNotEmpty())
+        assertTrue("Export, Delete now and the purge can run during the upload", lockedWhileUploading.none { it })
+        assertFalse(com.nzfrankwu.noteapp.data.StorageLock.backup.isLocked)
+    }
+
+    @Test
+    fun theUpload_pinsTheNotebooksItReadsInPlace_untilItEnds() {
+        val pinnedWhileUploading = mutableListOf<Pair<Boolean, Boolean>>()
+        drive.onUpload = {
+            pinnedWhileUploading += BackupPinsProbe.pinned("n1") to BackupPinsProbe.pinned("n2")
+        }
+        backUp()
+        assertTrue(pinnedWhileUploading.all { it == (true to true) })
+        assertFalse(BackupPinsProbe.pinned("n1"))
+        assertFalse(BackupPinsProbe.pinned("n2"))
+
+        // A run that fails halfway lets go of its pins too.
+        write("files/notebooks/n1/p1.ink", "changed")
+        drive.failUploadNumber = 1
+        assertThrows(DriveException::class.java) { run { backup.backUp() } }
+        assertFalse(BackupPinsProbe.pinned("n1"))
+    }
+
+    @Test
+    fun keptLists_areReadFromTheCache_notDownloadedEveryRun() {
+        val cache = temp.newFolder("lists")
+        backup = DriveBackup(drive, ::takeSnapshot, temp.newFolder("staging2"), clock, listCache = cache)
+        backUp()
+        for (day in 1..3) {
+            later(Duration.ofDays(1))
+            write("files/notebooks/n1/p1.ink", "page one, day $day")
+            drive.downloads = 0
+            backUp()
+            assertEquals("day $day: every kept list came from the cache", 0, drive.downloads)
+        }
+        assertEquals(
+            "the cache holds exactly the kept lists",
+            snapshotFiles().map { "${it.id}.json" }.toSet(),
+            cache.list()!!.toSet(),
+        )
+    }
+
+    @Test
+    fun aDamagedCachedList_isDownloadedAgain() {
+        val cache = temp.newFolder("lists")
+        backup = DriveBackup(drive, ::takeSnapshot, temp.newFolder("staging2"), clock, listCache = cache)
+        val first = backUp()
+        File(cache, "${first.snapshot.fileId}.json").writeText("{ not json")
+        later(Duration.ofDays(1))
+        drive.downloads = 0
+        backUp()
+        assertEquals(1, drive.downloads)
+        assertEquals(first.snapshot.fileId.let { id -> BackupManifest.fromJson(File(cache, "$id.json").readText()).files.size }, 4)
     }
 
     @Test
@@ -263,4 +329,8 @@ class DriveBackupTest {
         )
         assertTrue(File(staging, BackupPaths.MANIFEST).isFile)
     }
+}
+
+private object BackupPinsProbe {
+    fun pinned(id: String) = com.nzfrankwu.noteapp.data.backup.BackupPins.isPinned(id)
 }

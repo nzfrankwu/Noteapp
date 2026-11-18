@@ -156,6 +156,16 @@ class FolderRepository(
         true
     }
 
+    /**
+     * The colour you chose for a course (Phase 7, 7.7), or null for the automatic colour.
+     * Canvas sync never changes it.
+     */
+    suspend fun setCourseColor(courseId: String, color: com.nzfrankwu.noteapp.domain.CourseColorChoice?): Boolean = db.withTransaction {
+        val course = courseDao.getById(courseId) ?: return@withTransaction false
+        if (course.color != color?.key) courseDao.update(course.copy(color = color?.key, updatedAt = clock.instant()))
+        true
+    }
+
     /** Makes a new folder for an existing course (e.g. one imported from Canvas). */
     suspend fun createFolderForCourse(name: String, courseId: String): FolderResult = db.withTransaction {
         val cleanName = name.trim()

@@ -26,6 +26,7 @@ class SchemaHistoryTest {
         5 to "89e756841cb2c3e2e68f5239b5327971", // Phase 3: page sizes, PDF pages
         6 to "6372421640f9306234ce83b64b287d14", // Phase 4: task-notebook links, bookmarks
         7 to "8d62aed92589b65f824a85847ac59c4d", // Phase 5: bookmark pictures
+        8 to "54f796b6efd0e1625bb747109bb223ee", // Phase 7: Submitted merged into Done, courses.color
     )
 
     // Unit tests run with the app module folder as the working directory.

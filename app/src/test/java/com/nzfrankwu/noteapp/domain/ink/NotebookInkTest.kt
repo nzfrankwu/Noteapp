@@ -97,6 +97,27 @@ class NotebookInkTest {
     }
 
     @Test
+    fun paperChanges_areUndoSteps_thatLeaveTheStrokesAlone() {
+        val ink = NotebookInk()
+        ink.add("p1", listOf(testStroke("a", 0f to 0f)))
+        val page = InkEdit.PagePaper("p1", before = null, after = com.nzfrankwu.noteapp.domain.PageTemplate.GRID)
+        val all = InkEdit.NotebookPaper(
+            before = com.nzfrankwu.noteapp.domain.PageTemplate.LINED,
+            after = com.nzfrankwu.noteapp.domain.PageTemplate.DOTS,
+            pagesBefore = mapOf("p1" to com.nzfrankwu.noteapp.domain.PageTemplate.GRID),
+        )
+        ink.recordPageEdit(page)
+        ink.recordPageEdit(all)
+        assertEquals(emptySet<String>(), page.changedPages)
+        assertEquals(all, ink.undo())
+        assertEquals(page, ink.undo())
+        assertEquals(listOf("a"), ids(ink, "p1"))
+        assertEquals(page, ink.redo())
+        assertEquals(all, ink.redo())
+        assertEquals(listOf("a"), ids(ink, "p1"))
+    }
+
+    @Test
     fun undoHistory_isCapped() {
         val ink = NotebookInk(maxUndo = 3)
         repeat(5) { ink.add("p", listOf(testStroke("s$it", 0f to 0f))) }

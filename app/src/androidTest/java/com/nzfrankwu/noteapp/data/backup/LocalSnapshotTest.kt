@@ -150,6 +150,22 @@ class LocalSnapshotTest {
         assertEquals(NoteAppDatabase.VERSION, info.version)
     }
 
+    /** Phase 7, 7.2: the snapshot says which files are read in place (so the Drive upload can pin their notebooks). */
+    @Test
+    fun aSnapshot_listsTheFilesItReadsInPlace() = runBlocking {
+        val (nb, page) = notebookWithPage("Lecture 1")
+        files.writeAsset(nb, "pdf-a.pdf", ByteArrayInputStream(ByteArray(2000) { (it % 251).toByte() }))
+        files.writeAsset(nb, "images/a.png", ByteArrayInputStream(byteArrayOf(1, 2, 3)))
+
+        val snapshot = take()
+        assertEquals(setOf("files/notebooks/$nb/pdf-a.pdf", "files/notebooks/$nb/images/a.png"), snapshot.readInPlace)
+        for (entry in snapshot.manifest.files) {
+            val inStaging = snapshot.source(entry.path).canonicalPath.startsWith(staging.canonicalPath)
+            assertEquals(entry.path, entry.path !in snapshot.readInPlace, inStaging)
+        }
+        assertTrue("files/notebooks/$nb/$page.ink" !in snapshot.readInPlace)
+    }
+
     @Test(expected = IllegalStateException::class)
     fun aSnapshot_withoutTheBackupLock_isRefused() {
         runBlocking { snapshots.take(staging) }

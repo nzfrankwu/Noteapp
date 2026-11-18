@@ -106,4 +106,17 @@ class TextSelectionTest {
     fun handles_sitAtTheStartAndEndWords() {
         assertArrayEquals(floatArrayOf(104f, 112f, 84f, 132f), TextSelection.handles(text, TextRange(1, 4)), 0.001f)
     }
+
+    // ---- PHASE-7.md 7.9: finding search words on a page ----
+
+    @Test
+    fun find_prefersTheWordsTogether_inOrder() {
+        fun w(t: String, i: Int) = PdfWord(t, i * 50f, 0f, i * 50f + 40f, 10f, 9f, 0)
+        val page = PageText(listOf("The", "Smith", "chart,", "and", "another", "smith-like", "chart").mapIndexed { i, t -> w(t, i) })
+        assertEquals(TextRange(1, 2), TextSelection.find(page, listOf("smith", "chart")))
+        assertEquals(TextRange(4, 4), TextSelection.find(page, listOf("another", "nothing")))
+        assertEquals(TextRange(4, 4), TextSelection.find(page, listOf("ANOTHER")))
+        assertEquals(null, TextSelection.find(page, listOf("fourier")))
+        assertEquals(null, TextSelection.find(PageText.EMPTY, listOf("smith")))
+    }
 }

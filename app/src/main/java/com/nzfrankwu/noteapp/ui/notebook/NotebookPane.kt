@@ -46,6 +46,27 @@ import kotlinx.coroutines.launch
  * one pane, or two side by side (split view); its top bar and toolbar work on the active one.
  */
 @Stable
+/** Words to find on the page a notebook opens at (a search hit, PHASE-7.md 7.9), or null. */
+val LocalOpenAtFind = androidx.compose.runtime.staticCompositionLocalOf<String?> { null }
+
+/** Opens "Find in this notebook" for a notebook ID (PHASE-7.md 7.9); null where there's none. */
+val LocalFindInNotebook = androidx.compose.runtime.staticCompositionLocalOf<((String) -> Unit)?> { null }
+
+/** A page picked in "Find in this notebook": the open editor goes there itself (keeping its undo and split view). */
+/** How long a pane waits to be laid out before giving up on a [FindRequest]. */
+private const val FIND_WAIT_MS = 5_000L
+
+data class FindRequest(
+    val notebookId: String,
+    val pageId: String,
+    val query: String,
+    /** Where a handwritten match is on the page (its line); null for PDF and text box matches. */
+    val spot: com.nzfrankwu.noteapp.domain.PageSpot? = null,
+)
+
+/** Where "Find in this notebook" leaves the page to go to, for the notebook already open. */
+val LocalFindRequests = androidx.compose.runtime.staticCompositionLocalOf<kotlinx.coroutines.flow.MutableStateFlow<FindRequest?>?> { null }
+
 class PaneState(val viewModel: NotebookViewModel) {
     val view = EditorViewState()
 
@@ -157,6 +178,41 @@ fun NotebookPane(
     var fittedFor by remember { mutableStateOf(IntSize.Zero) }
     var savedPage by rememberSaveable { mutableIntStateOf(0) }
     var openedAtBookmark by rememberSaveable { mutableStateOf(false) }
+    val openAtFind = LocalOpenAtFind.current
+    var foundOnOpen by rememberSaveable { mutableStateOf(false) }
+    val findScope = androidx.compose.runtime.rememberCoroutineScope()
+    val findRequests = LocalFindRequests.current
+    // "Find in this notebook" picked a page of this notebook: go there and show the words.
+    LaunchedEffect(findRequests, strip) {
+        val requests = findRequests ?: return@LaunchedEffect
+        val s = strip ?: return@LaunchedEffect
+        requests.collect { r ->
+            if (r == null || r.notebookId != pane.viewModel.notebookId) return@collect
+            // Coming back from the search screen rebuilds this pane: wait until it has its size
+            // and has done its first fit, or that fit would put it back on the old page (and a
+            // request taken before the size was known used to be dropped).
+            // (At most a few seconds: a pane that never fits mustn't stop later requests.)
+            val size = kotlinx.coroutines.withTimeoutOrNull(FIND_WAIT_MS) {
+                snapshotFlow { view.viewSize.takeIf { it.width > 0 && it.height > 0 && fittedFor == it } }
+                    .filterNotNull().first()
+            }
+            if (requests.value != r) return@collect
+            if (size == null) { requests.value = null; return@collect }
+            requests.value = null
+            val index = pages.indexOfFirst { it.id == r.pageId }
+            if (index < 0) return@collect
+            val w = size.width.toFloat()
+            val h = size.height.toFloat()
+            val spot = r.spot?.takeIf { it.isValid }
+            if (spot != null) {
+                // A handwritten match: zoom to its line, as when opened from Home's search.
+                view.camera = s.focus(index, spot.left, spot.top, spot.width, spot.height, w, h)
+            } else {
+                view.camera = s.fit(settings.fitMode, index, w, h)
+                findScope.launch { showFound(pane, pages[index], index, r.query, s, w, h) }
+            }
+        }
+    }
     LaunchedEffect(viewSize, strip != null && pages.isNotEmpty()) {
         if (strip == null || pages.isEmpty() || viewSize.width == 0 || fittedFor == viewSize) return@LaunchedEffect
         // Opened at a bookmark: that page, zoomed to its spot (once; afterwards it's like any other page).
@@ -168,6 +224,12 @@ fun NotebookPane(
                 ?: strip.fit(settings.fitMode, bookmarked, w, h)
             openedAtBookmark = true
             fittedFor = viewSize
+            // Opened from a search (PHASE-7.md 7.9): select the words found and zoom to them.
+            if (openAtFind != null && !foundOnOpen) {
+                foundOnOpen = true
+                val page = pages[bookmarked]
+                findScope.launch { showFound(pane, page, bookmarked, openAtFind, strip, w, h) }
+            }
             return@LaunchedEffect
         }
         val page = (view.camera?.let { strip.currentPage(it, fittedFor.width.toFloat()) } ?: savedPage)
@@ -326,4 +388,41 @@ fun NotebookPane(
             PageScroller(view, strip, pages.size)
         }
     }
+}
+
+/**
+ * Shows where the search words are on page [index] (PHASE-7.md 7.9): on a PDF page the matching
+ * words are selected (Copy, Highlight, Bookmark work as usual) and zoomed to; otherwise the first
+ * text box holding them is zoomed to. Nothing happens if they aren't found (the page is shown).
+ */
+private suspend fun showFound(pane: PaneState, page: com.nzfrankwu.noteapp.data.db.Page, index: Int, query: String, strip: PageStrip, w: Float, h: Float) {
+    val words = com.nzfrankwu.noteapp.data.SearchIndex.words(query)
+    if (words.isEmpty()) return
+    val vm = pane.viewModel
+    val view = pane.view
+    if (page.isPdf) {
+        val text = vm.pageText(page)
+        val range = com.nzfrankwu.noteapp.domain.ink.TextSelection.find(text, words) ?: return
+        view.textSel = TextSel(index, page.id, text, range)
+        val spot = com.nzfrankwu.noteapp.domain.ink.TextSelection.spotOf(text, range)
+        focusAround(pane, page, index, spot.top, spot.height, strip, w, h)
+        return
+    }
+    // Text boxes: wait for the page to load (a few seconds at most).
+    kotlinx.coroutines.withTimeoutOrNull(5_000) {
+        while (!vm.isEditable(page.id)) kotlinx.coroutines.delay(50)
+    } ?: return
+    val box = vm.ink.texts(page.id).firstOrNull { t -> words.all { t.text.contains(it, ignoreCase = true) } }
+        ?: vm.ink.texts(page.id).firstOrNull { t -> t.text.contains(words[0], ignoreCase = true) }
+        ?: return
+    focusAround(pane, page, index, box.top, box.height, strip, w, h)
+}
+
+/** Zooms to a band across the whole page width around [top]..[top]+[height], so the words show in context. */
+private fun focusAround(pane: PaneState, page: com.nzfrankwu.noteapp.data.db.Page, index: Int, top: Float, height: Float, strip: PageStrip, w: Float, h: Float) {
+    val nb = pane.viewModel.notebook.value ?: return
+    val size = page.size(nb)
+    val band = (size.height * 0.5f).coerceAtLeast(height)
+    val bandTop = (top + height / 2f - band / 2f).coerceIn(0f, (size.height - band).coerceAtLeast(0f))
+    pane.view.camera = strip.focus(index, 0f, bandTop, size.width, band, w, h)
 }

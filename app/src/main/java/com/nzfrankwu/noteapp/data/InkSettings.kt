@@ -55,6 +55,7 @@ class InkSettings(context: Context) : InkSettingsStore {
             },
             highlighter = PenStyle(p[HIGHLIGHTER_COLOR] ?: d.highlighter.colorArgb, p[HIGHLIGHTER_SIZE] ?: d.highlighter.size),
             eraserRadius = p[ERASER_RADIUS] ?: d.eraserRadius,
+            eraserPartial = p[ERASER_PARTIAL] ?: d.eraserPartial,
             pressureErase = p[PRESSURE_ERASE] ?: d.pressureErase,
             pressureEraseLevel = p[PRESSURE_LEVEL] ?: d.pressureEraseLevel,
             pressureEraseHoldMs = p[PRESSURE_HOLD_MS] ?: d.pressureEraseHoldMs,
@@ -70,6 +71,7 @@ class InkSettings(context: Context) : InkSettingsStore {
             penPalette = p[PEN_PALETTE]?.let(::parseColors)?.takeIf { it.isNotEmpty() } ?: d.penPalette,
             highlighterPalette = p[HIGHLIGHTER_PALETTE]?.let(::parseColors)?.takeIf { it.isNotEmpty() } ?: d.highlighterPalette,
             bookmarkRect = p[BOOKMARK_RECT] ?: d.bookmarkRect,
+            newNotebookPaper = p[NEW_NOTEBOOK_PAPER]?.let(com.nzfrankwu.noteapp.domain.PageTemplate::fromKey) ?: d.newNotebookPaper,
         )
     }
 
@@ -83,6 +85,7 @@ class InkSettings(context: Context) : InkSettingsStore {
         p[HIGHLIGHTER_COLOR] = s.highlighter.colorArgb
         p[HIGHLIGHTER_SIZE] = s.highlighter.size
         p[ERASER_RADIUS] = s.eraserRadius
+        p[ERASER_PARTIAL] = s.eraserPartial
         p[PRESSURE_ERASE] = s.pressureErase
         p[PRESSURE_LEVEL] = s.pressureEraseLevel
         p[PRESSURE_HOLD_MS] = s.pressureEraseHoldMs
@@ -98,6 +101,7 @@ class InkSettings(context: Context) : InkSettingsStore {
         p[PEN_PALETTE] = s.penPalette.joinToString(",") { Integer.toHexString(it) }
         p[HIGHLIGHTER_PALETTE] = s.highlighterPalette.joinToString(",") { Integer.toHexString(it) }
         p[BOOKMARK_RECT] = s.bookmarkRect
+        p[NEW_NOTEBOOK_PAPER] = s.newNotebookPaper.key
         p[PENS_VERSION] = com.nzfrankwu.noteapp.domain.ink.PenDefaults.VERSION
     }
 
@@ -115,6 +119,7 @@ class InkSettings(context: Context) : InkSettingsStore {
         val HIGHLIGHTER_COLOR = intPreferencesKey("highlighter_color")
         val HIGHLIGHTER_SIZE = floatPreferencesKey("highlighter_size")
         val ERASER_RADIUS = floatPreferencesKey("eraser_radius")
+        val ERASER_PARTIAL = booleanPreferencesKey("eraser_partial")
         val PRESSURE_ERASE = booleanPreferencesKey("pressure_erase")
         val PRESSURE_LEVEL = floatPreferencesKey("pressure_erase_level")
         val PRESSURE_HOLD_MS = intPreferencesKey("pressure_erase_hold_ms")
@@ -128,6 +133,7 @@ class InkSettings(context: Context) : InkSettingsStore {
         val FIT_MODE = stringPreferencesKey("fit_mode")
         val DRAW_WITH_FINGER = booleanPreferencesKey("draw_with_finger")
         val BOOKMARK_RECT = booleanPreferencesKey("bookmark_rect")
+        val NEW_NOTEBOOK_PAPER = stringPreferencesKey("new_notebook_paper")
 
         /** Which pen defaults the saved pens were chosen under (see PenDefaults). */
         val PENS_VERSION = intPreferencesKey("pens_version")

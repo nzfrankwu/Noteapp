@@ -11,18 +11,24 @@ class PenOptionsTest {
     fun eachPressureLevel_hasItsOwnPenInk_andPensAreNotHighlighters() {
         assertEquals(InkTool.PEN_STEADY, InkTool.pen(PenPressure.OFF))
         assertEquals(InkTool.PEN_PRESSURE_LOW, InkTool.pen(PenPressure.LOW))
-        assertEquals(InkTool.PEN_PRESSURE_MID, InkTool.pen(PenPressure.MEDIUM))
-        assertEquals(InkTool.PEN, InkTool.pen(PenPressure.FULL))
-        listOf(InkTool.PEN, InkTool.PEN_STEADY, InkTool.PEN_PRESSURE_LOW, InkTool.PEN_PRESSURE_MID).forEach { assertFalse(it.isHighlighter) }
+        // 7.12: new writing with Medium and Full uses the stronger v2 pens; old strokes keep theirs.
+        assertEquals(InkTool.PEN_PRESSURE_MID_V2, InkTool.pen(PenPressure.MEDIUM))
+        assertEquals(InkTool.PEN_PRESSURE_FULL_V2, InkTool.pen(PenPressure.FULL))
+        assertEquals(InkTool.PEN, InkTool.fromKey("pen-v1"))
+        assertEquals(InkTool.PEN_PRESSURE_MID, InkTool.fromKey("pen-pressure-mid-v1"))
+        listOf(
+            InkTool.PEN, InkTool.PEN_STEADY, InkTool.PEN_PRESSURE_LOW, InkTool.PEN_PRESSURE_MID,
+            InkTool.PEN_PRESSURE_MID_V2, InkTool.PEN_PRESSURE_FULL_V2,
+        ).forEach { assertFalse(it.isHighlighter) }
     }
 
     @Test
     fun aPenSlot_drawsWithItsPressureLevel_andTheDefaultIsFull() {
         val settings = InkToolSettings()
-        assertEquals(InkTool.PEN, settings.inkTool(EditorTool.PEN_1))
+        assertEquals(InkTool.PEN_PRESSURE_FULL_V2, settings.inkTool(EditorTool.PEN_1))
         val steady = settings.withStyle(EditorTool.PEN_2, settings.pens[1].copy(pressure = PenPressure.OFF))
         assertEquals(InkTool.PEN_STEADY, steady.inkTool(EditorTool.PEN_2))
-        assertEquals(InkTool.PEN, steady.inkTool(EditorTool.PEN_1))
+        assertEquals(InkTool.PEN_PRESSURE_FULL_V2, steady.inkTool(EditorTool.PEN_1))
     }
 
     @Test

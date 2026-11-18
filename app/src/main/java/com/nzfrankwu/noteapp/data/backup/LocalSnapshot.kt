@@ -10,10 +10,16 @@ import java.io.File
 /**
  * One backup set, ready to be zipped or uploaded: its [manifest] and where each file's bytes are.
  * Files that change (the database, page files, settings) are copies in the staging folder; files
- * that never change once written (imported PDFs, pictures, bookmark pictures) are read where they are.
- * Call [source] only while [StorageLock.backup] is still held.
+ * that never change once written (imported PDFs, pictures, bookmark pictures) are read where they
+ * are ([readInPlace]). Call [source] only while [StorageLock.backup] is still held, or while the
+ * notebooks of [readInPlace] are pinned ([BackupPins], what the Drive upload does).
  */
-class Snapshot(val manifest: BackupManifest, private val sources: Map<String, File>) {
+class Snapshot(
+    val manifest: BackupManifest,
+    private val sources: Map<String, File>,
+    /** Paths whose bytes are the live files themselves, not copies in the staging folder. */
+    val readInPlace: Set<String> = emptySet(),
+) {
     fun source(path: String): File = sources[path] ?: error("Not in this snapshot: $path")
 }
 
@@ -26,7 +32,10 @@ class Snapshot(val manifest: BackupManifest, private val sources: Map<String, Fi
  * 2. Every page file and the two settings files are copied.
  *
  * Then the copy is made self-contained and checked ([DatabaseCheck.finishCopy]), and every file
- * is hashed. The caller must hold [StorageLock.backup] for as long as it uses the snapshot.
+ * is hashed (write-once files through [md5Cache], so an unchanged PDF isn't read again).
+ *
+ * The caller holds [StorageLock.backup] while taking it, and either keeps holding it while using
+ * the snapshot, or pins its [Snapshot.readInPlace] notebooks first ([BackupPins], Phase 7, 7.2).
  */
 class LocalSnapshot(
     private val database: NoteAppDatabase,
@@ -36,6 +45,8 @@ class LocalSnapshot(
     private val filesDir: File,
     private val appVersion: String,
     private val now: () -> Long = System::currentTimeMillis,
+    /** Remembers write-once files' md5s between backups; null = hash everything every time. */
+    private val md5Cache: Md5Cache? = null,
 ) {
     suspend fun take(staging: File): Snapshot = withContext(Dispatchers.IO) {
         check(StorageLock.backup.isLocked) { "Hold StorageLock.backup while taking and using a snapshot" }
@@ -51,7 +62,12 @@ class LocalSnapshot(
             collectFiles(staging, sources)
         }
         val info = DatabaseCheck.finishCopy(dbCopy)
-        val entries = sources.map { (path, file) -> BackupEntry(path, file.length(), Md5.of(file)) }.sortedBy { it.path }
+        val entries = sources.map { (path, file) ->
+            val writeOnce = path.startsWith(BackupPaths.FILES_PREFIX) && !changesInPlace(file)
+            val md5 = if (writeOnce && md5Cache != null) md5Cache.md5(path, file) else Md5.of(file)
+            BackupEntry(path, file.length(), md5)
+        }.sortedBy { it.path }
+        md5Cache?.save(sources.keys)
         Snapshot(
             BackupManifest(
                 createdAt = createdAt,
@@ -61,6 +77,7 @@ class LocalSnapshot(
                 files = entries,
             ),
             sources,
+            readInPlace = sources.filterValues { !it.startsWith(staging) }.keys,
         )
     }
 

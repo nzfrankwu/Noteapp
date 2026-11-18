@@ -51,10 +51,6 @@ val PurpleOnLight = Color(0xFF3F2178)
 val PurpleContainerDark = Color(0xFF45307A)
 val PurpleOnDark = Color(0xFFEBDFFF)
 
-val TealContainerLight = Color(0xFFD0F0E3)
-val TealOnLight = Color(0xFF0B5136)
-val TealContainerDark = Color(0xFF124A35)
-val TealOnDark = Color(0xFFB6EBD3)
 
 val GreenContainerLight = Color(0xFFDCEFD3)
 val GreenOnLight = Color(0xFF2C5A1D)

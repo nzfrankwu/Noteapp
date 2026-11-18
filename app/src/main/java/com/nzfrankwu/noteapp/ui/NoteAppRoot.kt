@@ -101,6 +101,8 @@ fun NoteAppRoot(
     val container = appContainer()
     val context = LocalContext.current
     val backStack = rememberNavBackStack(HomeRoute)
+    // "Find in this notebook" (PHASE-7.md 7.9): the page the open notebook should go to.
+    val findRequests = remember { kotlinx.coroutines.flow.MutableStateFlow<com.nzfrankwu.noteapp.ui.notebook.FindRequest?>(null) }
 
     // A tapped reminder asks to open its task.
     val taskToOpen by openTaskRequest.collectAsStateWithLifecycle()
@@ -233,7 +235,9 @@ fun NoteAppRoot(
                                 driveStatus = container.driveSettings.status,
                             )
                         },
-                        onOpenSettings = { backStack.add(SettingsRoute) },
+                        onOpenSettings = { backStack.add(SettingsRoute()) },
+                        onOpenSearch = { backStack.add(com.nzfrankwu.noteapp.ui.navigation.SearchRoute()) },
+                        onOpenBackupSettings = { backStack.add(SettingsRoute(SettingsRoute.BACKUP)) },
                         onOpenFolder = { folderId -> backStack.add(FolderRoute(folderId)) },
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                         onAddTask = { backStack.add(TaskEditRoute()) },
@@ -287,6 +291,7 @@ fun NoteAppRoot(
             entry<TaskRoute> { route ->
                     TaskDetailScreen(
                         viewModel = viewModel { TaskDetailViewModel(route.taskId, container.taskRepository, links = container.linkRepository) },
+                        defaultPaper = { container.newNotebookPaper.value },
                         onBack = ::back,
                         onOpenNotebook = { notebookId, pageId, spot -> backStack.add(NotebookRoute(notebookId, pageId, spot)) },
                         onEdit = { backStack.add(TaskEditRoute(taskId = route.taskId)) },
@@ -326,13 +331,14 @@ fun NoteAppRoot(
                 entry<FolderRoute> { route ->
                     FolderScreen(
                         viewModel = viewModel {
-                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport, links = container.linkRepository, officeConvert = container.officeConvert)
+                            FolderViewModel(route.folderId, container.folderRepository, container.taskRepository, container.notebookRepository, container.pdfImport, links = container.linkRepository, officeConvert = container.officeConvert, defaultPaper = { container.newNotebookPaper.value })
                         },
                         onBack = ::back,
                         onOpenTask = { taskId -> backStack.add(TaskRoute(taskId)) },
                         onAddTask = { courseId -> backStack.add(TaskEditRoute(courseId = courseId)) },
                         onOpenFolder = { folderId -> backStack.add(FolderRoute(folderId)) },
                         onOpenNotebook = { notebookId -> backStack.add(NotebookRoute(notebookId)) },
+                        onSearch = { backStack.add(com.nzfrankwu.noteapp.ui.navigation.SearchRoute(folderId = route.folderId)) },
                         calendar = { courseId ->
                             CalendarScreen(
                                 viewModel = viewModel(key = "folder-calendar-$courseId") {
@@ -355,6 +361,15 @@ fun NoteAppRoot(
                     )
                 }
                 entry<NotebookRoute> { route ->
+                    // Search (PHASE-7.md 7.9): the words to show on the page opened at, and the
+                    // menu's "Find in this notebook".
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        com.nzfrankwu.noteapp.ui.notebook.LocalOpenAtFind provides route.find,
+                        com.nzfrankwu.noteapp.ui.notebook.LocalFindRequests provides findRequests,
+                        com.nzfrankwu.noteapp.ui.notebook.LocalFindInNotebook provides { id ->
+                            backStack.add(com.nzfrankwu.noteapp.ui.navigation.SearchRoute(id))
+                        },
+                    ) {
                     // One notebook, or two in split view, with the recent panel (PHASE-5.md 5.7–5.9).
                     com.nzfrankwu.noteapp.ui.notebook.NotebookWorkspace(
                         firstId = route.notebookId,
@@ -376,6 +391,7 @@ fun NoteAppRoot(
                         openAtPage = route.pageId,
                         openAtSpot = route.spot,
                     )
+                    }
                 }
                 entry<com.nzfrankwu.noteapp.ui.navigation.RecentlyDeletedRoute> {
                     com.nzfrankwu.noteapp.ui.deleted.RecentlyDeletedScreen(
@@ -387,12 +403,48 @@ fun NoteAppRoot(
                         onBack = ::back,
                     )
                 }
+                entry<com.nzfrankwu.noteapp.ui.navigation.SearchRoute> { route ->
+                    // Find in this notebook: read this notebook's handwriting first while it's open.
+                    if (route.notebookId != null) {
+                        androidx.compose.runtime.DisposableEffect(route.notebookId) {
+                            val indexer = container.noteTextIndexer
+                            indexer.priorityNotebook = route.notebookId
+                            onDispose { if (indexer.priorityNotebook == route.notebookId) indexer.priorityNotebook = null }
+                        }
+                    }
+                    com.nzfrankwu.noteapp.ui.search.SearchScreen(
+                        viewModel = viewModel {
+                            com.nzfrankwu.noteapp.ui.search.SearchViewModel(
+                                container.taskRepository, container.notebookRepository, container.folderRepository,
+                                noteText = container.noteTextStore, notebookId = route.notebookId, folderId = route.folderId,
+                                handwritingStatus = { container.handwritingStatus(route.notebookId) },
+                            )
+                        },
+                        onBack = ::back,
+                        onOpenTask = { backStack.add(TaskRoute(it)) },
+                        onOpenNotebook = { backStack.add(NotebookRoute(it)) },
+                        onOpenFolder = { backStack.add(FolderRoute(it)) },
+                        onOpenPage = { notebookId, pageId, query, spot ->
+                            val under = backStack.getOrNull(backStack.lastIndex - 1)
+                            if (route.notebookId != null && under is NotebookRoute) {
+                                // Find in this notebook: back to the open notebook, which goes to that
+                                // page itself (its undo history and split view stay).
+                                findRequests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest(notebookId, pageId, query, spot)
+                                backStack.removeAt(backStack.lastIndex)
+                            } else {
+                                backStack.add(NotebookRoute(notebookId, pageId, spot = spot, find = query))
+                            }
+                        },
+                    )
+                }
                 entry<CoursesRoute> {
                     CoursesScreen(viewModel = viewModel { CoursesViewModel(container.folderRepository) }, onBack = ::back)
                 }
-                entry<SettingsRoute> {
+                entry<SettingsRoute> { route ->
                     SettingsScreen(
                     onBack = ::back,
+                    scrollTo = route.section,
+                    appSettings = container.viewSettings,
                     canvas = viewModel {
                         CanvasSettingsViewModel(container.canvasSettings, container.canvasAccount, container.canvasSyncRunner)
                     },

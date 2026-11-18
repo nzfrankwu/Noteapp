@@ -20,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -46,6 +47,10 @@ class CoursesViewModel(private val folders: FolderRepository) : ViewModel() {
     /** All courses A–Z with their folder (null while loading). */
     val courses: StateFlow<List<CourseListItem>?> = folders.observeCoursesWithFolders()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setColor(courseId: String, color: com.nzfrankwu.noteapp.domain.CourseColorChoice?) {
+        viewModelScope.launch { folders.setCourseColor(courseId, color) }
+    }
 
     fun setArchived(courseId: String, archived: Boolean) {
         viewModelScope.launch { folders.setCourseArchived(courseId, archived) }
@@ -117,6 +122,15 @@ private fun SectionTitle(text: String) {
 @Composable
 private fun CourseRow(item: CourseListItem, viewModel: CoursesViewModel) {
     val course = item.course
+    var choosingColor by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    if (choosingColor) {
+        com.nzfrankwu.noteapp.ui.components.CourseColorDialog(
+            code = course.code,
+            current = com.nzfrankwu.noteapp.domain.CourseColorChoice.fromKey(course.color),
+            onPick = { choosingColor = false; viewModel.setColor(course.id, it) },
+            onDismiss = { choosingColor = false },
+        )
+    }
     Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(Dimens.TilePadding), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -130,6 +144,10 @@ private fun CourseRow(item: CourseListItem, viewModel: CoursesViewModel) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            androidx.compose.material3.TextButton(
+                onClick = { choosingColor = true },
+                modifier = Modifier.testTag("color-${course.code}"),
+            ) { Text("Colour") }
             if (item.isArchived) {
                 FilledTonalButton(
                     onClick = { viewModel.setArchived(course.id, false) },

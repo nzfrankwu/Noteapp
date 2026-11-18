@@ -339,8 +339,20 @@ fun ToolSettingsPanel(
                     LabeledSlider("Eraser size", "%.0f".format(settings.eraserRadius * 2), settings.eraserRadius, 2f..30f) { r ->
                         onChange { it.copy(eraserRadius = r) }
                     }
+                    // Phase 7 (7.4): whole strokes, or only the part the eraser passes over.
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().testTag("eraser-kind")) {
+                        listOf(false to "Whole strokes", true to "Part of strokes").forEachIndexed { i, (partial, label) ->
+                            SegmentedButton(
+                                selected = settings.eraserPartial == partial,
+                                onClick = { onChange { it.copy(eraserPartial = partial) } },
+                                shape = SegmentedButtonDefaults.itemShape(i, 2),
+                                modifier = Modifier.testTag(if (partial) "eraser-partial" else "eraser-whole"),
+                            ) { Text(label) }
+                        }
+                    }
                     Text(
-                        "The eraser removes whole strokes it touches.",
+                        if (settings.eraserPartial) "The eraser rubs out only the part of a stroke it passes over."
+                        else "The eraser removes whole strokes it touches.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -443,7 +455,7 @@ fun ToolSettingsPanel(
                             onChange { it.copy(stability = v.roundToInt()) }
                         }
                     }
-                    SwitchRow("Hold still to snap a straight line", settings.holdToStraighten) { on ->
+                    SwitchRow("Hold still to snap a straight line or shape", settings.holdToStraighten) { on ->
                         onChange { it.copy(holdToStraighten = on) }
                     }
                     SwitchRow("Press hard to erase", settings.pressureErase) { on -> onChange { it.copy(pressureErase = on) } }

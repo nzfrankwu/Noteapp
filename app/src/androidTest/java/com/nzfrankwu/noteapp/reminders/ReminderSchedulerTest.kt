@@ -58,6 +58,20 @@ class ReminderSchedulerTest {
         assertTrue(scheduler.isScheduled("test-a/2h"))
     }
 
+    /** Phase 7, 7.5: the chosen reminder times decide the alarms; changing them swaps the alarms. */
+    @Test
+    fun chosenTimes_setTheirAlarms_andChangingThemReplacesThem() {
+        val offsets = setOf(com.nzfrankwu.noteapp.domain.ReminderOffset.HOUR_BEFORE, com.nzfrankwu.noteapp.domain.ReminderOffset.AT_TIME)
+        scheduler.apply(listOf(task("test-f", inThreeDays)), offsets)
+        assertTrue(scheduler.isScheduled("test-f/1h"))
+        assertTrue(scheduler.isScheduled("test-f/0"))
+        assertFalse(scheduler.isScheduled("test-f/1d"))
+
+        scheduler.apply(listOf(task("test-f", inThreeDays)), emptySet())
+        assertFalse(scheduler.isScheduled("test-f/1h"))
+        assertFalse(scheduler.isScheduled("test-f/0"))
+    }
+
     @Test
     fun archivingTheCourse_cancelsItsAlarms_andUnarchivingBringsThemBack() {
         scheduler.apply(listOf(task("test-arch", inThreeDays)))

@@ -42,4 +42,11 @@ data class Course(
      * folder still shows everything. Nothing is deleted. Canvas sync never changes this.
      */
     @ColumnInfo(name = "archived_at") val archivedAt: Instant? = null,
+
+    // ---- Added in database version 8 ----
+    /**
+     * The colour you chose for this course (a [com.nzfrankwu.noteapp.domain.CourseColorChoice] key,
+     * e.g. "teal"), or null for the automatic colour ("next free colour"). Canvas sync never changes it.
+     */
+    @ColumnInfo(name = "color") val color: String? = null,
 )

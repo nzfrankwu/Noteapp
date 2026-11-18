@@ -18,6 +18,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.longClick
@@ -183,6 +184,34 @@ class NotebookEditorTest {
         compose.waitUntil(5_000) { strokeCount() == 0 }
     }
 
+    /** Phase 7, 7.4: "Part of strokes" cuts the line in two; the whole drag is one undo step. */
+    @Test
+    fun thePartialEraser_cutsTheLine_andOneUndoBringsItBack() {
+        show(InkToolSettings(drawWithFinger = true, eraserPartial = true))
+        drawLine(300f)
+        compose.waitUntil(5_000) { strokeCount() == 1 }
+        val original = viewModel.ink.strokes(pageId()).single()
+
+        compose.onNodeWithContentDescription("Eraser").performClick()
+        compose.waitUntil(5_000) { viewModel.settings.value.tool == EditorTool.ERASER }
+        compose.onNodeWithTag("notebook-canvas").performTouchInput {
+            swipe(Offset(centerX, 200f), Offset(centerX, 420f), durationMillis = 300)
+        }
+        compose.waitUntil(5_000) { strokeCount() == 2 }
+        assertTrue(viewModel.ink.strokes(pageId()).none { it.id == original.id })
+
+        // Saved like any strokes.
+        runBlocking { viewModel.saveNow()?.join() }
+        val read = files.read(notebookId, pageId())
+        assertTrue("Saved: $read", read is PageRead.Ok && read.strokes.size == 2)
+
+        compose.onNodeWithTag("undo").performClick()
+        compose.waitUntil(5_000) { strokeCount() == 1 }
+        assertEquals(original, viewModel.ink.strokes(pageId()).single())
+        compose.onNodeWithTag("undo").assertIsEnabled().performClick() // then the line itself
+        compose.waitUntil(5_000) { strokeCount() == 0 }
+    }
+
     @Test
     fun savedStrokes_comeBackWhenTheNotebookOpensAgain() {
         show(InkToolSettings(drawWithFinger = true))
@@ -234,6 +263,98 @@ class NotebookEditorTest {
     }
 
     // ---- Phase 4: linked tasks ----
+
+    /** Review fix (7.9): "Find in this notebook" sends the open editor to the page; it keeps its undo history. */
+    @Test
+    fun aFindRequest_takesTheOpenNotebookToThePage_andKeepsUndo() {
+        val second = runBlocking { (notebooks.addPage(notebookId, 1) as NotebookResult.Success).id }
+        val requests = kotlinx.coroutines.flow.MutableStateFlow<com.nzfrankwu.noteapp.ui.notebook.FindRequest?>(null)
+        compose.runOnUiThread {
+            viewModel = NotebookViewModel(notebookId, notebooks, files, InMemoryInkSettings(InkToolSettings(drawWithFinger = true)), scope)
+        }
+        compose.setContent {
+            NoteAppTheme {
+                androidx.compose.runtime.CompositionLocalProvider(com.nzfrankwu.noteapp.ui.notebook.LocalFindRequests provides requests) {
+                    Box(Modifier.size(width = 1100.dp, height = 760.dp)) { NotebookScreen(viewModel, onBack = {}, onOpenTask = {}) }
+                }
+            }
+        }
+        compose.waitUntil(5_000) { viewModel.pages.value.size == 2 && viewModel.isEditable(viewModel.pages.value.first().id) }
+        drawLine(300f)
+        compose.waitUntil(5_000) { strokeCount() == 1 }
+
+        requests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest(notebookId, second, "anything")
+        compose.waitUntil(5_000) { requests.value == null } // the editor took it
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("2 / 2").fetchSemanticsNodes().isNotEmpty() } // on that page
+        compose.onNodeWithTag("undo").assertIsEnabled() // same editor: its history is still there
+        // A request for another notebook is left alone.
+        requests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest("someone-else", second, "x")
+        compose.waitForIdle()
+        assertEquals("someone-else", requests.value?.notebookId)
+    }
+
+    /**
+     * Coming back from "Find in this notebook" rebuilds the editor with the request already waiting
+     * (the user's report, 18 Nov): it must still end on the found page, not stay on the first one.
+     * A handwritten match (with a spot) goes there too.
+     */
+    @Test
+    fun aFindRequest_waitingWhenTheEditorIsShown_stillGoesToThePage() {
+        val second = runBlocking { (notebooks.addPage(notebookId, 1) as NotebookResult.Success).id }
+        val third = runBlocking { (notebooks.addPage(notebookId, 2) as NotebookResult.Success).id }
+        val requests = kotlinx.coroutines.flow.MutableStateFlow<com.nzfrankwu.noteapp.ui.notebook.FindRequest?>(
+            com.nzfrankwu.noteapp.ui.notebook.FindRequest(notebookId, third, "anything"),
+        )
+        compose.runOnUiThread {
+            viewModel = NotebookViewModel(notebookId, notebooks, files, InMemoryInkSettings(InkToolSettings(drawWithFinger = true)), scope)
+        }
+        compose.setContent {
+            NoteAppTheme {
+                androidx.compose.runtime.CompositionLocalProvider(com.nzfrankwu.noteapp.ui.notebook.LocalFindRequests provides requests) {
+                    Box(Modifier.size(width = 1100.dp, height = 760.dp)) { NotebookScreen(viewModel, onBack = {}, onOpenTask = {}) }
+                }
+            }
+        }
+        compose.waitUntil(5_000) { requests.value == null }
+        compose.waitForIdle()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("3 / 3").fetchSemanticsNodes().isNotEmpty() }
+
+        // A handwritten match on page 2, zoomed to its line.
+        requests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest(
+            notebookId, second, "anything", com.nzfrankwu.noteapp.domain.PageSpot(0f, 200f, 500f, 40f),
+        )
+        compose.waitUntil(5_000) { requests.value == null }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("2 / 3").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    /** Phase 7, 7.3: one page's paper, then every page's, each one undo step. */
+    @Test
+    fun paper_forOnePage_thenForAllPages_andUndo() {
+        val second = runBlocking { (notebooks.addPage(notebookId, 1) as NotebookResult.Success).id }
+        show(InkToolSettings(drawWithFinger = true))
+        fun templates() = runBlocking { notebooks.getPages(notebookId).associate { it.id to it.template } }
+        fun notebookPaper() = runBlocking { notebooks.getNotebook(notebookId)!!.template }
+
+        compose.onNodeWithContentDescription("Notebook options").performClick()
+        compose.onNodeWithTag("page-paper-grid").performScrollTo().performClick()
+        compose.waitUntil(5_000) { templates()[pageId()] == com.nzfrankwu.noteapp.domain.PageTemplate.GRID }
+        assertEquals("only this page", null, templates()[second])
+        assertEquals(com.nzfrankwu.noteapp.domain.PageTemplate.LINED, notebookPaper())
+
+        compose.onNodeWithContentDescription("Notebook options").performClick()
+        compose.onNodeWithTag("notebook-paper-dots").performScrollTo().performClick()
+        compose.waitUntil(5_000) { notebookPaper() == com.nzfrankwu.noteapp.domain.PageTemplate.DOTS && templates()[pageId()] == null }
+
+        compose.runOnUiThread { viewModel.undo() }
+        compose.waitUntil(5_000) {
+            notebookPaper() == com.nzfrankwu.noteapp.domain.PageTemplate.LINED &&
+                templates()[pageId()] == com.nzfrankwu.noteapp.domain.PageTemplate.GRID
+        }
+        compose.runOnUiThread { viewModel.undo() }
+        compose.waitUntil(5_000) { templates()[pageId()] == null }
+        compose.runOnUiThread { viewModel.redo() }
+        compose.waitUntil(5_000) { templates()[pageId()] == com.nzfrankwu.noteapp.domain.PageTemplate.GRID }
+    }
 
     @Test
     fun linkToATask_fromTheMenu_showsTheChip_whichOpensTheTask() {

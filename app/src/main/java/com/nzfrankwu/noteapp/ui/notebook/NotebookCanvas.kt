@@ -14,7 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -125,8 +124,19 @@ sealed interface LassoState {
 
         fun transformedTexts(): List<com.nzfrankwu.noteapp.domain.ink.InkText> = texts.map { LassoBox.mapText(it, bounds, target, angle) }
 
+        /**
+         * The line or snapped shape when the selection is just that one stroke, not moved yet
+         * (PHASE-7.md 7.14): its points get handles to drag. Null otherwise.
+         */
+        val editable: com.nzfrankwu.noteapp.domain.ink.Shape? by lazy {
+            strokes.singleOrNull()?.takeIf { images.isEmpty() && texts.isEmpty() && !changed }
+                ?.let { com.nzfrankwu.noteapp.domain.ink.Shapes.fromStroke(it.xs, it.ys) }
+        }
+
         /** The handles shown: just the bottom-right corner, or all eight after Resize. */
         fun shownHandles(): List<BoxHandle> = when {
+            // A line's or shape's own points take the place of the box's corner (7.14).
+            !handles && editable != null -> emptyList()
             !handles -> listOf(BoxHandle.BOTTOM_RIGHT)
             // Text scales evenly, so only the corners; and a short box's middle stays free to drag (Phase 5).
             texts.isNotEmpty() -> BoxHandle.entries.filter { (it.left || it.right) && (it.top || it.bottom) }
@@ -206,6 +216,12 @@ class EditorViewState {
 
     /** A straight line being placed (hold to straighten, F11), drawn on the overlay. */
     var straight by mutableStateOf<StraightLine?>(null)
+
+    /** A shape just snapped and being resized with the pen still down (PHASE-7.md 7.14), drawn on the overlay. */
+    var shape by mutableStateOf<ShapeDraft?>(null)
+
+    /** A lassoed line or shape whose point is being dragged (7.14): the overlay draws it instead of the selection. */
+    var nodeEdit by mutableStateOf<NodeEdit?>(null)
 
     /** Pages whose ink is drawn in full right now; the others show their quick preview (F8). */
     val fullyDrawn = mutableStateMapOf<String, Boolean>()
@@ -331,7 +347,7 @@ fun NotebookCanvas(
     val renderer = remember { CanvasStrokeRenderer.create() }
     val motionScope = rememberCoroutineScope()
     val inputs = remember { InkLayerInputs() }
-    val dark = isSystemInDarkTheme()
+    val dark = com.nzfrankwu.noteapp.ui.theme.LocalDarkTheme.current
 
     // The pen layer's brush (read at the start of each stroke; its transform is set by the gestures).
     inputs.brush = settings.penStyle(settings.tool)?.let { style ->
@@ -580,6 +596,19 @@ fun NotebookCanvas(
                     }
                     val pl = strip.pageLeft(lasso.pageIndex)
                     val pt = strip.pageTop(lasso.pageIndex)
+                    // A line's or shape's points (7.14): while one is dragged, the shape as it is
+                    // now (the selection layer hides the old one); otherwise handles on its points.
+                    val editing = view.nodeEdit
+                    val shape = editing?.shape ?: lasso.editable
+                    if (editing != null) {
+                        drawShapeOutline(editing.shape, pl, pt, editing.stroke.tool, editing.stroke.colorArgb, editing.stroke.size, cam)
+                    }
+                    shape?.nodes?.forEach { n ->
+                        val at = Offset(cam.toScreenX(pl + n.x), cam.toScreenY(pt + n.y))
+                        drawCircle(Color.White, NODE_RADIUS, at)
+                        drawCircle(SelectionBlue, NODE_RADIUS, at, style = DrawStroke(width = 3f))
+                    }
+                    if (editing == null) { // no box while a point is dragged
                     val l = cam.toScreenX(pl + box[0]) - 6f; val t = cam.toScreenY(pt + box[1]) - 6f
                     val r = cam.toScreenX(pl + box[2]) + 6f; val b = cam.toScreenY(pt + box[3]) + 6f
                     // While the rotate handle is dragged, the box turns with the writing (F14).
@@ -605,6 +634,7 @@ fun NotebookCanvas(
                                 drawCircle(SelectionBlue, HANDLE_RADIUS, Offset(hx, hy), style = DrawStroke(width = 3f))
                             }
                         }
+                    }
                     }
                 }
                 null -> Unit
@@ -635,6 +665,7 @@ fun NotebookCanvas(
                     cap = if (line.tool == InkTool.HIGHLIGHTER) StrokeCap.Butt else StrokeCap.Round,
                 )
             }
+            view.shape?.let { d -> drawShapeOutline(d.shape, 0f, 0f, d.tool, d.colorArgb, d.size, cam) }
             eraserAt?.let { at ->
                 val radius = settings.eraserRadius * cam.scale
                 drawCircle(Color.White.copy(alpha = 0.6f), radius, at)
@@ -671,6 +702,9 @@ private data class Snapshot(
 
 private const val HANDLE_RADIUS = 14f
 
+/** A lassoed line's or shape's point handle (7.14): a little smaller than the box's handles. */
+private const val NODE_RADIUS = 11f
+
 /** A text handle's knob, and how far from it a touch still grabs it (screen pixels). */
 const val TEXT_KNOB_RADIUS = 13f
 private const val TEXT_KNOB_GRAB = 44f
@@ -701,7 +735,7 @@ private const val TAP_MS = 300L
 private const val DOUBLE_TAP_MS = 320L
 
 /** What a stylus (or the debug finger) is doing between down and up. */
-private enum class PenMode { INK, STRAIGHT, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, LASSO_ROTATE, TEXT_HANDLE, TEXT_TAP, BOOKMARK_LOOP, BLOCKED }
+private enum class PenMode { INK, STRAIGHT, SHAPE, ERASE, LASSO_LOOP, LASSO_MOVE, LASSO_RESIZE, LASSO_ROTATE, LASSO_NODE, TEXT_HANDLE, TEXT_TAP, BOOKMARK_LOOP, BLOCKED }
 
 /** The bookmark pen's loop or rectangle being drawn, in desk units (PHASE-5.md FB5). */
 data class BookmarkLoop(val pageIndex: Int, val xs: List<Float>, val ys: List<Float>, val rect: Boolean)
@@ -740,6 +774,11 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
     var lastPenTime = 0L
     var lastHard = false
     var lastStraightStill = -1L // -1: not a line that could straighten
+    // The stroke so far (desk units), for recognising a shape when the pen is held (7.14).
+    val penXs = ArrayList<Float>()
+    val penYs = ArrayList<Float>()
+    // A hold already tried to snap and found nothing: don't try again until the pen moves on.
+    var holdTried = false
     var lastWorld = Offset.Zero
     var lastScreen = Offset.Zero
     var buttonWasDown = false
@@ -760,6 +799,46 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
     var fingerDrag: FingerDrag? = null
     // The pen's touch finished typing in a text box (Phase 5): lifting it then makes no new box.
     var penFinishedTyping = false
+
+    /**
+     * The pen was held still mid-stroke (F11, 7.14): a closed stroke snaps to a shape, else a long
+     * enough one to a straight line from ([sx], [sy]) to ([ex], [ey]). True if it snapped.
+     */
+    fun snapHeld(snap: Snapshot, sx: Float, sy: Float, ex: Float, ey: Float): Boolean {
+        val shape = com.nzfrankwu.noteapp.domain.ink.Shapes.recognize(penXs.toFloatArray(), penYs.toFloatArray())
+        if (shape != null) {
+            val draft = shapeDraft(snap, shape, ex, ey, pressureSum, pressureCount, penIsFinger) ?: return false
+            penMode = PenMode.SHAPE // the next sample is consumed, which cancels the wet stroke
+            view.shape = draft
+            return true
+        }
+        if (hypot(ex - sx, ey - sy) < Straighten.MIN_LENGTH) return false
+        penMode = PenMode.STRAIGHT
+        view.straight = straightLine(snap, sx, sy, ex, ey, pressureSum, pressureCount, penIsFinger)
+        return true
+    }
+
+    /** The point of the selection's line or shape under screen point [p] (7.14), if any. */
+    fun nodeAt(p: Offset, sel: LassoState.Selected, snap: Snapshot, cam: Camera): Int? {
+        val shape = sel.editable ?: return null
+        val pl = snap.strip.pageLeft(sel.pageIndex)
+        val pt = snap.strip.pageTop(sel.pageIndex)
+        return shape.nodes.indices
+            .map { it to hypot(cam.toScreenX(pl + shape.nodes[it].x) - p.x, cam.toScreenY(pt + shape.nodes[it].y) - p.y) }
+            .filter { it.second <= HANDLE_RADIUS * 2.5f }
+            .minByOrNull { it.second }?.first
+    }
+
+    /** Saves a line or shape whose point was dragged (one undo step) and selects it. */
+    fun commitNodeEdit(edit: NodeEdit) {
+        val original = view.lasso as? LassoState.Selected
+        if (edit.shape == original?.editable) return
+        val s = edit.stroke
+        val pressure = s.pressure.firstOrNull() ?: InkStroke.NONE
+        val stroke = com.nzfrankwu.noteapp.domain.ink.Shapes.stroke(edit.shape, s.id, s.tool, s.colorArgb, s.size, pressure, s.inputTool)
+        viewModel.replaceSelection(edit.pageId, listOf(stroke), emptyList())
+        onLasso(LassoState.Selected.of(edit.pageIndex, edit.pageId, listOf(stroke)))
+    }
 
     /** Saves a moved, resized or turned selection and selects the result. */
     fun commitSelection(sel: LassoState.Selected) {
@@ -875,6 +954,11 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     lastPenTime = change.uptimeMillis
                     lastHard = false
                     lastStraightStill = -1L
+                    holdTried = false
+                    penXs.clear(); penYs.clear()
+                    penXs += cam.toWorldX(change.position.x); penYs += cam.toWorldY(change.position.y)
+                    view.shape = null
+                    view.nodeEdit = null
                     // Where the pen is, from its very first sample: a hard press that never moves
                     // sends nothing more, and the hold watcher erases (and shows the ring) here (F26).
                     lastScreen = change.position
@@ -883,8 +967,8 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     var hardAtOnce = false
                     if (snap.settings.pressureErase && isPen) {
                         val level = snap.settings.pressureEraseLevel
-                        lastHard = PressureErase.isHard(change.pressure, level, pressureVaries)
                         hardAtOnce = pressHold.feed(change.pressure, level, pressureVaries, lastWorld.x, lastWorld.y, change.uptimeMillis)
+                        lastHard = pressHold.pressing
                     }
                     holdWatch?.cancel()
                     val watchedPen = change.id
@@ -906,13 +990,13 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             val c = view.camera ?: break
                             if (pressHold.doneAfterQuiet(lastHard, quiet)) {
                                 penMode = PenMode.ERASE // the next sample is consumed, which cancels the wet stroke
-                                eraseStep(viewModel, now, c, lastScreen, lastScreen, onEraser)
+                                eraseStep(viewModel, now, c, lastScreen, lastScreen, onEraser, penDownAt)
                                 break
                             }
-                            if (lastStraightStill >= 0 && lastStraightStill + quiet >= Straighten.HOLD_MS) {
-                                penMode = PenMode.STRAIGHT
-                                view.straight = straightLine(now, c.toWorldX(penStart.x), c.toWorldY(penStart.y), lastWorld.x, lastWorld.y, pressureSum, pressureCount, penIsFinger)
-                                break
+                            if (!holdTried && !lastHard && lastStraightStill >= 0 && lastStraightStill + quiet >= Straighten.HOLD_MS) {
+                                // A closed stroke snaps to a shape, a long one to a straight line (F11, 7.14).
+                                if (snapHeld(now, c.toWorldX(penStart.x), c.toWorldY(penStart.y), lastWorld.x, lastWorld.y)) break
+                                holdTried = true
                             }
                         }
                     }
@@ -932,6 +1016,12 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         // The T button is on: the pen places or picks text boxes (its eraser end still erases).
                         view.textMode && change.type != PointerType.Eraser -> PenMode.TEXT_TAP
                         change.type == PointerType.Eraser || tool == EditorTool.ERASER -> PenMode.ERASE
+                        // A lassoed line's or shape's point (7.14), before the box's own handles.
+                        tool == EditorTool.LASSO && selected != null && nodeAt(change.position, selected, snap, cam) != null -> {
+                            val node = nodeAt(change.position, selected, snap, cam)!!
+                            view.nodeEdit = NodeEdit(selected.pageIndex, selected.pageId, selected.strokes.single(), selected.editable!!, node)
+                            PenMode.LASSO_NODE
+                        }
                         tool == EditorTool.LASSO && selected != null && onRotateHandle(change.position, selected, snap, cam) -> PenMode.LASSO_ROTATE
                         tool == EditorTool.LASSO && selected != null && handleAt(change.position, selected, snap, cam)?.also { grabbed = it } != null -> PenMode.LASSO_RESIZE
                         tool == EditorTool.LASSO && selected != null && insideSelection(change.position, selected, snap, cam) -> PenMode.LASSO_MOVE
@@ -949,7 +1039,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     }
                     if (penMode == PenMode.INK && hardAtOnce) penMode = PenMode.ERASE // "Hold for: no wait"
                     if (penMode != PenMode.INK) change.consume()
-                    if (penMode == PenMode.ERASE) eraseStep(viewModel, snap, cam, change.position, change.position, onEraser)
+                    if (penMode == PenMode.ERASE) eraseStep(viewModel, snap, cam, change.position, change.position, onEraser, penDownAt)
                     // Any other tool, or the pen's eraser end, ends the lasso's selection (it would
                     // otherwise keep showing strokes that were just erased).
                     if ((tool != EditorTool.LASSO || penMode == PenMode.ERASE) && view.lasso != null) onLasso(null)
@@ -970,27 +1060,45 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             lastPenTime = time
                             lastWorld = Offset(wx, wy)
                             lastScreen = change.position
-                            lastHard = erasing && PressureErase.isHard(change.pressure, level, pressureVaries)
                             lastStraightStill = -1L
-                            if (erasing && pressHold.feed(change.pressure, level, pressureVaries, wx, wy, time)) {
+                            val eraseNow = erasing && pressHold.feed(change.pressure, level, pressureVaries, wx, wy, time)
+                            // A hard press (with its give, see PressHold.pressing) is waiting to erase.
+                            lastHard = erasing && pressHold.pressing
+                            if (eraseNow) {
                                 // Pressed hard and held (F9): erase from here on.
                                 penMode = PenMode.ERASE // consuming from now on cancels the wet stroke
                                 change.consume()
-                                eraseStep(viewModel, snap, cam, from, change.position, onEraser)
-                            } else if (snap.settings.holdToStraighten && snap.settings.tool.draws &&
-                                !(erasing && PressureErase.isHard(change.pressure, level, pressureVaries))
-                            ) {
-                                // Held still mid-line (F11): the line snaps straight, and its end follows the pen.
+                                eraseStep(viewModel, snap, cam, from, change.position, onEraser, penDownAt)
+                            } else if (snap.settings.holdToStraighten && snap.settings.tool.draws && !lastHard) {
+                                // (A hard press never snaps a line or shape: holding it is for erasing, 7.15.)
+                                // Held still mid-stroke (F11, 7.14): a closed stroke snaps to a shape, a
+                                // long one straight; then the pen keeps resizing it until it's lifted.
+                                penXs += wx; penYs += wy
                                 val sx = cam.toWorldX(penStart.x)
                                 val sy = cam.toWorldY(penStart.y)
                                 val still = straightStill.feed(wx, wy, time)
-                                val longEnough = hypot(wx - sx, wy - sy) >= Straighten.MIN_LENGTH
-                                if (longEnough) lastStraightStill = still
-                                if (still >= Straighten.HOLD_MS && longEnough) {
-                                    penMode = PenMode.STRAIGHT
-                                    change.consume()
-                                    view.straight = straightLine(snap, sx, sy, wx, wy, pressureSum, pressureCount, penIsFinger)
+                                lastStraightStill = still
+                                if (still < Straighten.HOLD_MS) holdTried = false // moved on: a new hold may snap
+                                if (still >= Straighten.HOLD_MS && !holdTried) {
+                                    if (snapHeld(snap, sx, sy, wx, wy)) change.consume() else holdTried = true
                                 }
+                            }
+                        }
+                        PenMode.SHAPE -> {
+                            change.consume()
+                            view.shape?.let { d ->
+                                val shape = com.nzfrankwu.noteapp.domain.ink.Shapes.drag(d.base, d.grip, cam.toWorldX(change.position.x), cam.toWorldY(change.position.y))
+                                view.shape = d.copy(shape = shape)
+                            }
+                        }
+                        PenMode.LASSO_NODE -> {
+                            change.consume()
+                            view.nodeEdit?.let { e ->
+                                val x = cam.toWorldX(change.position.x) - snap.strip.pageLeft(e.pageIndex)
+                                val y = cam.toWorldY(change.position.y) - snap.strip.pageTop(e.pageIndex)
+                                val shape = com.nzfrankwu.noteapp.domain.ink.Shapes.moveNode(e.shape, e.node, x, y)
+                                // A rectangle's corners swap names when dragged past the opposite one.
+                                view.nodeEdit = e.copy(shape = shape, node = com.nzfrankwu.noteapp.domain.ink.Shapes.nearestNode(shape, x, y))
                             }
                         }
                         PenMode.STRAIGHT -> {
@@ -1002,7 +1110,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         }
                         PenMode.ERASE -> {
                             change.consume()
-                            eraseStep(viewModel, snap, cam, from, change.position, onEraser)
+                            eraseStep(viewModel, snap, cam, from, change.position, onEraser, penDownAt)
                         }
                         PenMode.LASSO_LOOP -> {
                             change.consume()
@@ -1057,6 +1165,14 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                         PenMode.STRAIGHT -> {
                             view.straight?.let { line -> finishStraightLine(line, snap, viewModel) }
                             view.straight = null
+                        }
+                        PenMode.SHAPE -> {
+                            view.shape?.let { d -> finishShape(d, snap, viewModel) }
+                            view.shape = null
+                        }
+                        PenMode.LASSO_NODE -> {
+                            view.nodeEdit?.let { commitNodeEdit(it) }
+                            view.nodeEdit = null
                         }
                         PenMode.LASSO_LOOP -> {
                             val loop = view.lasso as? LassoState.Drawing
@@ -1330,6 +1446,20 @@ private fun keepsShape(sel: LassoState.Selected): Boolean = !sel.handles || sel.
 /** A finger dragging the lasso's selection: by [handle] (resize), or by its middle (move) when null. */
 private class FingerDrag(val handle: BoxHandle?)
 
+/**
+ * A shape that just snapped (PHASE-7.md 7.14), in desk units: [base] as it snapped, [shape] as
+ * resized so far by the pen holding [grip], with the pen it's drawn with.
+ */
+data class ShapeDraft(
+    val base: com.nzfrankwu.noteapp.domain.ink.Shape,
+    val shape: com.nzfrankwu.noteapp.domain.ink.Shape,
+    val grip: com.nzfrankwu.noteapp.domain.ink.Shapes.Grip,
+    val tool: InkTool, val colorArgb: Int, val size: Float, val pressure: Float, val byFinger: Boolean,
+)
+
+/** A lassoed line or shape (7.14) whose point [node] is being dragged: [shape] so far, in page units. */
+data class NodeEdit(val pageIndex: Int, val pageId: String, val stroke: InkStroke, val shape: com.nzfrankwu.noteapp.domain.ink.Shape, val node: Int)
+
 /** A straight line in progress (F11), in desk units, with the pen it's drawn with. */
 data class StraightLine(
     val sx: Float, val sy: Float, val ex: Float, val ey: Float,
@@ -1342,6 +1472,54 @@ private fun straightLine(snap: Snapshot, sx: Float, sy: Float, ex: Float, ey: Fl
     val (x, y) = Straighten.snappedEnd(sx, sy, ex, ey)
     val pressure = if (pressureCount > 0) pressureSum / pressureCount else InkStroke.NONE
     return StraightLine(sx, sy, x, y, snap.settings.inkTool(tool) ?: InkTool.PEN, style.colorArgb, style.size, pressure, byFinger)
+}
+
+/** A just-snapped [shape] (desk units) drawn with the current pen, the pen at ([x], [y]) holding its nearest point. */
+private fun shapeDraft(
+    snap: Snapshot, shape: com.nzfrankwu.noteapp.domain.ink.Shape, x: Float, y: Float,
+    pressureSum: Float, pressureCount: Int, byFinger: Boolean,
+): ShapeDraft? {
+    val tool = snap.settings.tool
+    val style = snap.settings.penStyle(tool) ?: return null
+    val pressure = if (pressureCount > 0) pressureSum / pressureCount else InkStroke.NONE
+    return ShapeDraft(
+        shape, shape, com.nzfrankwu.noteapp.domain.ink.Shapes.grip(shape, x, y),
+        snap.settings.inkTool(tool) ?: InkTool.PEN, style.colorArgb, style.size, pressure, byFinger,
+    )
+}
+
+/** Saves a finished shape onto the page where its middle is (7.14). */
+private fun finishShape(draft: ShapeDraft, snap: Snapshot, viewModel: NotebookViewModel) {
+    val box = com.nzfrankwu.noteapp.domain.ink.Shapes.box(draft.shape)
+    val index = snap.strip.pageAt((box[0] + box[2]) / 2)
+    val page = snap.pages.getOrNull(index) ?: return
+    val onPage = draft.shape.translated(-snap.strip.pageLeft(index), -snap.strip.pageTop(index))
+    val stroke = com.nzfrankwu.noteapp.domain.ink.Shapes.stroke(
+        onPage, java.util.UUID.randomUUID().toString(), draft.tool, draft.colorArgb, draft.size, draft.pressure,
+        if (draft.byFinger) InkStroke.TOOL_TOUCH else InkStroke.TOOL_STYLUS,
+    )
+    viewModel.addStrokes(page.id, listOf(stroke))
+}
+
+/** Draws [shape]'s outline (page units on the page at [pageLeft], [pageTop] desk units; 0, 0 for desk units) like the pen would. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawShapeOutline(
+    shape: com.nzfrankwu.noteapp.domain.ink.Shape, pageLeft: Float, pageTop: Float,
+    tool: InkTool, colorArgb: Int, size: Float, cam: Camera,
+) {
+    val (xs, ys) = shape.outline()
+    val path = androidx.compose.ui.graphics.Path()
+    for (k in xs.indices) {
+        val x = cam.toScreenX(pageLeft + xs[k]); val y = cam.toScreenY(pageTop + ys[k])
+        if (k == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    val alpha = if (tool.isHighlighter) com.nzfrankwu.noteapp.domain.ink.HighlightOpacity.of(colorArgb) else 1f
+    drawPath(
+        path, Color(colorArgb or 0xFF000000.toInt()).copy(alpha = alpha),
+        style = DrawStroke(
+            width = size * cam.scale * if (tool.isHighlighter || tool == InkTool.PEN_STEADY) 1f else 0.8f,
+            cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round,
+        ),
+    )
 }
 
 /** Saves a finished straight line onto the page where it started. */
@@ -1363,7 +1541,7 @@ private fun centroid(points: List<Offset>): Offset =
 
 private fun spread(points: List<Offset>, c: Offset): Float = points.map { (it - c).getDistance() }.average().toFloat()
 
-private fun eraseStep(viewModel: NotebookViewModel, snap: Snapshot, cam: Camera, from: Offset, to: Offset, onEraser: (Offset?) -> Unit) {
+private fun eraseStep(viewModel: NotebookViewModel, snap: Snapshot, cam: Camera, from: Offset, to: Offset, onEraser: (Offset?) -> Unit, drag: Long) {
     onEraser(to)
     val index = snap.strip.pageAt(cam.toWorldX(to.x))
     val page = snap.pages.getOrNull(index) ?: return
@@ -1374,6 +1552,8 @@ private fun eraseStep(viewModel: NotebookViewModel, snap: Snapshot, cam: Camera,
         cam.toWorldX(from.x) - pl, cam.toWorldY(from.y) - pt,
         cam.toWorldX(to.x) - pl, cam.toWorldY(to.y) - pt,
         snap.settings.eraserRadius,
+        drag = drag,
+        partial = snap.settings.eraserPartial,
     )
 }
 

@@ -1,9 +1,12 @@
 # Handoff: where things stand
 
-_Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK). Keep this file current (see CLAUDE.md, "Session handoff notes")._
+_Last updated: 18 Nov 2026 (Phase 7: 7.1–7.10 done, code review fixed, messy handwriting). Keep this file current (see CLAUDE.md, "Session handoff notes")._
 
 ## Right now
 
+- **Phase 7 (Polish) is planned: `PHASE-7.md`, branch `phase-7`** (from `main`). 7.0–7.10 are done (7.8–7.10 after the user's OK, 18 Nov; then "hands off, do what you have to"). **Mode: hands-off since 18 Nov** (the user said "start, hands off mode"): build, test, commit and push every step; leave what needs the user (7.8's new search screen layout, ML Kit at 7.10, pen widths 7.12, the tablet 7.13) in REPORT.md / ISSUES.md.
+  - Decided 17 Nov: search over names, tasks, PDF text, text boxes **and handwriting** (ML Kit, English only; still ask before adding the library at 7.10); **custom tags dropped, Submitted merged into Done** (IDEA.md §2.3/§3.3 updated); new settings: reminder times, course colours, default paper, light/dark; plus the Phase 6 review leftovers and the editor speed leftovers. Version history stays "later".
+  - **Database is v8 now (7.1, 18 Nov):** statuses `submitted` → `done`, `courses.color`. The tablet is still v7: installing a Phase 7 build upgrades it (snapshot first, with the user's OK). `screenshots/app-v7.apk` is the v7 build; `screenshots/upgrade_v8.sh` + `compare_dbs.py <before> <after> --v8` is the real upgrade check.
 - **Phases 1–6 are merged into `main`** (Phase 6 on 17 Nov, `c4b9e7a`). History in `PHASE-1.md` … `PHASE-6.md` and `ISSUES.md`.
 - **Phase 6 (backup) is finished and merged.** Plan, the user's decisions and per-step notes: `PHASE-6.md`.
   - **Done and checked on the emulator with a real Google account (17 Nov):** 6.1–6.13. Connect, automatic backup, Back up now, restore round trip from Drive (compare PASS), PDF copies, Word → PDF. Details per step in `PHASE-6.md`.
@@ -12,11 +15,27 @@ _Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK)
   - `play-services-auth` 22.0.0 is in (the user approved it). No database change in Phase 6 (still v7).
   - Tests at the end of the phase: **574 unit tests and the full emulator suite (310) pass** (17 Nov, after the review fixes). Test gotcha: `am instrument` force-stops the app, which cancels its WorkManager jobs until the app is opened again; tests that change app settings must reset them (the suite reinstalls without wiping data).
 - **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet. `connectedDebugAndroidTest` **uninstalls the app afterwards** (emulator data gone; rerun `screenshots/p4setup.sh`).
-- **The tablet runs the Phase 6 build** (`0e741d1`; `main` differs only in tests and notes; 17 Nov; snapshot before/after each install: compare PASS), database **version 7**, connected to the user's main Google account (first backup done, ~48 MB). Never install a build older than v7 on it.
+- **The tablet runs the Phase 7 build** (`d6ea79a`, 18 Nov; snapshot `backups/tablet-2026-11-18-before-v8/` with files; compare PASS), database **version 8**, connected to the user's main Google account. Never install a build older than v8 on it (Room can't downgrade). On first open it reads every page for search in the background, and downloads the handwriting model on Wi-Fi.
+
+## Phase 7 code map (search)
+
+- `data/SearchIndex.kt` (names and tasks, snippets), `ui/search/SearchScreen.kt` (`SearchViewModel`, `SearchRoute(notebookId?)`)
+- `data/search/NoteTextStore.kt` (`databases/search.db`, a cache, never backed up), `NoteTextIndexer.kt` (run by `NoteAppApplication.keepSearchInStep`), `Handwriting.kt` (ML Kit, `…vision.digitalink.recognition` package), `domain/ink/HandwritingLines.kt`
+- **Handwriting didn't work on the tablet (18 Nov):** the model was there, but the first pages read were the debug test-writing pages. Fixed (newest pages first, line grouping, progress line) and installed on the tablet (`efac370`, compare PASS). Check tools: `search.db` counts via run-as, and `screenshots/stroke_kinds.py <notebooks.tar> <search.db>` (test vs real pages, timings only). Never print the user's note text.
+- **The tablet runs the RELEASE build of `bde82ee`** (database v8; 18 Nov; snapshots `backups/tablet-2026-11-18-before-pens/` (with files) and `after-pens`, compare PASS; release starts with no crash). Release (`app/keep-rules.pro`: `-dontobfuscate`) is much smoother than debug.
+- **7.14 shapes and 7.15 press-hard fix done (18 Nov, not on the tablet yet).** Next the user asked for: a professional GitHub README (draft `README.md`, shows on the front page only after merging into `main`) and an APK download (GitHub Releases: no `gh` CLI here, so the user uploads the release APK on the web, or installs `gh` and signs in themselves), then the Play Store research (in ISSUES.md Open questions).
+- **Launch prep (18 Nov):** the user says it's ready to launch. Review of everything since `c37fba6` done (7 of 8 fixed, see ISSUES.md Done); release APK and app bundle (`bundleRelease`) build. Waiting on the user: merge into `main`, privacy page, Play Console account, the photo permission decision, the name (ISSUES.md Open questions).
+- **7.12 pen widths done (18 Nov, on the tablet; waiting for the user to try them):** new ink keys `pen-pressure-mid-v2` and `pen-pressure-full-v2` (stronger pressure response); Medium/Full write with them, old strokes keep v1. Never change their numbers now that they may be used: a new look needs a new key.
+- **Find-in-notebook jump fix + handwriting progress line (`a24bc83`):** on the tablet; waiting for the user to try it (jump from a late page to an early handwritten match; the blue "read N of M pages" line).
+- **Snapshots with release on the tablet:** release isn't debuggable, so `tablet_snapshot.sh` (run-as) fails. Workaround: install the **debug build of the new commit** but don't open it (installing runs no app code), snapshot, open it, snapshot again, compare, then install release. Or install the debug build of the same commit first (same key, so `install -r` keeps the data; never an older database version), snapshot, then install the new build, snapshot again, compare, and reinstall release. `screenshots/release_smoke.sh` walks the main screens of a release build on the emulator (make data with the debug build first).
+- **Messy handwriting:** up to 5 readings per line (`hand_alt`), `domain/FuzzyWords` (handwriting only), line above as ML Kit context. Store is v3.
+- **ML Kit's model lives in the app's data:** every `connectedDebugAndroidTest` run uninstalls the app, so the ~20 MB model downloads again on first use.
+- Opening at a hit: `NotebookRoute.find` → `LocalOpenAtFind` → `NotebookPane.showFound`; editor ⋮ "Find in this notebook" via `LocalFindInNotebook`
 
 ## Phase 6 code map (`app/src/main/java/com/nzfrankwu/noteapp/`)
 
-- `data/StorageLock.kt`: `pages` (page saves) and `backup` (whole backup/restore/purge/clean-up/Drive run/PDF copies). Never take `pages` then `backup`.
+- `data/StorageLock.kt`: `pages` (page saves) and `backup` (export/restore/purge/clean-up; the Drive run only for its snapshot, PDF copies per notebook). Never take `pages` then `backup`. During a Drive upload, `data/backup/BackupPins` protects the notebooks it reads in place (7.2).
+- **Android refuses hard links in app storage** (SELinux): don't try `Files.createLink` there.
 - `data/backup/`:
   - `BackupPaths` (what's in a backup; Canvas never), `BackupManifest` (+ `Md5`), `DatabaseCheck`, `LocalSnapshot`, `ZipBackup` (+ `StagedSet.verify`), `RestoreSwap` (two-phase swap at start-up), `BackupManager` (export/import/Drive restore UI state), `MaintenanceWorker`
 - `data/backup/drive/`:
@@ -30,18 +49,13 @@ _Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK)
 
 ## Next steps (in order)
 
-1. **Next phase:** read IDEA.md §5 for Phase 7 and plan it with the user (new branch from `main`). Or the Phase 6 follow-ups in ISSUES.md first if the user prefers; the 🔺 one is not holding `StorageLock.backup` for a whole upload.
-2. The tablet's Drive backup is confirmed by the user (17 Nov): "Last backed up 5 minutes ago", and Notes (PDF) looks right in Drive.
+1. **Hands-off run stopped (18 Nov) after 7.7; see `REPORT.md` (git-ignored) and ISSUES.md "Open questions".** Search is complete (7.8–7.10) and the end-of-phase code review is done (9 of 10 fixed, PHASE-7.md). Left: 7.11 (needs tablet measurements), 7.12 (pen widths: user tries the pens), 7.13 (tablet install: user's OK), then merge into `main` (user's OK). Still waiting on the user for: publishing the privacy page change, 7.11 (skipped: needs the tablet to measure), pen widths (7.12), tablet install (7.13). Next: whichever the user OKs first; 7.8 → 7.9 → 7.10 are in order. (hands-off order; 7.8–7.10, 7.12, 7.13 need the user).
 3. **Still-unreported tablet checks** (ask when convenient):
    - a reminder arriving with the app swiped away (ColorOS)
    - "Last synced" moving on its own
    - whether **Open in Canvas** opens the Canvas Student app or the Chrome tab
    - whether writing in a text box with the OPPO Pencil turns into typed text
-4. Older follow-ups (ISSUES.md, not blocking):
-   - very deep zoom has no page picture
-   - pre-draw the next page
-   - a big lasso move pauses on release
-   - pen widths (F22)
+   - pen widths (F22): ask the user to try the pens before step 7.12
 
 ## Phase 4–5 code map
 
@@ -81,6 +95,7 @@ _Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK)
 
 - **The app name** is spelled "Noteapp". The app ID `com.nzfrankwu.noteapp` never changes.
 - **Tasks:**
+  - **Statuses (Phase 7):** Submitted merged into Done; Canvas auto-status sets Done. No custom tags.
   - Tasks belong to courses; folders link to at most one course.
   - Overdue comes only from the real due date.
   - A due date without a time means 11:59 pm; a target date without a time means 9:00 am.
@@ -118,7 +133,7 @@ _Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK)
 
 | Folder | What's in it |
 |---|---|
-| `data/db/` | Room database **v6** (`TaskNotebookLink`, `TaskBookmark`, `LinkDao` in `TaskLinks.kt`/`LinkDao.kt`) (pages: `width`, `height`, `pdf_file`, `pdf_page`): `Course` (+`archivedAt`), `Folder` (+`parentId`), `Task` (+`availableAt`), `Notebook`, `Page`, DAOs, `FolderPlace`, `Migrations.kt` (`MIGRATION_1_2` … `MIGRATION_5_6`) |
+| `data/db/` | Room database **v8** (`TaskNotebookLink`, `TaskBookmark`, `LinkDao` in `TaskLinks.kt`/`LinkDao.kt`) (pages: `width`, `height`, `pdf_file`, `pdf_page`): `Course` (+`archivedAt`), `Folder` (+`parentId`), `Task` (+`availableAt`), `Notebook`, `Page`, DAOs, `FolderPlace`, `Migrations.kt` (`MIGRATION_1_2` … `MIGRATION_5_6`) |
 | `data/` | Repositories (`FolderRepository`, `TaskRepository`, `NotebookRepository`), `NotebookFiles` (page files), `Thumbnails`, `InkSettings` / `CanvasSettings` / `ViewSettings` (DataStore), `QuickAdd` |
 | `domain/ink/` | Plain-Kotlin handwriting logic: `InkStroke`, `PageInkCodec` (file format), `NotebookInk` (undo/redo), `InkGeometry` (eraser, lasso), `PageStrip` (fit/zoom), `EditorTools` (tools, palette, pen button, press-hard, straighten, smoothing) |
 | `ui/notebook/` | The editor: `NotebookScreen`, `NotebookCanvas` (drawing, gestures, lasso), `InkToolbar`, `InkBrushes` (our strokes ↔ Jetpack Ink), `NotebookViewModel` (loading, saving) |
@@ -131,6 +146,8 @@ _Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK)
 
 ## Gotchas (save yourself time)
 
+- **Light/dark (7.6):** screens read `LocalDarkTheme.current` (from `NoteAppTheme`), never `isSystemInDarkTheme()`, or the Settings choice is ignored there.
+
 - **Shells:**
   - In PowerShell, run Gradle as `.\gradlew.bat …`.
   - In Git Bash, put `export MSYS_NO_PATHCONV=1` before `adb shell` commands that use device paths like `/sdcard/...`.
@@ -140,7 +157,7 @@ _Last updated: 17 Nov 2026, late (Phase 6 merged into `main` with the user's OK)
   - One test class only: add `"-Pandroid.testInstrumentationRunnerArguments.class=<full class name>"`.
   - Results are in `app/build/outputs/androidTest-results/connected/debug/*.xml`. Gradle `-q` prints nothing on success.
 - **Tablet snapshot script:** `tablet_snapshot.sh <dir> [with-files]` (force-stop, copy db/-wal/-shm via run-as, md5 of every notebook file, optional tar of `files/notebooks`); saved in `screenshots/tablet_snapshot.sh` (finds the tablet by model OPD2405). Compare with `python screenshots/compare_dbs.py <before> <after>` (counts only). Ask the user before running it.
-- **Tablet:** if `adb devices` doesn't list it, run `adb kill-server` then `adb start-server`. Install with `adb -s <tablet serial> install -r app/build/outputs/apk/debug/app-debug.apk`. Check the serial with `adb devices -l`; it's the OPD2405.
+- **Tablet:** if `adb devices` doesn't list it, run `adb kill-server` then `adb start-server`. Install with `adb -s <tablet serial> install -r app/build/outputs/apk/release/app-release.apk` (`gradlew.bat assembleRelease`; the tablet runs release since 18 Nov; debug and release share the key, so either installs over the other). Check the serial with `adb devices -l`; it's the OPD2405.
 - **Emulator stylus handwriting is off** (`settings put secure stylus_handwriting_enabled 0`). Its "Try out your stylus" tutorial swallowed scripted typing.
 - **To tap UI by text in scripts:**
   - `uiautomator dump`, pull the XML, find the node's bounds, then `input tap`.

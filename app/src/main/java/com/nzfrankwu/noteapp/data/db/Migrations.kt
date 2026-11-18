@@ -149,6 +149,21 @@ val MIGRATION_6_7: Migration = object : Migration(6, 7) {
     }
 }
 
+/**
+ * Version 7 → 8 (Phase 7, step 7.1):
+ *  - "Submitted" was merged into "Done" (the user's choice, 17 Nov 2026): every task saved as
+ *    `submitted` becomes `done`. Only the status changes; `updated_at` and every other value stay.
+ *    (TaskStatus.fromKey still reads "submitted" as Done, for old exports.)
+ *  - courses get `color`: a colour you chose for the course (a [com.nzfrankwu.noteapp.domain.CourseColorChoice]
+ *    key), or null for the automatic colour, which every existing course keeps.
+ */
+val MIGRATION_7_8: Migration = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("UPDATE `tasks` SET `status` = 'done' WHERE `status` = 'submitted'")
+        db.execSQL("ALTER TABLE `courses` ADD COLUMN `color` TEXT")
+    }
+}
+
 /** Every migration, oldest first. Keep this list at the bottom of the file (see above). */
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_1_2,
@@ -157,4 +172,5 @@ val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_4_5,
     MIGRATION_5_6,
     MIGRATION_6_7,
+    MIGRATION_7_8,
 )

@@ -17,7 +17,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -283,7 +282,7 @@ internal fun NotebookEditor(
         onBack()
     }
 
-    val dark = isSystemInDarkTheme()
+    val dark = com.nzfrankwu.noteapp.ui.theme.LocalDarkTheme.current
     // No top bar (F17, like Notein): the pages fill the screen up to the status bar, and the
     // buttons float over them.
     Box(modifier.fillMaxSize().background(if (dark) DeskDark else DeskLight).statusBarsPadding()) {
@@ -317,7 +316,10 @@ internal fun NotebookEditor(
             // Over the toolbar, under the top bar: the recent panel and a notebook being dragged (5.7).
             overlay()
             // ---- Floating buttons (F17) ----
+            val findInNotebook = LocalFindInNotebook.current
             EditorTopBar(
+                // Its own button, top right (the user's wish, 18 Nov).
+                onFind = findInNotebook?.let { find -> { menuOpen = false; viewModel.saveNow(); find(viewModel.notebookId) } },
                 canUndo = viewModel.canUndo,
                 canRedo = viewModel.canRedo,
                 onBack = ::leave,
@@ -399,16 +401,38 @@ internal fun NotebookEditor(
                     )
                     HorizontalDivider()
                 }
+                // Phase 7 (7.3): this page's paper, or every page's. A PDF page has no paper of its own.
+                val pageNow = pages.getOrNull(active.pageNow())
+                if (pageNow != null && !pageNow.isPdf) {
+                    Text(
+                        "This page's paper",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
+                    val pagePaper = pageNow.template ?: nb?.template
+                    PageTemplate.entries.forEach { t ->
+                        DropdownMenuItem(
+                            text = { Text(if (pagePaper == t) "✓  ${t.label}" else "    ${t.label}") },
+                            onClick = { menuOpen = false; viewModel.setPageTemplate(pageNow.id, t) },
+                            modifier = Modifier.testTag("page-paper-${t.key}"),
+                        )
+                    }
+                    HorizontalDivider()
+                }
                 Text(
-                    "Paper",
+                    "Paper for all pages",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 )
+                // Ticked only when every page uses it.
+                val allSame = nb?.template?.takeIf { t -> pages.none { !it.isPdf && it.template != null && it.template != t } }
                 PageTemplate.entries.forEach { t ->
                     DropdownMenuItem(
-                        text = { Text(if (nb?.template == t) "✓  ${t.label}" else "    ${t.label}") },
+                        text = { Text(if (allSame == t) "✓  ${t.label}" else "    ${t.label}") },
                         onClick = { menuOpen = false; viewModel.setTemplate(t) },
+                        modifier = Modifier.testTag("notebook-paper-${t.key}"),
                     )
                 }
                 HorizontalDivider()

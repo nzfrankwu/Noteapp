@@ -72,6 +72,8 @@ android {
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                // Our own rules: see keep-rules.pro (no renaming: it crashed the release app at start).
+                keepRules { files.add(file("keep-rules.pro")) }
             }
         }
     }
@@ -123,6 +125,7 @@ dependencies {
     implementation(libs.androidx.input.motionprediction)
     // Export as PDF (Phase 3): keeps imported PDF pages as they are, with the ink on top.
     implementation(libs.pdfbox.android)
+    implementation(libs.mlkit.digital.ink) // handwriting search, recognised on the device (PHASE-7.md 7.10)
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver) // a fake Canvas server for tests
     androidTestImplementation(libs.androidx.room.testing)

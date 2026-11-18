@@ -120,6 +120,21 @@ class RecentlyDeletedTest {
         assertTrue(notebookDir(keep).exists())
     }
 
+    /** Phase 7, 7.2: Delete now while a Drive upload still reads the notebook: rows go, files wait. */
+    @Test
+    fun deleteNow_duringAnUpload_leavesThePinnedFilesForLater() = runBlocking {
+        val gone = notebookWithFiles("Being uploaded")
+        notebooks.delete(gone)
+        val pins = com.nzfrankwu.noteapp.data.backup.BackupPins.pin(listOf("files/notebooks/$gone/pdf-1.pdf"))
+        try {
+            assertTrue(purge.deleteForGood(gone))
+            assertNull(notebooks.getNotebook(gone))
+            assertTrue("the upload can still read them", notebookDir(gone).exists())
+        } finally {
+            com.nzfrankwu.noteapp.data.backup.BackupPins.unpin(pins)
+        }
+    }
+
     @Test
     fun purgeExpired_keepsThingsFor30Days() = runBlocking {
         val old = notebookWithFiles("Old")

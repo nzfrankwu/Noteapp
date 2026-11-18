@@ -67,7 +67,13 @@ private val DarkColors = darkColorScheme(
     onError = Color(0xFF690005),
 )
 
-/** NoteApp's theme. Follows the tablet's light/dark setting; colours are fixed (see Color.kt). */
+/**
+ * True while the app is shown dark. Read this, never `isSystemInDarkTheme()`, so the Light/Dark
+ * choice in Settings (Phase 7, 7.6) reaches every screen (the editor's desk and page colours too).
+ */
+val LocalDarkTheme = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/** NoteApp's theme. Light or dark as chosen ([darkTheme]); colours are fixed (see Color.kt). */
 @Composable
 fun NoteAppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -77,11 +83,15 @@ fun NoteAppTheme(
 ) {
     val basePalette = if (darkTheme) DarkCourseColors else LightCourseColors
     val courseColors = remember(basePalette, courses) {
-        basePalette.copy(slots = CourseColorKey.slotsInOrder(courses, basePalette.palette.size))
+        basePalette.copy(
+            slots = CourseColorKey.slotsInOrder(courses, basePalette.palette.size),
+            chosen = CourseColorKey.chosenSlots(courses),
+        )
     }
     CompositionLocalProvider(
         LocalStatusColors provides if (darkTheme) DarkStatusColors else LightStatusColors,
         LocalCourseColors provides courseColors,
+        LocalDarkTheme provides darkTheme,
     ) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkColors else LightColors,
