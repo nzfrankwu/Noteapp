@@ -93,7 +93,14 @@ data class NoteHits(val query: String, val hits: List<NoteHit>)
  * What a course folder's search covers: the folder and every folder inside it, the notebooks in
  * them, and the course's tasks (a subfolder's course is its top folder's).
  */
-data class FolderScope(val name: String, val folderIds: Set<String>, val notebookIds: Set<String>, val courseId: String?) {
+data class FolderScope(
+    val name: String,
+    val folderIds: Set<String>,
+    val notebookIds: Set<String>,
+    val courseId: String?,
+    /** The folder searched in (not listed in its own results). */
+    val rootId: String,
+) {
     companion object {
         fun of(
             folderId: String,
@@ -113,7 +120,7 @@ data class FolderScope(val name: String, val folderIds: Set<String>, val noteboo
             val seen = HashSet<String>()
             while (top.parentId != null && seen.add(top.id)) top = byId[top.parentId] ?: break
             val notebookIds = notebooks.filter { it.notebook.folderId in ids }.mapTo(HashSet()) { it.notebook.id }
-            return FolderScope(root.name, ids, notebookIds, top.courseId)
+            return FolderScope(root.name, ids, notebookIds, top.courseId, rootId = folderId)
         }
     }
 
@@ -121,7 +128,7 @@ data class FolderScope(val name: String, val folderIds: Set<String>, val noteboo
     fun filter(r: SearchIndex.Results) = SearchIndex.Results(
         tasks = if (courseId == null) emptyList() else r.tasks.filter { it.task.courseId == courseId },
         notebooks = r.notebooks.filter { it.item.notebook.id in notebookIds },
-        folders = r.folders.filter { it.folder.id in folderIds && it.folder.id != folderIds.first() },
+        folders = r.folders.filter { it.folder.id in folderIds && it.folder.id != rootId },
     )
 }
 
@@ -147,7 +154,11 @@ class SearchViewModel(
     val handwritingStatus: StateFlow<String?> = kotlinx.coroutines.flow.flow {
         if (handwritingStatus == null) return@flow
         while (true) {
-            emit(runCatching { handwritingStatus() }.onFailure { android.util.Log.w("NoteappSearch", "Search status failed", it) }.getOrNull())
+            val status = runCatching { handwritingStatus() }.onFailure { android.util.Log.w("NoteappSearch", "Search status failed", it) }.getOrNull()
+            emit(status)
+            // All read: nothing new gets written while this screen is open, so stop checking
+            // (each check looks at every page file; review fix, 18 Nov).
+            if (status == null) break
             kotlinx.coroutines.delay(3_000)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -197,12 +208,16 @@ class SearchViewModel(
         if (words.isEmpty()) return emptyList()
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             val exact = store.search(words, notebookId, limit = MAX_NOTE_HITS, notebookIds = onlyNotebooks)
-            // Messy handwriting: pages whose handwriting is a letter or two off every word.
+            // Messy handwriting: pages where every word is in the typed text exactly or in the
+            // handwriting a letter or two off. Forgiving matches are for handwriting only: typed
+            // PDF and text box words must match as typed (review fix, 18 Nov).
             val exactIds = exact.mapTo(HashSet()) { it.pageId }
             val close = store.handwritten(notebookId, onlyNotebooks).filter { h ->
-                h.pageId !in exactIds && com.nzfrankwu.noteapp.domain.FuzzyWords.matchesAll(
-                    words, listOfNotNull(h.pdfText, h.boxText, h.handAlt).joinToString("\n"),
-                )
+                val hand = h.handAlt ?: return@filter false
+                if (h.pageId in exactIds) return@filter false
+                val typed = listOfNotNull(h.pdfText, h.boxText).joinToString("\n")
+                val tokens = com.nzfrankwu.noteapp.domain.FuzzyWords.tokens(hand)
+                words.all { typed.contains(it, ignoreCase = true) || com.nzfrankwu.noteapp.domain.FuzzyWords.matches(it, hand, tokens) }
             }.take(MAX_NOTE_HITS)
             val closeIds = close.mapTo(HashSet()) { it.pageId }
             val byNotebook = (exact + close).groupBy { it.notebookId }

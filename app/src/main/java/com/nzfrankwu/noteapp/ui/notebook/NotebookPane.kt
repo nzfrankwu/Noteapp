@@ -53,6 +53,9 @@ val LocalOpenAtFind = androidx.compose.runtime.staticCompositionLocalOf<String?>
 val LocalFindInNotebook = androidx.compose.runtime.staticCompositionLocalOf<((String) -> Unit)?> { null }
 
 /** A page picked in "Find in this notebook": the open editor goes there itself (keeping its undo and split view). */
+/** How long a pane waits to be laid out before giving up on a [FindRequest]. */
+private const val FIND_WAIT_MS = 5_000L
+
 data class FindRequest(
     val notebookId: String,
     val pageId: String,
@@ -188,9 +191,13 @@ fun NotebookPane(
             // Coming back from the search screen rebuilds this pane: wait until it has its size
             // and has done its first fit, or that fit would put it back on the old page (and a
             // request taken before the size was known used to be dropped).
-            val size = snapshotFlow { view.viewSize.takeIf { it.width > 0 && it.height > 0 && fittedFor == it } }
-                .filterNotNull().first()
+            // (At most a few seconds: a pane that never fits mustn't stop later requests.)
+            val size = kotlinx.coroutines.withTimeoutOrNull(FIND_WAIT_MS) {
+                snapshotFlow { view.viewSize.takeIf { it.width > 0 && it.height > 0 && fittedFor == it } }
+                    .filterNotNull().first()
+            }
             if (requests.value != r) return@collect
+            if (size == null) { requests.value = null; return@collect }
             requests.value = null
             val index = pages.indexOfFirst { it.id == r.pageId }
             if (index < 0) return@collect

@@ -27,6 +27,9 @@ object HandwritingLines {
     /** How far (in typical stroke heights) a stroke's middle may be from its line's middle. */
     const val JOIN = 0.8f
 
+    /** A mark (dot, accent, t-bar) is at most this many typical heights tall (and one wide). */
+    const val MARK = 0.6f
+
     private class Building(val strokes: MutableList<InkStroke>) {
         var sumMid = 0f
         val mid: Float get() = sumMid / strokes.size
@@ -49,13 +52,15 @@ object HandwritingLines {
             if (last != null && m - last.mid <= JOIN * typical) last.add(s, m) else lines += Building(mutableListOf()).also { it.add(s, m) }
         }
 
-        // A tiny "line" (an i's dot, an accent) just above the next one belongs to it.
+        // A tiny "line" (an i's dot, an accent) just above the next one belongs to it. Only small
+        // marks: a short real line (a word written in one cursive stroke) stays its own line.
+        fun isMark(s: InkStroke): Boolean { val b = s.bounds(); return b[2] - b[0] <= typical && b[3] - b[1] <= MARK * typical }
         val merged = ArrayList<Building>()
         var i = 0
         while (i < lines.size) {
             val l = lines[i]
             val next = lines.getOrNull(i + 1)
-            if (l.strokes.size <= 2 && next != null && next.mid - l.mid <= 1.5f * typical) {
+            if (l.strokes.size <= 2 && l.strokes.all(::isMark) && next != null && next.mid - l.mid <= 1.5f * typical) {
                 val combined = Building(mutableListOf())
                 (l.strokes + next.strokes).forEach { combined.add(it, midOf(it)) }
                 lines[i + 1] = combined

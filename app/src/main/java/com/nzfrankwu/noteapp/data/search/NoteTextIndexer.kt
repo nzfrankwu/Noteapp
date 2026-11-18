@@ -104,7 +104,13 @@ class NoteTextIndexer(
             val (page, keys) = todo.removeAt(first)
             val read = files.read(page.notebookId, page.id)
             val strokes = (read as? PageRead.Ok)?.strokes.orEmpty()
-            if (read is PageRead.Damaged) continue
+            if (read is PageRead.Damaged) {
+                // Can't be read (the file is kept as it is): count it as read with no handwriting,
+                // so the progress line can finish. If the file ever changes, its key changes and
+                // it's read again (review fix, 18 Nov).
+                store.putHandwriting(page.id, page.notebookId, emptyList(), keys.boxKey ?: "none")
+                continue
+            }
             val lines = com.nzfrankwu.noteapp.domain.ink.HandwritingLines.group(strokes)
             if (lines.isNotEmpty()) {
                 if (ready == null) ready = reader.prepare()

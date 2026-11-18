@@ -9,6 +9,14 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Open questions
 
+- **Launch (18 Nov, the user: "i think we are ready to launch") — your decisions:**
+  - **Merge `phase-7` into `main`** (needs your OK).
+  - **Privacy page:** publish the handwriting-search line (`site/privacy.html`) to the website (`gh-pages`).
+  - **Google Play:** a Play Console developer account is yours to create (one-time fee, identity check). New personal accounts currently have to run a closed test with at least 12 testers for 14 days before a public release. Then the store listing (name, description, screenshots, icon), content rating and the Data safety form.
+  - **Photo permission:** the image menu's Recent Images grid uses READ_MEDIA_IMAGES. Google Play only allows that for apps whose main purpose needs all photos; a note app is usually told to use Android's photo picker instead. Options: drop the grid (use the picker only), or ask Google and risk a rejection.
+  - **Name:** "Noteapp" (IDEA.md §7 still lists the public name as undecided).
+  - **Screen capture service:** Play asks for a short declaration (with a video) for the "media projection" foreground service.
+
 - **Handwriting corrections (later, your call):** a screen to see what Noteapp read on a page and fix words, remembered for search. Only worth it if search still misses your writing after the messy-handwriting changes.
 
 - **Phase 7, waiting on you (18 Nov, hands-off stop):**
@@ -20,6 +28,8 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **A Home nudge when Drive isn't connected? (your call):** today Home only warns once Drive is connected and backups fail or stop for 3 days. Nothing on Home reminds you to connect Drive in the first place.
 
 ## Follow-ups / tech debt
+
+- **Forgiving handwriting search scales with the notes:** each typed letter loads every handwritten page's readings and compares words (fine for a few hundred pages; revisit after a semester of notes, e.g. keep the words in memory or prefilter).
 
 - **Search (7.9–7.10):** a text box or handwriting match zooms to it but doesn't mark the words; scanned PDF pages have no text. The first pass over many big PDFs and many handwritten pages runs in the background after start-up (not measured on the tablet yet). Recognition quality on real handwriting (and maths) needs the tablet. The debug app is ~63 MB with ML Kit.
 
@@ -88,6 +98,8 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Launch review (18 Nov):** reviewed everything since the Phase 7 review (`c37fba6`); 8 findings, 7 fixed: forgiving matches only for handwriting (typed PDF and text box words must match as typed), a damaged page no longer keeps the progress line up forever, a short real line (one cursive word) is no longer merged into the line below, Find in this notebook gives up after 5 s if the editor never lays out, the progress check stops once everything is read, two small tidy-ups. Kept: search re-reads every handwritten page's text on each typed letter (fine at today's size; see Follow-ups).
 
 - **Pen widths, 7.12 (18 Nov, the user's feedback):** Medium and Full now respond more to pressure, like a real pen: thinner when you press lightly, thicker when you press hard (Full the most). Only new writing changes; what you already wrote keeps its look (new ink keys `pen-pressure-mid-v2`, `pen-pressure-full-v2`). Off and Low are unchanged. If it's too much or too little, the numbers are in `InkBrushes` (a further change needs another new key).
 

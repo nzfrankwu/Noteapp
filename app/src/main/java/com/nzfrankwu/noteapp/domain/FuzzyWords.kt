@@ -21,7 +21,9 @@ object FuzzyWords {
 
     /** The words of [text], lower case (letters and digits only). */
     fun tokens(text: String): List<String> =
-        text.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }
+        text.lowercase().split(NOT_WORD).filter { it.isNotEmpty() }
+
+    private val NOT_WORD = Regex("[^\\p{L}\\p{N}]+")
 
     /** True when [word] is in [text] exactly, or close to one of [tokens] (from [text]). */
     fun matches(word: String, text: String, tokens: List<String>): Boolean {

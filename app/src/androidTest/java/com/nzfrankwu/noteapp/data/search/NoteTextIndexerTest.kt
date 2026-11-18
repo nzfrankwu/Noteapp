@@ -217,6 +217,20 @@ class NoteTextIndexerTest {
         assertEquals(1 to 2, withHand.handwritingProgress(searched))
     }
 
+    /** Review fix (18 Nov): a damaged page counts as read, so the progress line can finish. */
+    @Test
+    fun aDamagedPage_countsAsRead_soProgressFinishes() = runBlocking {
+        val withHand = NoteTextIndexer(db, files, store, FakeReader())
+        val nb = (notebooks.createNotebook(folderId, "Damaged") as NotebookResult.Success).id
+        val good = notebooks.getPages(nb).first().id
+        val bad = (notebooks.addPage(nb, 1) as NotebookResult.Success).id
+        files.write(nb, good, listOf(letter("a", 100f, 100f)))
+        files.pageFile(nb, bad).apply { parentFile?.mkdirs() }.writeBytes(byteArrayOf(1, 2, 3, 4, 5)) // not a page file
+        withHand.run()
+        assertEquals(2 to 2, withHand.handwritingProgress(nb))
+        assertEquals(1, store.search(listOf("smith")).size)
+    }
+
     @Test
     fun handwriting_waitsUntilTheReaderIsReady() = runBlocking {
         val reader = FakeReader(ready = false)

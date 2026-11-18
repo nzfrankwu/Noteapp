@@ -85,6 +85,21 @@ class HandwritingLinesTest {
         }
     }
 
+    /**
+     * Review fix (18 Nov): a short real line just above another (a heading written in one cursive
+     * stroke) stays its own line; a small mark there (an accent) still joins the line below.
+     */
+    @Test
+    fun aShortLineAboveAnother_staysItsOwnLine_butASmallMarkJoinsIt() {
+        val below = listOf(letter("b1", 100f, 130f), letter("b2", 120f, 130f), letter("b3", 140f, 130f))
+        // One wide cursive stroke, a line pitch (30) above: its own line.
+        val heading = testStroke("word", 100f to 100f, 130f to 120f, 160f to 100f, 190f to 120f)
+        assertEquals(listOf(listOf("word"), listOf("b1", "b2", "b3")), HandwritingLines.group(below + heading).map { l -> l.strokes.map { it.id } })
+        // A small accent a little above the line: part of it.
+        val accent = testStroke("accent", 122f to 117f, 126f to 113f)
+        assertEquals(1, HandwritingLines.group(below + accent).size)
+    }
+
     @Test
     fun nothingToRead_givesNoLines() {
         assertEquals(emptyList<HandwritingLines.Line>(), HandwritingLines.group(emptyList()))

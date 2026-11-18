@@ -148,6 +148,21 @@ class SearchNotesScreenTest {
         org.junit.Assert.assertTrue("notes above tasks", notesTop < tasksTop)
     }
 
+    /**
+     * Review fix (18 Nov): forgiving matching is for handwriting only. A page with handwriting and
+     * the typed text "Smith chart" isn't found by "smitt" (a letter off the typed word).
+     */
+    @Test
+    fun typedText_aLetterOff_isNotFound_evenOnAPageWithHandwriting() {
+        store.putHandwriting(
+            lecturePage2, lecture,
+            listOf(NoteTextStore.HandLine(listOf("lecture notes"), 100f, 130f)), key = "test",
+        )
+        show()
+        compose.onNodeWithTag("search-field").performTextInput("smitt")
+        compose.waitUntilAtLeastOneExists(hasText("Nothing matches", substring = true), 5_000)
+    }
+
     /** 18 Nov: while handwriting is still being read, the progress line stays above the results. */
     @Test
     fun handwritingProgress_showsAboveTheResults() {
