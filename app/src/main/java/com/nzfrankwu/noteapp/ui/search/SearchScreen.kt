@@ -57,6 +57,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -160,12 +161,15 @@ class SearchViewModel(
     private val index: StateFlow<SearchIndex?> = combine(
         tasks.observeAllWithCourse(), notebooks.observeAllListItems(), folders.observeAllFolders(), tasks.observeCourses(),
     ) { t, n, f, c -> SearchIndex(t, n, f, c) }
+        // Off the main thread: reading every task's description etc. froze the screen (18 Nov).
+        .flowOn(kotlinx.coroutines.Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** The course folder being searched in, or null (everything, or one notebook). */
     val folderScope: StateFlow<FolderScope?> = (
         if (folderId == null) flowOf(null)
         else combine(folders.observeAllFolders(), notebooks.observeAllListItems()) { f, n -> FolderScope.of(folderId, f, n) }
+            .flowOn(kotlinx.coroutines.Dispatchers.Default)
         ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val results: StateFlow<SearchIndex.Results> = combine(index, query, folderScope) { idx, q, scope ->
@@ -175,7 +179,10 @@ class SearchViewModel(
             scope == null -> SearchIndex.Results() // not loaded yet
             else -> scope.filter(all)
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchIndex.Results())
+    }
+        // Every key press searches again: never on the main thread (it made typing lag).
+        .flowOn(kotlinx.coroutines.Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchIndex.Results())
 
     /** Pages whose words match, by notebook (most recently changed first), then page. */
     val noteHits: StateFlow<NoteHits> = combine(query.debounce(150), folderScope) { q, scope -> q to scope }
@@ -290,7 +297,13 @@ fun SearchScreen(
     val results = if (scoped) SearchIndex.Results() else allResults
     val focus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    LaunchedEffect(Unit) { if (viewModel.query.value.isEmpty()) focus.requestFocus() }
+    // The keyboard opens once the screen has slid in: both at once made the opening stutter.
+    LaunchedEffect(Unit) {
+        if (viewModel.query.value.isEmpty()) {
+            kotlinx.coroutines.delay(KEYBOARD_DELAY_MS)
+            focus.requestFocus()
+        }
+    }
     val now = clock.instant()
 
     Scaffold(
@@ -428,6 +441,9 @@ fun SearchScreen(
         }
     }
 }
+
+/** How long the search screen waits before opening the keyboard (its slide-in takes about this long). */
+private const val KEYBOARD_DELAY_MS = 300L
 
 /** "Read 40 of 252 pages so far": so a missing handwriting match isn't taken for a broken search. */
 @Composable

@@ -4,6 +4,8 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Known bugs
 
+- **The release build crashes at start (found 18 Nov, emulator).** `assembleRelease` with `optimization { packageScope = androidx.**, kotlin.**, kotlinx.** }` gives `IllegalAccessError: Class kotlin.text.… extended by class … is inaccessible` in `androidx.startup.InitializationProvider`. Only debug builds have ever been installed, so the tablet is unaffected, but it blocks publishing, and the release build is also what would make Compose screens (search, editor) noticeably smoother than the debug build. Fix idea: full R8 optimisation (no package scope) with keep rules where needed, then test every screen.
+
 - **Handwriting search found nothing on the tablet (18 Nov, the user).** The model had downloaded, but the first 49 pages read were the debug test-writing pages (unreadable by design), so no real writing had been read. Fixed: newest pages first, plus a line-grouping fix for full pages and a progress line on the search screen. Installed on the tablet 18 Nov; recognition quality on the user's real writing still to be confirmed by them.
 
 ## Open questions
