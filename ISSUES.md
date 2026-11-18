@@ -90,7 +90,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Done
 
-- **The release build crashed at start (fixed 18 Nov).** R8 moved one of Kotlin's internal string classes out of its package; `app/keep-rules.pro` now says `-dontobfuscate` (optimisations kept, no renaming). Checked on the emulator: every main screen (`screenshots/release_smoke.sh`), PDF search, Find in this notebook and handwriting search (model download + "TO" found). The release build is much smoother: typing in search ~18 ms frames instead of ~150 ms (debug). Not yet on the tablet (it runs debug builds; a release build can't be copied off for safety snapshots with `run-as`).
+- **The release build crashed at start (fixed 18 Nov).** R8 moved one of Kotlin's internal string classes out of its package; `app/keep-rules.pro` now says `-dontobfuscate` (optimisations kept, no renaming). Checked on the emulator: every main screen (`screenshots/release_smoke.sh`), PDF search, Find in this notebook and handwriting search (model download + "TO" found). The release build is much smoother: typing in search ~18 ms frames instead of ~150 ms (debug). On the tablet since 18 Nov (the user said yes); for safety snapshots, install the debug build of the same commit first (release can't be copied off with `run-as`).
 
 - **Search tweaks (18 Nov):** notes first in results; a 🔍 in course folders (searches that folder and its subfolders, plus the course's tasks); the notebook editor's own 🔍 button (Find in this notebook) at the top right.
 
