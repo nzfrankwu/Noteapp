@@ -88,7 +88,10 @@ class NoteTextIndexer(
         notebooks: Map<String, com.nzfrankwu.noteapp.data.db.Notebook>,
     ): Int {
         val reader = handwriting ?: return 0
+        // Most recently changed pages first: what you just wrote is searchable within seconds,
+        // and a big backlog (e.g. the first run after installing) doesn't hold it up.
         val todo = wanted.filter { (page, keys) -> known[page.id]?.handKey != keys.boxKey }
+            .sortedByDescending { (page, _) -> page.updatedAt }
         if (todo.isEmpty()) return 0
         var ready: Boolean? = null
         var done = 0

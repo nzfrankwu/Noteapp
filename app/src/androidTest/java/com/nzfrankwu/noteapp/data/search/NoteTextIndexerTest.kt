@@ -120,9 +120,11 @@ class NoteTextIndexerTest {
         var reads = 0
         override suspend fun prepare() = ready
         val contexts = mutableListOf<String>()
+        val tops = mutableListOf<Float>()
         override suspend fun read(line: com.nzfrankwu.noteapp.domain.ink.HandwritingLines.Line, before: String): List<String> {
             reads++
             contexts += before
+            tops += line.top
             return if (line.top < 150f) listOf("Smith chart notes", "Smlth chart notes") else listOf("Fourier series", "Founer series")
         }
     }
@@ -163,6 +165,21 @@ class NoteTextIndexerTest {
         assertTrue(store.search(listOf("smith")).isEmpty())
         assertTrue(store.search(listOf("typed")).isEmpty())
         assertEquals(1, store.search(listOf("fourier")).size)
+    }
+
+    /** The most recently changed page is read first (fresh writing is searchable at once). */
+    @Test
+    fun handwriting_readsTheNewestPageFirst() = runBlocking {
+        val reader = FakeReader()
+        val withHand = NoteTextIndexer(db, files, store, reader)
+        val nb = (notebooks.createNotebook(folderId, "Order") as NotebookResult.Success).id
+        val old = notebooks.getPages(nb).first().id
+        Thread.sleep(20)
+        val fresh = (notebooks.addPage(nb, 1) as NotebookResult.Success).id
+        files.write(nb, old, listOf(letter("o", 100f, 400f)))
+        files.write(nb, fresh, listOf(letter("f", 100f, 600f)))
+        withHand.run()
+        assertEquals(listOf(600f, 400f), reader.tops)
     }
 
     @Test
