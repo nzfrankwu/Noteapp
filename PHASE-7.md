@@ -88,7 +88,8 @@ Phases 1–6 are merged into `main` (`c4b9e7a`) and the tablet runs the Phase 6 
 - [ ] **7.11 Editor speed.** A picture of just the visible part at very deep zoom; pre-draw the next page; no pause after a big lasso move. Measure with `screenshots/framestats.py`. ★
   - Full suite after 7.7: 605 unit tests, 321 emulator tests pass (18 Nov).
   - Skipped in the hands-off run (18 Nov): the fixes change how pages draw their ink (`StrokeDrawables`, `PageInkLayers`, the lasso commit in `NotebookCanvas.commitSelection`) and can't be measured on the emulator. Idea for the lasso pause: moved strokes are rebuilt one by one on the main thread in `StrokeDrawables.get`; build them in the background before the selection is let go.
-- [ ] **7.12 Pen widths (F22)** after the user tries the pens on the tablet; new ink keys if notes already use the old widths. ★
+- [x] **7.12 Pen widths (F22)** after the user tries the pens on the tablet; new ink keys if notes already use the old widths. ★
+  - Done 18 Nov. The user: Full and Medium "slightly more emphasised, like a real pen". New keys `pen-pressure-mid-v2` (round tip, size × 0.4–1.35 by pressure; v1 was 0.5–1.2) and `pen-pressure-full-v2` (the stock pressure pen plus one more pressure → size behaviour, × 0.45–1.4, because the stock pen barely changes width). Medium and Full write with v2 from now on; old strokes keep `pen-v1` / `pen-pressure-mid-v1`. `PenPressureTest` measures light vs hard widths (the emulator pen only presses fully) and draws `screenshots/pen-pressure.png`.
 - [x] **7.13 Tablet check** (18 Nov, the user's OK). Snapshot with files (`backups/tablet-2026-11-18-before-v8/`) → install `d6ea79a` → opened once → snapshot → `compare_dbs.py … --v8`: **PASS** (v7 → v8; the 38 Submitted tasks became Done, none left; every other value of 10 courses, 5 folders, 124 tasks, 8 notebooks, 252 pages unchanged; 167 page files identical; integrity ok).
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest, ask to merge into `main`.
   - **Review done (18 Nov, after 7.10, hands-off):** 10 findings, 9 fixed, 1 kept on purpose:
@@ -103,7 +104,7 @@ Phases 1–6 are merged into `main` (`c4b9e7a`) and the tablet runs the Phase 6 
     - Unused teal status colours and an unused import removed.
     - Kept: the theme is read with `runBlocking` once before the first frame (one tiny file), so a forced light/dark never flashes.
   - Tests after the fixes: 619 unit, 333 emulator (2 new: `aFindRequest_takesTheOpenNotebookToThePage_andKeepsUndo`, `wordsTogether_comeFirst_beforeTheLimit`).
-  - Still open in Phase 7: 7.11 (editor speed, needs tablet measurements), 7.12 (pen widths, needs the user's try), 7.13 (tablet install, needs the user's OK). Merge into `main` after those or when the user says.
+  - Still open in Phase 7: 7.11 (editor speed, needs tablet measurements), 7.12 done (user to try the new pens on the tablet), 7.13 done. Merge into `main` after those or when the user says.
 
 ## Verification
 - Every step: `.\gradlew.bat assembleDebug testDebugUnitTest`, then `$env:ANDROID_SERIAL="emulator-5554"; .\gradlew.bat connectedDebugAndroidTest`.

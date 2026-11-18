@@ -56,6 +56,42 @@ object InkBrushes {
     private val lowPressurePenFamily: BrushFamily by lazy { roundPen("pen-pressure-low-v1", 0.75f to 1.1f) }
     private val midPressurePenFamily: BrushFamily by lazy { roundPen("pen-pressure-mid-v1", 0.5f to 1.2f) }
 
+    // 7.12 (the user, 18 Nov: Full and Medium "slightly more emphasised, like a real pen"): new
+    // keys with a stronger pressure response; the v1 pens above stay as they were for old notes.
+    private val midPressurePenV2Family: BrushFamily by lazy { roundPen("pen-pressure-mid-v2", 0.4f to 1.35f) }
+
+    /**
+     * The full pressure pen, v2: Jetpack Ink's pressure pen (version 1, pinned) with one more
+     * pressure → size behaviour on its tip. Behaviours on the same target multiply, so light
+     * strokes come out thinner and hard ones thicker than the stock pen.
+     */
+    @OptIn(androidx.ink.brush.ExperimentalInkCustomBrushApi::class)
+    private val fullPressurePenV2Family: BrushFamily by lazy {
+        val extra = BrushBehavior(
+            BrushBehavior.Source.NORMALIZED_PRESSURE, BrushBehavior.Target.SIZE_MULTIPLIER,
+            0f, 1f, FULL_V2_LIGHT, FULL_V2_HARD, BrushBehavior.OutOfRange.CLAMP,
+        )
+        val coats = penFamily.coats.map { coat ->
+            val t = coat.tip
+            BrushCoat(
+                BrushTip(
+                    scaleX = t.scaleX, scaleY = t.scaleY, cornerRounding = t.cornerRounding,
+                    slantDegrees = t.slantDegrees, pinch = t.pinch, rotationDegrees = t.rotationDegrees,
+                    particleGapDistanceScale = t.particleGapDistanceScale,
+                    particleGapDurationMillis = t.particleGapDurationMillis,
+                    behaviors = t.behaviors + extra,
+                ),
+                coat.paintPreferences,
+            )
+        }
+        penFamily.copy(coats = coats, clientBrushFamilyId = "noteapp:pen-pressure-full-v2")
+    }
+    // The stock pen barely changes width with pressure, so Full gets the widest range: it should
+    // respond more than Medium (0.4–1.35). Changing these changes strokes already written with
+    // "pen-pressure-full-v2": a different look needs a new key.
+    private const val FULL_V2_LIGHT = 0.45f
+    private const val FULL_V2_HARD = 1.4f
+
     @OptIn(androidx.ink.brush.ExperimentalInkCustomBrushApi::class)
     private fun roundPen(key: String, sizeByPressure: Pair<Float, Float>?): BrushFamily {
         val behaviors = sizeByPressure?.let { (low, high) ->
@@ -76,6 +112,8 @@ object InkBrushes {
         InkTool.PEN_STEADY -> steadyPenFamily
         InkTool.PEN_PRESSURE_LOW -> lowPressurePenFamily
         InkTool.PEN_PRESSURE_MID -> midPressurePenFamily
+        InkTool.PEN_PRESSURE_MID_V2 -> midPressurePenV2Family
+        InkTool.PEN_PRESSURE_FULL_V2 -> fullPressurePenV2Family
     }
 
     fun brush(tool: InkTool, colorArgb: Int, size: Float): Brush =
@@ -97,6 +135,8 @@ object InkBrushes {
         steadyPenFamily -> InkTool.PEN_STEADY
         lowPressurePenFamily -> InkTool.PEN_PRESSURE_LOW
         midPressurePenFamily -> InkTool.PEN_PRESSURE_MID
+        midPressurePenV2Family -> InkTool.PEN_PRESSURE_MID_V2
+        fullPressurePenV2Family -> InkTool.PEN_PRESSURE_FULL_V2
         else -> InkTool.PEN
     }
 

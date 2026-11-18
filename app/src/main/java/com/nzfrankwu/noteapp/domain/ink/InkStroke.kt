@@ -22,8 +22,20 @@ enum class InkTool(val key: String) {
     /** Pen whose width follows pressure a little (F22). */
     PEN_PRESSURE_LOW("pen-pressure-low-v1"),
 
-    /** Pen whose width follows pressure halfway (F22). */
-    PEN_PRESSURE_MID("pen-pressure-mid-v1");
+    /** Pen whose width follows pressure halfway (F22). Older notes; new writing uses [PEN_PRESSURE_MID_V2]. */
+    PEN_PRESSURE_MID("pen-pressure-mid-v1"),
+
+    /**
+     * Medium pressure, a little more like a real pen (7.12, the user's try on the tablet, 18 Nov):
+     * lighter strokes thinner, harder ones thicker than [PEN_PRESSURE_MID].
+     */
+    PEN_PRESSURE_MID_V2("pen-pressure-mid-v2"),
+
+    /**
+     * Full pressure, a little more like a real pen (7.12): Jetpack Ink's pressure pen ([PEN]) with
+     * its pressure response made stronger. [PEN] stays for the strokes already written with it.
+     */
+    PEN_PRESSURE_FULL_V2("pen-pressure-full-v2");
 
     /** Highlighter ink: see-through, and always drawn under the pen. */
     val isHighlighter: Boolean get() = this == HIGHLIGHTER || this == HIGHLIGHTER_ROUND
@@ -36,8 +48,8 @@ enum class InkTool(val key: String) {
         fun pen(pressureLevel: Int): InkTool = when (pressureLevel) {
             PenPressure.OFF -> PEN_STEADY
             PenPressure.LOW -> PEN_PRESSURE_LOW
-            PenPressure.MEDIUM -> PEN_PRESSURE_MID
-            else -> PEN
+            PenPressure.MEDIUM -> PEN_PRESSURE_MID_V2
+            else -> PEN_PRESSURE_FULL_V2
         }
     }
 }

@@ -14,7 +14,6 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **Phase 7, waiting on you (18 Nov, hands-off stop):**
   - **Privacy page:** `site/privacy.html` now mentions handwriting search (on-device, model downloaded from Google). Publish it to the website (`gh-pages`)? Also worth checking ML Kit's own terms for anonymous usage statistics before publishing the app.
   - **7.11 editor speed** skipped in hands-off: it changes how pages draw their ink and can't be measured on the emulator (deep zoom needs a pinch; the lasso pause needs the real pen). To do together with the tablet.
-  - **7.12 pen widths:** try the Off/Low/Medium/Full pens on the tablet first.
 
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
@@ -57,7 +56,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **Pictures while selected (Phase 3.6):** a selected picture is drawn above the ink until it's let go (it's in the selection layer); the rotate handle turns pictures too but a non-square picture turned and then stretched sideways is only approximately right (the stretch follows the box, not the picture's own axes).
 - **PDF pages, things not checked yet (Phase 3.3):** the sharp deep-zoom part (`pdfDetail`) needs a two-finger pinch, which the emulator scripts can't do; check on the tablet. Jumping far with the page scroller shows the page white for a moment before its picture arrives (plain notebooks also have no preview that far away). PDFs with rotated pages (`/Rotate`) aren't tested. Android 15+ can open password-protected PDFs with a password; we just refuse them for now.
 - **Imported PDFs and images (Phase 3 decision, Phase 6.5):** a notebook's `pdf-*.pdf` and `images/*` files stay when their pages or images are deleted, so Undo works; the daily clean-up removes them once nothing has used them for 30 days (by file age, so a picture inserted long ago and removed today can go at the next clean-up unless the notebook is open).
-- **Steady pen width vs the pressure pen (F22):** at the same Thickness, the Off/Low/Medium pens may look thinner or thicker than the Full pen at your usual pressure (the emulator only has full pressure). Tune the multipliers in `InkBrushes.roundPen` after trying it on the tablet; changing them changes how existing strokes of those kinds look, so give a new key if notes already use them.
+- **Pen widths (F22, 7.12):** Medium and Full got stronger v2 pens (18 Nov). Off and Low are unchanged; whether Off/Low look right next to the new Full at your usual pressure is still for you to say. Any further change to a pen's look needs a new key.
 - **Notebook editor, small things to revisit (Phase 2):** (very deep zoom, pre-drawing the next page and the big lasso move pause are planned as Phase 7 step 7.11; pen widths F22 as 7.12)
   - Ink still being written shows on top of the toolbar if you write under it; it drops behind once you lift the pen.
   - Stability smooths a stroke when you lift the pen, so a wobbly line shifts slightly at that moment. It's off (0%) by default.
@@ -89,6 +88,8 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Pen widths, 7.12 (18 Nov, the user's feedback):** Medium and Full now respond more to pressure, like a real pen: thinner when you press lightly, thicker when you press hard (Full the most). Only new writing changes; what you already wrote keeps its look (new ink keys `pen-pressure-mid-v2`, `pen-pressure-full-v2`). Off and Low are unchanged. If it's too much or too little, the numbers are in `InkBrushes` (a further change needs another new key).
 
 - **Handwriting reading progress while searching (18 Nov, the user asked):** the "read 40 of 252 pages so far" line now stays at the top of the results too (before, it only showed before typing or when nothing matched). In "Find in this notebook" it counts that notebook's pages, and that notebook's handwriting is read first while Find is open. An edited page counts as not read until it's read again.
 
