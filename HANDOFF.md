@@ -22,7 +22,8 @@ _Last updated: 18 Nov 2026 (Phase 7: 7.1–7.10 done, code review fixed, messy h
 - `data/SearchIndex.kt` (names and tasks, snippets), `ui/search/SearchScreen.kt` (`SearchViewModel`, `SearchRoute(notebookId?)`)
 - `data/search/NoteTextStore.kt` (`databases/search.db`, a cache, never backed up), `NoteTextIndexer.kt` (run by `NoteAppApplication.keepSearchInStep`), `Handwriting.kt` (ML Kit, `…vision.digitalink.recognition` package), `domain/ink/HandwritingLines.kt`
 - **Handwriting didn't work on the tablet (18 Nov):** the model was there, but the first pages read were the debug test-writing pages. Fixed (newest pages first, line grouping, progress line) and installed on the tablet (`efac370`, compare PASS). Check tools: `search.db` counts via run-as, and `screenshots/stroke_kinds.py <notebooks.tar> <search.db>` (test vs real pages, timings only). Never print the user's note text.
-- **The tablet runs `efac370`** (database v8).
+- **The tablet runs the debug build of `33bbc6d`** (database v8; 18 Nov; snapshot `backups/tablet-2026-11-18-before-search2/`, compare PASS).
+- **Release build works since `33bbc6d`** (`app/keep-rules.pro`: `-dontobfuscate`; it crashed at start before). Much smoother than debug. Not on the tablet: release builds aren't debuggable, so `tablet_snapshot.sh` (run-as) can't copy the data off; the user decides (`screenshots/release_smoke.sh` walks the main screens; make data with the debug build first).
 - **Messy handwriting:** up to 5 readings per line (`hand_alt`), `domain/FuzzyWords` (handwriting only), line above as ML Kit context. Store is v3.
 - **ML Kit's model lives in the app's data:** every `connectedDebugAndroidTest` run uninstalls the app, so the ~20 MB model downloads again on first use.
 - Opening at a hit: `NotebookRoute.find` → `LocalOpenAtFind` → `NotebookPane.showFound`; editor ⋮ "Find in this notebook" via `LocalFindInNotebook`
