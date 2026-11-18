@@ -101,7 +101,17 @@ class SearchViewModel(
     private val clock: Clock = Clock.systemDefaultZone(),
     private val noteText: com.nzfrankwu.noteapp.data.search.NoteTextStore? = null,
     val notebookId: String? = null,
+    /** How far handwriting has been read, or null when it's all done (refreshed every few seconds). */
+    handwritingStatus: (suspend () -> String?)? = null,
 ) : ViewModel() {
+    val handwritingStatus: StateFlow<String?> = kotlinx.coroutines.flow.flow {
+        if (handwritingStatus == null) return@flow
+        while (true) {
+            emit(runCatching { handwritingStatus() }.getOrNull())
+            kotlinx.coroutines.delay(3_000)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     /** The notebook being searched in ("Find in this notebook"), or null. */
     val scopeTitle: StateFlow<String?> = (notebookId?.let { id -> notebooks.observeNotebook(id).map { it?.title } } ?: flowOf(null))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -221,6 +231,7 @@ fun SearchScreen(
     val noteHits = if (notesCurrent) found.hits else emptyList()
     val scopeTitle by viewModel.scopeTitle.collectAsStateWithLifecycle()
     val scoped = viewModel.notebookId != null
+    val handStatus by viewModel.handwritingStatus.collectAsStateWithLifecycle()
     // Find in this notebook: only its pages.
     val results = if (scoped) SearchIndex.Results() else allResults
     val focus = remember { FocusRequester() }
@@ -270,13 +281,19 @@ fun SearchScreen(
         Box(Modifier.padding(inner).fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             val words = SearchIndex.words(query)
             when {
-                words.isEmpty() -> Hint(
-                    if (scoped) "Type to find words in this notebook: PDF pages, text boxes and handwriting."
-                    else "Type to search your tasks (titles, descriptions and your notes), notebooks, folders, " +
-                        "and the words in your PDFs, text boxes and handwriting.",
-                )
+                words.isEmpty() -> Column {
+                    Hint(
+                        if (scoped) "Type to find words in this notebook: PDF pages, text boxes and handwriting."
+                        else "Type to search your tasks (titles, descriptions and your notes), notebooks, folders, " +
+                            "and the words in your PDFs, text boxes and handwriting.",
+                    )
+                    handStatus?.let { HandStatus(it) }
+                }
                 results.isEmpty && noteHits.isEmpty() && !notesCurrent -> Box(Modifier.fillMaxSize())
-                results.isEmpty && noteHits.isEmpty() -> Hint("Nothing matches “${query.trim()}”.")
+                results.isEmpty && noteHits.isEmpty() -> Column {
+                    Hint("Nothing matches “${query.trim()}”.")
+                    handStatus?.let { HandStatus(it) }
+                }
                 else -> LazyColumn(
                     modifier = Modifier.widthIn(max = Dimens.ReadingMaxWidth).fillMaxWidth().testTag("search-results"),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.ScreenPadding),
@@ -342,6 +359,17 @@ fun SearchScreen(
             }
         }
     }
+}
+
+/** "Read 40 of 252 pages so far": so a missing handwriting match isn't taken for a broken search. */
+@Composable
+private fun HandStatus(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.widthIn(max = Dimens.ReadingMaxWidth).padding(horizontal = Dimens.ScreenPadding * 2).testTag("search-hand-status"),
+    )
 }
 
 @Composable

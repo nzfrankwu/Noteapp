@@ -4,7 +4,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Known bugs
 
-_None known._
+- **Handwriting search found nothing on the tablet (18 Nov, the user).** Likely cause fixed (whole pages were grouped as one line). Not yet confirmed on the tablet: needs the new build installed, and a check that the handwriting model downloaded there (the search screen now shows how far it has read).
 
 ## Open questions
 

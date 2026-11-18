@@ -10,9 +10,12 @@ import kotlin.math.min
  * - Highlighter strokes and dots are left out (they aren't writing).
  * - Very tall strokes (taller than [TALL] × the page's typical stroke) are drawings, not letters,
  *   and are left out too.
- * - A stroke joins the line its height overlaps by at least half (a flat stroke, like a "T"'s bar
- *   or a "-", counts as a typical letter's height around its middle); otherwise it starts a new
- *   line. Lines come out top to bottom; strokes keep the order they were written in.
+ * - Strokes are grouped by their MIDDLE height: going down the page, a stroke joins the current
+ *   line while its middle is within [JOIN] × a typical stroke's height of the line's average
+ *   middle; otherwise it starts the next line. (Grouping by the strokes' full height merged a
+ *   whole page into one "line": ascenders and descenders make neighbouring lines overlap.)
+ * - A "line" of one or two strokes just above another (an i's dot, a lone accent) joins it.
+ * - Lines come out top to bottom; strokes keep the order they were written in.
  */
 object HandwritingLines {
     /** One line of writing: its strokes (in writing order) and its band on the page. */
@@ -21,50 +24,55 @@ object HandwritingLines {
     /** A stroke this many times taller than the typical one is a drawing. */
     const val TALL = 4f
 
+    /** How far (in typical stroke heights) a stroke's middle may be from its line's middle. */
+    const val JOIN = 0.8f
+
+    private class Building(val strokes: MutableList<InkStroke>) {
+        var sumMid = 0f
+        val mid: Float get() = sumMid / strokes.size
+        fun add(s: InkStroke, m: Float) { strokes += s; sumMid += m }
+    }
+
     fun group(strokes: List<InkStroke>): List<Line> {
         val writing = strokes.filter { !it.tool.isHighlighter && it.pointCount >= 2 }
         if (writing.isEmpty()) return emptyList()
         val heights = writing.map { val b = it.bounds(); b[3] - b[1] }.sorted()
         val typical = heights[heights.size / 2].coerceAtLeast(1f)
+        val letters = writing.filter { val b = it.bounds(); !(b[3] - b[1] > TALL * typical * 1.5f && b[3] - b[1] > 40f) }
 
-        class Building(var top: Float, var bottom: Float, var left: Float, var right: Float, val strokes: MutableList<InkStroke>)
+        // Down the page by each stroke's middle.
+        fun midOf(s: InkStroke): Float { val b = s.bounds(); return (b[1] + b[3]) / 2f }
         val lines = ArrayList<Building>()
-        for (s in writing) {
-            val b = s.bounds()
-            if (b[3] - b[1] > TALL * typical * 1.5f && b[3] - b[1] > 40f) continue
-            val mid = (b[1] + b[3]) / 2f
-            val top = min(b[1], mid - typical / 2f)
-            val bottom = max(b[3], mid + typical / 2f)
-            val line = lines.firstOrNull { l ->
-                val lineTop = min(l.top, (l.top + l.bottom) / 2f - typical / 2f)
-                val lineBottom = max(l.bottom, (l.top + l.bottom) / 2f + typical / 2f)
-                val overlap = min(bottom, lineBottom) - max(top, lineTop)
-                overlap >= 0.5f * min(bottom - top, lineBottom - lineTop)
-            }
-            if (line == null) {
-                lines += Building(b[1], b[3], b[0], b[2], mutableListOf(s))
-            } else {
-                line.strokes += s
-                line.top = min(line.top, b[1])
-                line.bottom = max(line.bottom, b[3])
-                line.left = min(line.left, b[0])
-                line.right = max(line.right, b[2])
-            }
+        for (s in letters.sortedBy(::midOf)) {
+            val m = midOf(s)
+            val last = lines.lastOrNull()
+            if (last != null && m - last.mid <= JOIN * typical) last.add(s, m) else lines += Building(mutableListOf()).also { it.add(s, m) }
         }
-        // Two bands that grew into each other are one line.
+
+        // A tiny "line" (an i's dot, an accent) just above the next one belongs to it.
         val merged = ArrayList<Building>()
-        for (l in lines.sortedBy { it.top }) {
-            val last = merged.lastOrNull()
-            val overlap = if (last == null) 0f else min(last.bottom, l.bottom) - max(last.top, l.top)
-            if (last != null && overlap > 0.5f * min(last.bottom - last.top, l.bottom - l.top)) {
-                last.strokes += l.strokes
-                last.top = min(last.top, l.top); last.bottom = max(last.bottom, l.bottom)
-                last.left = min(last.left, l.left); last.right = max(last.right, l.right)
+        var i = 0
+        while (i < lines.size) {
+            val l = lines[i]
+            val next = lines.getOrNull(i + 1)
+            if (l.strokes.size <= 2 && next != null && next.mid - l.mid <= 1.5f * typical) {
+                val combined = Building(mutableListOf())
+                (l.strokes + next.strokes).forEach { combined.add(it, midOf(it)) }
+                lines[i + 1] = combined
             } else {
                 merged += l
             }
+            i++
         }
-        val order = writing.withIndex().associate { (i, s) -> s.id to i }
-        return merged.map { b -> Line(b.strokes.sortedBy { order[it.id] }, b.top, b.bottom, b.left, b.right) }
+
+        val order = writing.withIndex().associate { (n, s) -> s.id to n }
+        return merged.map { b ->
+            var top = Float.MAX_VALUE; var bottom = -Float.MAX_VALUE; var left = Float.MAX_VALUE; var right = -Float.MAX_VALUE
+            for (s in b.strokes) {
+                val r = s.bounds()
+                left = min(left, r[0]); top = min(top, r[1]); right = max(right, r[2]); bottom = max(bottom, r[3])
+            }
+            Line(b.strokes.sortedBy { order[it.id] }, top, bottom, left, right)
+        }
     }
 }

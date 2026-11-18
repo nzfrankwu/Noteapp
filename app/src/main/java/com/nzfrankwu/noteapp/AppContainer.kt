@@ -143,13 +143,30 @@ class AppContainer(context: Context) {
     val noteTextStore: com.nzfrankwu.noteapp.data.search.NoteTextStore by lazy {
         com.nzfrankwu.noteapp.data.search.NoteTextStore(appContext)
     }
-    val noteTextIndexer: com.nzfrankwu.noteapp.data.search.NoteTextIndexer by lazy {
-        com.nzfrankwu.noteapp.data.search.NoteTextIndexer(
-            database, notebookFiles, noteTextStore,
-            handwriting = com.nzfrankwu.noteapp.data.search.MlKitHandwriting(
-                onModelReady = { appScope.launch { runCatching { noteTextIndexer.run() } } },
-            ),
+    val handwriting: com.nzfrankwu.noteapp.data.search.MlKitHandwriting by lazy {
+        com.nzfrankwu.noteapp.data.search.MlKitHandwriting(
+            onModelReady = { appScope.launch { runCatching { noteTextIndexer.run() } } },
         )
+    }
+    val noteTextIndexer: com.nzfrankwu.noteapp.data.search.NoteTextIndexer by lazy {
+        com.nzfrankwu.noteapp.data.search.NoteTextIndexer(database, notebookFiles, noteTextStore, handwriting = handwriting)
+    }
+
+    /**
+     * The search screen's line about handwriting while it isn't all read yet (null once it is):
+     * e.g. "Reading your handwriting: 40 of 252 pages so far."
+     */
+    suspend fun handwritingStatus(): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val total = database.notebookDao().getAllActivePages().size
+        val done = noteTextStore.handwritingRead()
+        when {
+            handwriting.modelState == com.nzfrankwu.noteapp.data.search.MlKitHandwriting.ModelState.DOWNLOADING ->
+                "Handwriting search: downloading the handwriting model (Wi-Fi only)…"
+            handwriting.modelState == com.nzfrankwu.noteapp.data.search.MlKitHandwriting.ModelState.FAILED ->
+                "Handwriting search: the handwriting model couldn't be downloaded yet. It tries again on Wi-Fi."
+            done < total -> "Handwriting search: read $done of $total pages so far (it keeps going in the background)."
+            else -> null
+        }
     }
 
     /** The paper new notebooks start with (Settings → Notebooks, Phase 7, 7.3), always at hand. */

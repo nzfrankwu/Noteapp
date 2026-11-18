@@ -46,6 +46,11 @@ class MlKitHandwriting(
     @Volatile private var recognizer: DigitalInkRecognizer? = null
     @Volatile private var downloading = false
 
+    /** Whether the model is here yet, for the search screen's status line. */
+    enum class ModelState { UNKNOWN, DOWNLOADING, READY, FAILED }
+    @Volatile var modelState: ModelState = ModelState.UNKNOWN
+        private set
+
     /**
      * True once the model is on the device. Otherwise it asks for the download (once at a time,
      * Wi-Fi only) and returns false straight away; [onModelReady] runs when it has arrived.
@@ -58,13 +63,16 @@ class MlKitHandwriting(
         if (!have) {
             if (!downloading) {
                 downloading = true
+                modelState = ModelState.DOWNLOADING
                 manager.download(m, DownloadConditions.Builder().requireWifi().build())
-                    .addOnSuccessListener { onModelReady() }
+                    .addOnSuccessListener { modelState = ModelState.READY; onModelReady() }
+                    .addOnFailureListener { modelState = ModelState.FAILED }
                     .addOnCompleteListener { downloading = false }
             }
             return false
         }
         recognizer = DigitalInkRecognition.getClient(DigitalInkRecognizerOptions.builder(m).build())
+        modelState = ModelState.READY
         return true
     }
 

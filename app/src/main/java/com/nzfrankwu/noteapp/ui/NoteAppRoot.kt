@@ -408,6 +408,7 @@ fun NoteAppRoot(
                             com.nzfrankwu.noteapp.ui.search.SearchViewModel(
                                 container.taskRepository, container.notebookRepository, container.folderRepository,
                                 noteText = container.noteTextStore, notebookId = route.notebookId,
+                                handwritingStatus = container::handwritingStatus,
                             )
                         },
                         onBack = ::back,

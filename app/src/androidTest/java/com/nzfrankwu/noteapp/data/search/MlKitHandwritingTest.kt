@@ -23,9 +23,9 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class MlKitHandwritingTest {
-    private fun outlineStrokes(word: String): List<InkStroke> {
+    private fun outlineStrokes(word: String, size: Float = 60f, baseline: Float = 120f, idStart: Int = 0): List<InkStroke> {
         val path = Path()
-        Paint().apply { textSize = 60f }.getTextPath(word, 0, word.length, 50f, 120f, path)
+        Paint().apply { textSize = size }.getTextPath(word, 0, word.length, 50f, baseline, path)
         val measure = PathMeasure(path, false)
         val strokes = ArrayList<InkStroke>()
         val pos = FloatArray(2)
@@ -41,11 +41,42 @@ class MlKitHandwritingTest {
                 ys[i] = pos[1]
             }
             strokes += InkStroke(
-                "s${strokes.size}", InkTool.PEN, 0xFF000000.toInt(), 2f, xs, ys, IntArray(n) { it * 8 },
+                "s${idStart + strokes.size}", InkTool.PEN, 0xFF000000.toInt(), 2f, xs, ys, IntArray(n) { it * 8 },
                 FloatArray(n) { 0.5f }, FloatArray(n) { -1f }, FloatArray(n) { -1f },
             )
         } while (measure.nextContour())
         return strokes
+    }
+
+    private suspend fun readyReader(): MlKitHandwriting {
+        val reader = MlKitHandwriting()
+        val ready = kotlinx.coroutines.withTimeoutOrNull(120_000) {
+            while (!reader.prepare()) kotlinx.coroutines.delay(2_000)
+            true
+        } == true
+        assumeTrue("The handwriting model couldn't be downloaded here (no Wi-Fi or Play services)", ready)
+        return reader
+    }
+
+    /**
+     * A full page at the size real notes are (page units: letters ~14 tall, lines 24 apart):
+     * three lines found (not one big blob), each read on its own.
+     */
+    @Test
+    fun aMultiLinePage_atRealSize_isReadLineByLine() = runBlocking {
+        val reader = readyReader()
+        val words = listOf("hello world", "smith chart", "fourier series")
+        val strokes = words.flatMapIndexed { i, w -> outlineStrokes(w, size = 14f, baseline = 100f + 24f * i, idStart = i * 1000) }
+        val lines = HandwritingLines.group(strokes)
+        assertTrue("3 lines, got ${lines.size}", lines.size == 3)
+        // Font outlines aren't handwriting, so what's read isn't checked; only that each line is read.
+        var before = ""
+        for ((i, line) in lines.withIndex()) {
+            val readings = reader.read(line, before)
+            before = readings.firstOrNull().orEmpty()
+            Log.i("MlKitHandwritingTest", "line $i: $readings")
+            assertTrue("line $i read", readings.isNotEmpty())
+        }
     }
 
     @Test

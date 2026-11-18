@@ -53,6 +53,38 @@ class HandwritingLinesTest {
         assertEquals(listOf("bar", "stem", "o", "dash"), HandwritingLines.group(strokes).single().strokes.map { it.id })
     }
 
+    /**
+     * A real page: lines 24 units apart (lined paper), small letters 10 tall, ascenders and
+     * descenders 16 tall reaching into the gap, a t-bar, an i-dot. Must stay three lines (the old
+     * grouping merged them all into one, so nothing could be read).
+     */
+    @Test
+    fun aDensePage_withAscendersAndDescenders_staysOneLinePerLine() {
+        val strokes = ArrayList<InkStroke>()
+        for ((n, base) in listOf(100f, 124f, 148f).withIndex()) {
+            var x = 50f
+            fun add(id: String, top: Float, bottom: Float) {
+                strokes += testStroke("$n-$id", x to top, x + 4f to bottom, x + 8f to top)
+                x += 12f
+            }
+            add("a", base - 10f, base)          // x-height letter
+            add("h", base - 16f, base)          // ascender
+            add("g", base - 10f, base + 6f)     // descender
+            add("e", base - 10f, base)
+            strokes += testStroke("$n-tbar", x to base - 12f, x + 8f to base - 12f) // flat t-bar
+            add("t", base - 15f, base)
+            strokes += testStroke("$n-dot", x + 2f to base - 15f, x + 3f to base - 15f) // i-dot
+            add("i", base - 10f, base)
+            add("y", base - 10f, base + 6f)
+        }
+        val lines = HandwritingLines.group(strokes)
+        assertEquals(3, lines.size)
+        for ((n, line) in lines.withIndex()) {
+            assertTrue("line $n has only its own strokes", line.strokes.all { it.id.startsWith("$n-") })
+            assertEquals(9, line.strokes.size)
+        }
+    }
+
     @Test
     fun nothingToRead_givesNoLines() {
         assertEquals(emptyList<HandwritingLines.Line>(), HandwritingLines.group(emptyList()))
