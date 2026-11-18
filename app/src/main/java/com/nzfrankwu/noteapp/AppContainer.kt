@@ -145,7 +145,7 @@ class AppContainer(context: Context) {
     }
     val handwriting: com.nzfrankwu.noteapp.data.search.MlKitHandwriting by lazy {
         com.nzfrankwu.noteapp.data.search.MlKitHandwriting(
-            onModelReady = { appScope.launch { runCatching { noteTextIndexer.run() } } },
+            onModelReady = { appScope.launch { runCatching { noteTextIndexer.run() }.onFailure { android.util.Log.w("NoteappSearch", "Reading handwriting failed", it) } } },
         )
     }
     val noteTextIndexer: com.nzfrankwu.noteapp.data.search.NoteTextIndexer by lazy {

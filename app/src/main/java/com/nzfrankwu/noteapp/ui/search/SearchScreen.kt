@@ -147,7 +147,7 @@ class SearchViewModel(
     val handwritingStatus: StateFlow<String?> = kotlinx.coroutines.flow.flow {
         if (handwritingStatus == null) return@flow
         while (true) {
-            emit(runCatching { handwritingStatus() }.getOrNull())
+            emit(runCatching { handwritingStatus() }.onFailure { android.util.Log.w("NoteappSearch", "Search status failed", it) }.getOrNull())
             kotlinx.coroutines.delay(3_000)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

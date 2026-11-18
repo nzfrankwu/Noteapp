@@ -48,7 +48,10 @@ class NoteAppApplication : Application() {
             kotlinx.coroutines.flow.merge(
                 kotlinx.coroutines.flow.flow { delay(5_000); emit(Unit) },
                 databaseChanges().map { },
-            ).collectLatest { runCatching { container.noteTextIndexer.run() } }
+            ).collectLatest {
+                runCatching { container.noteTextIndexer.run() }
+                    .onFailure { if (it !is kotlinx.coroutines.CancellationException) android.util.Log.w("NoteappSearch", "Reading the notes for search failed", it) }
+            }
         }
     }
 

@@ -4,7 +4,6 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Known bugs
 
-- **The release build crashes at start (found 18 Nov, emulator).** `assembleRelease` with `optimization { packageScope = androidx.**, kotlin.**, kotlinx.** }` gives `IllegalAccessError: Class kotlin.text.… extended by class … is inaccessible` in `androidx.startup.InitializationProvider`. Only debug builds have ever been installed, so the tablet is unaffected, but it blocks publishing, and the release build is also what would make Compose screens (search, editor) noticeably smoother than the debug build. Fix idea: full R8 optimisation (no package scope) with keep rules where needed, then test every screen.
 
 - **Handwriting search found nothing on the tablet (18 Nov, the user).** The model had downloaded, but the first 49 pages read were the debug test-writing pages (unreadable by design), so no real writing had been read. Fixed: newest pages first, plus a line-grouping fix for full pages and a progress line on the search screen. Installed on the tablet 18 Nov; recognition quality on the user's real writing still to be confirmed by them.
 
@@ -90,6 +89,8 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **The release build crashed at start (fixed 18 Nov).** R8 moved one of Kotlin's internal string classes out of its package; `app/keep-rules.pro` now says `-dontobfuscate` (optimisations kept, no renaming). Checked on the emulator: every main screen (`screenshots/release_smoke.sh`), PDF search, Find in this notebook and handwriting search (model download + "TO" found). The release build is much smoother: typing in search ~18 ms frames instead of ~150 ms (debug). Not yet on the tablet (it runs debug builds; a release build can't be copied off for safety snapshots with `run-as`).
 
 - **Search tweaks (18 Nov):** notes first in results; a 🔍 in course folders (searches that folder and its subfolders, plus the course's tasks); the notebook editor's own 🔍 button (Find in this notebook) at the top right.
 

@@ -72,6 +72,8 @@ android {
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                // Our own rules: see keep-rules.pro (no renaming: it crashed the release app at start).
+                keepRules { files.add(file("keep-rules.pro")) }
             }
         }
     }
