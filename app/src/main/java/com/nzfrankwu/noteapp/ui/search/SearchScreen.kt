@@ -202,6 +202,25 @@ class SearchViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NoteHits("", emptyList()))
 
+    /** A handwritten page ready for forgiving matching: its typed text, readings and their words. */
+    private class HandPage(val hit: com.nzfrankwu.noteapp.data.search.NoteTextStore.Hit, val typed: String, val hand: String, val tokens: List<String>)
+
+    private class HandPages(val scope: Set<String>?, val at: Long, val pages: List<HandPage>)
+
+    /** Kept between key presses for a few seconds: typing a word no longer re-reads every page per letter. */
+    @Volatile private var handPages: HandPages? = null
+
+    private fun handwrittenPages(store: com.nzfrankwu.noteapp.data.search.NoteTextStore, onlyNotebooks: Set<String>?): List<HandPage> {
+        val now = System.nanoTime()
+        handPages?.takeIf { it.scope == onlyNotebooks && now - it.at < HAND_PAGES_FRESH_NS }?.let { return it.pages }
+        val pages = store.handwritten(notebookId, onlyNotebooks).mapNotNull { h ->
+            val hand = h.handAlt ?: return@mapNotNull null
+            HandPage(h, listOfNotNull(h.pdfText, h.boxText).joinToString("\n"), hand, com.nzfrankwu.noteapp.domain.FuzzyWords.tokens(hand))
+        }
+        handPages = HandPages(onlyNotebooks, now, pages)
+        return pages
+    }
+
     private suspend fun findInNotes(query: String, onlyNotebooks: Set<String>? = null): List<NoteHit> {
         val store = noteText ?: return emptyList()
         val words = SearchIndex.words(query)
@@ -212,13 +231,10 @@ class SearchViewModel(
             // handwriting a letter or two off. Forgiving matches are for handwriting only: typed
             // PDF and text box words must match as typed (review fix, 18 Nov).
             val exactIds = exact.mapTo(HashSet()) { it.pageId }
-            val close = store.handwritten(notebookId, onlyNotebooks).filter { h ->
-                val hand = h.handAlt ?: return@filter false
-                if (h.pageId in exactIds) return@filter false
-                val typed = listOfNotNull(h.pdfText, h.boxText).joinToString("\n")
-                val tokens = com.nzfrankwu.noteapp.domain.FuzzyWords.tokens(hand)
-                words.all { typed.contains(it, ignoreCase = true) || com.nzfrankwu.noteapp.domain.FuzzyWords.matches(it, hand, tokens) }
-            }.take(MAX_NOTE_HITS)
+            val close = handwrittenPages(store, onlyNotebooks).filter { p ->
+                if (p.hit.pageId in exactIds) return@filter false
+                words.all { p.typed.contains(it, ignoreCase = true) || com.nzfrankwu.noteapp.domain.FuzzyWords.matches(it, p.hand, p.tokens) }
+            }.map { it.hit }.take(MAX_NOTE_HITS)
             val closeIds = close.mapTo(HashSet()) { it.pageId }
             val byNotebook = (exact + close).groupBy { it.notebookId }
             byNotebook.mapNotNull { (nbId, pageHits) ->
@@ -276,6 +292,9 @@ class SearchViewModel(
 
     companion object {
         const val MAX_NOTE_HITS = 200
+
+        /** How long the handwritten pages read for one search stay in memory (pages read meanwhile show up after it). */
+        const val HAND_PAGES_FRESH_NS = 10_000_000_000L
     }
 }
 

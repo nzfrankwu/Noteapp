@@ -4,8 +4,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Known bugs
 
-
-- **Handwriting search found nothing on the tablet (18 Nov, the user).** The model had downloaded, but the first 49 pages read were the debug test-writing pages (unreadable by design), so no real writing had been read. Fixed: newest pages first, plus a line-grouping fix for full pages and a progress line on the search screen. Installed on the tablet 18 Nov; recognition quality on the user's real writing still to be confirmed by them.
+None known right now.
 
 ## Open questions
 
@@ -20,7 +19,6 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **Handwriting corrections (later, your call):** a screen to see what Noteapp read on a page and fix words, remembered for search. Only worth it if search still misses your writing after the messy-handwriting changes.
 
 - **Phase 7, waiting on you (18 Nov, hands-off stop):**
-  - **Privacy page:** `site/privacy.html` now mentions handwriting search (on-device, model downloaded from Google). Publish it to the website (`gh-pages`)? Also worth checking ML Kit's own terms for anonymous usage statistics before publishing the app.
   - **7.11 editor speed** skipped in hands-off: it changes how pages draw their ink and can't be measured on the emulator (deep zoom needs a pinch; the lasso pause needs the real pen). To do together with the tablet.
 
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
@@ -31,13 +29,12 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 - **Shapes:** no automated screen test for the gestures (test-injected pen moves don't reach the pen layer); checked by script on the emulator. A finger can't drag a shape's points yet (the pen can). A turned (rotated) ellipse isn't recognised as editable after turning it with the lasso (still moves, resizes and turns as writing).
 
-- **Forgiving handwriting search scales with the notes:** each typed letter loads every handwritten page's readings and compares words (fine for a few hundred pages; revisit after a semester of notes, e.g. keep the words in memory or prefilter).
+- **Forgiving handwriting search scales with the notes:** the pages' words are now kept in memory between key presses (10 s), but each search still compares every handwritten word (fine for a few thousand pages; revisit if search gets slow).
 
 - **Search (7.9–7.10):** a text box or handwriting match zooms to it but doesn't mark the words; scanned PDF pages have no text. The first pass over many big PDFs and many handwritten pages runs in the background after start-up (not measured on the tablet yet). Recognition quality on real handwriting (and maths) needs the tablet. The debug app is ~63 MB with ML Kit.
 
 - **Backup (Phase 6):**
   - After "Import from export" the app restarts on Home; the "Restored the backup from …" message only shows in Settings → Backup.
-  - Home's "Recently deleted" row is hidden when there are no folders at all (Settings still has it).
   - Restoring an export from an older database version relies on Room's normal migrations (covered by `MigrationTest`), not tested end to end with a real old export.
   - The PDF copies have no status of their own: if one notebook can't be drawn, or Drive fails while updating the copies, nothing is shown (the full backup already succeeded; the next run tries again).
   - Two tablets backing up to the same Google account would share one backup folder (each run keeps the other's newer snapshots, and unused files wait a day before they go), but restore lists them together. One tablet is the plan; revisit if that changes.
@@ -100,6 +97,9 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Hands-off fixes (19 Nov):** press hard to erase only starts near the start of a stroke (after about 5 mm of drawing, pressing hard keeps the line, and holding still snaps a line or shape); `saveNow` waits for a save already running (two flaky tests came from this); search keeps handwritten pages' words between key presses; Home shows Recently deleted even with no folders.
+- **Handwriting search found nothing on the tablet (18 Nov, the user).** The model had downloaded, but the first 49 pages read were the debug test-writing pages (unreadable by design), so no real writing had been read. Fixed: newest pages first, plus a line-grouping fix for full pages and a progress line on the search screen. Installed on the tablet 18 Nov; recognition quality on the user's real writing still to be confirmed by them.
 
 - **GitHub (19 Nov):** README on the front page; first public release "Noteapp 1.0" with the signed APK (Releases → latest). Phase 7 merged into `main` with the user's OK.
 

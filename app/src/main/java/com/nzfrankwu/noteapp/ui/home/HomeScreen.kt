@@ -401,7 +401,11 @@ private fun WideHome(folders: List<FolderListItem>?, actions: FolderActions, due
             FoldersHeader(onNewFolder = actions.onNew)
             when {
                 folders == null -> Unit // still loading: show nothing rather than flash "empty"
-                folders.isEmpty() -> NoFolders(Modifier.fillMaxWidth().weight(1f))
+                folders.isEmpty() -> {
+                    NoFolders(Modifier.fillMaxWidth().weight(1f))
+                    // Deleting the last folder leaves its notebooks in Recently deleted: still reachable here.
+                    if (actions.recentlyDeletedCount > 0) RecentlyDeletedRow(actions.recentlyDeletedCount, actions.onOpenRecentlyDeleted)
+                }
                 else -> LazyVerticalGrid(
                     columns = GridCells.Adaptive(Dimens.FolderTileMinWidth),
                     horizontalArrangement = Arrangement.spacedBy(Dimens.ItemGap),

@@ -896,16 +896,26 @@ class NotebookViewModel(
         canRedo = ink.canRedo
     }
 
-    /** Writes every changed page now. Safe to call often; does nothing when all is saved. */
+    /** The latest write of changed pages (still running, or done). */
+    private var lastWrite: Job? = null
+
+    /**
+     * Writes every changed page now. Safe to call often. Returns the write to wait for: this one,
+     * or, when nothing new needs saving, the one still running (an autosave that started a moment
+     * ago); null once everything is on disk.
+     */
     fun saveNow(): Job? {
-        if (dirty.isEmpty()) return null
+        if (dirty.isEmpty()) return lastWrite?.takeIf { it.isActive }
         saveJob?.cancel()
         // Everything on the page (strokes, pictures, text boxes): a save must never drop any of it.
         val toSave = dirty.associateWith { ink.content(it) }
         dirty.clear()
         // The tile shows the first page: redraw it only when that page changed.
         val thumbnail = if (pages.value.firstOrNull()?.id in toSave) thumbnailJob() else null
+        val previous = lastWrite
         return saveScope.launch {
+            // Writes happen in order: a newer write never finishes before an older one.
+            previous?.join()
             com.nzfrankwu.noteapp.data.StorageLock.pages.withLock {
                 val saved = ArrayList<String>()
                 for ((pageId, content) in toSave) {
@@ -925,7 +935,7 @@ class NotebookViewModel(
                 thumbnail?.let { withContext(io) { runCatching { it() } } }
                 saved.forEach { runCatching { notebooks.markPageEdited(it) } }
             }
-        }
+        }.also { lastWrite = it }
     }
 
     /** Writes a page's file, trying again after short pauses if it fails. True once it's saved. */

@@ -49,6 +49,33 @@ class HomeScreenTest {
         compose.onNodeWithText("Folders").assertIsDisplayed()
     }
 
+    /** 19 Nov (ISSUES follow-up): with no folders left, Recently deleted is still on Home, wide or stacked. */
+    @Test
+    fun recentlyDeleted_showsEvenWithNoFolders() {
+        val width = androidx.compose.runtime.mutableIntStateOf(800)
+        var opened = 0
+        compose.setContent {
+            NoteAppTheme {
+                Box(Modifier.size(width = width.intValue.dp, height = 700.dp)) {
+                    HomeContent(
+                        folders = emptyList(),
+                        onOpenSettings = {}, onNewFolder = {}, onOpenFolder = {},
+                        onRenameFolder = {}, onDeleteFolder = {},
+                        recentlyDeletedCount = 2, onOpenRecentlyDeleted = { opened++ },
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("home-wide").assertExists()
+        compose.onNodeWithText("Recently deleted (2)").performClick()
+        org.junit.Assert.assertEquals(1, opened)
+        width.intValue = 560
+        compose.waitForIdle()
+        compose.onNodeWithTag("home-narrow").assertExists()
+        compose.onNodeWithText("Recently deleted (2)").performClick()
+        org.junit.Assert.assertEquals(2, opened)
+    }
+
     @Test
     fun splitScreenWidth_showsStacked() {
         showHomeAt(560) // e.g. half of the tablet in split-screen
