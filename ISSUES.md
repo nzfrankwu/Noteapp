@@ -10,7 +10,6 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 ## Open questions
 
 - **Launch (18 Nov, the user: "i think we are ready to launch") — your decisions:**
-  - **Merge `phase-7` into `main`** (needs your OK).
   - **Privacy page:** publish the handwriting-search line (`site/privacy.html`) to the website (`gh-pages`).
   - **Google Play:** a Play Console developer account is yours to create (one-time fee, identity check). New personal accounts currently have to run a closed test with at least 12 testers for 14 days before a public release. Then the store listing (name, description, screenshots, icon), content rating and the Data safety form.
   - **Photo permission:** the image menu's Recent Images grid uses READ_MEDIA_IMAGES. Google Play only allows that for apps whose main purpose needs all photos; a note app is usually told to use Android's photo picker instead. Options: drop the grid (use the picker only), or ask Google and risk a rejection.
@@ -101,6 +100,8 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **GitHub (19 Nov):** README on the front page; first public release "Noteapp 1.0" with the signed APK (Releases → latest). Phase 7 merged into `main` with the user's OK.
 
 - **Shapes (7.14, 18 Nov):** hold the pen still at the end of a rough rectangle, circle or triangle and it snaps (a square or circle when nearly so); keep holding and move to resize from the corner you stopped at. Lasso one line or shape to drag its points (line ends, corners, an ellipse's sides). No change to how pages are saved.
 - **Press hard to erase misses (7.15, 18 Nov):** a hard press now rides out small pressure wobbles, and holding it no longer snaps a line or shape instead.
