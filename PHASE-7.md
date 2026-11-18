@@ -86,7 +86,7 @@ Phases 1–6 are merged into `main` (`c4b9e7a`) and the tablet runs the Phase 6 
   - Full suite after 7.7: 605 unit tests, 321 emulator tests pass (18 Nov).
   - Skipped in the hands-off run (18 Nov): the fixes change how pages draw their ink (`StrokeDrawables`, `PageInkLayers`, the lasso commit in `NotebookCanvas.commitSelection`) and can't be measured on the emulator. Idea for the lasso pause: moved strokes are rebuilt one by one on the main thread in `StrokeDrawables.get`; build them in the background before the selection is let go.
 - [ ] **7.12 Pen widths (F22)** after the user tries the pens on the tablet; new ink keys if notes already use the old widths. ★
-- [ ] **7.13 Tablet check** (ask first; snapshot with files; install; v7 → v8; compare).
+- [x] **7.13 Tablet check** (18 Nov, the user's OK). Snapshot with files (`backups/tablet-2026-11-18-before-v8/`) → install `d6ea79a` → opened once → snapshot → `compare_dbs.py … --v8`: **PASS** (v7 → v8; the 38 Submitted tasks became Done, none left; every other value of 10 courses, 5 folders, 124 tasks, 8 notebooks, 252 pages unchanged; 167 page files identical; integrity ok).
 - [ ] **End of phase:** `/code-review`, fix, rebuild and retest, ask to merge into `main`.
   - **Review done (18 Nov, after 7.10, hands-off):** 10 findings, 9 fixed, 1 kept on purpose:
     - Find in this notebook rebuilt the editor (undo history and split view lost) → it now asks the open editor to go to the page (`FindRequest`, `LocalFindRequests`).

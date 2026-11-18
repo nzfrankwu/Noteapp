@@ -14,7 +14,6 @@ _None known._
   - **Privacy page:** `site/privacy.html` now mentions handwriting search (on-device, model downloaded from Google). Publish it to the website (`gh-pages`)? Also worth checking ML Kit's own terms for anonymous usage statistics before publishing the app.
   - **7.11 editor speed** skipped in hands-off: it changes how pages draw their ink and can't be measured on the emulator (deep zoom needs a pinch; the lasso pause needs the real pen). To do together with the tablet.
   - **7.12 pen widths:** try the Off/Low/Medium/Full pens on the tablet first.
-  - **7.13:** OK to install on the tablet? It upgrades the database to v8 (Submitted → Done); snapshot first.
 
 - **Tablet checks for Phase 2 (waiting on you):** writing with the OPPO Pencil 2 (lag, pressure, palm rejection), the pen's side button (does one click switch to the lasso?), and press-hard-to-erase (is 90% the right level?). The emulator can't test pressure or the pen button. Installing a Phase 2 build upgrades the tablet's database to version 4, so it needs your OK.
 
@@ -89,6 +88,8 @@ _None known._
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Phase 7 installed on the tablet (18 Nov, 7.13):** database v7 → v8, compare PASS (38 Submitted tasks became Done; everything else and all 167 page files unchanged).
 
 - **Messy handwriting (18 Nov):** search now keeps up to 5 readings of each handwritten line, forgives a letter or two in longer words (handwriting only), and reads each line with the line above as context. Real quality needs your notes on the tablet.
 

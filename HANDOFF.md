@@ -15,7 +15,7 @@ _Last updated: 18 Nov 2026 (Phase 7: 7.1–7.10 done, code review fixed, messy h
   - `play-services-auth` 22.0.0 is in (the user approved it). No database change in Phase 6 (still v7).
   - Tests at the end of the phase: **574 unit tests and the full emulator suite (310) pass** (17 Nov, after the review fixes). Test gotcha: `am instrument` force-stops the app, which cancels its WorkManager jobs until the app is opened again; tests that change app settings must reset them (the suite reinstalls without wiping data).
 - **Running emulator tests with the tablet plugged in:** set `ANDROID_SERIAL=emulator-5554`, or `connectedDebugAndroidTest` also runs (and reinstalls the app) on the tablet. `connectedDebugAndroidTest` **uninstalls the app afterwards** (emulator data gone; rerun `screenshots/p4setup.sh`).
-- **The tablet runs the Phase 6 build** (`0e741d1`; `main` differs only in tests and notes; 17 Nov; snapshot before/after each install: compare PASS), database **version 7**, connected to the user's main Google account (first backup done, ~48 MB). Never install a build older than v7 on it.
+- **The tablet runs the Phase 7 build** (`d6ea79a`, 18 Nov; snapshot `backups/tablet-2026-11-18-before-v8/` with files; compare PASS), database **version 8**, connected to the user's main Google account. Never install a build older than v8 on it (Room can't downgrade). On first open it reads every page for search in the background, and downloads the handwriting model on Wi-Fi.
 
 ## Phase 7 code map (search)
 
