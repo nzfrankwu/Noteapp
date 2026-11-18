@@ -21,7 +21,8 @@ _Last updated: 18 Nov 2026 (Phase 7: 7.1–7.10 done, code review fixed, messy h
 
 - `data/SearchIndex.kt` (names and tasks, snippets), `ui/search/SearchScreen.kt` (`SearchViewModel`, `SearchRoute(notebookId?)`)
 - `data/search/NoteTextStore.kt` (`databases/search.db`, a cache, never backed up), `NoteTextIndexer.kt` (run by `NoteAppApplication.keepSearchInStep`), `Handwriting.kt` (ML Kit, `…vision.digitalink.recognition` package), `domain/ink/HandwritingLines.kt`
-- **Handwriting didn't work on the tablet (18 Nov):** fixed line grouping (whole pages became one "line") and added a search-screen status line; next: install on the tablet (snapshot first) and check the model downloaded there (`adb logcat | grep MddModelManager`, and `search.db` counts via run-as; read counts only, not note text).
+- **Handwriting didn't work on the tablet (18 Nov):** the model was there, but the first pages read were the debug test-writing pages. Fixed (newest pages first, line grouping, progress line) and installed on the tablet (`efac370`, compare PASS). Check tools: `search.db` counts via run-as, and `screenshots/stroke_kinds.py <notebooks.tar> <search.db>` (test vs real pages, timings only). Never print the user's note text.
+- **The tablet runs `efac370`** (database v8).
 - **Messy handwriting:** up to 5 readings per line (`hand_alt`), `domain/FuzzyWords` (handwriting only), line above as ML Kit context. Store is v3.
 - **ML Kit's model lives in the app's data:** every `connectedDebugAndroidTest` run uninstalls the app, so the ~20 MB model downloads again on first use.
 - Opening at a hit: `NotebookRoute.find` → `LocalOpenAtFind` → `NotebookPane.showFound`; editor ⋮ "Find in this notebook" via `LocalFindInNotebook`
