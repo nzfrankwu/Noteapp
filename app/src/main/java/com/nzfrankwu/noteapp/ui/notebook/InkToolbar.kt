@@ -455,7 +455,7 @@ fun ToolSettingsPanel(
                             onChange { it.copy(stability = v.roundToInt()) }
                         }
                     }
-                    SwitchRow("Hold still to snap a straight line", settings.holdToStraighten) { on ->
+                    SwitchRow("Hold still to snap a straight line or shape", settings.holdToStraighten) { on ->
                         onChange { it.copy(holdToStraighten = on) }
                     }
                     SwitchRow("Press hard to erase", settings.pressureErase) { on -> onChange { it.copy(pressureErase = on) } }

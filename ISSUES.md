@@ -16,6 +16,7 @@ Running list of the project's current state. Updated with every step (see `CLAUD
   - **Photo permission:** the image menu's Recent Images grid uses READ_MEDIA_IMAGES. Google Play only allows that for apps whose main purpose needs all photos; a note app is usually told to use Android's photo picker instead. Options: drop the grid (use the picker only), or ask Google and risk a rejection.
   - **Name:** "Noteapp" (IDEA.md §7 still lists the public name as undecided).
   - **Screen capture service:** Play asks for a short declaration (with a video) for the "media projection" foreground service.
+  - **Android developer verification (researched 18 Nov):** Google now requires apps on certified Android devices to come from a verified developer, even APKs downloaded from GitHub. It started in Brazil, Indonesia, Singapore and Thailand (30 Sep 2026); worldwide is planned for 2027. Until then the GitHub APK installs as usual; after that, unverified APKs need an "advanced" install flow. Registering (identity check in the Android Developer Console, or the Play Console account) avoids it.
 
 - **Handwriting corrections (later, your call):** a screen to see what Noteapp read on a page and fix words, remembered for search. Only worth it if search still misses your writing after the messy-handwriting changes.
 
@@ -28,6 +29,8 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **A Home nudge when Drive isn't connected? (your call):** today Home only warns once Drive is connected and backups fail or stop for 3 days. Nothing on Home reminds you to connect Drive in the first place.
 
 ## Follow-ups / tech debt
+
+- **Shapes:** no automated screen test for the gestures (test-injected pen moves don't reach the pen layer); checked by script on the emulator. A finger can't drag a shape's points yet (the pen can). A turned (rotated) ellipse isn't recognised as editable after turning it with the lasso (still moves, resizes and turns as writing).
 
 - **Forgiving handwriting search scales with the notes:** each typed letter loads every handwritten page's readings and compares words (fine for a few hundred pages; revisit after a semester of notes, e.g. keep the words in memory or prefilter).
 
@@ -98,6 +101,9 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Shapes (7.14, 18 Nov):** hold the pen still at the end of a rough rectangle, circle or triangle and it snaps (a square or circle when nearly so); keep holding and move to resize from the corner you stopped at. Lasso one line or shape to drag its points (line ends, corners, an ellipse's sides). No change to how pages are saved.
+- **Press hard to erase misses (7.15, 18 Nov):** a hard press now rides out small pressure wobbles, and holding it no longer snaps a line or shape instead.
 
 - **Launch review (18 Nov):** reviewed everything since the Phase 7 review (`c37fba6`); 8 findings, 7 fixed: forgiving matches only for handwriting (typed PDF and text box words must match as typed), a damaged page no longer keeps the progress line up forever, a short real line (one cursive word) is no longer merged into the line below, Find in this notebook gives up after 5 s if the editor never lays out, the progress check stops once everything is read, two small tidy-ups. Kept: search re-reads every handwritten page's text on each typed letter (fine at today's size; see Follow-ups).
 

@@ -165,7 +165,8 @@ fun PageInkLayer(
                             translationX = (tcx - fcx) * raster
                             translationY = (tcy - fcy) * raster
                         }
-                        .drawBehind { drawStrokes(strokes, pageId, raster, viewModel.drawables, renderer) },
+                        // While a lassoed shape's point is dragged (7.14), the overlay draws it instead.
+                        .drawBehind { if (view.nodeEdit == null) drawStrokes(strokes, pageId, raster, viewModel.drawables, renderer) },
                 )
             }
         }

@@ -82,6 +82,7 @@
   - Insert image
 - **Pen toolbar:** **small, floating and movable** (drag it anywhere; remembers its position). A bit thinner than Notein's, and it can collapse (added Nov 2026).
 - **Pen button** (added Nov 2026): one click of the stylus side button switches to lasso; another click goes back to the tool I was using.
+- **Shapes** (added Nov 2026): draw a rectangle/square, circle/ellipse or triangle and hold the pen still at the end: it snaps to a clean shape (a square or circle when nearly so). Still holding, move the pen to resize it from the corner you stopped at (the opposite corner stays). Lasso one straight line or shape to drag its points (a line's ends, a shape's corners, an ellipse's sides).
 - **Press hard to erase** (added Nov 2026): pressing the pen tip harder than a set level erases instead of drawing, with a sensitivity setting and an off switch.
 - **Stylus vs finger:** stylus draws, finger scrolls/zooms (palm rejection).
 - Pinch to zoom, scroll between pages (side by side, like Notein), add/delete pages.
@@ -222,7 +223,7 @@ Build one phase at a time; each phase should leave a working app. Commit after e
 | **4. Linking** | Link notebooks/files ↔ tasks; course folder view showing notes + tasks together; **page bookmarks for tasks** (with quick notes) and **selecting PDF text** with a finger (Copy, Highlight, Underline, Bookmark), both added Nov 2026 |
 | **5. Productivity extras** | Text boxes, in-app split view of two notebooks (side by side or top and bottom, divider menu), **recent notebooks panel** with drag-to-split (added Nov 2026), snip between split notebooks |
 | **6. Google Drive & backup** | ⚠️ Must be done and tested before I use the app for real. Google sign-in, automatic full backup + restore, manual "Export everything" / "Import from export", PDF copies mirroring course folders, backup status/warnings, Recently deleted, Word/PowerPoint conversion → later: Version history |
-| **7. Polish** | **Search** (names, tasks, PDF text, text boxes, handwriting), partial eraser, Submitted merged into Done (replaces custom tags, Nov 2026), per-page paper, settings (reminder times, course colours, default paper, light/dark), performance tuning, backup follow-ups from Phase 6 |
+| **7. Polish** | **Search** (names, tasks, PDF text, text boxes, handwriting), partial eraser, **shapes** (hold to snap a rectangle, circle or triangle; lasso a line or shape to edit its points), Submitted merged into Done (replaces custom tags, Nov 2026), per-page paper, settings (reminder times, course colours, default paper, light/dark), performance tuning, backup follow-ups from Phase 6 |
 
 ---
 
