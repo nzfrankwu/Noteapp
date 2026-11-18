@@ -316,7 +316,10 @@ internal fun NotebookEditor(
             // Over the toolbar, under the top bar: the recent panel and a notebook being dragged (5.7).
             overlay()
             // ---- Floating buttons (F17) ----
+            val findInNotebook = LocalFindInNotebook.current
             EditorTopBar(
+                // Its own button, top right (the user's wish, 18 Nov).
+                onFind = findInNotebook?.let { find -> { menuOpen = false; viewModel.saveNow(); find(viewModel.notebookId) } },
                 canUndo = viewModel.canUndo,
                 canRedo = viewModel.canRedo,
                 onBack = ::leave,
@@ -390,15 +393,6 @@ internal fun NotebookEditor(
                 },
             ) {
                 extraMenu { menuOpen = false }
-                // Search this notebook's PDF pages and text boxes (PHASE-7.md 7.9).
-                LocalFindInNotebook.current?.let { find ->
-                    DropdownMenuItem(
-                        text = { Text("Find in this notebook") },
-                        onClick = { menuOpen = false; viewModel.saveNow(); find(viewModel.notebookId) },
-                        modifier = Modifier.testTag("menu-find"),
-                    )
-                    HorizontalDivider()
-                }
                 if (links != null && linkedTasks.isEmpty()) {
                     DropdownMenuItem(
                         text = { Text("Link to a task…") },

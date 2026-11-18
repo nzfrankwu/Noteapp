@@ -338,6 +338,7 @@ fun NoteAppRoot(
                         onAddTask = { courseId -> backStack.add(TaskEditRoute(courseId = courseId)) },
                         onOpenFolder = { folderId -> backStack.add(FolderRoute(folderId)) },
                         onOpenNotebook = { notebookId -> backStack.add(NotebookRoute(notebookId)) },
+                        onSearch = { backStack.add(com.nzfrankwu.noteapp.ui.navigation.SearchRoute(folderId = route.folderId)) },
                         calendar = { courseId ->
                             CalendarScreen(
                                 viewModel = viewModel(key = "folder-calendar-$courseId") {
@@ -407,7 +408,7 @@ fun NoteAppRoot(
                         viewModel = viewModel {
                             com.nzfrankwu.noteapp.ui.search.SearchViewModel(
                                 container.taskRepository, container.notebookRepository, container.folderRepository,
-                                noteText = container.noteTextStore, notebookId = route.notebookId,
+                                noteText = container.noteTextStore, notebookId = route.notebookId, folderId = route.folderId,
                                 handwritingStatus = container::handwritingStatus,
                             )
                         },

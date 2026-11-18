@@ -89,6 +89,8 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Done
 
+- **Search tweaks (18 Nov):** notes first in results; a 🔍 in course folders (searches that folder and its subfolders, plus the course's tasks); the notebook editor's own 🔍 button (Find in this notebook) at the top right.
+
 - **Phase 7 installed on the tablet (18 Nov, 7.13):** database v7 → v8, compare PASS (38 Submitted tasks became Done; everything else and all 167 page files unchanged).
 
 - **Messy handwriting (18 Nov):** search now keeps up to 5 readings of each handwritten line, forgives a letter or two in longer words (handwriting only), and reads each line with the line above as context. Real quality needs your notes on the tablet.

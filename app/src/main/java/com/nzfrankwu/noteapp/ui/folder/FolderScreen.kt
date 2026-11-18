@@ -102,6 +102,8 @@ fun FolderScreen(
     onOpenFolder: (folderId: String) -> Unit = {},
     /** Opens a notebook. */
     onOpenNotebook: (notebookId: String) -> Unit = {},
+    /** Searches this folder (and the folders in it); the button is hidden when null. */
+    onSearch: (() -> Unit)? = null,
     /** The Calendar tab for this folder's course. */
     calendar: @Composable (courseId: String) -> Unit = {},
     /** The Timeline tab for this folder's course. */
@@ -244,6 +246,9 @@ fun FolderScreen(
                             onSelect = { chosenTab = it },
                             modifier = Modifier.padding(horizontal = 8.dp),
                         )
+                    }
+                    if (onSearch != null) {
+                        RoundIconButton(R.drawable.ic_search, "Search this folder", onSearch, Modifier.padding(end = 8.dp).testTag("folder-search"))
                     }
                     Box {
                         RoundIconButton(R.drawable.ic_more_vert, "Folder options", { menuOpen = true }, Modifier.padding(end = 8.dp))

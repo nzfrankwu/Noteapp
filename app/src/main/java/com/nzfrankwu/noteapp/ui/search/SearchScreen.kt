@@ -89,9 +89,46 @@ data class NoteHit(
 data class NoteHits(val query: String, val hits: List<NoteHit>)
 
 /**
+ * What a course folder's search covers: the folder and every folder inside it, the notebooks in
+ * them, and the course's tasks (a subfolder's course is its top folder's).
+ */
+data class FolderScope(val name: String, val folderIds: Set<String>, val notebookIds: Set<String>, val courseId: String?) {
+    companion object {
+        fun of(
+            folderId: String,
+            folders: List<com.nzfrankwu.noteapp.data.db.Folder>,
+            notebooks: List<com.nzfrankwu.noteapp.data.db.NotebookListItem>,
+        ): FolderScope? {
+            val byId = folders.associateBy { it.id }
+            val root = byId[folderId] ?: return null
+            val children = folders.groupBy { it.parentId }
+            val ids = LinkedHashSet<String>()
+            val todo = ArrayDeque(listOf(folderId))
+            while (todo.isNotEmpty()) {
+                val id = todo.removeFirst()
+                if (ids.add(id)) children[id].orEmpty().forEach { todo.addLast(it.id) }
+            }
+            var top: com.nzfrankwu.noteapp.data.db.Folder = root
+            val seen = HashSet<String>()
+            while (top.parentId != null && seen.add(top.id)) top = byId[top.parentId] ?: break
+            val notebookIds = notebooks.filter { it.notebook.folderId in ids }.mapTo(HashSet()) { it.notebook.id }
+            return FolderScope(root.name, ids, notebookIds, top.courseId)
+        }
+    }
+
+    /** Only what's in this folder. */
+    fun filter(r: SearchIndex.Results) = SearchIndex.Results(
+        tasks = if (courseId == null) emptyList() else r.tasks.filter { it.task.courseId == courseId },
+        notebooks = r.notebooks.filter { it.item.notebook.id in notebookIds },
+        folders = r.folders.filter { it.folder.id in folderIds && it.folder.id != folderIds.first() },
+    )
+}
+
+/**
  * Search (PHASE-7.md 7.8–7.9, IDEA.md §2.11): names and tasks, and the words in the notes (PDF
  * text and text boxes, from [noteText]; handwriting joins in 7.10). With [notebookId] it's "Find
- * in this notebook": only that notebook's pages.
+ * in this notebook": only that notebook's pages. With [folderId] it's a course folder's search:
+ * that folder and the folders in it, and the course's tasks ([FolderScope]).
  */
 @OptIn(kotlinx.coroutines.FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SearchViewModel(
@@ -101,6 +138,8 @@ class SearchViewModel(
     private val clock: Clock = Clock.systemDefaultZone(),
     private val noteText: com.nzfrankwu.noteapp.data.search.NoteTextStore? = null,
     val notebookId: String? = null,
+    /** A course folder to search in (with its subfolders), or null. */
+    val folderId: String? = null,
     /** How far handwriting has been read, or null when it's all done (refreshed every few seconds). */
     handwritingStatus: (suspend () -> String?)? = null,
 ) : ViewModel() {
@@ -123,23 +162,37 @@ class SearchViewModel(
     ) { t, n, f, c -> SearchIndex(t, n, f, c) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val results: StateFlow<SearchIndex.Results> = combine(index, query) { idx, q ->
-        idx?.search(q, clock.instant()) ?: SearchIndex.Results()
+    /** The course folder being searched in, or null (everything, or one notebook). */
+    val folderScope: StateFlow<FolderScope?> = (
+        if (folderId == null) flowOf(null)
+        else combine(folders.observeAllFolders(), notebooks.observeAllListItems()) { f, n -> FolderScope.of(folderId, f, n) }
+        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val results: StateFlow<SearchIndex.Results> = combine(index, query, folderScope) { idx, q, scope ->
+        val all = idx?.search(q, clock.instant()) ?: SearchIndex.Results()
+        when {
+            folderId == null -> all
+            scope == null -> SearchIndex.Results() // not loaded yet
+            else -> scope.filter(all)
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchIndex.Results())
 
     /** Pages whose words match, by notebook (most recently changed first), then page. */
-    val noteHits: StateFlow<NoteHits> = query.debounce(150).mapLatest { q -> NoteHits(q.trim(), findInNotes(q)) }
+    val noteHits: StateFlow<NoteHits> = combine(query.debounce(150), folderScope) { q, scope -> q to scope }
+        .mapLatest { (q, scope) ->
+            if (folderId != null && scope == null) NoteHits("", emptyList()) else NoteHits(q.trim(), findInNotes(q, scope?.notebookIds))
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NoteHits("", emptyList()))
 
-    private suspend fun findInNotes(query: String): List<NoteHit> {
+    private suspend fun findInNotes(query: String, onlyNotebooks: Set<String>? = null): List<NoteHit> {
         val store = noteText ?: return emptyList()
         val words = SearchIndex.words(query)
         if (words.isEmpty()) return emptyList()
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            val exact = store.search(words, notebookId, limit = MAX_NOTE_HITS)
+            val exact = store.search(words, notebookId, limit = MAX_NOTE_HITS, notebookIds = onlyNotebooks)
             // Messy handwriting: pages whose handwriting is a letter or two off every word.
             val exactIds = exact.mapTo(HashSet()) { it.pageId }
-            val close = store.handwritten(notebookId).filter { h ->
+            val close = store.handwritten(notebookId, onlyNotebooks).filter { h ->
                 h.pageId !in exactIds && com.nzfrankwu.noteapp.domain.FuzzyWords.matchesAll(
                     words, listOfNotNull(h.pdfText, h.boxText, h.handAlt).joinToString("\n"),
                 )
@@ -231,6 +284,7 @@ fun SearchScreen(
     val noteHits = if (notesCurrent) found.hits else emptyList()
     val scopeTitle by viewModel.scopeTitle.collectAsStateWithLifecycle()
     val scoped = viewModel.notebookId != null
+    val folderScope by viewModel.folderScope.collectAsStateWithLifecycle()
     val handStatus by viewModel.handwritingStatus.collectAsStateWithLifecycle()
     // Find in this notebook: only its pages.
     val results = if (scoped) SearchIndex.Results() else allResults
@@ -250,7 +304,15 @@ fun SearchScreen(
                     OutlinedTextField(
                         value = query,
                         onValueChange = { viewModel.query.value = it },
-                        placeholder = { Text(if (scoped) "Find in ${scopeTitle ?: "this notebook"}" else "Search tasks, notebooks and notes") },
+                        placeholder = {
+                            Text(
+                                when {
+                                    scoped -> "Find in ${scopeTitle ?: "this notebook"}"
+                                    viewModel.folderId != null -> "Search in ${folderScope?.name ?: "this folder"}"
+                                    else -> "Search notes, notebooks and tasks"
+                                },
+                            )
+                        },
                         singleLine = true,
                         leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
                         trailingIcon = {
@@ -283,9 +345,13 @@ fun SearchScreen(
             when {
                 words.isEmpty() -> Column {
                     Hint(
-                        if (scoped) "Type to find words in this notebook: PDF pages, text boxes and handwriting."
-                        else "Type to search your tasks (titles, descriptions and your notes), notebooks, folders, " +
-                            "and the words in your PDFs, text boxes and handwriting.",
+                        when {
+                            scoped -> "Type to find words in this notebook: PDF pages, text boxes and handwriting."
+                            viewModel.folderId != null -> "Type to search this folder: the words in its notebooks (PDFs, " +
+                                "text boxes and handwriting), its notebooks and folders, and the course's tasks."
+                            else -> "Type to search the words in your notes (PDFs, text boxes and handwriting), your " +
+                                "notebooks, tasks (titles, descriptions and your notes) and folders."
+                        },
                     )
                     handStatus?.let { HandStatus(it) }
                 }
@@ -299,16 +365,22 @@ fun SearchScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.ScreenPadding),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (results.tasks.isNotEmpty()) {
-                        item(key = "h-tasks") { Group("Tasks", results.tasks.size) }
-                        items(results.tasks, key = { "t-" + it.task.id }) { t ->
-                            TaskCard(
-                                task = t.task,
-                                courseCode = t.courseCode,
-                                now = now,
-                                zone = zone,
-                                onClick = { onOpenTask(t.task.id) },
-                                onStatusChange = { viewModel.setStatus(t.task.id, it) },
+                    // Notes first (what you asked for, 18 Nov): the words in your notes, then
+                    // notebooks, tasks and folders.
+                    if (noteHits.isNotEmpty()) {
+                        item(key = "h-notes") { Group("In your notes", noteHits.size) }
+                        items(noteHits, key = { "p-" + it.pageId }) { hit ->
+                            ResultRow(
+                                icon = when {
+                                    hit.handwritten -> R.drawable.ic_edit
+                                    hit.isPdf -> R.drawable.ic_picture_as_pdf
+                                    else -> R.drawable.ic_text_fields
+                                },
+                                title = if (scoped) "Page ${hit.pageNumber}" else "${hit.notebookTitle} · page ${hit.pageNumber}",
+                                detail = hit.snippet,
+                                detailLines = 2,
+                                onClick = { onOpenPage(hit.notebookId, hit.pageId, query.trim(), hit.spot) },
+                                tag = "search-page-${hit.pageNumber}",
                             )
                         }
                     }
@@ -325,20 +397,16 @@ fun SearchScreen(
                             )
                         }
                     }
-                    if (noteHits.isNotEmpty()) {
-                        item(key = "h-notes") { Group("In your notes", noteHits.size) }
-                        items(noteHits, key = { "p-" + it.pageId }) { hit ->
-                            ResultRow(
-                                icon = when {
-                                    hit.handwritten -> R.drawable.ic_edit
-                                    hit.isPdf -> R.drawable.ic_picture_as_pdf
-                                    else -> R.drawable.ic_text_fields
-                                },
-                                title = if (scoped) "Page ${hit.pageNumber}" else "${hit.notebookTitle} · page ${hit.pageNumber}",
-                                detail = hit.snippet,
-                                detailLines = 2,
-                                onClick = { onOpenPage(hit.notebookId, hit.pageId, query.trim(), hit.spot) },
-                                tag = "search-page-${hit.pageNumber}",
+                    if (results.tasks.isNotEmpty()) {
+                        item(key = "h-tasks") { Group("Tasks", results.tasks.size) }
+                        items(results.tasks, key = { "t-" + it.task.id }) { t ->
+                            TaskCard(
+                                task = t.task,
+                                courseCode = t.courseCode,
+                                now = now,
+                                zone = zone,
+                                onClick = { onOpenTask(t.task.id) },
+                                onStatusChange = { viewModel.setStatus(t.task.id, it) },
                             )
                         }
                     }

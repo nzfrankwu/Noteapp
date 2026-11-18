@@ -115,9 +115,13 @@ class NoteTextStore(context: Context, name: String? = FILE_NAME) :
      * messy writing, which SQL can't do.
      */
     @Synchronized
-    fun handwritten(notebookId: String? = null): List<Hit> {
-        val where = if (notebookId != null) "hand_alt IS NOT NULL AND notebook_id = ?" else "hand_alt IS NOT NULL"
-        val args = if (notebookId != null) arrayOf(notebookId) else null
+    fun handwritten(notebookId: String? = null, notebookIds: Collection<String>? = null): List<Hit> {
+        val conditions = mutableListOf("hand_alt IS NOT NULL")
+        val list = ArrayList<String>()
+        if (notebookId != null) { conditions += "notebook_id = ?"; list += notebookId }
+        if (notebookIds != null) { conditions += inList(notebookIds.size); list += notebookIds }
+        val where = conditions.joinToString(" AND ")
+        val args = list.toTypedArray().takeIf { it.isNotEmpty() }
         return readableDatabase.rawQuery(
             "SELECT page_id, notebook_id, pdf_text, box_text, hand_text, hand_lines, hand_alt FROM page_text WHERE $where", args,
         ).use { c ->
@@ -158,7 +162,7 @@ class NoteTextStore(context: Context, name: String? = FILE_NAME) :
      * [notebookId] only when given. At most [limit].
      */
     @Synchronized
-    fun search(words: List<String>, notebookId: String? = null, limit: Int = 100): List<Hit> {
+    fun search(words: List<String>, notebookId: String? = null, limit: Int = 100, notebookIds: Collection<String>? = null): List<Hit> {
         if (words.isEmpty()) return emptyList()
         val where = ArrayList<String>()
         val args = ArrayList<String>()
@@ -169,6 +173,11 @@ class NoteTextStore(context: Context, name: String? = FILE_NAME) :
         if (notebookId != null) {
             where += "notebook_id = ?"
             args += notebookId
+        }
+        // A course folder's search (its notebooks only).
+        if (notebookIds != null) {
+            where += inList(notebookIds.size)
+            args += notebookIds
         }
         // Pages with the words together ("slide 3") first, so the limit never cuts those.
         val text = "(COALESCE(pdf_text, '') || ' ' || COALESCE(box_text, '') || ' ' || COALESCE(hand_alt, ''))"
@@ -186,6 +195,9 @@ class NoteTextStore(context: Context, name: String? = FILE_NAME) :
             }
         }
     }
+
+    /** "notebook_id IN (?, ?, …)"; never matches when [n] is 0. */
+    private fun inList(n: Int): String = if (n == 0) "0" else "notebook_id IN (${List(n) { "?" }.joinToString(", ")})"
 
     companion object {
         const val FILE_NAME = "search.db"

@@ -18,9 +18,12 @@ data class SettingsRoute(val section: String? = null) : NavKey {
     }
 }
 
-/** Search (PHASE-7.md 7.8); with [notebookId] it's "Find in this notebook" (7.9). */
+/**
+ * Search (PHASE-7.md 7.8); with [notebookId] it's "Find in this notebook" (7.9); with [folderId]
+ * it searches a course folder and the folders in it.
+ */
 @Serializable
-data class SearchRoute(val notebookId: String? = null) : NavKey
+data class SearchRoute(val notebookId: String? = null, val folderId: String? = null) : NavKey
 
 /** Settings → Courses: archive or bring back courses. */
 @Serializable

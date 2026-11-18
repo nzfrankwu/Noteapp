@@ -53,6 +53,7 @@ class SearchNotesScreenTest {
     private lateinit var lecture: String
     private lateinit var lecturePage2: String
     private var opened: Triple<String, String, String>? = null
+    private lateinit var eeFolder: String
 
     @Before
     fun setUp() = runBlocking {
@@ -64,6 +65,7 @@ class SearchNotesScreenTest {
         notebooks = NotebookRepository(db)
         folders = FolderRepository(db)
         val folder = (folders.createFolder("Electromagnetics", "ELECTENG 204") as FolderResult.Success).folderId
+        eeFolder = folder
         lecture = (notebooks.createNotebook(folder, "Lecture 7") as NotebookResult.Success).id
         lecturePage2 = (notebooks.addPage(lecture, 1) as NotebookResult.Success).id
         val tutorial = (notebooks.createNotebook(folder, "Tutorial 3") as NotebookResult.Success).id
@@ -80,12 +82,12 @@ class SearchNotesScreenTest {
         root.deleteRecursively()
     }
 
-    private fun show(notebookId: String? = null) {
+    private fun show(notebookId: String? = null, folderId: String? = null) {
         compose.setContent {
             NoteAppTheme {
                 Box(Modifier.size(width = 1100.dp, height = 800.dp)) {
                     SearchScreen(
-                        SearchViewModel(tasks, notebooks, folders, noteText = store, notebookId = notebookId),
+                        SearchViewModel(tasks, notebooks, folders, noteText = store, notebookId = notebookId, folderId = folderId),
                         onBack = {}, onOpenTask = {}, onOpenNotebook = {}, onOpenFolder = {},
                         onOpenPage = { nb, page, query, _ -> opened = Triple(nb, page, query) },
                     )
@@ -118,6 +120,29 @@ class SearchNotesScreenTest {
         compose.waitUntilAtLeastOneExists(hasText("In your notes (1)"), 5_000)
         compose.onNodeWithText("Lecture 7 · page 3").assertExists()
         compose.onNodeWithText("Founer series").assertExists() // what was read is shown
+    }
+
+    /** 18 Nov: a course folder's search leaves out other courses' notes; notes come before tasks. */
+    @Test
+    fun aFolderSearch_staysInTheFolder_andNotesComeBeforeTasks() {
+        runBlocking {
+            val maths = (folders.createFolder("Maths", "MATHS 208") as FolderResult.Success).folderId
+            val other = (notebooks.createNotebook(maths, "Maths notes") as NotebookResult.Success).id
+            store.putHandwriting(
+                notebooks.getPages(other).first().id, other,
+                listOf(NoteTextStore.HandLine(listOf("smith chart"), 10f, 30f)), key = "test",
+            )
+            val ee = db.courseDao().getAll().first { it.code == "ELECTENG 204" }.id
+            tasks.createTask(com.nzfrankwu.noteapp.data.TaskDraft("Smith chart worksheet", ee))
+        }
+        show(folderId = eeFolder)
+        compose.onNodeWithTag("search-field").performTextInput("smith")
+        compose.waitUntilAtLeastOneExists(hasText("In your notes (2)"), 5_000) // not the Maths page
+        compose.onNodeWithText("Maths notes", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Tasks (1)").assertExists()
+        val notesTop = compose.onNodeWithText("In your notes (2)").fetchSemanticsNode().boundsInRoot.top
+        val tasksTop = compose.onNodeWithText("Tasks (1)").fetchSemanticsNode().boundsInRoot.top
+        org.junit.Assert.assertTrue("notes above tasks", notesTop < tasksTop)
     }
 
     @Test
