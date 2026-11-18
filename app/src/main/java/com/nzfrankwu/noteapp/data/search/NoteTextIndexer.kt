@@ -92,11 +92,16 @@ class NoteTextIndexer(
         // and a big backlog (e.g. the first run after installing) doesn't hold it up.
         val todo = wanted.filter { (page, keys) -> known[page.id]?.handKey != keys.boxKey }
             .sortedByDescending { (page, _) -> page.updatedAt }
+            .toMutableList()
         if (todo.isEmpty()) return 0
         var ready: Boolean? = null
         var done = 0
-        for ((page, keys) in todo) {
+        while (todo.isNotEmpty()) {
             kotlin.coroutines.coroutineContext.ensureActive()
+            // The notebook being searched right now goes first (checked before every page, so
+            // opening Find partway through a long first run moves it to the front).
+            val first = priorityNotebook?.let { nb -> todo.indexOfFirst { it.first.notebookId == nb } }?.takeIf { it >= 0 } ?: 0
+            val (page, keys) = todo.removeAt(first)
             val read = files.read(page.notebookId, page.id)
             val strokes = (read as? PageRead.Ok)?.strokes.orEmpty()
             if (read is PageRead.Damaged) continue
@@ -122,6 +127,20 @@ class NoteTextIndexer(
         val file = page.pdfFile ?: return null
         val length = runCatching { files.assetFile(page.notebookId, file).length() }.getOrDefault(0L)
         return "$file#${page.pdfPage}:$length"
+    }
+
+    /** The notebook whose handwriting to read first (set while "Find in this notebook" is open). */
+    @Volatile var priorityNotebook: String? = null
+
+    /**
+     * How many pages' handwriting is read and up to date, of how many: every notebook's, or just
+     * [notebookId]'s. For the search screen's progress line.
+     */
+    suspend fun handwritingProgress(notebookId: String? = null): Pair<Int, Int> = withContext(Dispatchers.IO) {
+        val dao = db.notebookDao()
+        val pages = if (notebookId != null) dao.getPages(notebookId) else dao.getAllActivePages()
+        val known = store.keys()
+        pages.count { known[it.id]?.handKey == boxKey(it) } to pages.size
     }
 
     private fun boxKey(page: Page): String {

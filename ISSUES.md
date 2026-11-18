@@ -90,6 +90,10 @@ Running list of the project's current state. Updated with every step (see `CLAUD
 
 ## Done
 
+- **Handwriting reading progress while searching (18 Nov, the user asked):** the "read 40 of 252 pages so far" line now stays at the top of the results too (before, it only showed before typing or when nothing matched). In "Find in this notebook" it counts that notebook's pages, and that notebook's handwriting is read first while Find is open. An edited page counts as not read until it's read again.
+
+- **"Find in this notebook" didn't go to the page (18 Nov, the user, on the tablet).** Coming back from the search screen rebuilds the editor; if the request arrived before the editor knew its size it was dropped, and the editor's first "fit the page" could put it back on the old page. Now it waits for that first fit, then goes to the page; a handwritten match also zooms to its line (as from Home's search). New screen test reproduces it (fails on the old code). Couldn't make it fail by hand on the emulator, so check on the tablet.
+
 - **The release build crashed at start (fixed 18 Nov).** R8 moved one of Kotlin's internal string classes out of its package; `app/keep-rules.pro` now says `-dontobfuscate` (optimisations kept, no renaming). Checked on the emulator: every main screen (`screenshots/release_smoke.sh`), PDF search, Find in this notebook and handwriting search (model download + "TO" found). The release build is much smoother: typing in search ~18 ms frames instead of ~150 ms (debug). On the tablet since 18 Nov (the user said yes); for safety snapshots, install the debug build of the same commit first (release can't be copied off with `run-as`).
 
 - **Search tweaks (18 Nov):** notes first in results; a 🔍 in course folders (searches that folder and its subfolders, plus the course's tasks); the notebook editor's own 🔍 button (Find in this notebook) at the top right.

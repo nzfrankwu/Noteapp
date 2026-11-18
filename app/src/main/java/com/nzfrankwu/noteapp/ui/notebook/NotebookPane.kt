@@ -53,7 +53,13 @@ val LocalOpenAtFind = androidx.compose.runtime.staticCompositionLocalOf<String?>
 val LocalFindInNotebook = androidx.compose.runtime.staticCompositionLocalOf<((String) -> Unit)?> { null }
 
 /** A page picked in "Find in this notebook": the open editor goes there itself (keeping its undo and split view). */
-data class FindRequest(val notebookId: String, val pageId: String, val query: String)
+data class FindRequest(
+    val notebookId: String,
+    val pageId: String,
+    val query: String,
+    /** Where a handwritten match is on the page (its line); null for PDF and text box matches. */
+    val spot: com.nzfrankwu.noteapp.domain.PageSpot? = null,
+)
 
 /** Where "Find in this notebook" leaves the page to go to, for the notebook already open. */
 val LocalFindRequests = androidx.compose.runtime.staticCompositionLocalOf<kotlinx.coroutines.flow.MutableStateFlow<FindRequest?>?> { null }
@@ -179,14 +185,25 @@ fun NotebookPane(
         val s = strip ?: return@LaunchedEffect
         requests.collect { r ->
             if (r == null || r.notebookId != pane.viewModel.notebookId) return@collect
+            // Coming back from the search screen rebuilds this pane: wait until it has its size
+            // and has done its first fit, or that fit would put it back on the old page (and a
+            // request taken before the size was known used to be dropped).
+            val size = snapshotFlow { view.viewSize.takeIf { it.width > 0 && it.height > 0 && fittedFor == it } }
+                .filterNotNull().first()
+            if (requests.value != r) return@collect
             requests.value = null
             val index = pages.indexOfFirst { it.id == r.pageId }
-            val size = view.viewSize
-            if (index < 0 || size.width == 0) return@collect
+            if (index < 0) return@collect
             val w = size.width.toFloat()
             val h = size.height.toFloat()
-            view.camera = s.fit(settings.fitMode, index, w, h)
-            findScope.launch { showFound(pane, pages[index], index, r.query, s, w, h) }
+            val spot = r.spot?.takeIf { it.isValid }
+            if (spot != null) {
+                // A handwritten match: zoom to its line, as when opened from Home's search.
+                view.camera = s.focus(index, spot.left, spot.top, spot.width, spot.height, w, h)
+            } else {
+                view.camera = s.fit(settings.fitMode, index, w, h)
+                findScope.launch { showFound(pane, pages[index], index, r.query, s, w, h) }
+            }
         }
     }
     LaunchedEffect(viewSize, strip != null && pages.isNotEmpty()) {

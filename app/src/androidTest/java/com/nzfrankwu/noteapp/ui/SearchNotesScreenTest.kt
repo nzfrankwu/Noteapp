@@ -82,12 +82,15 @@ class SearchNotesScreenTest {
         root.deleteRecursively()
     }
 
-    private fun show(notebookId: String? = null, folderId: String? = null) {
+    private fun show(notebookId: String? = null, folderId: String? = null, status: (suspend () -> String?)? = null) {
         compose.setContent {
             NoteAppTheme {
                 Box(Modifier.size(width = 1100.dp, height = 800.dp)) {
                     SearchScreen(
-                        SearchViewModel(tasks, notebooks, folders, noteText = store, notebookId = notebookId, folderId = folderId),
+                        SearchViewModel(
+                            tasks, notebooks, folders, noteText = store, notebookId = notebookId, folderId = folderId,
+                            handwritingStatus = status,
+                        ),
                         onBack = {}, onOpenTask = {}, onOpenNotebook = {}, onOpenFolder = {},
                         onOpenPage = { nb, page, query, _ -> opened = Triple(nb, page, query) },
                     )
@@ -143,6 +146,18 @@ class SearchNotesScreenTest {
         val notesTop = compose.onNodeWithText("In your notes (2)").fetchSemanticsNode().boundsInRoot.top
         val tasksTop = compose.onNodeWithText("Tasks (1)").fetchSemanticsNode().boundsInRoot.top
         org.junit.Assert.assertTrue("notes above tasks", notesTop < tasksTop)
+    }
+
+    /** 18 Nov: while handwriting is still being read, the progress line stays above the results. */
+    @Test
+    fun handwritingProgress_showsAboveTheResults() {
+        show(notebookId = lecture, status = { "Handwriting in this notebook: read 1 of 2 pages so far" })
+        compose.waitUntilAtLeastOneExists(hasText("read 1 of 2 pages", substring = true), 5_000) // before typing
+        compose.onNodeWithTag("search-field").performTextInput("smith")
+        compose.waitUntilAtLeastOneExists(hasText("In your notes (1)"), 5_000)
+        val statusTop = compose.onNodeWithText("read 1 of 2 pages", substring = true).fetchSemanticsNode().boundsInRoot.top
+        val notesTop = compose.onNodeWithText("In your notes (1)").fetchSemanticsNode().boundsInRoot.top
+        org.junit.Assert.assertTrue("status above the results", statusTop < notesTop)
     }
 
     @Test

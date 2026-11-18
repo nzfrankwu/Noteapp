@@ -154,17 +154,21 @@ class AppContainer(context: Context) {
 
     /**
      * The search screen's line about handwriting while it isn't all read yet (null once it is):
-     * e.g. "Reading your handwriting: 40 of 252 pages so far."
+     * e.g. "Handwriting search: read 40 of 252 pages so far". With [notebookId] ("Find in this
+     * notebook"), it counts that notebook's pages only.
      */
-    suspend fun handwritingStatus(): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val total = database.notebookDao().getAllActivePages().size
-        val done = noteTextStore.handwritingRead()
+    suspend fun handwritingStatus(notebookId: String? = null): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val (done, total) = noteTextIndexer.handwritingProgress(notebookId)
         when {
             handwriting.modelState == com.nzfrankwu.noteapp.data.search.MlKitHandwriting.ModelState.DOWNLOADING ->
                 "Handwriting search: downloading the handwriting model (Wi-Fi only)…"
             handwriting.modelState == com.nzfrankwu.noteapp.data.search.MlKitHandwriting.ModelState.FAILED ->
                 "Handwriting search: the handwriting model couldn't be downloaded yet. It tries again on Wi-Fi."
-            done < total -> "Handwriting search: read $done of $total pages so far (it keeps going in the background)."
+            done < total && notebookId != null ->
+                "Handwriting in this notebook: read $done of $total pages so far (this notebook goes first). " +
+                    "Pages not read yet can't be found by their handwriting."
+            done < total -> "Handwriting search: read $done of $total pages so far (it keeps going in the background). " +
+                "Pages not read yet can't be found by their handwriting."
             else -> null
         }
     }

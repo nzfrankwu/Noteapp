@@ -378,6 +378,9 @@ fun SearchScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.ScreenPadding),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    // While handwriting is still being read, say how far it got (18 Nov), so a
+                    // missing handwritten match isn't taken for a broken search.
+                    handStatus?.let { status -> item(key = "hand-status") { HandStatus(status, inList = true) } }
                     // Notes first (what you asked for, 18 Nov): the words in your notes, then
                     // notebooks, tasks and folders.
                     if (noteHits.isNotEmpty()) {
@@ -447,12 +450,14 @@ private const val KEYBOARD_DELAY_MS = 300L
 
 /** "Read 40 of 252 pages so far": so a missing handwriting match isn't taken for a broken search. */
 @Composable
-private fun HandStatus(text: String) {
+private fun HandStatus(text: String, inList: Boolean = false) {
     Text(
         text,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.widthIn(max = Dimens.ReadingMaxWidth).padding(horizontal = Dimens.ScreenPadding * 2).testTag("search-hand-status"),
+        modifier = Modifier.widthIn(max = Dimens.ReadingMaxWidth)
+            .padding(horizontal = if (inList) 0.dp else Dimens.ScreenPadding * 2)
+            .testTag("search-hand-status"),
     )
 }
 

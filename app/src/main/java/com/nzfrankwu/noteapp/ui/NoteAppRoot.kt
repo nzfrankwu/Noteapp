@@ -404,12 +404,20 @@ fun NoteAppRoot(
                     )
                 }
                 entry<com.nzfrankwu.noteapp.ui.navigation.SearchRoute> { route ->
+                    // Find in this notebook: read this notebook's handwriting first while it's open.
+                    if (route.notebookId != null) {
+                        androidx.compose.runtime.DisposableEffect(route.notebookId) {
+                            val indexer = container.noteTextIndexer
+                            indexer.priorityNotebook = route.notebookId
+                            onDispose { if (indexer.priorityNotebook == route.notebookId) indexer.priorityNotebook = null }
+                        }
+                    }
                     com.nzfrankwu.noteapp.ui.search.SearchScreen(
                         viewModel = viewModel {
                             com.nzfrankwu.noteapp.ui.search.SearchViewModel(
                                 container.taskRepository, container.notebookRepository, container.folderRepository,
                                 noteText = container.noteTextStore, notebookId = route.notebookId, folderId = route.folderId,
-                                handwritingStatus = container::handwritingStatus,
+                                handwritingStatus = { container.handwritingStatus(route.notebookId) },
                             )
                         },
                         onBack = ::back,
@@ -421,7 +429,7 @@ fun NoteAppRoot(
                             if (route.notebookId != null && under is NotebookRoute) {
                                 // Find in this notebook: back to the open notebook, which goes to that
                                 // page itself (its undo history and split view stay).
-                                findRequests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest(notebookId, pageId, query)
+                                findRequests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest(notebookId, pageId, query, spot)
                                 backStack.removeAt(backStack.lastIndex)
                             } else {
                                 backStack.add(NotebookRoute(notebookId, pageId, spot = spot, find = query))

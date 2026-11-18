@@ -139,11 +139,6 @@ class NoteTextStore(context: Context, name: String? = FILE_NAME) :
         }
     }
 
-    /** How many pages' handwriting has been read (for the search screen's status line). */
-    @Synchronized
-    fun handwritingRead(): Int =
-        readableDatabase.rawQuery("SELECT COUNT(*) FROM page_text WHERE hand_key IS NOT NULL", null).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
-
     @Synchronized
     fun delete(pageIds: Collection<String>) {
         if (pageIds.isEmpty()) return

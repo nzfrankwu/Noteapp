@@ -182,6 +182,41 @@ class NoteTextIndexerTest {
         assertEquals(listOf(600f, 400f), reader.tops)
     }
 
+    /**
+     * 18 Nov: the notebook being searched is read first, and the progress line counts its pages
+     * (an edited page counts as not read until it's read again).
+     */
+    @Test
+    fun handwriting_theSearchedNotebookGoesFirst_andProgressCountsItsPages() = runBlocking {
+        val reader = FakeReader(ready = false)
+        val withHand = NoteTextIndexer(db, files, store, reader)
+        val searched = (notebooks.createNotebook(folderId, "Searched") as NotebookResult.Success).id
+        val second = (notebooks.addPage(searched, 1) as NotebookResult.Success).id
+        Thread.sleep(20)
+        // The other notebook's page is the newest, so it would normally be read first.
+        val other = (notebooks.createNotebook(folderId, "Other") as NotebookResult.Success).id
+        files.write(searched, notebooks.getPages(searched).first().id, listOf(letter("s", 100f, 400f)))
+        files.write(searched, second, listOf(letter("t", 100f, 500f)))
+        files.write(other, notebooks.getPages(other).first().id, listOf(letter("o", 100f, 600f)))
+
+        withHand.run() // not ready: nothing read
+        assertEquals(0 to 2, withHand.handwritingProgress(searched))
+        assertEquals(0 to 3, withHand.handwritingProgress())
+
+        reader.ready = true
+        withHand.priorityNotebook = searched
+        withHand.run()
+        assertEquals("the searched notebook's pages first", setOf(400f, 500f), reader.tops.take(2).toSet())
+        assertEquals(600f, reader.tops.last())
+        assertEquals(2 to 2, withHand.handwritingProgress(searched))
+        assertEquals(3 to 3, withHand.handwritingProgress())
+
+        // An edited page needs reading again.
+        Thread.sleep(20)
+        files.write(searched, second, listOf(letter("u", 100f, 300f)))
+        assertEquals(1 to 2, withHand.handwritingProgress(searched))
+    }
+
     @Test
     fun handwriting_waitsUntilTheReaderIsReady() = runBlocking {
         val reader = FakeReader(ready = false)

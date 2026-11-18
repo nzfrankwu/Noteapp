@@ -285,11 +285,46 @@ class NotebookEditorTest {
 
         requests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest(notebookId, second, "anything")
         compose.waitUntil(5_000) { requests.value == null } // the editor took it
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("2 / 2").fetchSemanticsNodes().isNotEmpty() } // on that page
         compose.onNodeWithTag("undo").assertIsEnabled() // same editor: its history is still there
         // A request for another notebook is left alone.
         requests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest("someone-else", second, "x")
         compose.waitForIdle()
         assertEquals("someone-else", requests.value?.notebookId)
+    }
+
+    /**
+     * Coming back from "Find in this notebook" rebuilds the editor with the request already waiting
+     * (the user's report, 18 Nov): it must still end on the found page, not stay on the first one.
+     * A handwritten match (with a spot) goes there too.
+     */
+    @Test
+    fun aFindRequest_waitingWhenTheEditorIsShown_stillGoesToThePage() {
+        val second = runBlocking { (notebooks.addPage(notebookId, 1) as NotebookResult.Success).id }
+        val third = runBlocking { (notebooks.addPage(notebookId, 2) as NotebookResult.Success).id }
+        val requests = kotlinx.coroutines.flow.MutableStateFlow<com.nzfrankwu.noteapp.ui.notebook.FindRequest?>(
+            com.nzfrankwu.noteapp.ui.notebook.FindRequest(notebookId, third, "anything"),
+        )
+        compose.runOnUiThread {
+            viewModel = NotebookViewModel(notebookId, notebooks, files, InMemoryInkSettings(InkToolSettings(drawWithFinger = true)), scope)
+        }
+        compose.setContent {
+            NoteAppTheme {
+                androidx.compose.runtime.CompositionLocalProvider(com.nzfrankwu.noteapp.ui.notebook.LocalFindRequests provides requests) {
+                    Box(Modifier.size(width = 1100.dp, height = 760.dp)) { NotebookScreen(viewModel, onBack = {}, onOpenTask = {}) }
+                }
+            }
+        }
+        compose.waitUntil(5_000) { requests.value == null }
+        compose.waitForIdle()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("3 / 3").fetchSemanticsNodes().isNotEmpty() }
+
+        // A handwritten match on page 2, zoomed to its line.
+        requests.value = com.nzfrankwu.noteapp.ui.notebook.FindRequest(
+            notebookId, second, "anything", com.nzfrankwu.noteapp.domain.PageSpot(0f, 200f, 500f, 40f),
+        )
+        compose.waitUntil(5_000) { requests.value == null }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("2 / 3").fetchSemanticsNodes().isNotEmpty() }
     }
 
     /** Phase 7, 7.3: one page's paper, then every page's, each one undo step. */
