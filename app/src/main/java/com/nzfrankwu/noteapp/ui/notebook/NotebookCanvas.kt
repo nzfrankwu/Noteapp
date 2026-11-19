@@ -223,6 +223,10 @@ class EditorViewState {
     /** A lassoed line or shape whose point is being dragged (7.14): the overlay draws it instead of the selection. */
     var nodeEdit by mutableStateOf<NodeEdit?>(null)
 
+    /** A search match being pointed out (19 Nov): a soft box that fades in and out, see [foundAlpha]. */
+    var found by mutableStateOf<FoundMark?>(null)
+    var foundAlpha by mutableFloatStateOf(0f)
+
     /** Pages whose ink is drawn in full right now; the others show their quick preview (F8). */
     val fullyDrawn = mutableStateMapOf<String, Boolean>()
 
@@ -655,6 +659,18 @@ fun NotebookCanvas(
                     drawCircle(SelectionBlue, TEXT_KNOB_RADIUS, knob)
                 }
             }
+            view.found?.let { f ->
+                val a = view.foundAlpha
+                if (a > 0f) {
+                    val pl = strip.pageLeft(f.pageIndex)
+                    val pt = strip.pageTop(f.pageIndex)
+                    val tl = Offset(cam.toScreenX(pl + f.box[0]), cam.toScreenY(pt + f.box[1]))
+                    val sz = Size(cam.toScreenX(pl + f.box[2]) - tl.x, cam.toScreenY(pt + f.box[3]) - tl.y)
+                    val corner = androidx.compose.ui.geometry.CornerRadius(12f, 12f)
+                    drawRoundRect(FoundAmber.copy(alpha = 0.22f * a), tl, sz, corner)
+                    drawRoundRect(FoundAmber.copy(alpha = 0.9f * a), tl, sz, corner, style = DrawStroke(width = 3f))
+                }
+            }
             view.straight?.let { line ->
                 val alpha = if (line.tool.isHighlighter) com.nzfrankwu.noteapp.domain.ink.HighlightOpacity.of(line.colorArgb) else 1f
                 drawLine(
@@ -709,6 +725,12 @@ private const val NODE_RADIUS = 11f
 const val TEXT_KNOB_RADIUS = 13f
 private const val TEXT_KNOB_GRAB = 44f
 private val TextTint = Color(0x552F6BDB)
+
+/** The search-match mark (19 Nov): amber, so it doesn't look like a selection. */
+private val FoundAmber = Color(0xFFF2A900)
+
+/** A search match on page [pageIndex]: [box] is left, top, right, bottom in page units. */
+class FoundMark(val pageIndex: Int, val pageId: String, val box: FloatArray)
 
 /** How far above the box the rotate handle sits (screen pixels, F14). */
 private const val ROTATE_HANDLE_GAP = 56f

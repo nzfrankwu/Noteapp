@@ -76,6 +76,33 @@ class HomeScreenTest {
         org.junit.Assert.assertEquals(2, opened)
     }
 
+    /** 19 Nov: after "Import from export" restarts the app on Home, Home says how the restore went. */
+    @Test
+    fun aFinishedRestore_isShownOnHome_untilDismissed() {
+        var dismissed = 0
+        val note = androidx.compose.runtime.mutableStateOf<com.nzfrankwu.noteapp.data.backup.RestoreNote?>(
+            com.nzfrankwu.noteapp.data.backup.RestoreNote("Restored the backup from 18 Nov.", failed = false),
+        )
+        compose.setContent {
+            NoteAppTheme {
+                Box(Modifier.size(width = 1120.dp, height = 800.dp)) {
+                    HomeContent(
+                        folders = emptyList(),
+                        onOpenSettings = {}, onNewFolder = {}, onOpenFolder = {},
+                        onRenameFolder = {}, onDeleteFolder = {},
+                        banners = HomeBanners(restoreNote = note.value),
+                        bannerActions = BannerActions(onDismissRestore = { dismissed++; note.value = null }),
+                    )
+                }
+            }
+        }
+        compose.onNodeWithText("Restored the backup from 18 Nov.").assertIsDisplayed()
+        compose.onNodeWithTag("dismiss-restored").performClick()
+        compose.waitForIdle()
+        org.junit.Assert.assertEquals(1, dismissed)
+        compose.onNodeWithTag("banner-restored").assertDoesNotExist()
+    }
+
     @Test
     fun splitScreenWidth_showsStacked() {
         showHomeAt(560) // e.g. half of the tablet in split-screen

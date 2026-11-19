@@ -37,6 +37,8 @@ data class HomeBanners(
     val endedCourses: List<Course> = emptyList(),
     /** Google Drive backup is failing or hasn't worked for days (PHASE-6.md 6.10); null when all is well. */
     val backupWarning: String? = null,
+    /** How a restore just went (after "Import from export" restarts the app on Home, 19 Nov). */
+    val restoreNote: com.nzfrankwu.noteapp.data.backup.RestoreNote? = null,
 )
 
 /** Which folder dialog is open on the home screen, with what's typed in it. */
@@ -70,7 +72,12 @@ class HomeViewModel(
     private val tabStore: HomeTabStore = InMemoryHomeTabStore(),
     /** Google Drive backup status; null in screen tests that don't need it. */
     private val driveStatus: kotlinx.coroutines.flow.Flow<com.nzfrankwu.noteapp.data.backup.drive.DriveStatus>? = null,
+    /** How the last restore went, and how to dismiss it (BackupManager); null in screen tests. */
+    private val restoreNote: kotlinx.coroutines.flow.Flow<com.nzfrankwu.noteapp.data.backup.RestoreNote?>? = null,
+    private val onDismissRestoreNote: () -> Unit = {},
 ) : ViewModel() {
+
+    fun dismissRestoreNote() = onDismissRestoreNote()
 
     /** The open home tab: Overview, Calendar or Timeline. Null for the moment before it's loaded. */
     val tab: StateFlow<HomeTab?> = tabStore.homeTab
@@ -84,11 +91,12 @@ class HomeViewModel(
     val banners: StateFlow<HomeBanners> = combine(
         canvasBanners(),
         driveStatus ?: kotlinx.coroutines.flow.flowOf(null),
-    ) { canvas, drive ->
+        restoreNote ?: kotlinx.coroutines.flow.flowOf(null),
+    ) { canvas, drive, restored ->
         val now = clock.millis()
         val warning = drive?.takeIf { com.nzfrankwu.noteapp.data.backup.drive.DriveText.needsAttention(it, now) }
             ?.let { com.nzfrankwu.noteapp.data.backup.drive.DriveText.warning(it, now) }
-        canvas.copy(backupWarning = warning)
+        canvas.copy(backupWarning = warning, restoreNote = restored)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeBanners())
 
     private fun canvasBanners(): kotlinx.coroutines.flow.Flow<HomeBanners> = if (canvasSettings == null) {

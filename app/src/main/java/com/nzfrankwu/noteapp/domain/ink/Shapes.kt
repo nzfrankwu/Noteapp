@@ -52,8 +52,21 @@ sealed interface Shape {
             }
     }
 
-    data class Ellipse(val cx: Float, val cy: Float, val rx: Float, val ry: Float) : Shape {
-        override val nodes get() = listOf(Node(cx, cy - ry), Node(cx + rx, cy), Node(cx, cy + ry), Node(cx - rx, cy))
+    /**
+     * An ellipse around ([cx], [cy]) with radii [rx] and [ry] along its own axes, turned by
+     * [angle] (radians, clockwise on screen; 0 = level). A level one is what snapping makes;
+     * the lasso's turn handle turns it (19 Nov).
+     */
+    data class Ellipse(val cx: Float, val cy: Float, val rx: Float, val ry: Float, val angle: Float = 0f) : Shape {
+        /** Its own top, right, bottom and left (turned with it). */
+        override val nodes get() = listOf(at(0f, -ry), at(rx, 0f), at(0f, ry), at(-rx, 0f))
+
+        /** The point [u] along its own x axis and [v] along its y axis from the centre. */
+        fun at(u: Float, v: Float): Node {
+            val c = cos(angle); val s = sin(angle)
+            return Node(cx + u * c - v * s, cy + u * s + v * c)
+        }
+
         override fun outline(spacing: Float): Pair<FloatArray, FloatArray> {
             // Ramanujan's perimeter, roughly: enough points for a smooth curve.
             val perimeter = PI * (3 * (rx + ry) - sqrt((3 * rx + ry) * (rx + 3 * ry).toDouble()))
@@ -65,12 +78,13 @@ sealed interface Shape {
             for (i in 0..n) {
                 // From the top, clockwise; the last point is the first again.
                 val a = -PI / 2 + 2 * PI * (i % n) / n
-                xs[i] = (cx + rx * cos(a)).toFloat()
-                ys[i] = (cy + ry * sin(a)).toFloat()
+                val p = at((rx * cos(a)).toFloat(), (ry * sin(a)).toFloat())
+                xs[i] = p.x
+                ys[i] = p.y
             }
             return xs to ys
         }
-        override fun translated(dx: Float, dy: Float) = Ellipse(cx + dx, cy + dy, rx, ry)
+        override fun translated(dx: Float, dy: Float) = copy(cx = cx + dx, cy = cy + dy)
     }
 }
 
@@ -279,7 +293,12 @@ object Shapes {
 
     /** [left, top, right, bottom] of a shape. */
     fun box(shape: Shape): FloatArray = when (shape) {
-        is Shape.Ellipse -> floatArrayOf(shape.cx - shape.rx, shape.cy - shape.ry, shape.cx + shape.rx, shape.cy + shape.ry)
+        is Shape.Ellipse -> {
+            // A turned ellipse's box reaches out by these half-widths.
+            val c = cos(shape.angle); val s = sin(shape.angle)
+            val hw = hypot(shape.rx * c, shape.ry * s); val hh = hypot(shape.rx * s, shape.ry * c)
+            floatArrayOf(shape.cx - hw, shape.cy - hh, shape.cx + hw, shape.cy + hh)
+        }
         else -> shape.nodes.let { p -> floatArrayOf(p.minOf { it.x }, p.minOf { it.y }, p.maxOf { it.x }, p.maxOf { it.y }) }
     }
 
@@ -308,6 +327,7 @@ object Shapes {
                 abs(sqrt(nx * nx + ny * ny) - 1f) * min(rx, ry) <= EXACT * 2
             }
             if (onIt) return Shape.Ellipse(cx, cy, rx, ry)
+            turnedEllipse(points)?.let { return it }
         }
         // A polygon: a few straight sides.
         val corners = simplify(points, EXACT).dropLast(1).toMutableList()
@@ -321,6 +341,37 @@ object Shapes {
     }
 
     private const val MAX_CORNERS = 8
+
+    /**
+     * A snapped ellipse turned with the lasso (19 Nov): its points are still the evenly spread
+     * points of an ellipse, just turned. Their average is the centre and their spread gives the
+     * axes; then every point must lie exactly on that ellipse. Null if they don't.
+     */
+    private fun turnedEllipse(points: List<Node>): Shape.Ellipse? {
+        val ring = points.dropLast(1) // the last point repeats the first
+        val n = ring.size
+        val cx = ring.sumOf { it.x.toDouble() } / n
+        val cy = ring.sumOf { it.y.toDouble() } / n
+        var sxx = 0.0; var syy = 0.0; var sxy = 0.0
+        for (p in ring) {
+            val dx = p.x - cx; val dy = p.y - cy
+            sxx += dx * dx; syy += dy * dy; sxy += dx * dy
+        }
+        val angle = 0.5 * atan2(2 * sxy, sxx - syy)
+        val c = cos(angle); val s = sin(angle)
+        var rx = 0.0; var ry = 0.0
+        for (p in ring) {
+            val dx = p.x - cx; val dy = p.y - cy
+            rx = max(rx, abs(dx * c + dy * s)); ry = max(ry, abs(-dx * s + dy * c))
+        }
+        if (rx <= 1.0 || ry <= 1.0) return null
+        val onIt = points.all { p ->
+            val dx = p.x - cx; val dy = p.y - cy
+            val u = (dx * c + dy * s) / rx; val v = (-dx * s + dy * c) / ry
+            abs(sqrt(u * u + v * v) - 1.0) * min(rx, ry) <= EXACT * 2
+        }
+        return if (onIt) Shape.Ellipse(cx.toFloat(), cy.toFloat(), rx.toFloat(), ry.toFloat(), angle.toFloat()) else null
+    }
 
     /**
      * The shape with node [index] dragged to ([x], [y]): a line's end (snapping to 45° like F11);
@@ -341,15 +392,20 @@ object Shapes {
             Shape.Polygon(shape.corners.mapIndexed { i, p -> if (i == index) Node(x, y) else p })
         }
         is Shape.Ellipse -> {
-            var top = shape.cy - shape.ry; var bottom = shape.cy + shape.ry
-            var left = shape.cx - shape.rx; var right = shape.cx + shape.rx
+            // In the ellipse's own (maybe turned) frame: u along its x axis, v along its y axis.
+            val c = cos(shape.angle); val s = sin(shape.angle)
+            val u = (x - shape.cx) * c + (y - shape.cy) * s
+            val v = -(x - shape.cx) * s + (y - shape.cy) * c
+            var top = -shape.ry; var bottom = shape.ry
+            var left = -shape.rx; var right = shape.rx
             when (index) {
-                0 -> top = min(y, bottom - 2f)
-                1 -> right = max(x, left + 2f)
-                2 -> bottom = max(y, top + 2f)
-                else -> left = min(x, right - 2f)
+                0 -> top = min(v, bottom - 2f)
+                1 -> right = max(u, left + 2f)
+                2 -> bottom = max(v, top + 2f)
+                else -> left = min(u, right - 2f)
             }
-            Shape.Ellipse((left + right) / 2, (top + bottom) / 2, (right - left) / 2, (bottom - top) / 2)
+            val mid = shape.at((left + right) / 2, (top + bottom) / 2)
+            Shape.Ellipse(mid.x, mid.y, (right - left) / 2, (bottom - top) / 2, shape.angle)
         }
     }
 

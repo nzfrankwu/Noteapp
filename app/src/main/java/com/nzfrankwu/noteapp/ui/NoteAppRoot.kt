@@ -233,6 +233,8 @@ fun NoteAppRoot(
                                 container.canvasSettings, container.canvasSyncRunner,
                                 tabStore = container.viewSettings,
                                 driveStatus = container.driveSettings.status,
+                                restoreNote = container.backupManager.restoreNote,
+                                onDismissRestoreNote = container.backupManager::dismissRestoreNote,
                             )
                         },
                         onOpenSettings = { backStack.add(SettingsRoute()) },

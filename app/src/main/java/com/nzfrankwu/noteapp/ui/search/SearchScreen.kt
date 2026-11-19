@@ -282,8 +282,9 @@ class SearchViewModel(
             band.split(',').mapNotNull { it.toFloatOrNull() }
         } ?: return null
         val band = bands.getOrNull(index)?.takeIf { it.size == 2 } ?: return null
-        val pad = (band[1] - band[0]) * 2f
-        return com.nzfrankwu.noteapp.domain.PageSpot(0f, (band[0] - pad).coerceAtLeast(0f), pageWidth, band[1] - band[0] + 2 * pad)
+        // The line itself, across the page: the editor zooms to it (the page's width sets the
+        // zoom) and marks the strokes in it (19 Nov; it used to be padded by two lines each way).
+        return com.nzfrankwu.noteapp.domain.PageSpot(0f, band[0], pageWidth, band[1] - band[0])
     }
 
     fun setStatus(taskId: String, status: TaskStatus) {
