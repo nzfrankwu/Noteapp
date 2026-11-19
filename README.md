@@ -23,6 +23,13 @@
 
 ---
 
+<p align="center">
+  <img src="site/img/editor.webp" width="49%" alt="Handwritten notes with a snapped diagram and a circled formula">
+  <img src="site/img/pdf.webp" width="49%" alt="A lecture handout marked up with highlights and handwriting">
+  <img src="site/img/home.webp" width="49%" alt="Home: tasks due soon and a folder per course">
+  <img src="site/img/timeline.webp" width="49%" alt="The timeline of assignments">
+</p>
+
 Write with a stylus in notebooks organised by course, mark up lecture PDFs, and keep track of
 what's due. Noteapp can read your assignments from Canvas and back everything up to your own
 Google Drive. It has no servers, no accounts of its own, no ads and no tracking.

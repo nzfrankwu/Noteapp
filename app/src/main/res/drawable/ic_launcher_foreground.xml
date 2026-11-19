@@ -5,9 +5,15 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- 19 Nov: the note is 8% bigger and placed by eye (between its mass and its outline), so it
+         looks centred even though the tick sticks out at the bottom right. site/logo.svg matches. -->
     <group
-        android:translateX="-2"
-        android:translateY="-1">
+        android:pivotX="51"
+        android:pivotY="52"
+        android:scaleX="1.08"
+        android:scaleY="1.08"
+        android:translateX="1.89"
+        android:translateY="-1.61">
         <path
             android:fillColor="#FFFFFF"
             android:pathData="M38,28 H58 L68,38 V72 A4,4 0 0 1 64,76 H38 A4,4 0 0 1 34,72 V32 A4,4 0 0 1 38,28 Z" />
@@ -25,17 +31,23 @@
             android:strokeLineCap="round"
             android:strokeLineJoin="round"
             android:pathData="M40,64 C42.5,57 46.5,57 47.5,62 C48.5,67 51.5,67 53.5,61 C54.7,57.5 57.5,57.5 58.5,62" />
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M54,70 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0 Z" />
-        <path
-            android:fillColor="#FFB300"
-            android:pathData="M56.5,70 a9.5,9.5 0 1,0 19,0 a9.5,9.5 0 1,0 -19,0 Z" />
-        <path
-            android:strokeColor="#FFFFFF"
-            android:strokeWidth="2.6"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"
-            android:pathData="M61.5,70.2 L64.6,73.3 L70.6,67" />
+        <group
+            android:pivotX="66"
+            android:pivotY="70"
+            android:scaleX="0.97"
+            android:scaleY="0.97">
+            <path
+                android:fillColor="#FFFFFF"
+                android:pathData="M54,70 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0 Z" />
+            <path
+                android:fillColor="#FFB300"
+                android:pathData="M56.5,70 a9.5,9.5 0 1,0 19,0 a9.5,9.5 0 1,0 -19,0 Z" />
+            <path
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="2.6"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:pathData="M61.5,70.2 L64.6,73.3 L70.6,67" />
+        </group>
     </group>
 </vector>
