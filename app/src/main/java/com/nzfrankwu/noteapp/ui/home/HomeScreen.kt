@@ -118,6 +118,7 @@ fun HomeScreen(
         bannerActions = BannerActions(
             onSignInAgain, onLinkCourses, viewModel::hideNewCourses, onOpenBackupSettings,
             onArchiveEnded = viewModel::archiveEndedCourses, onHideEnded = viewModel::hideEndedCourses,
+            onDismissRestore = viewModel::dismissRestoreNote,
         ),
         refreshing = refreshing,
         onRefresh = viewModel::refresh,
@@ -504,16 +505,24 @@ class BannerActions(
     val onOpenBackup: () -> Unit = {},
     val onArchiveEnded: () -> Unit = {},
     val onHideEnded: () -> Unit = {},
+    val onDismissRestore: () -> Unit = {},
 )
 
 /** The Canvas and backup strips at the top of home (nothing when all is well). */
 @Composable
 private fun HomeBannerStrips(banners: HomeBanners, actions: BannerActions) {
-    if (!banners.signInExpired && banners.newCourses.isEmpty() && banners.backupWarning == null && banners.endedCourses.isEmpty()) return
+    if (!banners.signInExpired && banners.newCourses.isEmpty() && banners.backupWarning == null &&
+        banners.endedCourses.isEmpty() && banners.restoreNote == null
+    ) return
     Column(
         Modifier.fillMaxWidth().padding(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, bottom = Dimens.ItemGap),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        banners.restoreNote?.let { note ->
+            Banner(note.text, warning = note.failed, modifier = Modifier.testTag("banner-restored")) {
+                TextButton(onClick = actions.onDismissRestore, modifier = Modifier.testTag("dismiss-restored")) { Text("OK") }
+            }
+        }
         if (banners.signInExpired) {
             Banner(
                 "Your Canvas sign-in expired. Your tasks are kept, but new assignments won't arrive until you sign in again.",

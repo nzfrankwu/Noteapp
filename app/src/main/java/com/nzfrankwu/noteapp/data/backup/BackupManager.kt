@@ -26,6 +26,9 @@ sealed interface BackupJob {
     data object RestartToRestore : BackupJob
 }
 
+/** How a restore went, shown on Home after the restart (see [BackupManager.restoreNote]). */
+data class RestoreNote(val text: String, val failed: Boolean)
+
 /**
  * "Export everything" and "Import from export" (PHASE-6.md 6.2–6.3). The work runs in [scope]
  * (the app's own), so leaving Settings doesn't stop it.
@@ -39,6 +42,19 @@ class BackupManager(
 ) {
     private val _job = MutableStateFlow<BackupJob>(BackupJob.Idle)
     val job: StateFlow<BackupJob> = _job
+
+    /**
+     * How the restore that just finished at start-up went, for a strip on Home (19 Nov): after
+     * "Import from export" the app restarts on Home, where Settings' message wasn't seen. Null
+     * once dismissed (on Home or in Settings).
+     */
+    private val _restoreNote = MutableStateFlow<RestoreNote?>(null)
+    val restoreNote: StateFlow<RestoreNote?> = _restoreNote
+
+    fun dismissRestoreNote() {
+        _restoreNote.value = null
+        dismiss()
+    }
 
     private val busy get() = _job.value is BackupJob.Working
 
@@ -154,13 +170,21 @@ class BackupManager(
 
     fun dismiss() {
         if (_job.value is BackupJob.Done || _job.value is BackupJob.Failed) _job.value = BackupJob.Idle
+        _restoreNote.value = null
     }
 
-    /** Shows a message, e.g. how the last restore went (read once at start-up). */
+    /** Shows a message, e.g. how the last restore went (read once at start-up), in Settings and on Home. */
     fun report(outcome: RestoreSwap.Outcome) {
         when (outcome) {
-            is RestoreSwap.Outcome.Restored -> _job.value = BackupJob.Done("Restored the backup from ${BackupText.date(outcome.backupCreatedAt)}. Sign in to Canvas again to keep your tasks up to date.")
-            is RestoreSwap.Outcome.Failed -> _job.value = BackupJob.Failed(outcome.message)
+            is RestoreSwap.Outcome.Restored -> {
+                val text = "Restored the backup from ${BackupText.date(outcome.backupCreatedAt)}. Sign in to Canvas again to keep your tasks up to date."
+                _job.value = BackupJob.Done(text)
+                _restoreNote.value = RestoreNote(text, failed = false)
+            }
+            is RestoreSwap.Outcome.Failed -> {
+                _job.value = BackupJob.Failed(outcome.message)
+                _restoreNote.value = RestoreNote(outcome.message, failed = true)
+            }
             RestoreSwap.Outcome.Nothing -> Unit
         }
     }

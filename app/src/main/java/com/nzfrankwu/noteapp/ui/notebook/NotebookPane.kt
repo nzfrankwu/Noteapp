@@ -205,8 +205,9 @@ fun NotebookPane(
             val h = size.height.toFloat()
             val spot = r.spot?.takeIf { it.isValid }
             if (spot != null) {
-                // A handwritten match: zoom to its line, as when opened from Home's search.
+                // A handwritten match: zoom to its line, as when opened from Home's search, and mark it.
                 view.camera = s.focus(index, spot.left, spot.top, spot.width, spot.height, w, h)
+                findScope.launch { markLine(pane, pages[index], index, spot) }
             } else {
                 view.camera = s.fit(settings.fitMode, index, w, h)
                 findScope.launch { showFound(pane, pages[index], index, r.query, s, w, h) }
@@ -228,7 +229,12 @@ fun NotebookPane(
             if (openAtFind != null && !foundOnOpen) {
                 foundOnOpen = true
                 val page = pages[bookmarked]
-                findScope.launch { showFound(pane, page, bookmarked, openAtFind, strip, w, h) }
+                val line = openAtSpot?.takeIf { it.isValid }
+                findScope.launch {
+                    // A handwritten match comes with its line; typed words are looked up on the page.
+                    if (line != null) markLine(pane, page, bookmarked, line)
+                    else showFound(pane, page, bookmarked, openAtFind, strip, w, h)
+                }
             }
             return@LaunchedEffect
         }
@@ -416,7 +422,44 @@ private suspend fun showFound(pane: PaneState, page: com.nzfrankwu.noteapp.data.
         ?: vm.ink.texts(page.id).firstOrNull { t -> t.text.contains(words[0], ignoreCase = true) }
         ?: return
     focusAround(pane, page, index, box.top, box.height, strip, w, h)
+    showMark(pane, FoundMark(index, page.id, com.nzfrankwu.noteapp.domain.ink.FoundMarks.around(box.bounds())))
 }
+
+/** Marks the handwritten line search found ([line]: its band across the page) once the page's ink is loaded. */
+private suspend fun markLine(pane: PaneState, page: com.nzfrankwu.noteapp.data.db.Page, index: Int, line: com.nzfrankwu.noteapp.domain.PageSpot) {
+    val vm = pane.viewModel
+    val nb = vm.notebook.value ?: return
+    kotlinx.coroutines.withTimeoutOrNull(5_000) {
+        while (!vm.isEditable(page.id)) kotlinx.coroutines.delay(50)
+    } ?: return
+    val box = com.nzfrankwu.noteapp.domain.ink.FoundMarks.lineBox(
+        vm.ink.strokes(page.id).map { it.bounds() }, line.top, line.height, page.size(nb).width,
+    )
+    showMark(pane, FoundMark(index, page.id, box))
+}
+
+/** Fades [mark] in, holds it a moment and fades it out again; a newer mark takes over. */
+private suspend fun showMark(pane: PaneState, mark: FoundMark) {
+    val view = pane.view
+    view.found = mark
+    try {
+        androidx.compose.animation.core.animate(0f, 1f, animationSpec = androidx.compose.animation.core.tween(250)) { v, _ ->
+            if (view.found === mark) view.foundAlpha = v
+        }
+        kotlinx.coroutines.delay(FOUND_MARK_MS)
+        androidx.compose.animation.core.animate(1f, 0f, animationSpec = androidx.compose.animation.core.tween(700)) { v, _ ->
+            if (view.found === mark) view.foundAlpha = v
+        }
+    } finally {
+        if (view.found === mark) {
+            view.found = null
+            view.foundAlpha = 0f
+        }
+    }
+}
+
+/** How long a search match stays marked before it fades (ms). */
+private const val FOUND_MARK_MS = 2_200L
 
 /** Zooms to a band across the whole page width around [top]..[top]+[height], so the words show in context. */
 private fun focusAround(pane: PaneState, page: com.nzfrankwu.noteapp.data.db.Page, index: Int, top: Float, height: Float, strip: PageStrip, w: Float, h: Float) {

@@ -119,6 +119,65 @@ class ShapesTest {
         assertTrue(Shapes.fromStroke(moved.xs, moved.ys) is Shape.Polygon)
     }
 
+    /** 19 Nov: an ellipse turned with the lasso's turn handle (point by point, LassoBox.rotatePoint) stays editable. */
+    @Test
+    fun aTurnedEllipse_isStillFound_withItsAngle() {
+        val s = strokeOf(Shape.Ellipse(200f, 150f, 90f, 40f))
+        val angle = 0.6f
+        val xs = FloatArray(s.xs.size); val ys = FloatArray(s.ys.size)
+        for (i in s.xs.indices) {
+            val (x, y) = LassoBox.rotatePoint(s.xs[i], s.ys[i], 230f, 170f, angle)
+            xs[i] = x; ys[i] = y
+        }
+        val found = Shapes.fromStroke(xs, ys) as Shape.Ellipse
+        near(found.rx, 90f); near(found.ry, 40f)
+        near(found.angle, angle, 0.01f)
+        val (cx, cy) = LassoBox.rotatePoint(200f, 150f, 230f, 170f, angle)
+        near(found.cx, cx); near(found.cy, cy)
+        // Its points turned with it: the right end is along the turned long axis.
+        val right = found.nodes[1]
+        near(right.x, cx + 90f * kotlin.math.cos(angle)); near(right.y, cy + 90f * kotlin.math.sin(angle))
+    }
+
+    @Test
+    fun anEllipseTurnedByTheLasso_isStillFound() {
+        // As the lasso does it: LassoBox.map with the selection's box and an angle.
+        for (angle in listOf(0.3f, 0.87f, 1.2f, -0.5f, 2.6f)) {
+            val s = strokeOf(Shape.Ellipse(612.4f, 803.7f, 121.3f, 49.9f))
+            val box = s.bounds()
+            val turned = LassoBox.map(s, box, box, angle)
+            val found = Shapes.fromStroke(turned.xs, turned.ys)
+            assertTrue("angle $angle: $found", found is Shape.Ellipse)
+        }
+    }
+
+    @Test
+    fun draggingATurnedEllipsesSide_keepsTheOppositeSide() {
+        val e = Shape.Ellipse(100f, 100f, 50f, 30f, angle = (Math.PI / 2).toFloat()) // long axis upright
+        val left = e.nodes[3] // its own left end, now at the top
+        near(left.x, 100f); near(left.y, 50f)
+        // Drag its own right end (at the bottom, y = 150) down to y = 190.
+        val longer = Shapes.moveNode(e, 1, 100f, 190f) as Shape.Ellipse
+        near(longer.rx, 70f); near(longer.ry, 30f)
+        near(longer.nodes[3].x, 100f); near(longer.nodes[3].y, 50f) // the far end stayed
+        near(longer.nodes[1].y, 190f)
+        // And its box is upright too.
+        val box = Shapes.box(longer)
+        near(box[0], 70f); near(box[2], 130f); near(box[1], 50f); near(box[3], 190f)
+    }
+
+    @Test
+    fun handDrawnLooking_turnedOvals_areNotTakenForShapes() {
+        // A hand-drawn tilted oval (not snapped) isn't exact enough to be an editable shape.
+        val (hx, hy) = handEllipse(150f, 150f, 80f, 35f)
+        val xs = FloatArray(hx.size); val ys = FloatArray(hy.size)
+        for (i in hx.indices) {
+            val (x, y) = LassoBox.rotatePoint(hx[i], hy[i], 150f, 150f, 0.5f)
+            xs[i] = x; ys[i] = y
+        }
+        assertNull(Shapes.fromStroke(xs, ys))
+    }
+
     // ---- Editing ----
 
     @Test

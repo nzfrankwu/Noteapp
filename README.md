@@ -55,6 +55,7 @@ Google Drive. It has no servers, no accounts of its own, no ads and no tracking.
 **Search**
 - One search across notebook names, tasks, PDF text, text boxes, and your handwriting.
   Handwriting is read on the tablet, and nothing is uploaded for it.
+- Tap a result to open the page at the match, with the words pointed out.
 
 **Your data**
 - Automatic backups to your own Google Drive, plus readable PDF copies of your notes.
