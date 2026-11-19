@@ -5,7 +5,15 @@ Noteapp is an Android **tablet** app written in **Kotlin** with **Jetpack Compos
 It's a handwriting-first note-taking app with built-in Canvas assignment tracking.
 App ID / package: `com.nzfrankwu.noteapp` (single `app` module). minSdk 26. **Never change the app ID**: Android would treat it as a different app, and the user's notes wouldn't carry over.
 
-**Start every session by reading `HANDOFF.md`.** It says where the last session stopped, which phase plan is current (e.g. `PHASE-1B.md`) and what to do next. Then read that phase plan and tick its steps as they pass. Finished phase plans (`PHASE-1.md`, …) stay as history.
+**Where the project notes live** (moved out of the top folder on 19 Nov so the GitHub page stays tidy; this file is `.claude/CLAUDE.md`):
+
+- `docs/HANDOFF.md`, `docs/IDEA.md`, `docs/ISSUES.md`
+- `docs/phases/PHASE-*.md`: the phase plans
+- `docs/reports/`: old hands-off reports (git-ignored). The current `REPORT.md` stays in the top folder (git-ignored).
+
+Below, `HANDOFF.md`, `IDEA.md`, `ISSUES.md` and `PHASE-*.md` mean those files in `docs/`. Keep new planning notes in `docs/`, not the top folder: the top folder is what visitors see on GitHub.
+
+**Start every session by reading `docs/HANDOFF.md`.** It says where the last session stopped, which phase plan is current (e.g. `PHASE-1B.md`) and what to do next. Then read that phase plan and tick its steps as they pass. Finished phase plans (`PHASE-1.md`, …) stay as history.
 
 ## Session handoff notes (HANDOFF.md)
 

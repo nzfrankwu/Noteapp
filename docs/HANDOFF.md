@@ -4,6 +4,8 @@ _Last updated: 18 Nov 2026 (Phase 7: 7.1–7.10 done, code review fixed, messy h
 
 ## Right now
 
+- **Repo tidied (19 Nov, the user asked):** planning notes moved to `docs/` (`HANDOFF.md`, `IDEA.md`, `ISSUES.md`), phase plans to `docs/phases/`, old local reports to `docs/reports/`, and `CLAUDE.md` to `.claude/CLAUDE.md`. The top folder holds only the README, `app/`, `site/` and the Gradle files. Code comments still name `PHASE-7.md` etc. by file name; that's fine.
+
 - **Phase 7 (Polish) is planned: `PHASE-7.md`, branch `phase-7`** (from `main`). 7.0–7.10 are done (7.8–7.10 after the user's OK, 18 Nov; then "hands off, do what you have to"). **Mode: hands-off since 18 Nov** (the user said "start, hands off mode"): build, test, commit and push every step; leave what needs the user (7.8's new search screen layout, ML Kit at 7.10, pen widths 7.12, the tablet 7.13) in REPORT.md / ISSUES.md.
   - Decided 17 Nov: search over names, tasks, PDF text, text boxes **and handwriting** (ML Kit, English only; still ask before adding the library at 7.10); **custom tags dropped, Submitted merged into Done** (IDEA.md §2.3/§3.3 updated); new settings: reminder times, course colours, default paper, light/dark; plus the Phase 6 review leftovers and the editor speed leftovers. Version history stays "later".
   - **Database is v8 now (7.1, 18 Nov):** statuses `submitted` → `done`, `courses.color`. The tablet is still v7: installing a Phase 7 build upgrades it (snapshot first, with the user's OK). `screenshots/app-v7.apk` is the v7 build; `screenshots/upgrade_v8.sh` + `compare_dbs.py <before> <after> --v8` is the real upgrade check.
