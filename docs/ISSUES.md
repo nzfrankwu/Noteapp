@@ -98,7 +98,7 @@ None known right now.
 
 ## Done
 
-- **App icon (19 Nov, the user):** the note is 8% bigger (12% was too big, the user said), centred by eye and then nudged 1 unit right at their request (halfway between its mass and its outline, since the tick sticks out at the bottom right). Launcher, themed (monochrome) icon and the website logo/PNGs all match. Checked on the emulator's round launcher icon; the themed icon wasn't looked at. Not on the tablet yet.
+- **App icon (19 Nov, the user):** the note is 8% bigger (12% was too big, the user said), centred by eye and then moved 2.5 units right (option 4 of 5 the user chose from) (halfway between its mass and its outline, since the tick sticks out at the bottom right). Launcher, themed (monochrome) icon and the website logo/PNGs all match. Checked on the emulator's round launcher icon; the themed icon wasn't looked at. Not on the tablet yet.
 
 - **Hands-off fixes (19 Nov):** press hard to erase only starts near the start of a stroke (after about 5 mm of drawing, pressing hard keeps the line, and holding still snaps a line or shape); `saveNow` waits for a save already running (two flaky tests came from this); search keeps handwritten pages' words between key presses; Home shows Recently deleted even with no folders.
 - **Handwriting search found nothing on the tablet (18 Nov, the user).** The model had downloaded, but the first 49 pages read were the debug test-writing pages (unreadable by design), so no real writing had been read. Fixed: newest pages first, plus a line-grouping fix for full pages and a progress line on the search screen. Installed on the tablet 18 Nov; recognition quality on the user's real writing still to be confirmed by them.
