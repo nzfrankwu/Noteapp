@@ -1,14 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="512" height="512">
-  <!-- Noteapp logo: a ruled page with handwriting, and a tick for tasks. Same shapes as the launcher icon (108-unit grid). -->
+  <!-- Noteapp logo: a ruled page with handwriting, and a tick for tasks. Same shapes as the launcher icon (108-unit grid). 19 Nov: 12% bigger, centred by eye. -->
   <rect x="0" y="0" width="108" height="108" fill="#2F6BDB"/>
-  <g transform="translate(-2,-1)">
+  <g transform="translate(50.26,50.32) scale(1.12) translate(-51.0,-52.0)">
   <path fill="#FFFFFF" d="M38,28 H58 L68,38 V72 A4,4 0 0 1 64,76 H38 A4,4 0 0 1 34,72 V32 A4,4 0 0 1 38,28 Z"/>
   <path fill="#C9D8F7" d="M58,28 V34 A4,4 0 0 0 62,38 H68 Z"/>
   <path stroke="#DCE6FF" stroke-width="1.6" stroke-linecap="round" fill="none" d="M40,46 H62 M40,53 H62"/>
   <path stroke="#2F6BDB" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"
         d="M40,64 C42.5,57 46.5,57 47.5,62 C48.5,67 51.5,67 53.5,61 C54.7,57.5 57.5,57.5 58.5,62"/>
+  <g transform="translate(66.0,70.0) scale(0.95) translate(-66.0,-70.0)">
   <circle cx="66" cy="70" r="12" fill="#FFFFFF"/>
   <circle cx="66" cy="70" r="9.5" fill="#FFB300"/>
   <path stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M61.5,70.2 L64.6,73.3 L70.6,67"/>
+  </g>
   </g>
 </svg>
