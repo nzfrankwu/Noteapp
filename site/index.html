@@ -3,50 +3,169 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Noteapp</title>
-  <meta name="description" content="Noteapp: handwritten notes and your course assignments, together on your Android tablet.">
+  <title>Noteapp: handwritten notes and assignments for Android tablets</title>
+  <meta name="description" content="Noteapp: handwritten notes, lecture PDFs and your course assignments, together on your Android tablet. Free, no ads, no tracking.">
+  <meta property="og:title" content="Noteapp">
+  <meta property="og:description" content="Handwritten notes and your assignments, in one place. A note-taking app for Android tablets, made for university study.">
+  <meta property="og:image" content="https://nzfrankwu.github.io/Noteapp/img/editor.webp">
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
-<main>
-  <header>
-    <img src="logo-512.png" alt="Noteapp logo">
-    <div>
-      <p class="name">Noteapp</p>
-      <p class="tag">Handwritten notes and your assignments, in one place.</p>
-    </div>
-  </header>
+<body class="home">
 
-  <h1>A note-taking app for Android tablets, made for university study.</h1>
-  <p>
-    Write with a stylus in notebooks organised by course, mark up lecture PDFs, and keep track of
-    what's due. Noteapp can read your assignments from Canvas and back everything up to your own
-    Google Drive.
-  </p>
-
-  <ul class="features">
-    <li><strong>Handwriting first</strong>Pen, highlighter, eraser, lasso and text boxes, with pressure-sensitive ink.</li>
-    <li><strong>Lecture PDFs</strong>Import slides and write straight on them. Word and PowerPoint files can be turned into PDFs too.</li>
-    <li><strong>Assignments</strong>See what's due from Canvas, link tasks to notebook pages, and get reminders.</li>
-    <li><strong>Backed up to your Drive</strong>Automatic backups and readable PDF copies of your notes, in your own Google Drive.</li>
-  </ul>
-
-  <div class="card">
-    <strong>Your notes stay yours.</strong>
-    Noteapp has no servers and no accounts of its own, shows no ads and doesn't track you.
-    Your notes live on your tablet and, if you connect it, in your own Google Drive.
-    See the <a href="privacy.html">privacy policy</a>.
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="#top"><img src="logo-120.png" alt="" width="36" height="36"><span>Noteapp</span></a>
+    <nav class="toplinks">
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="https://github.com/nzfrankwu/Noteapp">GitHub</a>
+    </nav>
   </div>
+</header>
 
-  <p class="muted">
-    Noteapp is an independent app. It isn't made by, endorsed by or affiliated with Instructure (Canvas) or Google.
-  </p>
+<main id="top">
+  <section class="hero wrap">
+    <div class="hero-text">
+      <p class="eyebrow">For Android tablets with a stylus</p>
+      <h1>Handwritten notes and your assignments, in one place.</h1>
+      <p class="lead">
+        Write with your pen in notebooks for each course, mark up lecture slides, and always know
+        what's due next. Noteapp can read your assignments from Canvas and back everything up to
+        your own Google Drive.
+      </p>
+      <div class="cta">
+        <a class="button primary" href="https://github.com/nzfrankwu/Noteapp/releases/latest">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1zM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2z"/></svg>
+          Download the APK
+        </a>
+        <a class="button" href="https://github.com/nzfrankwu/Noteapp">View on GitHub</a>
+      </div>
+      <p class="fineprint">Free and open source · Android 8.0 or newer · No ads, no tracking</p>
+    </div>
+    <figure class="device hero-shot">
+      <img src="img/editor.webp" width="1600" height="945"
+           alt="A notebook page with handwritten notes on transmission lines, a neat diagram and a circled formula">
+    </figure>
+  </section>
 
+  <section id="features" class="features wrap">
+    <article class="feature">
+      <div class="feature-text">
+        <h2>Write like on paper</h2>
+        <p>Pressure-sensitive pens and highlighters, a whole-stroke or partial eraser, and press hard to erase. Pages sit side by side; pinch to zoom in on the details.</p>
+        <ul class="ticks">
+          <li>Hold the pen still to snap a straight line, rectangle, circle or triangle</li>
+          <li>Lasso to move, resize, turn or copy, then drag a shape's corners</li>
+          <li>Lined, grid, dot or blank paper, per notebook or per page</li>
+        </ul>
+      </div>
+      <figure class="paper"><img src="img/paper.webp" width="1200" height="964" loading="lazy"
+        alt="Close-up of handwritten notes: formulas, a highlight, a diagram with snapped rectangles and a red circle"></figure>
+    </article>
+
+    <article class="feature flip">
+      <div class="feature-text">
+        <h2>Mark up your lecture slides</h2>
+        <p>Import a PDF, Word or PowerPoint file and write straight on it. Highlight what matters, circle what's on the exam and add your own notes in the margin.</p>
+        <ul class="ticks">
+          <li>Select PDF text to copy, highlight or underline</li>
+          <li>Export your annotated notes as a PDF</li>
+          <li>Add pictures, text boxes and screenshots</li>
+        </ul>
+      </div>
+      <figure class="device"><img src="img/pdf.webp" width="1600" height="945" loading="lazy"
+        alt="A lecture handout PDF with highlights, a red circle around a formula and handwritten notes"></figure>
+    </article>
+
+    <article class="feature">
+      <div class="feature-text">
+        <h2>Know what's due</h2>
+        <p>Every course gets a folder with its notebooks and tasks together. Noteapp reads your assignments from Canvas (read-only), so due dates turn up on their own, with reminders before they're due.</p>
+        <ul class="ticks">
+          <li>Track each task: started, stuck, double-checking, done</li>
+          <li>See the weeks ahead on a calendar or timeline</li>
+          <li>Link a task to the notebook pages you need for it</li>
+        </ul>
+      </div>
+      <div class="stack">
+        <figure class="device">
+          <picture>
+            <source srcset="img/home-dark.webp" media="(prefers-color-scheme: dark)">
+            <img src="img/home.webp" width="1600" height="945" loading="lazy"
+              alt="The Home screen: tasks due soon with their status, and a folder for each course">
+          </picture>
+        </figure>
+        <figure class="device small">
+          <picture>
+            <source srcset="img/timeline-dark.webp" media="(prefers-color-scheme: dark)">
+            <img src="img/timeline.webp" width="1600" height="945" loading="lazy"
+              alt="The timeline: each assignment as a bar from when it opens to when it's due">
+          </picture>
+        </figure>
+      </div>
+    </article>
+
+    <article class="feature flip">
+      <div class="feature-text">
+        <h2>Find anything, even your handwriting</h2>
+        <p>One search covers notebook names, tasks, PDF text, text boxes and your handwriting. Tap a result and Noteapp opens the page right where the words are.</p>
+        <ul class="ticks">
+          <li>Handwriting is read on your tablet; nothing is uploaded</li>
+          <li>Forgiving with messy writing</li>
+          <li>Find in this notebook, from the editor</li>
+        </ul>
+      </div>
+      <div class="stack search-stack">
+        <figure class="device"><img src="img/editor-zoom.webp" width="1600" height="945" loading="lazy"
+          alt="The notebook page opened at the match, zoomed in on the handwriting"></figure>
+        <figure class="card-shot"><img src="img/search.webp" width="900" height="458" loading="lazy"
+          alt="Searching for 'wave' finds two handwritten notes, one on a notebook page and one on a PDF"></figure>
+      </div>
+    </article>
+  </section>
+
+  <section class="also wrap">
+    <h2>And the rest</h2>
+    <div class="grid">
+      <div class="tile"><strong>Backed up to your Drive</strong>Automatic backups to your own Google Drive, plus readable PDF copies of your notes.</div>
+      <div class="tile"><strong>Two notebooks at once</strong>Split view: your slides on one side, your notes on the other.</div>
+      <div class="tile"><strong>Light and dark</strong>Follows your tablet, or pick one. Course colours are yours to choose.</div>
+      <div class="tile"><strong>Nothing lost by accident</strong>Deleted notebooks wait in Recently deleted for 30 days. Export everything to one file anytime.</div>
+    </div>
+  </section>
+
+  <section class="privacy wrap">
+    <div class="card big">
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3zm-1 14.2-3.7-3.7 1.4-1.4 2.3 2.3 4.9-4.9 1.4 1.4L11 16.2z"/></svg>
+      <div>
+        <strong>Your notes stay yours.</strong>
+        Noteapp has no servers and no accounts of its own, shows no ads and doesn't track you.
+        Your notes live on your tablet and, if you connect it, in your own Google Drive.
+        Read the <a href="privacy.html">privacy policy</a>.
+      </div>
+    </div>
+  </section>
+
+  <section id="install" class="install wrap">
+    <h2>Install</h2>
+    <ol class="steps">
+      <li><span>1</span><div><strong>Download</strong>On your tablet, open the <a href="https://github.com/nzfrankwu/Noteapp/releases/latest">latest release</a> and download the <code>.apk</code> file.</div></li>
+      <li><span>2</span><div><strong>Open it</strong>Allow your browser to install apps when Android asks, then tap Install.</div></li>
+      <li><span>3</span><div><strong>Updates</strong>Install a newer APK over the old one. Your notes stay, because every release is signed with the same key.</div></li>
+    </ol>
+    <p class="muted">Made for tablets with a stylus (tested on an OPPO Pad 3 with OPPO Pencil 2), using only standard Android stylus features.</p>
+  </section>
+</main>
+
+<footer class="wrap footer">
   <nav>
     <a href="privacy.html">Privacy policy</a>
+    <a href="https://github.com/nzfrankwu/Noteapp">Source code</a>
     <a href="https://github.com/nzfrankwu/Noteapp/issues">Contact and support</a>
   </nav>
-</main>
+  <p class="muted">Noteapp is an independent app. It isn't made by, endorsed by or affiliated with Instructure (Canvas) or Google.</p>
+</footer>
 </body>
 </html>
