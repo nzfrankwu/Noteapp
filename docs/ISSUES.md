@@ -9,7 +9,6 @@ None known right now.
 ## Open questions
 
 - **Launch (18 Nov, the user: "i think we are ready to launch") — your decisions:**
-  - **Privacy page:** publish the handwriting-search line (`site/privacy.html`) to the website (`gh-pages`).
   - **Google Play:** a Play Console developer account is yours to create (one-time fee, identity check). New personal accounts currently have to run a closed test with at least 12 testers for 14 days before a public release. Then the store listing (name, description, screenshots, icon), content rating and the Data safety form.
   - **Photo permission:** the image menu's Recent Images grid uses READ_MEDIA_IMAGES. Google Play only allows that for apps whose main purpose needs all photos; a note app is usually told to use Android's photo picker instead. Options: drop the grid (use the picker only), or ask Google and risk a rejection.
   - **Name:** "Noteapp" (IDEA.md §7 still lists the public name as undecided).
@@ -27,7 +26,7 @@ None known right now.
 
 ## Follow-ups / tech debt
 
-- **Shapes:** no automated screen test for the gestures (test-injected pen moves don't reach the pen layer); checked by script on the emulator. A finger can't drag a shape's points yet (the pen can). A turned (rotated) ellipse isn't recognised as editable after turning it with the lasso (still moves, resizes and turns as writing).
+- **Shapes:** no automated screen test for the gestures (test-injected pen moves don't reach the pen layer); checked by script on the emulator. A turned (rotated) ellipse isn't recognised as editable after turning it with the lasso (still moves, resizes and turns as writing).
 
 - **Forgiving handwriting search scales with the notes:** the pages' words are now kept in memory between key presses (10 s), but each search still compares every handwritten word (fine for a few thousand pages; revisit if search gets slow).
 
@@ -86,17 +85,17 @@ None known right now.
 - Build warning: `libandroidx.graphics.path.so` can't be stripped of debug symbols, so it's packaged as is. This is harmless and comes from AndroidX. No action needed unless APK size matters.
 - The signing key exists only on this PC (in `C:\Users\hiimf\keys\`) plus your own backups. On a new computer, copy both `noteapp-release.jks` and `noteapp-keystore.properties` into `<user home>\keys\` before building. Otherwise builds fall back to the debug key (a warning is printed) and can't update the app on the tablet.
 
-- No backup exists until Phase 6. Android's built-in backup is now off (step 0.2), so nothing on the tablet is backed up until NoteApp's own Drive backup and "Export everything" are built. That's fine while the app only holds test data. IDEA §5a already requires Phase 6 to be finished before real use.
-- The launcher icon is still the template's green Android robot. A proper NoteApp icon is a polish item.
 - **kotlinx.serialization is pinned at 1.9.0**, the newest built for this project's Kotlin 2.2 (it comes with AGP 9.5.1). It must stay at or above Room's needs (1.8.1), or `MigrationTest` crashes with `AbstractMethodError`. A later Kotlin upgrade (2.3+) would allow newer versions.
 - **Reminder alarms are inexact.** They may arrive a few minutes late in battery saving, and ColorOS may delay them more; this needs a tablet check (4.2). No "exact alarm" permission is used.
 - **Canvas course codes with extra text** (e.g. "ELECTENG 204 S2 2026") won't auto-link to your own "ELECTENG 204". They appear as separate courses; home then suggests linking them ("New from Canvas: …"), and **Add to a folder** puts one in your existing folder.
 - **The emulator's stylus handwriting is turned off** (emulator only; `settings put secure stylus_handwriting_enabled 0`), because its "Try out your stylus" tutorial swallowed scripted typing. The tablet is unaffected.
 - **Screen tests leave their in-memory databases open** (`TaskScreensTest`, `DueSoonTest`). Closing them while a screen was still reading crashed a run once. Harmless for tests; revisit if test memory ever becomes a problem.
-- **Never install an older build than the one on the tablet.** The database is now version 3 (B.8), and Room can't go back to an older version: the older app would refuse to open (crash at start). Your data stays safe, and installing a current build fixes it, but don't downgrade.
+- **Never install an older build than the one on the tablet.** The database is now version 8 (7.1), and Room can't go back to an older version: the older app would refuse to open (crash at start). Your data stays safe, and installing a current build fixes it, but don't downgrade.
 - **For Phase 6 backup:** Room keeps recent changes in a side file (`noteapp.db-wal`) next to `noteapp.db`. The backup must save them into the main file first (a "checkpoint") or copy all three files together. Otherwise a backup could miss the latest edits.
 
 ## Done
+
+- **Website (19 Nov):** redesigned homepage with screenshots, and the privacy page's handwriting-search line, published to `gh-pages`.
 
 - **App icon (19 Nov, the user):** the note is 8% bigger (12% was too big, the user said), centred by eye and then moved 2.5 units right (option 4 of 5 the user chose from) (halfway between its mass and its outline, since the tick sticks out at the bottom right). Launcher, themed (monochrome) icon and the website logo/PNGs all match. Checked on the emulator's round launcher icon; the themed icon wasn't looked at. Not on the tablet yet.
 
