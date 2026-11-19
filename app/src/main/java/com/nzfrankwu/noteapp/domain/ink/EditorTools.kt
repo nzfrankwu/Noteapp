@@ -309,6 +309,16 @@ object PressureErase {
     const val RELEASE_MARGIN = 0.1f
 
     /**
+     * Pressing hard only starts erasing near the start of a stroke: once the pen has drawn more
+     * than this (page units, about 5 mm), the stroke is writing, and pressing hard keeps it (and
+     * holding still snaps a line or shape) instead of throwing it away to erase (the user, 19 Nov).
+     */
+    const val MAX_TRAVEL = 15f
+
+    /** Whether press-hard-to-erase may still start after the pen has moved [travel] page units in this stroke. */
+    fun mayStart(travel: Float): Boolean = travel <= MAX_TRAVEL
+
+    /**
      * True when [pressure] counts as a hard press. A full 1.0 counts too: it's what the hardest
      * presses report. Pens that don't report pressure (a fixed 1.0, so [penReportsPressure] is
      * false) never trigger erasing.

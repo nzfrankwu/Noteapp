@@ -36,7 +36,9 @@ class RecentlyDeletedTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val root = File(context.cacheDir, "deleted-test")
-    private var now = Instant.parse("2026-11-17T10:00:00Z")
+    // From the real time: deleting stamps the real time, so a fixed date here broke the screen
+    // tests once that date had passed (found 19 Nov). Tests move `now` on from here.
+    private var now = Instant.now()
     private val clock = object : Clock() {
         override fun instant() = now
         override fun getZone() = ZoneOffset.UTC

@@ -46,10 +46,14 @@ android {
         applicationId = "com.nzfrankwu.noteapp"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Native code only for ARM tablets and phones (64- and 32-bit) and 64-bit x86 (emulators,
+        // Chromebooks). 32-bit x86 devices are long gone; leaving them out saves ~10 MB (19 Nov).
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
     signingConfigs {

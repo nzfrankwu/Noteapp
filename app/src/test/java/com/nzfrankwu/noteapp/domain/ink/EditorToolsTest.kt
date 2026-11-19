@@ -151,6 +151,15 @@ class EditorToolsTest {
         assertFalse(hold.pressing)
     }
 
+    /** The user (19 Nov): pressing hard after drawing a long line or a shape keeps it; erasing only starts early on. */
+    @Test
+    fun pressHardToErase_onlyStartsNearAStrokesStart() {
+        assertTrue(PressureErase.mayStart(0f))
+        assertTrue(PressureErase.mayStart(PressureErase.MAX_TRAVEL))
+        assertFalse(PressureErase.mayStart(PressureErase.MAX_TRAVEL + 0.1f))
+        assertFalse(PressureErase.mayStart(200f)) // a long line or a shape
+    }
+
     @Test
     fun pressHold_startsAgain_whenThePressEasesOrThePenMoves() {
         val hold = PressHold(holdMs = 500)

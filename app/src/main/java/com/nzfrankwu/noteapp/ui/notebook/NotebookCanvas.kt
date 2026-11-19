@@ -779,6 +779,8 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
     val penYs = ArrayList<Float>()
     // A hold already tried to snap and found nothing: don't try again until the pen moves on.
     var holdTried = false
+    // How far the pen has drawn in this stroke (page units): press-hard-to-erase only starts early on.
+    var penTravel = 0f
     var lastWorld = Offset.Zero
     var lastScreen = Offset.Zero
     var buttonWasDown = false
@@ -847,6 +849,14 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
         val movedImages = sel.transformedImages()
         val movedTexts = viewModel.replaceSelection(sel.pageId, moved, movedImages, sel.transformedTexts())
         onLasso(LassoState.Selected.of(sel.pageIndex, sel.pageId, moved, movedImages, handles = sel.handles, texts = movedTexts))
+    }
+
+    /** A finger let go of the selection: saves its move, resize or point drag. */
+    fun finishFingerDrag() {
+        val edit = view.nodeEdit
+        if (edit != null) commitNodeEdit(edit) else (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
+        view.nodeEdit = null
+        fingerDrag = null
     }
 
     // Selecting PDF text (PHASE-4.md 4.7): which handle a finger or the pen is dragging, and
@@ -955,6 +965,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     lastHard = false
                     lastStraightStill = -1L
                     holdTried = false
+                    penTravel = 0f
                     penXs.clear(); penYs.clear()
                     penXs += cam.toWorldX(change.position.x); penYs += cam.toWorldY(change.position.y)
                     view.shape = null
@@ -1055,7 +1066,9 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                             val wx = cam.toWorldX(change.position.x)
                             val wy = cam.toWorldY(change.position.y)
                             val time = change.uptimeMillis
-                            val erasing = snap.settings.pressureErase && isPen
+                            penTravel += hypot(wx - lastWorld.x, wy - lastWorld.y)
+                            // Pressing hard erases only near a stroke's start; after a longer line it's writing.
+                            val erasing = snap.settings.pressureErase && isPen && PressureErase.mayStart(penTravel)
                             val level = snap.settings.pressureEraseLevel
                             lastPenTime = time
                             lastWorld = Offset(wx, wy)
@@ -1262,7 +1275,12 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     pinched = false
                     textDrag = textHandleAt(change.position, snap, cam)
                     fingerDrag = if (textDrag != null) null else (view.lasso as? LassoState.Selected)?.let { sel ->
+                        val node = nodeAt(change.position, sel, snap, cam)
                         when {
+                            // A finger drags a lassoed line's or shape's point too (7.14).
+                            node != null -> FingerDrag(null, node).also {
+                                view.nodeEdit = NodeEdit(sel.pageIndex, sel.pageId, sel.strokes.single(), sel.editable!!, node)
+                            }
                             sel.handles && handleAt(change.position, sel, snap, cam) != null -> FingerDrag(handleAt(change.position, sel, snap, cam))
                             insideSelection(change.position, sel, snap, cam) -> FingerDrag(null)
                             else -> null
@@ -1296,7 +1314,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     tapMoved = true // a pinch is not a tap
                     pinched = true
                     // Two fingers zoom, even over a selection: keep any move made so far.
-                    if (fingerDrag != null) (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
+                    if (fingerDrag != null) finishFingerDrag()
                     fingerDrag = null
                     textDrag = null
                 }
@@ -1311,9 +1329,8 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                     continue
                 }
                 if (fingerDrag != null && touches.size == 1) {
-                    fingerDrag = null
                     touches.remove(change.id)
-                    (view.lasso as? LassoState.Selected)?.let { commitSelection(it) }
+                    finishFingerDrag()
                     continue
                 }
                 // The lift can be a little further on than the last move: apply that bit too.
@@ -1400,7 +1417,13 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
                 touches[id] = now
                 if ((now - tapDownPos).getDistance() > TAP_SLOP) tapMoved = true
                 val handle = drag.handle
-                onLasso(
+                val edit = view.nodeEdit
+                if (drag.node != null && edit != null) {
+                    val x = cam.toWorldX(now.x) - snap.strip.pageLeft(edit.pageIndex)
+                    val y = cam.toWorldY(now.y) - snap.strip.pageTop(edit.pageIndex)
+                    val shape = com.nzfrankwu.noteapp.domain.ink.Shapes.moveNode(edit.shape, edit.node, x, y)
+                    view.nodeEdit = edit.copy(shape = shape, node = com.nzfrankwu.noteapp.domain.ink.Shapes.nearestNode(shape, x, y))
+                } else onLasso(
                     if (handle == null) {
                         sel.copy(target = LassoBox.moved(sel.target, (now.x - before.x) / cam.scale, (now.y - before.y) / cam.scale))
                     } else {
@@ -1444,7 +1467,8 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.handleGe
 private fun keepsShape(sel: LassoState.Selected): Boolean = !sel.handles || sel.images.isNotEmpty() || sel.texts.isNotEmpty()
 
 /** A finger dragging the lasso's selection: by [handle] (resize), or by its middle (move) when null. */
-private class FingerDrag(val handle: BoxHandle?)
+/** [node]: a lassoed line's or shape's point being dragged (7.14) instead. */
+private class FingerDrag(val handle: BoxHandle?, val node: Int? = null)
 
 /**
  * A shape that just snapped (PHASE-7.md 7.14), in desk units: [base] as it snapped, [shape] as
